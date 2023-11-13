@@ -59,3 +59,20 @@ SDL_Renderer *Window::_getRenderer() {
     auto *window = get().m_window.get();
     return SDL_GetRenderer(window);
 }
+
+int Window::_getFPS() {
+    frameCount++;
+    Uint32 currentTime = SDL_GetTicks();
+    Uint32 elapsedTime = currentTime - startTime;
+
+
+    if (elapsedTime >= 1000) { // Update every second
+        fps = static_cast<int>((frameCount * 1000.0f) / elapsedTime);
+        frameCount = 0;
+        startTime = currentTime;
+    }
+
+    return fps;
+
+
+}

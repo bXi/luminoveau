@@ -66,8 +66,8 @@ public:
     }
 
     static int GetFPS() {
-        //TODO: actually calculate fps here
-        return 60;
+
+        return get()._getFPS();
     }
 
     static void HandleInput() {
@@ -95,6 +95,13 @@ private:
     void _onCloseWindow();
     vi2d _getWindowSize();
     void _toggleFullscreen();
+
+
+    int frameCount;
+    int fps;
+    Uint32 startTime;
+    int _getFPS();
+
     SDL_Renderer *_getRenderer();
 public:
     Window(const Window&) = delete;
@@ -102,6 +109,8 @@ public:
 private:
     Window() : m_window(nullptr, SDL_DestroyWindow)
     {
-
+        fps = 0;
+        frameCount = 0;
+        startTime = SDL_GetTicks();
     };
 };
