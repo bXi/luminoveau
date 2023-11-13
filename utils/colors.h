@@ -32,6 +32,7 @@ static inline Color BLUE  = {0,0,255,255};
 static inline Color GREEN = {0,255,0,255};
 static inline Color YELLOW = {255,255,0,255};
 static inline Color PURPLE = {255, 0, 255, 255};
+static inline Color PINK = {255, 0, 127, 255};
 
 static inline Color DARKGREEN = {0, 128, 0, 255};
 
