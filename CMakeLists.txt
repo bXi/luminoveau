@@ -66,6 +66,12 @@ CPMAddPackage(
   GITHUB_REPOSITORY libsdl-org/SDL
 )
 
+if(SDL3_ADDED)
+  message("${SDL3_SOURCE_DIR}/include")
+  target_include_directories("bixxy-engine" PUBLIC ${SDL3_SOURCE_DIR}/include)
+endif()
+
+
 set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
 CPMAddPackage(
@@ -74,17 +80,43 @@ CPMAddPackage(
   GITHUB_REPOSITORY libsdl-org/SDL_image
 )
 
-if(SDL3_ADDED)
-  message("${SDL3_SOURCE_DIR}/include")
-  target_include_directories("bixxy-engine" PUBLIC ${SDL3_SOURCE_DIR}/include)
-endif()
-
 if(SDL3_image_ADDED)
   message("${SDL3_image_SOURCE_DIR}/include")
   target_include_directories("bixxy-engine" PUBLIC ${SDL3_image_SOURCE_DIR}/include)
 endif()
 
+
+
+CPMAddPackage(
+  NAME freetype
+  GIT_REPOSITORY https://github.com/aseprite/freetype2.git
+  GIT_TAG e8ebfe9
+)
+
+if (freetype_ADDED)
+  add_library(Freetype::Freetype ALIAS freetype)
+endif()
+
+set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
+
+CPMAddPackage(
+  NAME SDL3_ttf
+  GIT_TAG 3958dc2
+  GITHUB_REPOSITORY libsdl-org/SDL_ttf
+)
+
+if(SDL3_ttf_ADDED)
+  message("${SDL3_ttf_SOURCE_DIR}/include")
+  target_include_directories("bixxy-engine" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
+endif()
+
+
+
+
+
+
 target_link_libraries("bixxy-engine" PUBLIC
         SDL3::SDL3-static
         SDL3_image::SDL3_image
+        SDL3_ttf::SDL3_ttf
 )
