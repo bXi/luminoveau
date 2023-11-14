@@ -13,7 +13,7 @@ void Window::_initWindow(const std::string &title, int width, int height, unsign
         throw std::runtime_error(SDL_GetError());
     }
 
-    SDL_CreateRenderer(window, nullptr, SDL_RENDERER_ACCELERATED);
+    SDL_CreateRenderer(window, "opengl", SDL_RENDERER_ACCELERATED);
 
 
 }
