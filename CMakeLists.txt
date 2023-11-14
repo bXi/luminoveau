@@ -67,7 +67,6 @@ CPMAddPackage(
 )
 
 if(SDL3_ADDED)
-  message("${SDL3_SOURCE_DIR}/include")
   target_include_directories("bixxy-engine" PUBLIC ${SDL3_SOURCE_DIR}/include)
 endif()
 
@@ -81,7 +80,6 @@ CPMAddPackage(
 )
 
 if(SDL3_image_ADDED)
-  message("${SDL3_image_SOURCE_DIR}/include")
   target_include_directories("bixxy-engine" PUBLIC ${SDL3_image_SOURCE_DIR}/include)
 endif()
 
@@ -106,7 +104,6 @@ CPMAddPackage(
 )
 
 if(SDL3_ttf_ADDED)
-  message("${SDL3_ttf_SOURCE_DIR}/include")
   target_include_directories("bixxy-engine" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
 endif()
 
