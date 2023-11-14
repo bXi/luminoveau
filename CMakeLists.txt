@@ -90,17 +90,17 @@ if(SDL3_image_ADDED)
 endif()
 
 
+if(NOT MSVC)
+    CPMAddPackage(
+      NAME freetype
+      GIT_REPOSITORY https://github.com/aseprite/freetype2.git
+      GIT_TAG e8ebfe9
+    )
 
-CPMAddPackage(
-  NAME freetype
-  GIT_REPOSITORY https://github.com/aseprite/freetype2.git
-  GIT_TAG e8ebfe9
-)
-
-if (freetype_ADDED)
-  add_library(Freetype::Freetype ALIAS freetype)
+    if (freetype_ADDED)
+      add_library(Freetype::Freetype ALIAS freetype)
+    endif()
 endif()
-
 set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
 CPMAddPackage(
