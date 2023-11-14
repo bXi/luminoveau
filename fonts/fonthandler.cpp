@@ -41,6 +41,8 @@ void Fonts::_drawText(const char *fileName, const int fontSize, vf2d pos, const 
     SDL_RenderTexture(Window::GetRenderer(), tex, &srcRect, &dstRect);
 
     SDL_DestroyTexture(tex);
+    SDL_DestroySurface(textSurface);
+
 }
 
 //*/
