@@ -39,6 +39,12 @@ add_library("bixxy-engine" STATIC
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
 
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    # Add optimization flags
+    target_compile_options("bixxy-engine" PRIVATE -O3)
+    # You can add more release-specific flags as needed
+endif()
+
 target_compile_options("bixxy-engine" PRIVATE -Wall)
 target_compile_features("bixxy-engine" PRIVATE cxx_std_23)
 
