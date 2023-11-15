@@ -31,8 +31,8 @@ void Fonts::_drawText(const char *fileName, const int fontSize, vf2d pos, const 
 
     Font font = _getFont(fileName, fontSize);
 
-    SDL_Color c = {(Uint8)color.r, (Uint8)color.g, (Uint8)color.b, (Uint8)color.a};
-    textSurface = TTF_RenderUTF8_Blended(font.font, textToDraw, c);
+
+    textSurface = TTF_RenderUTF8_Blended(font.font, textToDraw, color);
 
     SDL_FRect dstRect = {pos.x, pos.y, (float)textSurface->w, (float)textSurface->h};
     SDL_FRect srcRect = {0.f, 0.f, (float)textSurface->w, (float)textSurface->h};
