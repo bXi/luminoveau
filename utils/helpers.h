@@ -16,7 +16,7 @@ public:
 	static void DrawMainMenu();
 	static float getDifficultyModifier(float mod);
 
-	static bool lineIntersectsRectangle(vf2d linestart, vf2d lineend, Rectangle rect);
+	static bool lineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, Rectangle rect);
 
 	static std::vector<std::pair<vf2d, vf2d>> getLinesFromRectangle(Rectangle rect);
 

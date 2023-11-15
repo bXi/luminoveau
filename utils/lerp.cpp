@@ -21,6 +21,7 @@ LerpAnimator* Lerp::_getLerp(const char* name)
         return lerpList[name];
     }
 
+    return nullptr;
 }
 
 void Lerp::_resetTime(const char* name)
