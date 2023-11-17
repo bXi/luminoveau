@@ -14,8 +14,6 @@ void Window::_initWindow(const std::string &title, int width, int height, unsign
     }
 
     SDL_CreateRenderer(window, "opengl", SDL_RENDERER_ACCELERATED);
-
-
 }
 
 void Window::_onCloseWindow() {
@@ -60,19 +58,14 @@ SDL_Renderer *Window::_getRenderer() {
     return SDL_GetRenderer(window);
 }
 
-int Window::_getFPS() {
-    frameCount++;
-    Uint32 currentTime = SDL_GetTicks();
-    Uint32 elapsedTime = currentTime - startTime;
+int Window::_getFPS(float milliseconds) {
+    auto seconds = milliseconds / 1000.f;
 
+    if (get()._fpsAccumulator > seconds) {
+        get()._fpsAccumulator -= seconds;
 
-    if (elapsedTime >= 1000) { // Update every second
-        fps = static_cast<int>((frameCount * 1000.0f) / elapsedTime);
-        frameCount = 0;
-        startTime = currentTime;
+        get()._fps = (int)(1. / get()._lastFrameTime);
     }
-
-    return fps;
-
-
+    return get()._fps;
 }
+
