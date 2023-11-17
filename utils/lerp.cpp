@@ -1,5 +1,7 @@
 #include "lerp.h"
 
+#include "window/windowhandler.h"
+
 LerpAnimator* Lerp::_getLerp(const char* name, float startValue, float change, float duration)
 {
 
@@ -36,8 +38,7 @@ void Lerp::_updateLerps()
 			if (lerp.second->isFinished())
 				lerp.second->canDelete = true;
 			else {
-                //TODO: update this delta time method
-                //lerp.second->time += GetFrameTime();
+                lerp.second->time += (float)Window::GetFrameTime();
             }
 		}
 	}
