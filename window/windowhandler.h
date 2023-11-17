@@ -76,15 +76,6 @@ public:
     static int GetHeight() { return get()._getWindowSize().y; }
     static bool ShouldQuit() { return get()._shouldQuit; }
 
-    static vf2d GetMousePosition()
-    {
-        float xMouse, yMouse;
-
-        SDL_GetMouseState(&xMouse,&yMouse);
-
-        return {xMouse, yMouse};
-    }
-
     static double GetFrameTime()
     {
         return get()._lastFrameTime;

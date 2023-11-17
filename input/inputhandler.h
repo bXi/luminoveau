@@ -135,6 +135,14 @@ public:
     static bool KeyDown(int key)
     {
         return false;//IsKeyPressed(key);
+
+    static vf2d GetMousePosition()
+    {
+        float xMouse, yMouse;
+
+        SDL_GetMouseState(&xMouse,&yMouse);
+
+        return {xMouse, yMouse};
     }
 
     static bool MouseButtonPressed(int key)
