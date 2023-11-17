@@ -24,6 +24,11 @@ public:
         get()._drawTexture(texture, pos, size);
     };
 
+    static void DrawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src)
+    {
+        get()._drawTexturePart(texture, pos, size, src);
+    };
+
 private:
 
 
@@ -31,6 +36,7 @@ private:
 
     void _drawRectangle(vf2d pos, vf2d size, Color color);
     void _drawTexture(Texture texture, vf2d pos, vf2d size);
+    void _drawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src);
 
 
     SDL_Renderer* renderer = nullptr;

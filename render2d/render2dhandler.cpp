@@ -18,3 +18,14 @@ void Render2D::_drawTexture(Texture texture, vf2d pos, vf2d size) {
 
     SDL_DestroyTexture(tex);
 }
+
+void Render2D::_drawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src) {
+    SDL_FRect dstRect = {pos.x, pos.y, size.x, size.y};
+    SDL_FRect srcRect = src;
+
+    auto tex = SDL_CreateTextureFromSurface(renderer, texture.surface);
+
+    SDL_RenderTexture(renderer, tex, &srcRect, &dstRect);
+
+    SDL_DestroyTexture(tex);
+}
