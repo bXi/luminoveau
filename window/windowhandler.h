@@ -52,47 +52,25 @@ public:
     static void EndFrame() {
         SDL_RenderPresent(Window::GetRenderer());
 
-
-
         get()._frameCount++;
-
         get()._previousTime = get()._currentTime;
         get()._currentTime = std::chrono::high_resolution_clock::now();
-
         get()._lastFrameTime = duration_cast<std::chrono::nanoseconds >( get()._currentTime - get()._previousTime ).count() / 1000000000.;
-
         get()._fpsAccumulator += get()._lastFrameTime;
-
     }
-    static void ToggleFullscreen()
-    {
-        get()._toggleFullscreen();
-    }
-
-
-
+    static void ToggleFullscreen() { get()._toggleFullscreen(); }
     static double GetRunTime() { return duration_cast<std::chrono::seconds >( get()._currentTime - get()._startTime ).count(); }
     static int GetWidth() { return get()._getWindowSize().x; }
     static int GetHeight() { return get()._getWindowSize().y; }
     static bool ShouldQuit() { return get()._shouldQuit; }
-
-    static double GetFrameTime()
-    {
-        return get()._lastFrameTime;
-    }
-
-    static int GetFPS(float milliseconds = 400.f) {
-
-        return get()._getFPS(milliseconds);
-    }
-
-
+    static double GetFrameTime() { return get()._lastFrameTime; }
+    static int GetFPS(float milliseconds = 400.f) { return get()._getFPS(milliseconds); }
 
     static std::optional<SDL_Event> pollEvent();
 
     static void HandleInput() {
-
         Input::Update();
+
         std::optional<SDL_Event> event;
         while ((event = Window::pollEvent()))
             switch (event->type) {
@@ -100,6 +78,7 @@ public:
                     get()._shouldQuit = true;
                     break;
             }
+
 
     }
 

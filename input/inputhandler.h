@@ -8,6 +8,7 @@
 #include "SDL3/SDL.h"
 
 #include "utils/vectors.h"
+#include "utils/helpers.h"
 
 enum class InputType { GAMEPAD, MOUSE_KB };
 enum class Buttons { LEFT, RIGHT, UP, DOWN, ACCEPT, BACK, SHOOT, SWITCH_NEXT, SWITCH_PREV, RUN };
@@ -78,30 +79,29 @@ public:
     InputType getType();
 };
 
-
 class Input {
 public:
 
-    static void Init()
+    static void Init() { get()._init(); }
+
+    static InputDevice* GetController(int index) { return get()._getController(index); }
+    static void clear() { get()._clear(); }
+    static std::vector<InputDevice*> GetAllInputs() { return get().inputs; }
+
+    static void Update()
     {
-        get()._init();
-    }
+        UpdateTimings();
 
 
+        for (int i = 0; i < SDL_NUM_SCANCODES; i++) {
+            get().previousKeyboardState.at(i) = get().currentKeyboardState[i];
+        }
 
-    static InputDevice* GetController(int index)
-    {
-        return get()._getController(index);
-    }
+        get().currentKeyboardState = SDL_GetKeyboardState(nullptr);
 
-    static void clear()
-    {
-        get()._clear();
-    }
 
-    static std::vector<InputDevice*> GetAllInputs()
-    {
-        return get().inputs;
+        get().previousMouseButtons = get().currentMouseButtons;
+        get().currentMouseButtons = SDL_GetMouseState(nullptr, nullptr);
     }
 
     static void UpdateTimings()
@@ -129,12 +129,34 @@ public:
 
     static bool KeyPressed(int key)
     {
-        return false;//IsKeyPressed(key);
+
+        auto curState = get().currentKeyboardState;
+        auto prevState = get().previousKeyboardState;
+
+        auto scancode = SDL_GetScancodeFromKey(key);
+
+        return curState[scancode] == 1 && prevState[scancode] == 0;
+    }
+
+    static bool KeyReleased(int key)
+    {
+
+        auto curState = get().currentKeyboardState;
+        auto prevState = get().previousKeyboardState;
+
+        auto scancode = SDL_GetScancodeFromKey(key);
+
+        return curState[scancode] == 0 && prevState[scancode] == 1;
     }
 
     static bool KeyDown(int key)
     {
-        return false;//IsKeyPressed(key);
+
+        auto scancode = SDL_GetScancodeFromKey(key);
+
+        return SDL_GetKeyboardState(nullptr)[scancode] == 1;
+    }
+
 
     static vf2d GetMousePosition()
     {
@@ -145,14 +167,17 @@ public:
         return {xMouse, yMouse};
     }
 
+
     static bool MouseButtonPressed(int key)
     {
-        return false;//IsKeyPressed(key);
+        auto keymask = (1 << ((key) - 1));
+        return (get().currentMouseButtons & keymask) != 0 && (get().previousMouseButtons & keymask) == 0;
     }
 
     static bool MouseButtonDown(int key)
     {
-        return false;//IsKeyPressed(key);
+        auto keymask = (1 << ((key) - 1));
+        return (get().currentMouseButtons & keymask) != 0;
     }
 
 
@@ -161,17 +186,24 @@ private:
     void _init();
     InputDevice* _getController(int index);
     void _clear();
-    void _doKeyPolling();
 
 
+    const Uint8 *currentKeyboardState;
+    std::vector<Uint8> previousKeyboardState;
 
+    Uint32 currentMouseButtons = 0;
+    Uint32 previousMouseButtons = 0;
 
 public:
     Input(const Input&) = delete;
     static Input& get() { static Input instance; return instance; }
 
 private:
-    Input() = default;
+    Input() {
+        SDL_PumpEvents();
+        currentKeyboardState = SDL_GetKeyboardState(nullptr);
+        previousKeyboardState.resize(SDL_NUM_SCANCODES);
+    }
 };
 
 
