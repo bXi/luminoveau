@@ -2,8 +2,9 @@
 
 #include <vector>
 #include <functional>
-#include "easings.h"
+#include <algorithm>
 
+#include "easings.h"
 
 struct LerpAnimator
 {
@@ -31,10 +32,16 @@ public:
 		return time >= duration;
 	}
 
-	float getValue()
-	{
-		return callback(time, startValue, change, duration);
-	}
+	float getValue() {
+        float result = callback(time, startValue, change, duration);
+
+        float minValue = std::min(startValue, startValue + change);
+        float maxValue = std::max(startValue, startValue + change);
+
+
+        return std::clamp(result, minValue, maxValue);
+    }
+
 };
 
 class Lerp {
