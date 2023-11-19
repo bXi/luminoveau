@@ -29,7 +29,7 @@ public:
     }
 
 private:
-    std::unordered_map<const char*, Font> _fonts;
+    std::unordered_map<std::string, Font> _fonts;
 
     Font _getFont(const char* fileName, int fontSize);
     void _drawText(const char* fileName, const int fontSize, vf2d pos, const char* textToDraw, Color color);

@@ -1,12 +1,13 @@
-
 #include "fonthandler.h"
 
 
 Font Fonts::_getFont(const char* fileName, const int fontSize)
 {
-    const char* index = Helpers::TextFormat("%s%d", fileName, fontSize);
+    std::string index = std::string(Helpers::TextFormat("%s%d", fileName, fontSize));
 
-	if (_fonts.find(index) == _fonts.end()) {
+    auto it = _fonts.find(index);
+
+	if (it == _fonts.end()) {
 
 		Font _font;
         _font.font = TTF_OpenFont(fileName, fontSize);
