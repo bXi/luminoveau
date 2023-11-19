@@ -126,12 +126,8 @@ void Settings::_init()
 	//glfwSwapInterval(vsync ? 1 : 0);
 
 
-}
 
 
-int Settings::gcd(const int a, const int b)
-{
-	return (b == 0) ? a : gcd(b, a % b);
 }
 
 std::vector<std::pair<int, int>> Settings::_resolutions()

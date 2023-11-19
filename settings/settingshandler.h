@@ -76,8 +76,6 @@ public:
         return get()._getMonitorRefreshRate();
     }
 
-    static int gcd(const int a, const int b);
-
 private:
     bool vsync = true;
     bool fullscreen = false;
