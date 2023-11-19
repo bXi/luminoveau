@@ -31,7 +31,7 @@ struct Camera {
         glm::vec4 transformedPosition = glm::vec4(position.x, position.y, 0.0f, 1.0f);
         transformedPosition = matCamera * transformedPosition;
 
-        return (vf2d) {transformedPosition.x, transformedPosition.y};
+        return {transformedPosition.x, transformedPosition.y};
     }
 
 // Get the world space position for a 2d camera screen space position
@@ -41,6 +41,6 @@ struct Camera {
 
         transformedPosition = invMatCamera * transformedPosition;
 
-        return (vf2d) {transformedPosition.x, transformedPosition.y};
+        return {transformedPosition.x, transformedPosition.y};
     }
 };
