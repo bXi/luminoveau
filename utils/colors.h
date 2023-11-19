@@ -43,8 +43,10 @@ static inline Color PURPLE = {255, 0, 255, 255};
 static inline Color PINK = {255, 0, 127, 255};
 
 static inline Color DARKGREEN = {0, 128, 0, 255};
+static inline Color DARKRED = {128, 0, 0, 255};
 
 static inline Color GRAY = {128,128,128,255};
+static inline Color DARKGRAY = {64, 64, 64, 255};
 static inline Color LIME = {50, 205, 50,255};
 
 static inline Color BROWN = {73, 54, 28,255};
