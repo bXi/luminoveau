@@ -15,7 +15,8 @@ void Settings::_toggleFullscreen()
 	fullscreen = !fullscreen;
 	saveSettings();
 	Window::ToggleFullscreen();
-	//glfwSwapInterval(vsync ? 1 : 0);
+
+    SDL_SetRenderVSync(Window::GetRenderer(), vsync);
 
 
 }
@@ -24,7 +25,9 @@ void Settings::_toggleVsync()
 {
 	vsync = !vsync;
 	saveSettings();
-	//glfwSwapInterval(vsync ? 1 : 0);
+
+    SDL_SetRenderVSync(Window::GetRenderer(), vsync);
+
 }
 
 bool Settings::_getVsync() const
@@ -123,8 +126,7 @@ void Settings::_init()
 		//EndDrawing();
 	}
 
-	//glfwSwapInterval(vsync ? 1 : 0);
-
+    SDL_SetRenderVSync(Window::GetRenderer(), vsync);
 
 
 
