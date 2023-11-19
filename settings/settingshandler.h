@@ -8,10 +8,7 @@
 
 #include "window/windowhandler.h"
 #include "utils/helpers.h"
-#include "mini.h"
-
-
-
+//#include "mini.h"
 
 class Settings {
 public:

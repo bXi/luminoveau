@@ -43,71 +43,63 @@ int Settings::_getMonitorRefreshRate() const
 
 void Settings::_saveSettings() const
 {
-	const mINI::INIFile file("settings.ini");
-	mINI::INIStructure ini;
-
-	ini["Video"]["Vsync"] = (vsync) ? "true" : "false";
-	ini["Video"]["Fullscreen"] = (fullscreen) ? "true" : "false";
-	ini["Video"]["Width"] = Helpers::TextFormat("%i", resWidth);
-	ini["Video"]["Height"] = Helpers::TextFormat("%i", resHeight);
-
-	ini["Audio"]["Mastervolume"] = Helpers::TextFormat("%i", static_cast<int>(masterVolume * 100));
-	ini["Audio"]["Effectsvolume"] = Helpers::TextFormat("%i", static_cast<int>(effectsVolume * 100));
-	ini["Audio"]["Musicvolume"] = Helpers::TextFormat("%i", static_cast<int>(musicVolume * 100));
-
-	file.write(ini);
+//	const mINI::INIFile file("settings.ini");
+//	mINI::INIStructure ini;
+//
+//	ini["Video"]["Vsync"] = (vsync) ? "true" : "false";
+//	ini["Video"]["Fullscreen"] = (fullscreen) ? "true" : "false";
+//	ini["Video"]["Width"] = Helpers::TextFormat("%i", resWidth);
+//	ini["Video"]["Height"] = Helpers::TextFormat("%i", resHeight);
+//
+//	ini["Audio"]["Mastervolume"] = Helpers::TextFormat("%i", static_cast<int>(masterVolume * 100));
+//	ini["Audio"]["Effectsvolume"] = Helpers::TextFormat("%i", static_cast<int>(effectsVolume * 100));
+//	ini["Audio"]["Musicvolume"] = Helpers::TextFormat("%i", static_cast<int>(musicVolume * 100));
+//
+//	file.write(ini);
 
 }
 
 void Settings::_init()
 {
-
-
-
-	//BeginDrawing();
-	//ClearBackground(BLACK);
-	//EndDrawing();
 	// first, create a file instance
-	const mINI::INIFile file("settings.ini");
-	mINI::INIStructure ini;
+//	const mINI::INIFile file("settings.ini");
+//	mINI::INIStructure ini;
+//
+//	file.read(ini);
 
-	file.read(ini);
-
-	if (!std::filesystem::exists("settings.ini")) {
-		ini["Video"]["Vsync"] = (vsync) ? "true" : "false";
-		ini["Video"]["Fullscreen"] = (fullscreen) ? "true" : "false";
-		ini["Video"]["Width"] = Helpers::TextFormat("%i", resWidth);
-		ini["Video"]["Height"] = Helpers::TextFormat("%i", resHeight);
-
-		ini["Audio"]["Mastervolume"] = Helpers::TextFormat("%i", static_cast<int>(masterVolume) * 100);
-		ini["Audio"]["Effectsvolume"] = Helpers::TextFormat("%i", static_cast<int>(effectsVolume) * 100);
-		ini["Audio"]["Musicvolume"] = Helpers::TextFormat("%i", static_cast<int>(musicVolume) * 100);
-
-	}
-	else {
-
-		const std::string& _vsync = ini["Video"]["Vsync"];
-		const std::string& _fullscreen = ini["Video"]["Fullscreen"];
-		const std::string& _resWidth = ini["Video"]["Width"];
-		const std::string& _resHeight = ini["Video"]["Height"];
-
-		const std::string& _mastervolume = ini["Audio"]["Mastervolume"];
-		const std::string& _effectsvolume = ini["Audio"]["Effectsvolume"];
-		const std::string& _musicvolume = ini["Audio"]["Musicvolume"];
-
-
-		vsync = (_vsync == "true");
-		fullscreen = (_fullscreen == "true");
-
-		resWidth = std::stoi(_resWidth);
-		resHeight = std::stoi(_resHeight);
-
-		masterVolume = std::stof(_mastervolume) / 100.f;
-		effectsVolume = std::stof(_effectsvolume) / 100.f;
-		musicVolume = std::stof(_musicvolume) / 100.f;
-	}
-//	InitAudioDevice();
-//	SetMasterVolume(getMasterVolume());
+//	if (!std::filesystem::exists("settings.ini")) {
+//		ini["Video"]["Vsync"] = (vsync) ? "true" : "false";
+//		ini["Video"]["Fullscreen"] = (fullscreen) ? "true" : "false";
+//		ini["Video"]["Width"] = Helpers::TextFormat("%i", resWidth);
+//		ini["Video"]["Height"] = Helpers::TextFormat("%i", resHeight);
+//
+//		ini["Audio"]["Mastervolume"] = Helpers::TextFormat("%i", static_cast<int>(masterVolume) * 100);
+//		ini["Audio"]["Effectsvolume"] = Helpers::TextFormat("%i", static_cast<int>(effectsVolume) * 100);
+//		ini["Audio"]["Musicvolume"] = Helpers::TextFormat("%i", static_cast<int>(musicVolume) * 100);
+//
+//	}
+//	else {
+//
+//		const std::string& _vsync = ini["Video"]["Vsync"];
+//		const std::string& _fullscreen = ini["Video"]["Fullscreen"];
+//		const std::string& _resWidth = ini["Video"]["Width"];
+//		const std::string& _resHeight = ini["Video"]["Height"];
+//
+//		const std::string& _mastervolume = ini["Audio"]["Mastervolume"];
+//		const std::string& _effectsvolume = ini["Audio"]["Effectsvolume"];
+//		const std::string& _musicvolume = ini["Audio"]["Musicvolume"];
+//
+//
+//		vsync = (_vsync == "true");
+//		fullscreen = (_fullscreen == "true");
+//
+//		resWidth = std::stoi(_resWidth);
+//		resHeight = std::stoi(_resHeight);
+//
+//		masterVolume = std::stof(_mastervolume) / 100.f;
+//		effectsVolume = std::stof(_effectsvolume) / 100.f;
+//		musicVolume = std::stof(_musicvolume) / 100.f;
+//	}
 
 	//SetWindowSize(resWidth, resHeight);
 	//SetWindowPosition(100, 100);
@@ -115,7 +107,7 @@ void Settings::_init()
 	//ClearBackground(BLACK);
 	//EndDrawing();
 
-	file.write(ini);
+//	file.write(ini);
 
 
 
@@ -134,32 +126,9 @@ void Settings::_init()
 
 std::vector<std::pair<int, int>> Settings::_resolutions()
 {
-//	auto isResolutionRatio = [](const int width, const int height, int rWidth, int rHeight)
-//	{
-//		const int a = width / gcd(width, height);
-//		const int b = height / gcd(width, height);
-//
-//		return (rWidth == a && rHeight == b);
-//	};
-
 	std::vector<std::pair<int, int>> list;
 
-	//int count;
 
-//	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-//	const GLFWvidmode* modes = glfwGetVideoModes(monitor, &count);
-
-//	for (int i = 0; i < count; i++) {
-//		int width = modes[i].width;
-//		int height = modes[i].height;
-//		if (width < 1280) continue;
-//		//TODO: flesh out supported ratios.
-//		//Note that 16:10 is calculated to be 8:5
-//		if (isResolutionRatio(width, height, 16, 9) || isResolutionRatio(width, height, 8, 5)) {
-//			std::pair res = { width ,height };
-//			list.push_back(res);
-//		}
-//	}
 
     list.push_back({1280,720});
     list.push_back({1920,1080});
@@ -192,8 +161,6 @@ void Settings::_setMasterVolume(float volume)
 
 	masterVolume = volume;
 	masterVolume = std::clamp(masterVolume, 0.0f, 1.0f);
-
-	//SetMasterVolume(masterVolume);
 
 	saveSettings();
 }
