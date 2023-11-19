@@ -3,6 +3,7 @@
 #include <random>
 #include <iostream>
 #include <map>
+#include <string>
 
 #include "audio/audiohandler.h"
 
@@ -14,22 +15,22 @@ public:
     static void Draw() { get()._draw(); }
     static void Load() { get()._load(); }
     static void Unload() { get()._unload(); }
-    static void AddState(const char* stateName, BaseState* state) { get()._addState(stateName, state); };
-	static void SetState(const char* newState) { get()._setState(newState); }
+    static void AddState(std::string stateName, BaseState* state) { get()._addState(stateName, state); };
+	static void SetState(std::string newState) { get()._setState(newState); }
 
 private:
     BaseState* state = nullptr;
-    const char* currentState = "";
-    std::map<const char*, BaseState*> registeredStates;
+    std::string currentState = "";
+std::map<std::string, BaseState*> registeredStates;
 
-	void _setState(const char* newState)
-	{
-		if (newState != currentState) {
+    void _setState(std::string newState)
+    {
+	    if (newState != currentState) {
 
             auto it = registeredStates.find(newState);
 
             if (it != registeredStates.end()) {
-                state->unload();
+                if (state) state->unload();
 
                 currentState = newState;
                 state = registeredStates[currentState];
@@ -38,14 +39,14 @@ private:
             } else {
                 std::cout << newState << " is not in the map." << std::endl;
             }
-		}
-	}
+	    }
+    }
 
     void _draw() { state->draw(); }
     void _load() { state->load(); }
     void _unload() { state->unload(); }
 
-    void _addState(const char* stateName, BaseState* statePtr) {
+    void _addState(std::string stateName, BaseState* statePtr) {
 
         auto it = registeredStates.find(stateName);
 
