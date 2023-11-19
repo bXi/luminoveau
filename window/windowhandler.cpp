@@ -69,3 +69,11 @@ int Window::_getFPS(float milliseconds) {
     return get()._fps;
 }
 
+bool Window::_isFullscreen() {
+    auto *window = get().m_window.get();
+
+    auto flag = SDL_GetWindowFlags(window);
+	auto is_fullscreen  = flag&SDL_WINDOW_FULLSCREEN;
+    return is_fullscreen == SDL_WINDOW_FULLSCREEN;
+}
+

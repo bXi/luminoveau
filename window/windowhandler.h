@@ -59,6 +59,7 @@ public:
         get()._fpsAccumulator += get()._lastFrameTime;
     }
     static void ToggleFullscreen() { get()._toggleFullscreen(); }
+    static bool IsFullscreen() { return get()._isFullscreen(); }
     static double GetRunTime() { return duration_cast<std::chrono::seconds >( get()._currentTime - get()._startTime ).count(); }
     static int GetWidth() { return get()._getWindowSize().x; }
     static int GetHeight() { return get()._getWindowSize().y; }
@@ -98,6 +99,7 @@ private:
     void _onCloseWindow();
     vi2d _getWindowSize();
     void _toggleFullscreen();
+    bool _isFullscreen();
     SDL_Renderer *_getRenderer();
 
 
