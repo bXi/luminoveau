@@ -7,6 +7,7 @@
 #include "colors.h"
 #include "rectangles.h"
 
+#include "render2d/render2dhandler.h"
 
 class QuadTree
 {
@@ -133,7 +134,7 @@ private:
     QuadTree *northEast = NULL;
     QuadTree *southWest = NULL;
     QuadTree *southEast = NULL;
-    int QT_NODE_CAPACITY = 3;
+    unsigned int QT_NODE_CAPACITY = 3;
 public:
 
 
@@ -191,8 +192,7 @@ public:
         screenBoundary.x *= Configuration::tileWidth;
         screenBoundary.y *= Configuration::tileHeight;
 
-        //TODO: replace with SDL method
-        //DrawRectangleLinesEx(screenBoundary, 2, col);
+        Render2D::DrawRectangle({screenBoundary.x, screenBoundary.y}, {screenBoundary.width, screenBoundary.height}, col);
 
         if (northWest != NULL) {
             northWest->draw(RED);
@@ -210,8 +210,7 @@ public:
         screenBoundary.x += x;
         screenBoundary.y += y;
 
-        //TODO: replace with SDL method
-        //DrawRectangleLinesEx(screenBoundary, 1, col);
+        Render2D::DrawRectangle({screenBoundary.x, screenBoundary.y}, {screenBoundary.width, screenBoundary.height}, col);
 
         if (northWest != NULL) {
             northWest->draw(x, y, RED);
