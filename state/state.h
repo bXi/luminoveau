@@ -11,7 +11,7 @@
 
 class State {
 public:
-	static void Init() { get()._init(); }
+	static void Init(std::string stateName) { get()._init(stateName); }
     static void Draw() { get()._draw(); }
     static void Load() { get()._load(); }
     static void Unload() { get()._unload(); }
@@ -57,12 +57,10 @@ std::map<std::string, BaseState*> registeredStates;
         }
     }
 
-	void _init()
+	void _init(std::string stateName)
     {
         if (!registeredStates.empty()) {
-            currentState = registeredStates.begin()->first;
-            state = registeredStates.begin()->second;
-            state->load();
+            _setState(stateName);
         }
 	}
 public:
