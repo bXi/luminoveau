@@ -5,6 +5,7 @@
 #include <optional>
 
 #include "SDL3/SDL.h"
+#include "SDL3_image/SDL_image.h"
 
 #include "utils/vectors.h"
 #include "utils/lerp.h"

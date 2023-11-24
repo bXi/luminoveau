@@ -18,7 +18,9 @@ void Window::_initWindow(const std::string &title, int width, int height, unsign
 
 void Window::_onCloseWindow() {
     // SDL_QuitSubSystem is ref-counted
+
     SDL_Quit();
+    IMG_Quit();
 }
 
 
