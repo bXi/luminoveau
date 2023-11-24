@@ -11,8 +11,8 @@ public:
 	inline static bool showTargetBeam = false;
 	inline static bool showDebugMenu = false;
 
-	inline static int tileWidth = 128;
-	inline static int tileHeight = 128;
+	inline static int tileWidth = 32;
+	inline static int tileHeight = 32;
 
 	inline static double gameTime = 0.0;
 	inline static float slowMotionFactor = 1.0f;
