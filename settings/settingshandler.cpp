@@ -37,8 +37,9 @@ bool Settings::_getVsync() const
 
 int Settings::_getMonitorRefreshRate() const
 {
+    auto currentDisplayMode = SDL_GetCurrentDisplayMode(SDL_GetPrimaryDisplay());
 
-	return 60;
+	return (int)currentDisplayMode->refresh_rate;
 }
 
 void Settings::_saveSettings() const
