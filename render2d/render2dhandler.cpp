@@ -1,43 +1,38 @@
 #include "render2dhandler.h"
 
+
 void Render2D::_drawRectangle(vf2d pos, vf2d size, Color color) {
-    SDL_FRect rect = {pos.x, pos.y, size.x, size.y};
+    SDL_FRect dstRect = _doCamera(pos, size);;
 
     SDL_SetRenderDrawColor(renderer, color.r, color.g,color.b,color.a);
-    SDL_RenderRect(renderer, &rect);
+    SDL_RenderRect(renderer, &dstRect);
 }
 
 void Render2D::_drawTexture(Texture texture, vf2d pos, vf2d size, Color color) {
 
-    SDL_FRect dstRect = {pos.x, pos.y, size.x, size.y};
+    SDL_FRect dstRect = _doCamera(pos, size);;
     SDL_FRect srcRect = {0.f, 0.f, (float)texture.width, (float)texture.height};
 
-    auto tex = SDL_CreateTextureFromSurface(renderer, texture.surface);
+    SDL_SetTextureColorMod(texture.texture, color.r, color.g, color.b < 255);
+    SDL_SetTextureAlphaMod(texture.texture, color.a);
 
-    SDL_RenderTexture(renderer, tex, &srcRect, &dstRect);
-
-    SDL_DestroyTexture(tex);
+    int flipFlags = SDL_FLIP_NONE;
+    SDL_RenderTextureRotated(renderer, texture.texture, &srcRect, &dstRect, 0.0, nullptr, (SDL_RendererFlip)flipFlags);
 }
 
 void Render2D::_drawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src, Color color) {
-    SDL_FRect dstRect = {pos.x, pos.y, size.x, size.y};
-    SDL_FRect srcRect = src;
+    SDL_FRect dstRect = _doCamera(pos, size);
+    SDL_FRect srcRect = { src.x, src.y, std::abs(src.width), std::abs(src.height) };
 
-    auto tex = SDL_CreateTextureFromSurface(renderer, texture.surface);
+    SDL_SetTextureColorMod(texture.texture, color.r, color.g, color.b);
+    SDL_SetTextureAlphaMod(texture.texture, color.a);
 
+    // Set the flip flags
+    int flipFlags = SDL_FLIP_NONE;
+    if (src.width < 0.f) { flipFlags |= SDL_FLIP_HORIZONTAL; }
+    if (src.height < 0.f) { flipFlags |= SDL_FLIP_VERTICAL; }
 
-    if (color.r < 255 || color.g < 255 || color.b < 255) {
-        SDL_SetTextureColorMod(tex, color.r, color.g, color.b < 255);
-    }
-
-    if (color.a < 255) {
-        SDL_SetTextureAlphaMod(tex, color.a);
-    }
-
-
-    SDL_RenderTexture(renderer, tex, &srcRect, &dstRect);
-
-    SDL_DestroyTexture(tex);
+    SDL_RenderTextureRotated(renderer, texture.texture, &srcRect, &dstRect, 0.0, nullptr, (SDL_RendererFlip)flipFlags);
 }
 
 void Render2D::_drawCircle(vf2d pos, float radius, Color color) {
@@ -96,3 +91,55 @@ void Render2D::_beginScissorMode(Rectangle area) {
 void Render2D::_endScissorMode() {
     SDL_SetRenderClipRect(renderer, nullptr);
 }
+
+void Render2D::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {
+    SDL_FRect dstRect = _doCamera(pos, size);
+
+    SDL_SetRenderDrawColor(renderer, color.r, color.g,color.b,color.a);
+    SDL_RenderFillRect(renderer, &dstRect);
+}
+
+void Render2D::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
+    //TODO: implement this
+
+    _drawRectangleFilled(pos,size,color);
+}
+
+void Render2D::_drawCircleFilled(vf2d pos, float radius, Color color) {
+
+}
+
+void Render2D::_drawCircleSectorFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
+
+}
+
+
+void Render2D::_beginMode2D() {
+    // Clear the screen
+    Camera::Activate();
+}
+
+
+void Render2D::_endMode2D() {
+    Camera::Deactivate();
+}
+
+Rectangle Render2D::_doCamera(vf2d pos, vf2d size) {
+
+    Rectangle dstRect;
+
+    if (Camera::IsActive()) {
+        // Convert world space coordinates to screen space
+        vf2d screenPos = Camera::ToScreenSpace(pos);
+        vf2d screenSize = Camera::ToScreenSpace(pos + size) - screenPos;
+
+        dstRect = { screenPos.x, screenPos.y, screenSize.x, screenSize.y };
+    } else {
+        // Camera is active, render directly in world space
+        dstRect = { pos.x, pos.y, size.x, size.y };
+    }
+
+    return dstRect;
+}
+
+
