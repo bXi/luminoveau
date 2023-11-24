@@ -68,7 +68,7 @@ set(SDL_SHARED OFF)
 set(INTERFACE_SDL3_SHARED OFF)
 CPMAddPackage(
   NAME SDL3
-  GIT_TAG a4c6b38
+  GIT_TAG dd5b8db
   GITHUB_REPOSITORY libsdl-org/SDL
 )
 
@@ -112,10 +112,6 @@ CPMAddPackage(
 if(SDL3_ttf_ADDED)
   target_include_directories("bixxy-engine" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
 endif()
-
-
-
-
 
 
 target_link_libraries("bixxy-engine" PUBLIC
