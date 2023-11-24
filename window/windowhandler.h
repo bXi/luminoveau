@@ -61,7 +61,7 @@ public:
     }
     static void ToggleFullscreen() { get()._toggleFullscreen(); }
     static bool IsFullscreen() { return get()._isFullscreen(); }
-    static double GetRunTime() { return duration_cast<std::chrono::seconds >( get()._currentTime - get()._startTime ).count(); }
+    static double GetRunTime() { return duration_cast<std::chrono::milliseconds >( get()._currentTime - get()._startTime ).count() / 1000.; }
     static int GetWidth() { return get()._getWindowSize().x; }
     static int GetHeight() { return get()._getWindowSize().y; }
     static bool ShouldQuit() { return get()._shouldQuit; }
