@@ -1,46 +1,70 @@
 #pragma once
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <stdexcept> // For std::logic_error
 
-#include "vectors.h"
-#include "constants.h"
-struct Camera {
-    vf2d offset;         // Camera offset (displacement from target)
-    vf2d target;         // Camera target (rotation and zoom origin)
-    float rotation;         // Camera rotation in degrees
-    float zoom;             // Camera zoom (scaling), should be 1.0f by default
+#include "vectors.h" // Include the file with the vf2d definition
 
-    static glm::mat4 GetCameraMatrix2D(Camera camera) {
-        glm::mat4 matTransform(1.0f); // Initialize as the identity matrix
+#include "window/windowhandler.h"
 
-        glm::mat4 matOrigin = glm::translate(glm::mat4(1.0f), glm::vec3(-camera.target.x, -camera.target.y, 0.0f));
-        glm::mat4 matRotation = glm::rotate(glm::mat4(1.0f), camera.rotation * (PI / 180.f), glm::vec3(0.0f, 0.0f, 1.0f));
-        glm::mat4 matScale = glm::scale(glm::mat4(1.0f), glm::vec3(camera.zoom, camera.zoom, 1.0f));
-        glm::mat4 matTranslation = glm::translate(glm::mat4(1.0f), glm::vec3(camera.offset.x, camera.offset.y, 0.0f));
+class Camera {
+public:
 
-        matTransform = matTranslation * matRotation * matScale * matOrigin;
+    static vf2d ToScreenSpace(const vf2d& worldSpace) {
 
-        return matTransform;
+        return vf2d((worldSpace.x - get().Target.x) * get().Scale, (worldSpace.y - get().Target.y) * get().Scale) + (Window::GetSize() / 2.f);
+    }
+
+    static vf2d ToWorldSpace(const vf2d& screenSpace) {
+
+        vf2d translatedScreenSpace = screenSpace - (Window::GetSize() / 2.f);
+        return vf2d(translatedScreenSpace.x / get().Scale + get().Target.x, translatedScreenSpace.y / get().Scale + get().Target.y);
+    }
+
+    static void Lock() {
+        get().Locked = true;
+        get().LockTarget = get().Target;
+        get().LockScale = get().Scale;
+    }
+
+    static void Unlock() {
+        get().Locked = false;
+        get().Moved = false; // Reset the Moved flag when unlocking the camera
     }
 
 
-    // Get the screen space position for a 2d camera world space position
-    static vf2d GetWorldToScreen2D(vf2d position, Camera camera) {
-        glm::mat4 matCamera = GetCameraMatrix2D(camera);
-        glm::vec4 transformedPosition = glm::vec4(position.x, position.y, 0.0f, 1.0f);
-        transformedPosition = matCamera * transformedPosition;
 
-        return {transformedPosition.x, transformedPosition.y};
+
+
+    static bool IsLocked() { return get().Locked; }
+    static bool HasMoved() { return get().Moved; }
+    static void Activate() { get().Active = true; }
+    static void Deactivate() { get().Active = false; }
+    static bool IsActive() { return get().Active; }
+
+    static float GetScale() { return get().Scale; }
+    static void SetScale(float newScale) { get().Scale = newScale; }
+
+    static vf2d GetTarget() { return get().Target; }
+    static void SetTarget(const vf2d& newTarget) {
+        if (get().Locked) {
+            throw std::logic_error("Attempt to update camera target while locked.");
+        } else {
+            get().Target = newTarget;
+            get().Moved = true; // Set the Moved flag when the camera is updated
+        }
     }
+private:
+    vf2d Target;
+    float Scale = 1.0f; // Zoom level
+    bool Locked;  // Indicates whether the camera is locked for the current frame
+    vf2d LockTarget;  // The locked position when the camera is locked
+    float LockScale;  // The locked scale when the camera is locked
+    bool Moved;  // Flag to indicate if the camera has been moved
+    bool Active;  // Flag to indicate if the camera is active (applied during rendering)
+public:
+	Camera(const Camera&) = delete;
+	static Camera& get() { static Camera instance; return instance; }
 
-// Get the world space position for a 2d camera screen space position
-    static vf2d GetScreenToWorld2D(vf2d position, Camera camera) {
-        glm::mat4 invMatCamera = glm::inverse(GetCameraMatrix2D(camera));
-        glm::vec4 transformedPosition = glm::vec4(position.x, position.y, 0.0f, 1.0f);
-
-        transformedPosition = invMatCamera * transformedPosition;
-
-        return {transformedPosition.x, transformedPosition.y};
-    }
+private:
+	Camera() = default;
 };
