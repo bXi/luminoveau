@@ -5,7 +5,6 @@
 #include <optional>
 
 #include "SDL3/SDL.h"
-#include "SDL3/SDL_shape.h"
 
 #include "texture/texturehandler.h"
 #include "window/windowhandler.h"
