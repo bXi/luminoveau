@@ -38,8 +38,8 @@ private:
     };
 
     std::map<Buttons, std::list<int>> mappingGP = {
-        { Buttons::ACCEPT, { SDL_GAMEPAD_BUTTON_A }},
-        { Buttons::BACK,   { SDL_GAMEPAD_BUTTON_B }},
+        { Buttons::ACCEPT, { SDL_GAMEPAD_BUTTON_SOUTH }},
+        { Buttons::BACK,   { SDL_GAMEPAD_BUTTON_EAST }},
 
         { Buttons::LEFT,  { SDL_GAMEPAD_BUTTON_DPAD_LEFT }},
         { Buttons::RIGHT, { SDL_GAMEPAD_BUTTON_DPAD_RIGHT }},
