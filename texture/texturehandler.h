@@ -18,6 +18,7 @@ struct Texture
     int height;
 
     SDL_Surface* surface;
+    SDL_Texture* texture;
 };
 
 struct Image

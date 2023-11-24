@@ -66,6 +66,8 @@ Texture Textures::_loadTexture(const char *fileName) {
 
     texture.surface = surface;
 
+    texture.texture = SDL_CreateTextureFromSurface(Window::GetRenderer(), surface);
+
     return texture;
 
 }
