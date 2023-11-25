@@ -35,6 +35,11 @@ add_library("bixxy-engine" STATIC
         utils/vectors.h
         window/windowhandler.cpp
         window/windowhandler.h
+        render2d/SDL2_gfxPrimitives.c
+        render2d/SDL2_gfxPrimitives.h
+        render2d/SDL2_gfxPrimitives_font.h
+        render2d/SDL2_rotozoom.h
+        render2d/SDL2_rotozoom.c
 )
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)

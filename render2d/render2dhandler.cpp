@@ -1,11 +1,36 @@
 #include "render2dhandler.h"
 
+#include "SDL2_gfxPrimitives.h"
 
 void Render2D::_drawRectangle(vf2d pos, vf2d size, Color color) {
     SDL_FRect dstRect = _doCamera(pos, size);;
 
     SDL_SetRenderDrawColor(renderer, color.r, color.g,color.b,color.a);
     SDL_RenderRect(renderer, &dstRect);
+}
+
+
+
+void Render2D::_drawCircle(vf2d pos, float radius, Color color) {
+    circleRGBA(Window::GetRenderer(), pos.x, pos.y, radius, color.r, color.g, color.b, color.a);
+}
+
+void Render2D::_drawRectangleRounded(vf2d pos, vf2d size, float radius, Color color) {
+    roundedRectangleRGBA(Window::GetRenderer(),
+                         pos.x, pos.y,
+                         pos.x + size.x, pos.y + size.y,
+                         radius,
+                         color.r, color.g, color.b, color.a);
+
+}
+
+void Render2D::_drawLine(vf2d start, vf2d end, float width, Color color) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g,color.b,color.a);
+    SDL_RenderLine(renderer, start.x, start.y, end.x, end.y);
+}
+
+void Render2D::_drawCircleSector(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
+
 }
 
 void Render2D::_drawTexture(Texture texture, vf2d pos, vf2d size, Color color) {
@@ -18,7 +43,6 @@ void Render2D::_drawTexture(Texture texture, vf2d pos, vf2d size, Color color) {
 
     SDL_RenderTextureRotated(renderer, texture.texture, nullptr, &dstRect, 0.0, nullptr, SDL_FLIP_NONE);
 }
-
 void Render2D::_drawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src, Color color) {
     SDL_FRect dstRect = _doCamera(pos, size);
     SDL_FRect srcRect = { src.x, src.y, std::abs(src.width), std::abs(src.height) };
@@ -34,59 +58,10 @@ void Render2D::_drawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle 
     SDL_RenderTextureRotated(renderer, texture.texture, &srcRect, &dstRect, 0.0, nullptr, (SDL_RendererFlip)flipFlags);
 }
 
-void Render2D::_drawCircle(vf2d pos, float radius, Color color) {
-
-    //TODO verify
-    SDL_SetRenderDrawColor(renderer, color.r, color.g,color.b,color.a);
-
-    int x = radius;
-    int y = 0;
-    int err = 0;
-
-    while (x >= y) {
-
-        // Draw points in all eight octants
-        SDL_RenderPoint(renderer, pos.x + x, pos.y - y);
-        SDL_RenderPoint(renderer, pos.x + y, pos.y - x);
-        SDL_RenderPoint(renderer, pos.x - y, pos.y - x);
-        SDL_RenderPoint(renderer, pos.x - x, pos.y - y);
-        SDL_RenderPoint(renderer, pos.x - x, pos.y + y);
-        SDL_RenderPoint(renderer, pos.x - y, pos.y + x);
-        SDL_RenderPoint(renderer, pos.x + y, pos.y + x);
-        SDL_RenderPoint(renderer, pos.x + x, pos.y + y);
-
-        if (err <= 0) {
-            y += 1;
-            err += 2 * y + 1;
-        }
-        if (err > 0) {
-            x -= 1;
-            err -= 2 * x + 1;
-        }
-    }
-
-}
-
-void Render2D::_drawRectangleRounded(vf2d pos, vf2d size, float radius, Color color) {
-    //TODO: implement this
-
-    _drawRectangle(pos,size,color);
-}
-
-void Render2D::_drawLine(vf2d start, vf2d end, float width, Color color) {
-    SDL_SetRenderDrawColor(renderer, color.r, color.g,color.b,color.a);
-    SDL_RenderLine(renderer, start.x, start.y, end.x, end.y);
-}
-
-void Render2D::_drawCircleSector(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
-
-}
-
 void Render2D::_beginScissorMode(Rectangle area) {
     const SDL_Rect cliprect = area;
     SDL_SetRenderClipRect(renderer, &cliprect);
 }
-
 void Render2D::_endScissorMode() {
     SDL_SetRenderClipRect(renderer, nullptr);
 }
@@ -99,9 +74,15 @@ void Render2D::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {
 }
 
 void Render2D::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
-    //TODO: implement this
 
-    _drawRectangleFilled(pos,size,color);
+    //TODO: Fix this. middle part of the roundedBox isn't drawn properly
+    roundedBoxRGBA(Window::GetRenderer(),
+                         pos.x, pos.y,
+                         pos.x + size.x, pos.y + size.y,
+                         radius,
+                         color.r, color.g, color.b, color.a);
+
+    _drawRectangleFilled({pos.x, pos.y + radius}, {size.x, size.y - (radius * 2.f) + 1 }, color);
 }
 
 void Render2D::_drawCircleFilled(vf2d pos, float radius, Color color) {
