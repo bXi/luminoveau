@@ -14,6 +14,8 @@ void Window::_initWindow(const std::string &title, int width, int height, unsign
     }
 
     SDL_CreateRenderer(window, "opengl", SDL_RENDERER_ACCELERATED);
+
+    SDL_SetRenderDrawBlendMode(_getRenderer(), SDL_BLENDMODE_BLEND);
 }
 
 void Window::_onCloseWindow() {
