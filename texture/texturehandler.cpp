@@ -77,3 +77,17 @@ void Textures::_setTexture(int textureId) {
 
 
 }
+
+Texture Textures::_createEmptyTexture(vf2d size) {
+    Texture texture;
+
+    texture.width = size.x;
+    texture.height = size.y;
+
+    texture.surface = nullptr;
+
+    texture.texture = SDL_CreateTexture(Window::GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, (int)size.x, (int)size.y);
+
+    SDL_SetTextureBlendMode(texture.texture, SDL_BLENDMODE_BLEND);
+    return texture;
+}

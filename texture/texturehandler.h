@@ -74,9 +74,9 @@ public:
         get()._drawTexture(texture, source, dest);
     }
 
-    static void LoadEmptyTexture()
+    static Texture CreateEmptyTexture(vf2d size)
     {
-        get()._loadEmptyTexture();
+        return get()._createEmptyTexture(size);
     }
 
 private:
@@ -97,7 +97,7 @@ private:
 
 
 
-    void _loadEmptyTexture();
+    Texture _createEmptyTexture(vf2d size);
 
 public:
     Textures(const Textures&) = delete;
