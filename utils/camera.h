@@ -1,9 +1,7 @@
 #pragma once
 
 #include <stdexcept> // For std::logic_error
-
 #include "vectors.h" // Include the file with the vf2d definition
-
 #include "window/windowhandler.h"
 
 class Camera {
@@ -30,10 +28,6 @@ public:
         get().Locked = false;
         get().Moved = false; // Reset the Moved flag when unlocking the camera
     }
-
-
-
-
 
     static bool IsLocked() { return get().Locked; }
     static bool HasMoved() { return get().Moved; }

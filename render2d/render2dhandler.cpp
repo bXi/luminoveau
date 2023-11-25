@@ -11,13 +11,12 @@ void Render2D::_drawRectangle(vf2d pos, vf2d size, Color color) {
 void Render2D::_drawTexture(Texture texture, vf2d pos, vf2d size, Color color) {
 
     SDL_FRect dstRect = _doCamera(pos, size);;
-    SDL_FRect srcRect = {0.f, 0.f, (float)texture.width, (float)texture.height};
 
-    SDL_SetTextureColorMod(texture.texture, color.r, color.g, color.b < 255);
+
+    SDL_SetTextureColorMod(texture.texture, color.r, color.g, color.b);
     SDL_SetTextureAlphaMod(texture.texture, color.a);
 
-    int flipFlags = SDL_FLIP_NONE;
-    SDL_RenderTextureRotated(renderer, texture.texture, &srcRect, &dstRect, 0.0, nullptr, (SDL_RendererFlip)flipFlags);
+    SDL_RenderTextureRotated(renderer, texture.texture, nullptr, &dstRect, 0.0, nullptr, SDL_FLIP_NONE);
 }
 
 void Render2D::_drawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src, Color color) {
