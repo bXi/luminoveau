@@ -28,12 +28,16 @@ public:
         get()._drawText(fileName, fontSize, pos, textToDraw, color);
     }
 
+    static int MeasureText(const char *fileName, const int fontSize, std::string text) {
+        return get()._measureText(fileName,fontSize, text);
+    }
+
 private:
     std::unordered_map<std::string, Font> _fonts;
 
     Font _getFont(const char* fileName, int fontSize);
-    void _drawText(const char* fileName, const int fontSize, vf2d pos, const char* textToDraw, Color color);
-
+    void _drawText(const char* fileName, const int fontSize, vf2d pos, std::string textToDraw, Color color);
+    int _measureText(const char *fileName, const int fontSize, std::string text);
 public:
     Fonts(const Fonts&) = delete;
     static Fonts& get() { static Fonts instance; return instance; }
