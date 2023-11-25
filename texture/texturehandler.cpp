@@ -68,6 +68,7 @@ Texture Textures::_loadTexture(const char *fileName) {
 
     texture.texture = SDL_CreateTextureFromSurface(Window::GetRenderer(), surface);
 
+    SDL_SetTextureBlendMode(texture.texture, SDL_BLENDMODE_BLEND);
     return texture;
 
 }
