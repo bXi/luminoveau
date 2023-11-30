@@ -1,7 +1,7 @@
 #pragma once
 
-#include <stdexcept> // For std::logic_error
-#include "vectors.h" // Include the file with the vf2d definition
+#include <stdexcept>
+#include "vectors.h"
 #include "window/windowhandler.h"
 
 class Camera {
@@ -15,7 +15,7 @@ public:
     static vf2d ToWorldSpace(const vf2d& screenSpace) {
 
         vf2d translatedScreenSpace = screenSpace - (Window::GetSize() / 2.f);
-        return vf2d(translatedScreenSpace.x / get().Scale + get().Target.x, translatedScreenSpace.y / get().Scale + get().Target.y);
+        return {translatedScreenSpace.x / get().Scale + get().Target.x, translatedScreenSpace.y / get().Scale + get().Target.y};
     }
 
     static void Lock() {
@@ -26,7 +26,7 @@ public:
 
     static void Unlock() {
         get().Locked = false;
-        get().Moved = false; // Reset the Moved flag when unlocking the camera
+        get().Moved = false;
     }
 
     static bool IsLocked() { return get().Locked; }
@@ -44,17 +44,17 @@ public:
             throw std::logic_error("Attempt to update camera target while locked.");
         } else {
             get().Target = newTarget;
-            get().Moved = true; // Set the Moved flag when the camera is updated
+            get().Moved = true;
         }
     }
 private:
-    vf2d Target;
-    float Scale = 1.0f; // Zoom level
-    bool Locked;  // Indicates whether the camera is locked for the current frame
-    vf2d LockTarget;  // The locked position when the camera is locked
-    float LockScale;  // The locked scale when the camera is locked
-    bool Moved;  // Flag to indicate if the camera has been moved
-    bool Active;  // Flag to indicate if the camera is active (applied during rendering)
+    vf2d Target = { 0.f, 0.f };
+    float Scale = 1.0f;
+    bool Locked = false;
+    vf2d LockTarget = Target;
+    float LockScale = Scale;
+    bool Moved = false;
+    bool Active = false;
 public:
 	Camera(const Camera&) = delete;
 	static Camera& get() { static Camera instance; return instance; }
