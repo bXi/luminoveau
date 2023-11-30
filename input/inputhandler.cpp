@@ -20,8 +20,10 @@ bool InputDevice::isButtonPressed(Buttons button)
 			keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) < 0.0f) ? 1 : 0;
 			pressedTimings[Buttons::UP] = joystickCooldown;
 		}
-		if (button == Buttons::DOWN && pressedTimings[Buttons::DOWN] == 0.0f) {
-			keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY && Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) > 0.0f) ? 1 : 0;
+		if (button == Buttons::DOWN && pressedTimings[Buttons::DOWN] == 0.0f  && Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) {
+			keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) > 0.0f) ? 1 : 0;
+            //TODO figure out this line
+			//keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY && Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) > 0.0f) ? 1 : 0;
 			pressedTimings[Buttons::DOWN] = joystickCooldown;
 		}
 
@@ -90,6 +92,8 @@ InputType InputDevice::getType()
 
 void InputDevice::updateTimings()
 {
+    SDL_UpdateGamepads();
+
 	for (auto& timing : pressedTimings)
 	{
 		if (timing.second > 0.0f)
@@ -108,16 +112,23 @@ void InputDevice::updateTimings()
 void Input::_init()
 {
 
+    SDL_Init(SDL_INIT_GAMEPAD);
 
 	inputs.push_back(new InputDevice(InputType::MOUSE_KB));
 
-	for (int i = 0; i < 4; i++) {
+    auto gamePadCount = 0;
+    joystickIds = SDL_GetGamepads(&gamePadCount);
 
-//		if (data.Gamepad.ready[i]) {
-//			//std::cout << "W&L: adding gamepad: " << i << std::endl;
-//			inputs.push_back(new InputDevice(InputType::GAMEPAD, i));
-//		}
+	for (int i = 0; i < gamePadCount; i++) {
+        gamepadInfo temp;
+        temp.previousButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
+        temp.currentButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
+        temp.gamepad = SDL_OpenGamepad(joystickIds[i]);
+        gamepads.push_back(temp);
+    	inputs.push_back(new InputDevice(InputType::GAMEPAD, i));
 	}
+
+
 }
 
 InputDevice* Input::_getController(int index)

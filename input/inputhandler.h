@@ -10,6 +10,8 @@
 #include "utils/vectors.h"
 #include "utils/helpers.h"
 
+static const int DEADZONE = 8000;
+
 enum class InputType { GAMEPAD, MOUSE_KB };
 enum class Buttons { LEFT, RIGHT, UP, DOWN, ACCEPT, BACK, SHOOT, SWITCH_NEXT, SWITCH_PREV, RUN };
 enum class Action { HELD, PRESSED };
@@ -20,10 +22,10 @@ private:
     int gamepadID;
 
     std::map<Buttons, std::list<int>> mappingKB = {
-        { Buttons::LEFT,  { SDLK_a }}, //, KEY_LEFT}},
-        { Buttons::RIGHT, { SDLK_d }}, //, KEY_RIGHT}},
-        { Buttons::UP,    { SDLK_w }}, //, KEY_UP}},
-        { Buttons::DOWN,  { SDLK_s }}, //, KEY_DOWN}},
+        { Buttons::LEFT,  { SDLK_a , SDLK_LEFT}},
+        { Buttons::RIGHT, { SDLK_d , SDLK_RIGHT}},
+        { Buttons::UP,    { SDLK_w , SDLK_UP}},
+        { Buttons::DOWN,  { SDLK_s , SDLK_DOWN}},
 
         { Buttons::ACCEPT, { SDLK_SPACE, SDLK_KP_ENTER, SDLK_RETURN }},
         { Buttons::BACK,   { SDLK_ESCAPE, SDLK_BACKSPACE }},
@@ -71,9 +73,9 @@ public:
 
 	bool is(Buttons button, Action action);
 
-    int getGamepadID() const;
+    [[nodiscard]] int getGamepadID() const;
 
-    InputDevice(InputType _type);
+    explicit InputDevice(InputType _type);
 
     InputDevice(InputType _type, int _gamepadID);
     InputType getType();
@@ -96,12 +98,20 @@ public:
         for (int i = 0; i < SDL_NUM_SCANCODES; i++) {
             get().previousKeyboardState.at(i) = get().currentKeyboardState[i];
         }
-
         get().currentKeyboardState = SDL_GetKeyboardState(nullptr);
 
 
         get().previousMouseButtons = get().currentMouseButtons;
         get().currentMouseButtons = SDL_GetMouseState(nullptr, nullptr);
+
+        for (auto& gamepad : get().gamepads) {
+            gamepad.previousButtonState = gamepad.currentButtonState;
+
+            for (int i = 0; i < SDL_GAMEPAD_BUTTON_MAX; ++i) {
+                gamepad.currentButtonState[i] = SDL_GetGamepadButton(gamepad.gamepad, static_cast<SDL_GamepadButton>(i));
+            }
+        }
+
     }
 
     static void UpdateTimings()
@@ -112,19 +122,31 @@ public:
 	    }
     }
 
-    static float GetGamepadAxisMovement(int gamepadID, int axis)
+    static float GetGamepadAxisMovement(int gamepadID, SDL_GamepadAxis axis)
     {
-        return 0.f;
+
+        //TODO fix this
+        Sint16 x = SDL_GetGamepadAxis(get().gamepads[gamepadID].gamepad, axis);
+
+        if (std::abs(x) < DEADZONE) {
+            // Value is within the deadzone, ignore it
+            x = 0;
+        }
+
+
+        return  ((float) x) / 32768.0f;
     }
 
     static bool GamepadButtonPressed(int gamepadID, int key)
     {
-        return false;
+
+        auto gamepadinfo = get().gamepads[gamepadID];
+        return gamepadinfo.currentButtonState[key] && !gamepadinfo.previousButtonState[key];
     }
 
     static bool GamepadButtonDown(int gamepadID, int key)
     {
-        return false;
+        return SDL_GetGamepadButton(get().gamepads[gamepadID].gamepad, static_cast<SDL_GamepadButton>(key));
     }
 
     static bool KeyPressed(int key)
@@ -194,6 +216,16 @@ private:
     Uint32 currentMouseButtons = 0;
     Uint32 previousMouseButtons = 0;
 
+
+    SDL_JoystickID* joystickIds = nullptr;
+
+    struct gamepadInfo {
+        SDL_Gamepad* gamepad;
+        std::vector<bool> currentButtonState;
+        std::vector<bool> previousButtonState;
+    };
+
+    std::vector<gamepadInfo> gamepads;
 public:
     Input(const Input&) = delete;
     static Input& get() { static Input instance; return instance; }
