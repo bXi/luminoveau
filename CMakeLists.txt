@@ -40,6 +40,9 @@ add_library("bixxy-engine" STATIC
         render2d/SDL2_gfxPrimitives_font.h
         render2d/SDL2_rotozoom.h
         render2d/SDL2_rotozoom.c
+        window/imgui_impl_win32.cpp
+        window/imgui_impl_sdlrenderer3.cpp
+        window/imgui_impl_sdl3.cpp
 )
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
@@ -129,11 +132,31 @@ if(SDL3_mixer_ADDED)
   target_include_directories("bixxy-engine" PUBLIC ${SDL3_mixer_SOURCE_DIR}/include)
 endif()
 
-
-
 target_link_libraries("bixxy-engine" PUBLIC
         SDL3::SDL3-static
         SDL3_image::SDL3_image
         SDL3_ttf::SDL3_ttf
         SDL3_mixer::SDL3_mixer
 )
+
+
+CPMAddPackage(
+  NAME Imgui
+  GIT_TAG 5288687
+  GITHUB_REPOSITORY ocornut/imgui
+)
+
+
+if(Imgui_ADDED)
+    target_include_directories("bixxy-engine" PUBLIC ${Imgui_SOURCE_DIR})
+    target_sources("bixxy-engine" PUBLIC
+            ${Imgui_SOURCE_DIR}/imgui.cpp
+
+            ${Imgui_SOURCE_DIR}/imgui_demo.cpp
+            ${Imgui_SOURCE_DIR}/imgui_draw.cpp
+            ${Imgui_SOURCE_DIR}/imgui_tables.cpp
+            ${Imgui_SOURCE_DIR}/imgui_widgets.cpp
+
+
+    )
+endif()

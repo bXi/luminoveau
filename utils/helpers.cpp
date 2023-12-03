@@ -1,5 +1,6 @@
 #include "helpers.h"
 
+#include "state/state.h"
 
 int Helpers::clamp(const int input, const int min, const int max) {
     const int a = (input < min) ? min : input;
@@ -92,7 +93,21 @@ std::vector<std::pair<vf2d, vf2d>> Helpers::getLinesFromRectangle(Rectangle rect
 
 
 void Helpers::DrawMainMenu() {
+    if (ImGui::BeginMainMenuBar()) {
+		if (ImGui::BeginMenu("File")) {
+			if (ImGui::MenuItem("Exit")) {
+				State::SetState("quit");
+			}
 
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Options")) {
+
+			ImGui::EndMenu();
+		}
+		ImGui::EndMainMenuBar();
+	}
 
 }
 

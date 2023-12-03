@@ -7,6 +7,9 @@
 #include <cstdio>
 #include <cstring>
 
+#include "imgui.h"
+
+
 #define MAX_TEXT_BUFFER_LENGTH              1024
 
 class Helpers {

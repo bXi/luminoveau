@@ -16,6 +16,13 @@ void Window::_initWindow(const std::string &title, int width, int height, unsign
     SDL_CreateRenderer(window, "opengl", SDL_RENDERER_ACCELERATED);
 
     SDL_SetRenderDrawBlendMode(_getRenderer(), SDL_BLENDMODE_BLEND);
+
+
+    ImGui::CreateContext();
+
+    ImGui_ImplSDL3_InitForSDLRenderer(window, GetRenderer());
+    ImGui_ImplSDLRenderer3_Init(GetRenderer());
+
 }
 
 void Window::_onCloseWindow() {
@@ -28,15 +35,6 @@ void Window::_onCloseWindow() {
 
 double Window::_getRunTime() {
     return (double) SDL_GetTicks() * 1000.0;
-}
-
-
-std::optional<SDL_Event> Window::pollEvent() {
-    SDL_Event event;
-    if (SDL_PollEvent(&event))
-        return event;
-    else
-        return {};
 }
 
 vi2d Window::_getWindowSize() {

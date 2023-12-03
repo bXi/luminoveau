@@ -14,6 +14,14 @@
 #include <chrono>
 #include "utils/colors.h"
 
+#include "imgui.h"
+#include "imgui_impl_sdlrenderer3.h"
+#include "imgui_impl_sdl3.h"
+
+#ifdef WIN32
+#include "imgui_impl_win32.h"
+#endif
+
 // SDL Forward Declarations
 struct SDL_Window;
 
@@ -48,6 +56,10 @@ public:
         Window::HandleInput();
         SDL_SetRenderDrawColor(GetRenderer(), 0, 0,0,255);
         SDL_RenderClear(GetRenderer());
+
+        ImGui_ImplSDLRenderer3_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
     }
 
     static void ClearBackground(Color color) {
@@ -56,6 +68,9 @@ public:
     }
 
     static void EndFrame() {
+        ImGui::Render();
+        ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData());
+
         SDL_RenderPresent(Window::GetRenderer());
 
         get()._frameCount++;
@@ -73,19 +88,21 @@ public:
     static double GetFrameTime() { return get()._lastFrameTime; }
     static int GetFPS(float milliseconds = 400.f) { return get()._getFPS(milliseconds); }
 
-    static std::optional<SDL_Event> pollEvent();
-
     static void HandleInput() {
         Input::Update();
 
-        std::optional<SDL_Event> event;
-        while ((event = Window::pollEvent()))
-            switch (event->type) {
+        SDL_Event event;
+
+
+        while (SDL_PollEvent(&event)) {
+            ImGui_ImplSDL3_ProcessEvent(&event);
+
+            switch (event.type) {
                 case SDL_EventType::SDL_EVENT_QUIT:
                     get()._shouldQuit = true;
                     break;
             }
-
+        }
 
     }
 
