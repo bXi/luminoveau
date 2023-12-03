@@ -12,7 +12,7 @@
 #include "input/inputhandler.h"
 
 #include <chrono>
-
+#include "utils/colors.h"
 
 // SDL Forward Declarations
 struct SDL_Window;
@@ -47,6 +47,11 @@ public:
 
         Window::HandleInput();
         SDL_SetRenderDrawColor(GetRenderer(), 0, 0,0,255);
+        SDL_RenderClear(GetRenderer());
+    }
+
+    static void ClearBackground(Color color) {
+        SDL_SetRenderDrawColor(GetRenderer(), color.r, color.g,color.b,color.a);
         SDL_RenderClear(GetRenderer());
     }
 
