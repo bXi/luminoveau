@@ -119,8 +119,21 @@ if(SDL3_ttf_ADDED)
 endif()
 
 
+CPMAddPackage(
+  NAME SDL3_mixer
+  GIT_TAG 3886458
+  GITHUB_REPOSITORY libsdl-org/SDL_mixer
+)
+
+if(SDL3_mixer_ADDED)
+  target_include_directories("bixxy-engine" PUBLIC ${SDL3_mixer_SOURCE_DIR}/include)
+endif()
+
+
+
 target_link_libraries("bixxy-engine" PUBLIC
         SDL3::SDL3-static
         SDL3_image::SDL3_image
         SDL3_ttf::SDL3_ttf
+        SDL3_mixer::SDL3_mixer
 )

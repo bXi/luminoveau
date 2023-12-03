@@ -1,7 +1,7 @@
 #include "windowhandler.h"
 
 #include <stdexcept>
-
+#include "audio/audiohandler.h"
 void Window::_initWindow(const std::string &title, int width, int height, unsigned int flags) {
 
     // SDL_InitSubSystem is ref-counted
@@ -20,7 +20,7 @@ void Window::_initWindow(const std::string &title, int width, int height, unsign
 
 void Window::_onCloseWindow() {
     // SDL_QuitSubSystem is ref-counted
-
+    Audio::Close();
     SDL_Quit();
     IMG_Quit();
 }

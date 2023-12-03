@@ -1,27 +1,36 @@
 #pragma once
 
 #include <unordered_map>
-/*
+
 #include "settings/settingshandler.h"
 
-struct MusicWrapper
+
+#include "SDL3/SDL.h"
+#include "SDL3_mixer/SDL_mixer.h"
+
+struct Sound
 {
-	Music music;
+    Mix_Chunk* sound;
+};
+
+struct Music
+{
+	Mix_Music* music;
 	bool shouldPlay = false;
 	bool started = false;
 };
 
 class Audio {
 public:
-	enum class gamestate {
-		INTRO,
-		MENU,
-		GAME,
-		PAUSE,
-		CREDITS,
-		QUIT,
-		TEST,
-	};
+    static void Init()
+    {
+        get()._init();
+    }
+
+    static void Close()
+    {
+        get()._close();
+    }
 
 	static void updateMusicStreams()
 	{
@@ -60,7 +69,7 @@ public:
 
 private:
 	std::unordered_map<const char*, Sound> _sounds;
-	std::unordered_map<const char*, MusicWrapper> _musics;
+	std::unordered_map<const char*, Music> _musics;
 
 	Sound _getSound(const char* fileName);
 	Music _getMusic(const char* fileName);
@@ -69,6 +78,11 @@ private:
 	void _stopMusic();
 	bool _isMusicPlaying();
 	void _playMusic(const char* fileName);
+    void _init();
+    void _close();
+
+    SDL_AudioSpec _spec;
+
 
 public:
 	Audio(const Audio&) = delete;
@@ -77,7 +91,4 @@ public:
 private:
 	Audio() {}
 };
-
-
-
 //*/
