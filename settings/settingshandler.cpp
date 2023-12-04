@@ -37,6 +37,9 @@ bool Settings::_getVsync() const
 
 int Settings::_getMonitorRefreshRate() const
 {
+#ifdef __EMSCRIPTEN__
+    return 60;
+#endif
     auto currentDisplayMode = SDL_GetCurrentDisplayMode(SDL_GetPrimaryDisplay());
 
 	return (int)currentDisplayMode->refresh_rate;

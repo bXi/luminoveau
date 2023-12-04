@@ -7,8 +7,9 @@
 #include <cstdio>
 #include <cstring>
 
+#ifndef __EMSCRIPTEN__
 #include "imgui.h"
-
+#endif
 
 #define MAX_TEXT_BUFFER_LENGTH              1024
 

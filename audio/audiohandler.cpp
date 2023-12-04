@@ -98,9 +98,12 @@ void Audio::_init() {
 
 
     if (Mix_OpenAudio(0, &_spec) < 0) {
+#ifndef __EMSCRIPTEN__
         SDL_Log("Couldn't open audio: %s\n", SDL_GetError());
+#endif
     } else {
         Mix_QuerySpec(&_spec.freq, &_spec.format, &_spec.channels);
+#ifndef __EMSCRIPTEN__
         SDL_Log("Opened audio at %d Hz %d bit%s %s", _spec.freq,
             (_spec.format&0xFF),
             (SDL_AUDIO_ISFLOAT(_spec.format) ? " (float)" : ""),
@@ -108,6 +111,7 @@ void Audio::_init() {
             (_spec.channels > 1) ? "stereo" : "mono");
 
         putchar('\n');
+#endif
 
     }
 

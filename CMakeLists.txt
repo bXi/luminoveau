@@ -40,9 +40,6 @@ add_library("bixxy-engine" STATIC
         render2d/SDL2_gfxPrimitives_font.h
         render2d/SDL2_rotozoom.h
         render2d/SDL2_rotozoom.c
-        window/imgui_impl_win32.cpp
-        window/imgui_impl_sdlrenderer3.cpp
-        window/imgui_impl_sdl3.cpp
 )
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
@@ -147,16 +144,23 @@ CPMAddPackage(
 )
 
 
-if(Imgui_ADDED)
+if(Imgui_ADDED AND NOT EMSCRIPTEN)
     target_include_directories("bixxy-engine" PUBLIC ${Imgui_SOURCE_DIR})
     target_sources("bixxy-engine" PUBLIC
-            ${Imgui_SOURCE_DIR}/imgui.cpp
+        ${Imgui_SOURCE_DIR}/imgui.cpp
 
-            ${Imgui_SOURCE_DIR}/imgui_demo.cpp
-            ${Imgui_SOURCE_DIR}/imgui_draw.cpp
-            ${Imgui_SOURCE_DIR}/imgui_tables.cpp
-            ${Imgui_SOURCE_DIR}/imgui_widgets.cpp
+        ${Imgui_SOURCE_DIR}/imgui_demo.cpp
+        ${Imgui_SOURCE_DIR}/imgui_draw.cpp
+        ${Imgui_SOURCE_DIR}/imgui_tables.cpp
+        ${Imgui_SOURCE_DIR}/imgui_widgets.cpp
 
 
+
+    )
+
+    target_sources("bixxy-engine" PRIVATE
+            window/imgui_impl_win32.cpp
+            window/imgui_impl_sdlrenderer3.cpp
+            window/imgui_impl_sdl3.cpp
     )
 endif()
