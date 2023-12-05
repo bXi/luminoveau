@@ -1,6 +1,7 @@
-
-
 #include "texturehandler.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 
 Texture Textures::_getTexture(const char *fileName) {
@@ -12,25 +13,6 @@ Texture Textures::_getTexture(const char *fileName) {
     } else {
         return _textures[fileName];
     }
-}
-
-void Textures::_drawTexture(Texture texture, Rectangle dest) {
-    Rectangle source = {
-            0,
-            0,
-            (float) texture.width,
-            (float) texture.height
-
-    };
-    _drawTexture(texture, source, dest);
-}
-
-void Textures::_drawTexture(Texture texture, Rectangle source, Rectangle dest) {
-
-
-
-
-
 }
 
 Rectangle Textures::_getRectangle(int x, int y) {
@@ -73,11 +55,6 @@ Texture Textures::_loadTexture(const char *fileName) {
 
 }
 
-void Textures::_setTexture(int textureId) {
-
-
-}
-
 Texture Textures::_createEmptyTexture(vf2d size) {
     Texture texture;
 
@@ -90,4 +67,36 @@ Texture Textures::_createEmptyTexture(vf2d size) {
 
     SDL_SetTextureBlendMode(texture.texture, SDL_BLENDMODE_BLEND);
     return texture;
+}
+
+void Textures::_saveTextureAsPNG(Texture texture, const char *fileName) {
+
+    SDL_Surface* surface = texture.surface;
+
+    if (!surface) {
+        int texWidth, texHeight;
+        SDL_QueryTexture(texture.texture, NULL, NULL, &texWidth, &texHeight);
+        surface = SDL_CreateSurface(texWidth, texHeight, 32);
+        SDL_RenderReadPixels(Window::GetRenderer(), NULL, SDL_PIXELFORMAT_RGBA32, surface->pixels, surface->pitch);
+    }
+
+    SDL_Surface* rgbaSurface = surface;
+
+    if (surface->format->format != SDL_PIXELFORMAT_RGBA32) {
+        rgbaSurface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_RGBA32);
+    }
+
+    unsigned char* pixels = new unsigned char[rgbaSurface->w * rgbaSurface->h * 4];
+
+    SDL_LockSurface(rgbaSurface);
+    memcpy(pixels, rgbaSurface->pixels, rgbaSurface->w * rgbaSurface->h * 4);
+    SDL_UnlockSurface(rgbaSurface);
+
+    stbi_write_png(fileName, rgbaSurface->w, rgbaSurface->h, 4, pixels, rgbaSurface->w * 4);
+
+    delete[] pixels;
+
+    if (surface->format->format != SDL_PIXELFORMAT_RGBA32) {
+        SDL_DestroySurface(rgbaSurface);
+    }
 }

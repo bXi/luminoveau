@@ -54,25 +54,16 @@ public:
 
     }
 
-//    static void setTexture(const char* fileName, const Texture& _tex)
-//    {
-//        get()._setTexture(fileName, _tex);
-//    }
-
     static void LoadTexture(const char* fileName)
     {
         get()._loadTexture(fileName);
     }
 
-    static void DrawTexture(Texture texture, Rectangle dest)
+    static void SaveTextureAsPNG(Texture texture, const char* fileName)
     {
-        get()._drawTexture(texture, dest);
+        get()._saveTextureAsPNG(texture, fileName);
     }
 
-    static void DrawTexture(Texture texture, Rectangle source, Rectangle dest)
-    {
-        get()._drawTexture(texture, source, dest);
-    }
 
     static Texture CreateEmptyTexture(vf2d size)
     {
@@ -85,19 +76,14 @@ private:
     Texture _getTexture(const char* fileName);
 
     Texture _loadTexture(const char* fileName);
-    void _drawTexture(Texture texture, Rectangle dest);
-    void _drawTexture(Texture texture, Rectangle source, Rectangle dest);
-    Rectangle _getRectangle(int x, int y);
 
+    Rectangle _getRectangle(int x, int y);
     Rectangle _getTile(int tileId);
     Rectangle _getTile(int tileId, bool doubleHeight);
 
-    void _setTexture(int textureId);
-//    void _setTextureFromImage(const char* fileName, const Image& _image);
-
-
-
     Texture _createEmptyTexture(vf2d size);
+
+    void _saveTextureAsPNG(Texture texture, const char* fileName);
 
 public:
     Textures(const Textures&) = delete;
