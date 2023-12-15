@@ -2,6 +2,32 @@
 
 #include "window/windowhandler.h"
 
+vf2d Input::GetMousePosition()
+{
+#ifdef LINUX
+	int windowX = 0;
+	int windowY = 0;
+
+	SDL_GetWindowPosition(Window::GetWindow(), &windowX, &windowY);
+
+	float absMouseX = 0;
+	float absMouseY = 0;
+
+	SDL_GetGlobalMouseState(&absMouseX, &absMouseY);
+
+	return {
+		absMouseX - windowX, 
+		absMouseY - windowY
+	};
+#else
+	float xMouse, yMouse;
+
+	SDL_GetMouseState(&xMouse,&yMouse);
+
+	return {xMouse, yMouse};
+#endif
+}
+
 
 bool InputDevice::isButtonPressed(Buttons button)
 {

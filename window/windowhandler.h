@@ -40,6 +40,11 @@ public:
         get()._initWindow(title, width, height, flags);
     }
 
+    static SDL_Window* GetWindow() {
+        return get().m_window.get();
+    }
+
+
     static vf2d GetSize() {
         int w, h;
 
@@ -107,6 +112,10 @@ public:
                 case SDL_EventType::SDL_EVENT_QUIT:
                     get()._shouldQuit = true;
                     break;
+                case SDL_EVENT_MOUSE_MOTION:
+                {
+                    Input::UpdateMousePos((float)event.motion.x, (float)event.motion.y);
+                }
             }
         }
 
