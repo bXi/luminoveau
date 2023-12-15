@@ -93,7 +93,7 @@ std::vector<std::pair<vf2d, vf2d>> Helpers::getLinesFromRectangle(Rectangle rect
 
 
 void Helpers::DrawMainMenu() {
-#ifndef __EMSCRIPTEN__
+#ifdef ADD_IMGUI
     if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
 			if (ImGui::MenuItem("Exit")) {

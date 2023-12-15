@@ -14,7 +14,7 @@
 #include <chrono>
 #include "utils/colors.h"
 
-#ifndef __EMSCRIPTEN__
+#ifdef ADD_IMGUI
     #include "imgui.h"
     #include "imgui_impl_sdlrenderer3.h"
     #include "imgui_impl_sdl3.h"
@@ -63,7 +63,7 @@ public:
         Window::HandleInput();
         SDL_SetRenderDrawColor(GetRenderer(), 0, 0,0,255);
         SDL_RenderClear(GetRenderer());
-    #ifndef __EMSCRIPTEN__
+    #ifdef ADD_IMGUI
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
@@ -76,7 +76,7 @@ public:
     }
 
     static void EndFrame() {
-        #ifndef __EMSCRIPTEN__
+        #ifdef ADD_IMGUI
         ImGui::Render();
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData());
         #endif
@@ -104,7 +104,7 @@ public:
 
 
         while (SDL_PollEvent(&event)) {
-            #ifndef __EMSCRIPTEN__
+            #ifdef ADD_IMGUI
             ImGui_ImplSDL3_ProcessEvent(&event);
             #endif
 

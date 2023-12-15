@@ -17,7 +17,7 @@ void Window::_initWindow(const std::string &title, int width, int height, unsign
 
     SDL_SetRenderDrawBlendMode(_getRenderer(), SDL_BLENDMODE_BLEND);
 
-    #ifndef __EMSCRIPTEN__
+    #ifdef ADD_IMGUI
     ImGui::CreateContext();
 
     ImGui_ImplSDL3_InitForSDLRenderer(window, GetRenderer());

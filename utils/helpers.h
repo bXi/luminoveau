@@ -7,7 +7,7 @@
 #include <cstdio>
 #include <cstring>
 
-#ifndef __EMSCRIPTEN__
+#ifdef ADD_IMGUI
 #include "imgui.h"
 #endif
 
