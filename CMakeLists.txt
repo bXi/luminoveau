@@ -9,8 +9,13 @@ add_library("bixxy-engine" STATIC
     configuration/configuration.h
     fonts/fonthandler.cpp
     fonts/fonthandler.h
+
+    input/inputconstants.h
+    input/inputdevice.cpp
+    input/inputdevice.h
     input/inputhandler.cpp
     input/inputhandler.h
+
     log/loghandler.cpp
     log/loghandler.h
     render2d/render2dhandler.cpp

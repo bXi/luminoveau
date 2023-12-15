@@ -2,170 +2,148 @@
 
 #include "window/windowhandler.h"
 
-vf2d Input::GetMousePosition()
-{
-#ifdef LINUX
-	int windowX = 0;
-	int windowY = 0;
 
-	SDL_GetWindowPosition(Window::GetWindow(), &windowX, &windowY);
-
-	float absMouseX = 0;
-	float absMouseY = 0;
-
-	SDL_GetGlobalMouseState(&absMouseX, &absMouseY);
-
-	return {
-		absMouseX - windowX, 
-		absMouseY - windowY
-	};
-#else
-	float xMouse, yMouse;
-
-	SDL_GetMouseState(&xMouse,&yMouse);
-
-	return {xMouse, yMouse};
-#endif
-}
-
-
-bool InputDevice::isButtonPressed(Buttons button)
-{
-	int keysHeld = 0;
-	switch (type) {
-	case InputType::GAMEPAD:
-		if (button == Buttons::LEFT && pressedTimings[Buttons::LEFT] == 0.0f && Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTX) != 0.0f) {
-			keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTX) < 0.0f) ? 1 : 0;
-			pressedTimings[Buttons::LEFT] = joystickCooldown;
-		}
-		if (button == Buttons::RIGHT && pressedTimings[Buttons::RIGHT] == 0.0f && Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTX) != 0.0f) {
-			keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTX) > 0.0f) ? 1 : 0;
-			pressedTimings[Buttons::RIGHT] = joystickCooldown;
-		}
-		if (button == Buttons::UP && pressedTimings[Buttons::UP] == 0.0f && Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) {
-			keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) < 0.0f) ? 1 : 0;
-			pressedTimings[Buttons::UP] = joystickCooldown;
-		}
-		if (button == Buttons::DOWN && pressedTimings[Buttons::DOWN] == 0.0f  && Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) {
-			keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) > 0.0f) ? 1 : 0;
-            //TODO figure out this line
-			//keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY && Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) > 0.0f) ? 1 : 0;
-			pressedTimings[Buttons::DOWN] = joystickCooldown;
-		}
-
-		for (const auto& key : mappingGP[button])
-			keysHeld += static_cast<int>(Input::GamepadButtonPressed(gamepadID, key));
-		return (keysHeld != 0);
-	case InputType::MOUSE_KB:
-
-		for (const auto& key : mappingKB[button])
-			keysHeld += static_cast<int>(Input::KeyPressed(key));
-		return (keysHeld != 0);
-	}
-	return false;
-}
-
-bool InputDevice::isButtonHeld(Buttons button)
-{
-	int keysHeld = 0;
-	switch (type) {
-	case InputType::GAMEPAD:
-		for (const auto& key : mappingGP[button])
-			keysHeld += static_cast<int>(Input::GamepadButtonDown(gamepadID, key));
-		return (keysHeld != 0);
-	case InputType::MOUSE_KB:
-		if (button == Buttons::SHOOT)
-		{
-			keysHeld += static_cast<int>(Input::MouseButtonDown(SDL_BUTTON_LEFT));
-
-		}
-		for (const auto& key : mappingKB[button])
-			keysHeld += static_cast<int>(Input::KeyDown(key));
-		return (keysHeld != 0);
-	}
-	return false;
-}
-
-
-bool InputDevice::is(Buttons button, Action action) {
-	switch (action) {
-	case Action::HELD:    return isButtonHeld(button);
-	case Action::PRESSED: return isButtonPressed(button);
-	}
-	return false;
-}
-
-int InputDevice::getGamepadID() const
-{
-	return gamepadID;
-}
-
-InputDevice::InputDevice(InputType _type) {
-	type = _type;
-	gamepadID = -1;
-}
-
-InputDevice::InputDevice(InputType _type, int _gamepadID)
-{
-	type = _type;
-	gamepadID = _gamepadID;
-}
-
-InputType InputDevice::getType()
-{
-	return type;
-}
-
-void InputDevice::updateTimings()
-{
-    SDL_UpdateGamepads();
-
-	for (auto& timing : pressedTimings)
-	{
-		if (timing.second > 0.0f)
-		{
-			timing.second -= Window::GetFrameTime();
-		}
-		else
-		{
-			timing.second = 0.0f;
-		}
-	}
-}
-
-
-
-void Input::_init()
-{
+void Input::_init() {
 
     SDL_Init(SDL_INIT_GAMEPAD);
 
-	inputs.push_back(new InputDevice(InputType::MOUSE_KB));
+    inputs.push_back(new InputDevice(InputType::MOUSE_KB));
 
     auto gamePadCount = 0;
     joystickIds = SDL_GetGamepads(&gamePadCount);
 
-	for (int i = 0; i < gamePadCount; i++) {
+    for (int i = 0; i < gamePadCount; i++) {
         gamepadInfo temp;
         temp.previousButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
         temp.currentButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
         temp.gamepad = SDL_OpenGamepad(joystickIds[i]);
         gamepads.push_back(temp);
-    	inputs.push_back(new InputDevice(InputType::GAMEPAD, i));
-	}
+        inputs.push_back(new InputDevice(InputType::GAMEPAD, i));
+    }
 
 
 }
 
-InputDevice* Input::_getController(int index)
-{
+InputDevice *Input::_getController(int index) {
 
-	return inputs[index];
+    return inputs[index];
 }
 
-void Input::_clear()
-{
-	inputs.clear();
+void Input::_clear() {
+    inputs.clear();
 }
 
-//*/
+void Input::_update() {
+    UpdateTimings();
+
+
+    for (int i = 0; i < SDL_NUM_SCANCODES; i++) {
+        previousKeyboardState.at(i) = currentKeyboardState[i];
+    }
+    currentKeyboardState = SDL_GetKeyboardState(nullptr);
+
+
+    previousMouseButtons = currentMouseButtons;
+    currentMouseButtons = SDL_GetMouseState(nullptr, nullptr);
+
+    for (auto &gamepad: gamepads) {
+        gamepad.previousButtonState = gamepad.currentButtonState;
+
+        for (int i = 0; i < SDL_GAMEPAD_BUTTON_MAX; ++i) {
+            gamepad.currentButtonState[i] = SDL_GetGamepadButton(gamepad.gamepad, static_cast<SDL_GamepadButton>(i));
+        }
+    }
+}
+
+void Input::_updateTimings() {
+    for (const auto &i: inputs) {
+        i->updateTimings();
+    }
+}
+
+float Input::_getGamepadAxisMovement(int gamepadID, SDL_GamepadAxis axis) {
+    Sint16 x = SDL_GetGamepadAxis(gamepads[gamepadID].gamepad, axis);
+
+    if (std::abs(x) < DEADZONE) {
+        // Value is within the deadzone, ignore it
+        x = 0;
+    }
+
+
+    return ((float) x) / 32768.0f;
+}
+
+bool Input::_gamepadButtonPressed(int gamepadID, int button) {
+
+    auto gamepadinfo = gamepads[gamepadID];
+    return gamepadinfo.currentButtonState[button] && !gamepadinfo.previousButtonState[button];
+}
+
+
+bool Input::_gamepadButtonDown(int gamepadID, int button) {
+    return SDL_GetGamepadButton(gamepads[gamepadID].gamepad, static_cast<SDL_GamepadButton>(button));
+}
+
+bool Input::_keyPressed(int key) {
+
+    auto curState = currentKeyboardState;
+    auto prevState = previousKeyboardState;
+
+    auto scancode = SDL_GetScancodeFromKey(key);
+
+    return curState[scancode] == 1 && prevState[scancode] == 0;
+}
+
+bool Input::_keyReleased(int key) {
+
+    auto curState = currentKeyboardState;
+    auto prevState = previousKeyboardState;
+
+    auto scancode = SDL_GetScancodeFromKey(key);
+
+    return curState[scancode] == 0 && prevState[scancode] == 1;
+}
+
+bool Input::_keyDown(int key) {
+
+    auto scancode = SDL_GetScancodeFromKey(key);
+
+    return SDL_GetKeyboardState(nullptr)[scancode] == 1;
+}
+
+
+vf2d Input::_getMousePosition() {
+#ifdef LINUX
+    int windowX = 0;
+    int windowY = 0;
+
+    SDL_GetWindowPosition(Window::GetWindow(), &windowX, &windowY);
+
+    float absMouseX = 0;
+    float absMouseY = 0;
+
+    SDL_GetGlobalMouseState(&absMouseX, &absMouseY);
+
+    return {
+        absMouseX - windowX,
+        absMouseY - windowY
+    };
+#else
+    float xMouse, yMouse;
+
+    SDL_GetMouseState(&xMouse, &yMouse);
+
+    return {xMouse, yMouse};
+#endif
+}
+
+
+bool Input::_mouseButtonPressed(int button) {
+    auto buttonmask = (1 << ((button) - 1));
+    return (currentMouseButtons & buttonmask) != 0 && (previousMouseButtons & buttonmask) == 0;
+}
+
+bool Input::_mouseButtonDown(int button) {
+    auto buttonmask = (1 << ((button) - 1));
+    return (currentMouseButtons & buttonmask) != 0;
+}
