@@ -21,55 +21,18 @@ struct Texture
     SDL_Texture* texture;
 };
 
-struct Image
-{
-    int width;
-    int height;
-
-    SDL_Surface* surface;
-};
-
 class Textures {
 public:
-    static Texture GetTexture(const char* fileName)
-    {
-        return get()._getTexture(fileName);
-    }
+    static Texture GetTexture(const char* fileName) { return get()._getTexture(fileName); }
 
-    static Rectangle getRectangle(int x, int y)
-    {
-        return get()._getRectangle(x, y);
-    }
+    static Rectangle GetRectangle(int x, int y) { return get()._getRectangle(x, y); }
+    static Rectangle GetTile(int tileId) { return get()._getTile(tileId); }
+    static Rectangle GetTile(int tileId, bool doubleHeight) { return get()._getTile(tileId, doubleHeight); }
 
-    static Rectangle getTile(int tileId)
-    {
-        return get()._getTile(tileId);
-    }
-    static Rectangle getTile(int tileId, bool doubleHeight)
-    {
-        return get()._getTile(tileId, doubleHeight);
-    }
+    static void LoadTexture(const char* fileName) { get()._loadTexture(fileName); }
+    static void SaveTextureAsPNG(Texture texture, const char* fileName) { get()._saveTextureAsPNG(texture, fileName); }
 
-    static void Unload(Texture texture) {
-
-    }
-
-    static void LoadTexture(const char* fileName)
-    {
-        get()._loadTexture(fileName);
-    }
-
-    static void SaveTextureAsPNG(Texture texture, const char* fileName)
-    {
-        get()._saveTextureAsPNG(texture, fileName);
-    }
-
-
-    static Texture CreateEmptyTexture(vf2d size)
-    {
-        return get()._createEmptyTexture(size);
-    }
-
+    static Texture CreateEmptyTexture(vf2d size) { return get()._createEmptyTexture(size); }
 private:
     std::unordered_map<const char*, Texture> _textures;
 

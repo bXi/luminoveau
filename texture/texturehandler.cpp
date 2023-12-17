@@ -24,18 +24,17 @@ Rectangle Textures::_getRectangle(int x, int y) {
 };
 
 Rectangle Textures::_getTile(int tileId) {
-    return getRectangle(tileId % 16, (int) tileId / 16);
+    return GetRectangle(tileId % 16, (int) tileId / 16);
 };
 
 Rectangle Textures::_getTile(int tileId, bool doubleHeight) {
-    Rectangle r = getRectangle(tileId % 16, (int) tileId / 16);
+    Rectangle r = GetRectangle(tileId % 16, (int) tileId / 16);
     if (doubleHeight) {
         r.y -= r.height;
         r.height *= 2;
     }
     return r;
 }
-
 
 Texture Textures::_loadTexture(const char *fileName) {
 
