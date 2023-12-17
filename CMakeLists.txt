@@ -23,8 +23,11 @@ add_library("bixxy-engine" STATIC
     settings/mini.h
     settings/settingshandler.cpp
     settings/settingshandler.h
+
     state/basestate.h
     state/state.h
+    state/state.cpp
+
     texture/texturehandler.cpp
     texture/texturehandler.h
     utils/camera.h

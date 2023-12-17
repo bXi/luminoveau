@@ -21,48 +21,16 @@ public:
 private:
     BaseState* state = nullptr;
     std::string currentState = "";
-std::map<std::string, BaseState*> registeredStates;
+    std::map<std::string, BaseState*> registeredStates;
 
-    void _setState(std::string newState)
-    {
-	    if (newState != currentState) {
+    void _init(std::string stateName);
+    void _setState(std::string newState);
 
-            auto it = registeredStates.find(newState);
+    void _draw();
+    void _load();
+    void _unload();
+    void _addState(std::string stateName, BaseState* statePtr);
 
-            if (it != registeredStates.end()) {
-                if (state) state->unload();
-
-                currentState = newState;
-                state = registeredStates[currentState];
-
-                state->load();
-            } else {
-                std::cout << newState << " is not in the map." << std::endl;
-            }
-	    }
-    }
-
-    void _draw() { state->draw(); }
-    void _load() { state->load(); }
-    void _unload() { state->unload(); }
-
-    void _addState(std::string stateName, BaseState* statePtr) {
-
-        auto it = registeredStates.find(stateName);
-
-        if (it != registeredStates.end()) {
-            std::cout << stateName << " has been added already." << std::endl;
-        } else {
-            registeredStates[stateName] = statePtr;
-        }
-    }
-
-	void _init(std::string stateName)
-    {
-        if (!registeredStates.empty()) {
-            _setState(stateName);
-        }
-	}
 public:
 	State(const State&) = delete;
 	static State& get() { static State instance; return instance; }
