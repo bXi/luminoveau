@@ -18,19 +18,9 @@ struct Font
 
 class Fonts {
 public:
-    static Font GetFont(const char* fileName, const int fontSize)
-    {
-        return get()._getFont(fileName, fontSize);
-    }
-
-    static void DrawText(const char* fileName, const int fontSize, vf2d pos, const char* textToDraw, Color color)
-    {
-        get()._drawText(fileName, fontSize, pos, textToDraw, color);
-    }
-
-    static int MeasureText(const char *fileName, const int fontSize, std::string text) {
-        return get()._measureText(fileName,fontSize, text);
-    }
+    static Font GetFont(const char* fileName, const int fontSize) { return get()._getFont(fileName, fontSize); }
+    static void DrawText(const char* fileName, const int fontSize, vf2d pos, const char* textToDraw, Color color) { get()._drawText(fileName, fontSize, pos, textToDraw, color); }
+    static int MeasureText(const char *fileName, const int fontSize, std::string text) { return get()._measureText(fileName,fontSize, text); }
 
 private:
     std::unordered_map<std::string, Font> _fonts;
