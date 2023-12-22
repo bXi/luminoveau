@@ -2,6 +2,8 @@
 
 project("bixxy-engine" VERSION 0.0.1 DESCRIPTION "Bixxy-Engine")
 
+option(ADD_IMGUI "Include ImGui" OFF)
+
 # Add the content from the provided "engine.cmake" file
 add_library("bixxy-engine" STATIC
     audio/audiohandler.cpp
@@ -161,6 +163,8 @@ if (ADD_IMGUI)
             ${Imgui_SOURCE_DIR}/imgui_widgets.cpp
 
         )
+
+        add_compile_definitions(ADD_IMGUI)
 
         if (WIN32)
             target_sources("bixxy-engine" PRIVATE
