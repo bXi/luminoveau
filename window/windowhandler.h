@@ -92,7 +92,9 @@ private:
     std::chrono::high_resolution_clock::time_point _startTime;
     std::chrono::high_resolution_clock::time_point _currentTime;
     std::chrono::high_resolution_clock::time_point _previousTime;
-
+#ifdef ADD_IMGUI
+    void SetupImGuiStyle();
+#endif
 public:
     Window(const Window&) = delete;
     static Window& get() { static Window instance; return instance; }
