@@ -33,6 +33,8 @@ public:
     static void SaveTextureAsPNG(Texture texture, const char* fileName) { get()._saveTextureAsPNG(texture, fileName); }
 
     static Texture CreateEmptyTexture(vf2d size) { return get()._createEmptyTexture(size); }
+
+    static std::unordered_map<const char*, Texture> GetTextures() { return get()._textures; }
 private:
     std::unordered_map<const char*, Texture> _textures;
 
