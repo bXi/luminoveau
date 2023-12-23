@@ -2,6 +2,12 @@
 
 #include "state/state.h"
 
+#include "texture/texturehandler.h"
+
+bool Helpers::imguiTexturesVisible = false;
+bool Helpers::imguiAudioVisible = false;
+bool Helpers::imguiInputVisible = false;
+
 int Helpers::clamp(const int input, const int min, const int max) {
     const int a = (input < min) ? min : input;
     return (a > max ? max : a);
@@ -95,20 +101,66 @@ std::vector<std::pair<vf2d, vf2d>> Helpers::getLinesFromRectangle(Rectangle rect
 void Helpers::DrawMainMenu() {
 #ifdef ADD_IMGUI
     if (ImGui::BeginMainMenuBar()) {
-		if (ImGui::BeginMenu("File")) {
-			if (ImGui::MenuItem("Exit")) {
-				State::SetState("quit");
-			}
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("Exit")) {
+                State::SetState("quit");
+            }
 
-			ImGui::EndMenu();
-		}
+            ImGui::EndMenu();
+        }
 
-		if (ImGui::BeginMenu("Options")) {
+        if (ImGui::BeginMenu("Debug")) {
+            if (ImGui::MenuItem("Textures")) {
+                imguiTexturesVisible = !imguiTexturesVisible;
+            }
 
-			ImGui::EndMenu();
-		}
-		ImGui::EndMainMenuBar();
-	}
+            if (ImGui::MenuItem("Audio chunks")) {
+                imguiAudioVisible = !imguiAudioVisible;
+            }
+
+            if (ImGui::MenuItem("Input devices")) {
+                imguiInputVisible = !imguiInputVisible;
+            }
+
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+
+    if (imguiTexturesVisible) {
+        ImGui::SetNextWindowSizeConstraints({200, 200}, {FLT_MAX, FLT_MAX});
+        ImGui::Begin("Textures", &imguiTexturesVisible);
+
+        ImGui::BeginChild("Loaded textures");
+
+        for (auto& texture : Textures::GetTextures()) {
+
+            ImGui::Text("%s", texture.first);
+
+            SDL_Texture* my_texture = texture.second.texture;
+            int my_image_width = texture.second.width;
+            int my_image_height = texture.second.height;
+
+            ImGui::Text("size = %d x %d", my_image_width, my_image_height);
+            ImGui::Image((void*) my_texture, ImVec2(my_image_width, my_image_height));
+
+
+
+
+        }
+        ImGui::EndChild();
+        ImGui::End();
+
+    }
+
+    if (imguiAudioVisible) {
+
+    }
+
+    if (imguiInputVisible) {
+
+    }
+
 #endif
 }
 

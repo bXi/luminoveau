@@ -29,4 +29,10 @@ public:
 
     static int GetRandomValue(int min, int max);
 
+
+    static bool imguiTexturesVisible;
+    static bool imguiAudioVisible;
+    static bool imguiInputVisible;
+
+
 };
