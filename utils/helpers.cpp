@@ -4,9 +4,75 @@
 
 #include "texture/texturehandler.h"
 
+#include "SDL3/SDL.h"
+
 bool Helpers::imguiTexturesVisible = false;
 bool Helpers::imguiAudioVisible = false;
 bool Helpers::imguiInputVisible = false;
+
+struct GamepadTest {
+    bool North = false;
+    bool South = false;
+    bool East = false;
+    bool West = false;
+
+    bool DPadUp = false;
+    bool DPadDown = false;
+    bool DPadLeft = false;
+    bool DPadRight = false;
+
+    bool Back = false;
+    bool Start = false;
+    bool Guide = false;
+
+
+    bool LeftStickClick = false; //L3
+    bool RightStickClick = false; //R3
+    bool LeftShoulder = false; //L1
+    bool RightShoulder = false; //R1
+
+    // Axis values
+    float LeftStickX = 0.0f;
+    float LeftStickY = 0.0f;
+    float RightStickX = 0.0f;
+    float RightStickY = 0.0f;
+    float LeftTrigger = 0.0f;
+    float RightTrigger = 0.0f;
+
+    float rumbleLeft = 0.0f;
+    float rumbleRight = 0.0f;
+
+    float rumbleTriggerLeft = 0.0f;
+    float rumbleTriggerRight = 0.0f;
+
+
+
+};
+
+    typedef struct
+    {
+        Uint8 ucEnableBits1;              /* 0 */
+        Uint8 ucEnableBits2;              /* 1 */
+        Uint8 ucRumbleRight;              /* 2 */
+        Uint8 ucRumbleLeft;               /* 3 */
+        Uint8 ucHeadphoneVolume;          /* 4 */
+        Uint8 ucSpeakerVolume;            /* 5 */
+        Uint8 ucMicrophoneVolume;         /* 6 */
+        Uint8 ucAudioEnableBits;          /* 7 */
+        Uint8 ucMicLightMode;             /* 8 */
+        Uint8 ucAudioMuteBits;            /* 9 */
+        Uint8 rgucRightTriggerEffect[11]; /* 10 */
+        Uint8 rgucLeftTriggerEffect[11];  /* 21 */
+        Uint8 rgucUnknown1[6];            /* 32 */
+        Uint8 ucLedFlags;                 /* 38 */
+        Uint8 rgucUnknown2[2];            /* 39 */
+        Uint8 ucLedAnim;                  /* 41 */
+        Uint8 ucLedBrightness;            /* 42 */
+        Uint8 ucPadLights;                /* 43 */
+        Uint8 ucLedRed;                   /* 44 */
+        Uint8 ucLedGreen;                 /* 45 */
+        Uint8 ucLedBlue;                  /* 46 */
+    } DS5EffectsState_t;
 
 int Helpers::clamp(const int input, const int min, const int max) {
     const int a = (input < min) ? min : input;
@@ -158,7 +224,245 @@ void Helpers::DrawMainMenu() {
     }
 
     if (imguiInputVisible) {
+        ImGui::SetNextWindowSizeConstraints({200, 200}, {FLT_MAX, FLT_MAX});
+        ImGui::Begin("Gamepads", &imguiInputVisible);
 
+        int numJoysticks;
+        SDL_JoystickID* joysticks = SDL_GetGamepads(&numJoysticks);
+
+        for (int i = 0; i < numJoysticks; ++i) {
+
+            int offSetX = 40;
+            int offSetY = 70;
+
+            SDL_Gamepad *gamepad = SDL_OpenGamepad(joysticks[i]);
+
+            ImGui::BeginChild(SDL_GetGamepadName(gamepad));
+
+            ImGui::Text("Gamepad %d: %s", i + 1, SDL_GetGamepadName(gamepad));
+
+            GamepadTest gamepaddata;
+
+            gamepaddata.DPadUp = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP);
+            gamepaddata.DPadDown = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+            gamepaddata.DPadLeft = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT);
+            gamepaddata.DPadRight = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
+
+            gamepaddata.North = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_NORTH);
+            gamepaddata.South = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_SOUTH);
+            gamepaddata.East = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_EAST);
+            gamepaddata.West = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_WEST);
+
+            gamepaddata.LeftShoulder = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
+            gamepaddata.RightShoulder = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
+
+            gamepaddata.Start = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_START);
+            gamepaddata.Back = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_BACK);
+            gamepaddata.Guide = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_GUIDE);
+
+            gamepaddata.LeftStickX = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTX) / 32768.f;
+            gamepaddata.LeftStickY = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTY) / 32768.f;
+
+            gamepaddata.RightStickX = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTX) / 32768.f;
+            gamepaddata.RightStickY = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTY) / 32768.f;
+
+            gamepaddata.LeftTrigger = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) / 32768.f;
+            gamepaddata.RightTrigger = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) / 32768.f;
+
+            std::map<SDL_GamepadButton, std::string> buttonNames;
+
+            switch (SDL_GetGamepadType(gamepad)){
+
+                case SDL_GAMEPAD_TYPE_XBOXONE:
+                    buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "Y";
+                    buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "A";
+                    buttonNames[SDL_GAMEPAD_BUTTON_EAST] = "B";
+                    buttonNames[SDL_GAMEPAD_BUTTON_WEST] = "X";
+                    break;
+                case SDL_GAMEPAD_TYPE_PS3:
+                case SDL_GAMEPAD_TYPE_PS4:
+                case SDL_GAMEPAD_TYPE_PS5:
+                    buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "Triangle";
+                    buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "X";
+                    buttonNames[SDL_GAMEPAD_BUTTON_EAST] = "Circle";
+                    buttonNames[SDL_GAMEPAD_BUTTON_WEST] = "Square";
+                    break;
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR:
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO:
+                    buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "X";
+                    buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "B";
+                    buttonNames[SDL_GAMEPAD_BUTTON_EAST] = "A";
+                    buttonNames[SDL_GAMEPAD_BUTTON_WEST] = "Y";
+                    break;
+                default:
+                case SDL_GAMEPAD_TYPE_UNKNOWN:
+                case SDL_GAMEPAD_TYPE_STANDARD:
+                case SDL_GAMEPAD_TYPE_XBOX360:
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT:
+                case SDL_GAMEPAD_TYPE_MAX:
+                    buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "2";
+                    buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "0";
+                    buttonNames[SDL_GAMEPAD_BUTTON_EAST] = "1";
+                    buttonNames[SDL_GAMEPAD_BUTTON_WEST] = "3";
+                    break;
+            }
+
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 20, offSetY + 70));
+            ImGui::Checkbox("Left", &gamepaddata.DPadLeft);
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 70, offSetY + 120));
+            ImGui::Checkbox("Down", &gamepaddata.DPadDown);
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 70, offSetY + 20));
+            ImGui::Checkbox("Up", &gamepaddata.DPadUp);
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 120, offSetY + 70));
+            ImGui::Checkbox("Right", &gamepaddata.DPadRight);
+
+
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 60, offSetY + 200));
+            ImGui::SetNextItemWidth(150.0f);
+            ImGui::SliderFloat(" ", &gamepaddata.LeftStickX, -1.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 30, offSetY + 230));
+            ImGui::VSliderFloat("  ", {30, 150}, &gamepaddata.LeftStickY, 1.0f, -1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 70, offSetY + 240));
+            ImGui::Text("Left joystick");
+            ImGui::SetCursorPos(ImVec2(offSetX + 70, offSetY + 260));
+            ImGui::Text("X: %.3f", gamepaddata.LeftStickX);
+            ImGui::SetCursorPos(ImVec2(offSetX + 70, offSetY + 280));
+            ImGui::Text("Y: %.3f", gamepaddata.LeftStickY);
+
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 330, offSetY + 200));
+            ImGui::SetNextItemWidth(150.0f);
+            ImGui::SliderFloat(" ", &gamepaddata.RightStickX, -1.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 300, offSetY + 230));
+            ImGui::VSliderFloat("  ", {30, 150}, &gamepaddata.RightStickY, 1.0f, -1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 340, offSetY + 240));
+            ImGui::Text("Right joystick");
+            ImGui::SetCursorPos(ImVec2(offSetX + 340, offSetY + 260));
+            ImGui::Text("X: %.3f", gamepaddata.RightStickX);
+            ImGui::SetCursorPos(ImVec2(offSetX + 340, offSetY + 280));
+            ImGui::Text("Y: %.3f", gamepaddata.RightStickY);
+
+
+
+            ImGui::SetCursorPos(ImVec2(offSetX - 30, offSetY - 40));
+            ImGui::VSliderFloat("  ", {30, 150}, &gamepaddata.LeftTrigger, 0.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 10, offSetY - 40));
+            ImGui::Checkbox("Left shoulder", &gamepaddata.LeftShoulder);
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 470, offSetY - 40));
+            ImGui::VSliderFloat("  ", {30, 150}, &gamepaddata.RightTrigger, 0.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 430, offSetY - 40));
+            ImGui::Checkbox("    ", &gamepaddata.RightShoulder);
+            ImGui::SetCursorPos(ImVec2(offSetX + 325, offSetY - 30));
+            ImGui::Text("Right shoulder");
+
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 370, offSetY + 20));
+            ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_NORTH].c_str(), &gamepaddata.North);
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 420, offSetY + 70));
+            ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_EAST].c_str(), &gamepaddata.East);
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 320, offSetY + 70));
+            ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_WEST].c_str(), &gamepaddata.West);
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 370, offSetY + 120));
+            ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_SOUTH].c_str(), &gamepaddata.South);
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 150, offSetY + 150));
+            ImGui::Checkbox("Back", &gamepaddata.Back);
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 300, offSetY + 150));
+            ImGui::Checkbox("Start", &gamepaddata.Start);
+
+            ImGui::SetCursorPos(ImVec2(offSetX + 225, offSetY + 120));
+            ImGui::Checkbox("Guide", &gamepaddata.Guide);
+
+            if (SDL_GetGamepadType(gamepad) != SDL_GAMEPAD_TYPE_PS5) {
+
+                if (SDL_GamepadHasRumble(gamepad)) {
+
+                    ImGui::SetCursorPos(ImVec2(offSetX + 550, offSetY - 40));
+                    ImGui::VSliderFloat("      ", {30, 150}, &gamepaddata.rumbleLeft, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+
+                    ImGui::SetCursorPos(ImVec2(offSetX + 600, offSetY - 40));
+                    ImGui::VSliderFloat("        ", {30, 150}, &gamepaddata.rumbleRight, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+
+                    float rumbleLeft = std::clamp(gamepaddata.rumbleLeft * 65535.f, 0.f, 65535.f);
+                    float rumbleRight = std::clamp(gamepaddata.rumbleRight * 65535.f, 0.f, 65535.f);
+
+
+                    SDL_RumbleGamepad(gamepad, (Uint16) rumbleLeft, (Uint16) rumbleRight, 100);
+                }
+
+                if (SDL_GamepadHasRumbleTriggers(gamepad)) {
+                    ImGui::SetCursorPos(ImVec2(offSetX + 550, offSetY + 200));
+                    ImGui::VSliderFloat("          ", {30, 150}, &gamepaddata.rumbleTriggerLeft, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+
+                    ImGui::SetCursorPos(ImVec2(offSetX + 600, offSetY + 200));
+                    ImGui::VSliderFloat("             ", {30, 150}, &gamepaddata.rumbleTriggerRight, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+
+                    float rumbleTriggerLeft = std::clamp(gamepaddata.rumbleTriggerLeft * 65535.f, 0.f, 65535.f);
+                    float rumbleTriggerRight = std::clamp(gamepaddata.rumbleTriggerRight * 65535.f, 0.f, 65535.f);
+
+                    SDL_RumbleGamepadTriggers(gamepad, (Uint16) rumbleTriggerLeft, (Uint16) rumbleTriggerRight, 100);
+                }
+            } else {
+
+                DS5EffectsState_t state;
+
+                Uint8 effects[4][11] = {
+                    /* Clear trigger effect */
+                    { 0x05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+                    /* Constant resistance across entire trigger pull */
+                    { 0x21, 255, 110, 0, 0, 0, 0, 0, 0, 0, 0 },
+                    /* Resistance and vibration when trigger is pulled */
+                    { 0x26, 15, 63, 128, 0, 0, 0, 0, 0, 0, 0 },
+
+                    { 0x25, 15, 63, 128, 0, 0, 0, 0, 0, 0, 0 },
+                };
+
+                SDL_zero(state);
+
+                state.ucEnableBits1 |= (0x04 | 0x08); /* Modify right and left trigger effect respectively */
+
+
+                ImGui::SetCursorPos(ImVec2(offSetX + 550, offSetY - 40));
+                ImGui::VSliderFloat("      ", {30, 150}, &gamepaddata.rumbleLeft, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+
+                ImGui::SetCursorPos(ImVec2(offSetX + 600, offSetY - 40));
+                ImGui::VSliderFloat("        ", {30, 150}, &gamepaddata.rumbleRight, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+
+                float rumbleLeft = std::clamp(gamepaddata.rumbleLeft * 65535.f, 0.f, 65535.f);
+                float rumbleRight = std::clamp(gamepaddata.rumbleRight * 65535.f, 0.f, 65535.f);
+
+
+
+                state.ucRumbleLeft = (int)rumbleLeft / 256;
+                state.ucRumbleRight = (int)rumbleRight / 256;
+                SDL_RumbleGamepad(gamepad, (Uint16) rumbleLeft, (Uint16) rumbleRight, 100);
+
+
+                SDL_memcpy(state.rgucRightTriggerEffect, effects[0], sizeof(effects[0]));
+                SDL_memcpy(state.rgucLeftTriggerEffect, effects[0], sizeof(effects[0]));
+//                SDL_SendGamepadEffect(gamepad, &state, sizeof(state));
+
+
+            }
+
+
+          ImGui::EndChild();
+
+        }
+
+
+        ImGui::End();
     }
 
 #endif
