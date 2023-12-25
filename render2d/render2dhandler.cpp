@@ -209,4 +209,10 @@ void Render2D::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Col
                 color.r, color.g, color.b, color.a);
 }
 
+void Render2D::_drawPixel(vi2d pos, Color color) {
+        SDL_SetRenderDrawColor(Window::GetRenderer(), color.r, color.g,color.b,color.a);
+    SDL_RenderPoint(Window::GetRenderer(), pos.x, pos.y);
+
+}
+
 

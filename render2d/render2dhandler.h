@@ -16,6 +16,7 @@
 
 class Render2D {
 public:
+    [[maybe_unused]] static void DrawPixel(vi2d pos, Color color) { get()._drawPixel(pos, color); };
     [[maybe_unused]] static void DrawLine(vf2d start, vf2d end, Color color) { get()._drawLine(start, end, color); };
     [[maybe_unused]] static void DrawThickLine(vf2d start, vf2d end, Color color, float width) { get()._drawThickLine(start, end, color, width); };
 
@@ -44,6 +45,8 @@ public:
     [[maybe_unused]] static void EndMode2D() { get()._endMode2D(); };
 
 private:
+
+    void _drawPixel(vi2d pos, Color color);
     void _drawLine(vf2d start, vf2d end, Color color);
     void _drawThickLine(vf2d start, vf2d end, Color color, float width);
 
