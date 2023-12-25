@@ -63,6 +63,7 @@ public:
     static int GetFPS(float milliseconds = 400.f) { return get()._getFPS(milliseconds); }
 
     static void HandleInput() { get()._handleInput(); }
+    static void ToggleDebugMenu() { get()._toggleDebugMenu(); }
 
 private:
     std::unique_ptr<SDL_Window, SDL_Window_deleter> m_window;
@@ -82,6 +83,7 @@ private:
     void _startFrame();
     void _clearBackground(Color color);
     void _endFrame();
+    void _toggleDebugMenu();
 
     bool _shouldQuit = false;
 
@@ -94,6 +96,8 @@ private:
     std::chrono::high_resolution_clock::time_point _previousTime;
 #ifdef ADD_IMGUI
     void SetupImGuiStyle();
+
+    bool debugMenuVisible = false;
 #endif
 public:
     Window(const Window&) = delete;

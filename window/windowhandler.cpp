@@ -99,6 +99,9 @@ void Window::_handleInput() {
         }
     }
 
+        if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) { // && SDL_GetModState() & SDL_KMOD_SHIFT) {
+        ToggleDebugMenu();
+    }
 }
 
 
@@ -127,6 +130,9 @@ void Window::_startFrame() {
 
 void Window::_endFrame() {
 #ifdef ADD_IMGUI
+    if (debugMenuVisible) {
+        Helpers::DrawMainMenu();
+    }
     ImGui::Render();
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData());
 #endif
@@ -141,6 +147,10 @@ void Window::_endFrame() {
 
 SDL_Window *Window::_getWindow() {
     return m_window.get();
+}
+
+void Window::_toggleDebugMenu() {
+    get().debugMenuVisible = !get().debugMenuVisible;
 }
 
 #ifdef ADD_IMGUI
