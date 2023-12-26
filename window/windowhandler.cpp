@@ -150,7 +150,9 @@ SDL_Window *Window::_getWindow() {
 }
 
 void Window::_toggleDebugMenu() {
+#ifdef ADD_IMGUI
     get().debugMenuVisible = !get().debugMenuVisible;
+#endif
 }
 
 #ifdef ADD_IMGUI
