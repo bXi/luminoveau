@@ -9,12 +9,7 @@
 #include "utils/colors.h"
 
 #include "SDL3_ttf/SDL_ttf.h"
-
-struct Font
-{
-    TTF_Font* font = nullptr;
-};
-
+#include "assettypes/font.h"
 
 class Fonts {
 public:

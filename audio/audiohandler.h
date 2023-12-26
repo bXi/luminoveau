@@ -4,21 +4,11 @@
 
 #include "settings/settingshandler.h"
 
-
 #include "SDL3/SDL.h"
 #include "SDL3_mixer/SDL_mixer.h"
 
-struct Sound
-{
-    Mix_Chunk* sound;
-};
-
-struct Music
-{
-	Mix_Music* music;
-	bool shouldPlay = false;
-	bool started = false;
-};
+#include "assettypes/sound.h"
+#include "assettypes/music.h"
 
 class Audio {
 public:
