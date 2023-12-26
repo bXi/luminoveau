@@ -13,6 +13,8 @@
 
 #include <chrono>
 #include "utils/colors.h"
+#include "assettypes/texture.h"
+
 
 #ifdef ADD_IMGUI
     #include "imgui.h"
@@ -44,10 +46,12 @@ public:
     static SDL_Window* GetWindow() { return get()._getWindow(); }
     static SDL_Renderer *GetRenderer() { return get()._getRenderer(); };
 
+    static void SetScale(int scalefactor) { get()._setScale(scalefactor); }
+
     static void SetSize(int width, int height) { get()._setSize(width, height); }
-    static vf2d GetSize() { return get()._getSize(); }
-    static int GetWidth() { return get()._getSize().x; }
-    static int GetHeight() { return get()._getSize().y; }
+    static vf2d GetSize(bool getRealSize = false) { return get()._getSize(getRealSize); }
+    static int GetWidth(bool getRealSize = false) { return get()._getSize(getRealSize).x; }
+    static int GetHeight(bool getRealSize = false) { return get()._getSize(getRealSize).y; }
 
     static void StartFrame() { get()._startFrame(); }
     static void EndFrame() { get()._endFrame(); }
@@ -74,16 +78,21 @@ private:
     void _toggleFullscreen();
     bool _isFullscreen();
     SDL_Renderer *_getRenderer();
-    vf2d _getSize();
+    vf2d _getSize(bool getRealSize = false);
     void _handleInput();
     int _getFPS(float milliseconds);
 
     SDL_Window* _getWindow();
+    void _setScale(int scalefactor);
     void _setSize(int width, int height);
     void _startFrame();
     void _clearBackground(Color color);
     void _endFrame();
     void _toggleDebugMenu();
+
+    Texture _screenBuffer;
+
+    int _scaleFactor = 1;
 
     bool _shouldQuit = false;
 

@@ -3,6 +3,9 @@
 #include <stdexcept>
 #include "audio/audiohandler.h"
 
+#include "texture/texturehandler.h"
+#include "render2d/render2dhandler.h"
+
 void Window::_initWindow(const std::string &title, int width, int height, unsigned int flags) {
 
     // SDL_InitSubSystem is ref-counted
@@ -34,7 +37,6 @@ void Window::_close() {
     SDL_Quit();
     IMG_Quit();
 }
-
 
 double Window::_getRunTime() {
     return (double) SDL_GetTicks() * 1000.0;
@@ -73,10 +75,15 @@ bool Window::_isFullscreen() {
     return is_fullscreen == SDL_WINDOW_FULLSCREEN;
 }
 
-vf2d Window::_getSize() {
+vf2d Window::_getSize(bool getRealSize) {
     int w, h;
 
     SDL_GetWindowSize(m_window.get(), &w, &h);
+
+    if (!getRealSize && _scaleFactor > 1) {
+        w /= _scaleFactor;
+        h /= _scaleFactor;
+    }
 
     return {(float) w, (float) h};
 }
@@ -104,11 +111,9 @@ void Window::_handleInput() {
     }
 }
 
-
 void Window::_setSize(int width, int height) {
     SDL_SetWindowSize(m_window.get(), width, height);
 }
-
 
 void Window::_clearBackground(Color color) {
     SDL_SetRenderDrawColor(GetRenderer(), color.r, color.g, color.b, color.a);
@@ -121,6 +126,11 @@ void Window::_startFrame() {
     Window::HandleInput();
     SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);
     SDL_RenderClear(GetRenderer());
+
+    if (_scaleFactor > 1) {
+        SDL_SetRenderTarget(GetRenderer(), _screenBuffer.texture);
+    }
+
 #ifdef ADD_IMGUI
     ImGui_ImplSDLRenderer3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
@@ -136,6 +146,11 @@ void Window::_endFrame() {
     ImGui::Render();
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData());
 #endif
+
+    if (_scaleFactor > 1) {
+        SDL_SetRenderTarget(GetRenderer(), nullptr);
+        Render2D::DrawTexture(_screenBuffer, {0.f, 0.f}, {static_cast<float>(GetSize(true).x), static_cast<float>(GetSize(true).y)}, WHITE);
+    }
     SDL_RenderPresent(Window::GetRenderer());
 
     _frameCount++;
@@ -153,6 +168,16 @@ void Window::_toggleDebugMenu() {
 #ifdef ADD_IMGUI
     get().debugMenuVisible = !get().debugMenuVisible;
 #endif
+}
+
+void Window::_setScale(int scalefactor) {
+    _scaleFactor = scalefactor;
+
+    if (scalefactor > 1) {
+        _screenBuffer = Textures::CreateEmptyTexture(Window::GetSize());
+    } else {
+        SDL_SetRenderTarget(GetRenderer(), nullptr);
+    }
 }
 
 #ifdef ADD_IMGUI
