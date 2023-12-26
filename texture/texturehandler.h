@@ -7,19 +7,12 @@
 
 #include "configuration/configuration.h"
 
+#include "utils/vectors.h"
 #include "utils/rectangles.h"
 #include "utils/shader.h"
 
-#include "window/windowhandler.h"
+#include "assettypes/texture.h"
 
-struct Texture
-{
-    int width;
-    int height;
-
-    SDL_Surface* surface;
-    SDL_Texture* texture;
-};
 
 class Textures {
 public:
