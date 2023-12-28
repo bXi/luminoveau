@@ -6,9 +6,13 @@
 #include "texture/texturehandler.h"
 #include "render2d/render2dhandler.h"
 
-void Window::_initWindow(const std::string &title, int width, int height, unsigned int flags) {
+void Window::_initWindow(const std::string &title, int width, int height, int scale, unsigned int flags) {
 
-    // SDL_InitSubSystem is ref-counted
+    if (scale > 1) { //when scaling asume width is virtual pixels instead of real screen pixels
+        width *= scale;
+        height *= scale;
+    }
+
     SDL_InitSubSystem(SDL_InitFlags::SDL_INIT_VIDEO);
     auto window = SDL_CreateWindow(title.c_str(), width, height, flags);
     if (window) {
@@ -20,6 +24,10 @@ void Window::_initWindow(const std::string &title, int width, int height, unsign
     SDL_CreateRenderer(window, "opengl", SDL_RENDERER_ACCELERATED);
 
     SDL_SetRenderDrawBlendMode(_getRenderer(), SDL_BLENDMODE_BLEND);
+
+    if (scale > 1) {
+        _setScale(scale);
+    }
 
 #ifdef ADD_IMGUI
     ImGui::CreateContext();
@@ -180,6 +188,16 @@ void Window::_setScale(int scalefactor) {
     }
 }
 
+void Window::_setScaledSize(int widthInScaledPixels, int heightInScaledPixels, int scale) {
+
+    if (scale > 0) {
+        SetScale(scale);
+    }
+
+    SetSize(_scaleFactor * widthInScaledPixels, _scaleFactor * heightInScaledPixels);
+
+}
+
 #ifdef ADD_IMGUI
 void Window::SetupImGuiStyle()
 {
@@ -272,6 +290,3 @@ void Window::SetupImGuiStyle()
 	style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.2000000029802322f, 0.2000000029802322f, 0.2000000029802322f, 0.3499999940395355f);
 }
 #endif
-
-
-

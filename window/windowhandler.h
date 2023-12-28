@@ -49,6 +49,7 @@ public:
     static void SetScale(int scalefactor) { get()._setScale(scalefactor); }
 
     static void SetSize(int width, int height) { get()._setSize(width, height); }
+    static void SetScaledSize(int width, int height, int scale = 0) { get()._setScaledSize(width, height, scale); };
     static vf2d GetSize(bool getRealSize = false) { return get()._getSize(getRealSize); }
     static int GetWidth(bool getRealSize = false) { return get()._getSize(getRealSize).x; }
     static int GetHeight(bool getRealSize = false) { return get()._getSize(getRealSize).y; }
@@ -60,7 +61,7 @@ public:
 
     static void ToggleFullscreen() { get()._toggleFullscreen(); }
     static bool IsFullscreen() { return get()._isFullscreen(); }
-    static double GetRunTime() { return duration_cast<std::chrono::milliseconds >( get()._currentTime - get()._startTime ).count() / 1000.; }
+    static double GetRunTime() { return std::chrono::duration_cast<std::chrono::milliseconds >( get()._currentTime - get()._startTime ).count() / 1000.; }
 
     static bool ShouldQuit() { return get()._shouldQuit; }
     static double GetFrameTime() { return get()._lastFrameTime; }
@@ -73,7 +74,7 @@ private:
     std::unique_ptr<SDL_Window, SDL_Window_deleter> m_window;
 
     double _getRunTime();
-    void _initWindow(const std::string &title, int width = 800, int height = 600, unsigned int flags = 0);
+    void _initWindow(const std::string &title, int width, int height, int scale = 0, unsigned int flags = 0);
     void _close();
     void _toggleFullscreen();
     bool _isFullscreen();
@@ -85,6 +86,7 @@ private:
     SDL_Window* _getWindow();
     void _setScale(int scalefactor);
     void _setSize(int width, int height);
+    void _setScaledSize(int width, int height, int scale = 0);
     void _startFrame();
     void _clearBackground(Color color);
     void _endFrame();
