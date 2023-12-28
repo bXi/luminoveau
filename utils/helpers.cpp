@@ -9,6 +9,7 @@
 bool Helpers::imguiTexturesVisible = false;
 bool Helpers::imguiAudioVisible = false;
 bool Helpers::imguiInputVisible = false;
+bool Helpers::imguiDemoVisible = false;
 
 struct GamepadTest {
     bool North = false;
@@ -186,6 +187,10 @@ void Helpers::DrawMainMenu() {
 
             if (ImGui::MenuItem("Input devices")) {
                 imguiInputVisible = !imguiInputVisible;
+            }
+
+            if (ImGui::MenuItem("ImGui Demo")) {
+                imguiDemoVisible = !imguiDemoVisible;
             }
 
             ImGui::EndMenu();
@@ -465,6 +470,10 @@ void Helpers::DrawMainMenu() {
         ImGui::End();
     }
 
+    if (imguiDemoVisible) {
+        ImGui::ShowDemoWindow(&imguiDemoVisible);
+
+    }
 #endif
 }
 

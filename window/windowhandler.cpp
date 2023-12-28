@@ -147,6 +147,12 @@ void Window::_startFrame() {
 }
 
 void Window::_endFrame() {
+
+    if (_scaleFactor > 1) {
+        SDL_SetRenderTarget(GetRenderer(), nullptr);
+        Render2D::DrawTexture(_screenBuffer, {0.f, 0.f}, {static_cast<float>(GetSize(true).x), static_cast<float>(GetSize(true).y)}, WHITE);
+    }
+
 #ifdef ADD_IMGUI
     if (debugMenuVisible) {
         Helpers::DrawMainMenu();
@@ -155,16 +161,12 @@ void Window::_endFrame() {
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData());
 #endif
 
-    if (_scaleFactor > 1) {
-        SDL_SetRenderTarget(GetRenderer(), nullptr);
-        Render2D::DrawTexture(_screenBuffer, {0.f, 0.f}, {static_cast<float>(GetSize(true).x), static_cast<float>(GetSize(true).y)}, WHITE);
-    }
     SDL_RenderPresent(Window::GetRenderer());
 
     _frameCount++;
     _previousTime = _currentTime;
     _currentTime = std::chrono::high_resolution_clock::now();
-    _lastFrameTime = duration_cast<std::chrono::nanoseconds>(_currentTime - _previousTime).count() / 1000000000.;
+    _lastFrameTime = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(_currentTime - _previousTime).count() / 1000000000.;
     _fpsAccumulator += _lastFrameTime;
 }
 

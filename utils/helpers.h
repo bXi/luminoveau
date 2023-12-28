@@ -33,6 +33,7 @@ public:
     static bool imguiTexturesVisible;
     static bool imguiAudioVisible;
     static bool imguiInputVisible;
+    static bool imguiDemoVisible;
 
 
 };

@@ -9,8 +9,6 @@ void Render2D::_drawRectangle(vf2d pos, vf2d size, Color color) {
     SDL_RenderRect(renderer, &dstRect);
 }
 
-
-
 void Render2D::_drawCircle(vf2d pos, float radius, Color color) {
     circleRGBA(Window::GetRenderer(), pos.x, pos.y, radius, color.r, color.g, color.b, color.a);
 }
@@ -42,6 +40,7 @@ void Render2D::_drawTexture(Texture texture, vf2d pos, vf2d size, Color color) {
 
     SDL_RenderTextureRotated(renderer, texture.texture, nullptr, &dstRect, 0.0, nullptr, SDL_FLIP_NONE);
 }
+
 void Render2D::_drawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src, Color color) {
     SDL_FRect dstRect = _doCamera(pos, size);
     SDL_FRect srcRect = { src.x, src.y, std::abs(src.width), std::abs(src.height) };
@@ -61,6 +60,7 @@ void Render2D::_beginScissorMode(Rectangle area) {
     const SDL_Rect cliprect = area;
     SDL_SetRenderClipRect(renderer, &cliprect);
 }
+
 void Render2D::_endScissorMode() {
     SDL_SetRenderClipRect(renderer, nullptr);
 }
@@ -101,7 +101,6 @@ void Render2D::_drawCircleFilled(vf2d pos, float radius, Color color) {
 void Render2D::_drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
 
 }
-
 
 void Render2D::_beginMode2D() {
     // Clear the screen
