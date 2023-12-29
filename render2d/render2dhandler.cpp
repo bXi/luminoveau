@@ -209,8 +209,75 @@ void Render2D::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Col
 }
 
 void Render2D::_drawPixel(vi2d pos, Color color) {
-        SDL_SetRenderDrawColor(Window::GetRenderer(), color.r, color.g,color.b,color.a);
+    SDL_SetRenderDrawColor(Window::GetRenderer(), color.r, color.g,color.b,color.a);
     SDL_RenderPoint(Window::GetRenderer(), pos.x, pos.y);
+}
+
+void Render2D::_drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color) {
+
+    float scaledA = std::abs(m7p.a) / static_cast<float>(m7p.snesScreenWidth);
+    float scaledD = std::abs(m7p.d) / static_cast<float>(m7p.snesScreenHeight);
+
+    SDL_FRect srcRect;
+    srcRect.x = m7p.h;
+    srcRect.y = m7p.v;
+    srcRect.w = m7p.snesScreenWidth * scaledA;
+    srcRect.h = m7p.snesScreenHeight * scaledD;
+
+//    ImGui::SetNextWindowSize({350,350});
+//    ImGui::Begin("Mode7 Debug values");
+//
+//    ImGui::Text("scaledA : %f", scaledA);
+//    ImGui::Text("scaledD : %f", scaledD);
+//
+//    ImGui::Text("srcRect.x : %f", srcRect.x);
+//    ImGui::Text("srcRect.y : %f", srcRect.y);
+//    ImGui::Text("srcRect.w : %f", srcRect.w);
+//    ImGui::Text("srcRect.h : %f", srcRect.h);
+
+    SDL_FRect destRect = { pos.x, pos.y, size.x, size.y };
+
+    bool shouldDrawBackground = false;
+
+    if (srcRect.x + srcRect.w > texture.width) {
+        float diffX = ((srcRect.x + srcRect.w) - (float)texture.width);
+        destRect.w -= diffX * 2.f;
+        srcRect.w -= diffX * 2.f;
+
+        if (destRect.w < 0) destRect.w = 0;
+        shouldDrawBackground = true;
+    }
+
+    if (srcRect.y + srcRect.h > texture.height) {
+        float diffX = ((srcRect.y + srcRect.h) - (float)texture.height);
+        destRect.h -= diffX * 2.f;
+        srcRect.h -= diffX * 2.f;
+
+        if (destRect.h < 0) destRect.h = 0;
+        shouldDrawBackground = true;
+    }
+
+//    ImGui::Text("destRect.x : %f", destRect.x);
+//    ImGui::Text("destRect.y : %f", destRect.y);
+//    ImGui::Text("destRect.w : %f", destRect.w);
+//    ImGui::Text("destRect.h : %f", destRect.h);
+
+    SDL_SetTextureColorMod(texture.texture, color.r, color.g, color.b);
+    SDL_SetTextureAlphaMod(texture.texture, color.a);
+
+    int flipFlags = SDL_FLIP_NONE;
+    if (m7p.a < 0) { flipFlags |= SDL_FLIP_HORIZONTAL; }
+    if (m7p.d < 0) { flipFlags |= SDL_FLIP_VERTICAL; }
+
+    SDL_FPoint center = {(float)m7p.x0, (float)m7p.y0};
+
+    if (shouldDrawBackground) {
+        DrawRectangleFilled(pos, size, BLACK);
+    }
+
+//    ImGui::End();
+
+    SDL_RenderTextureRotated(Window::GetRenderer(), texture.texture, &srcRect, &destRect, 0.0, &center, (SDL_RendererFlip)flipFlags);
 
 }
 

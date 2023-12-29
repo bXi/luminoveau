@@ -13,6 +13,18 @@
 #include "utils/colors.h"
 #include "utils/camera.h"
 
+struct Mode7Parameters {
+    int h = 0;
+    int v = 0;
+    int x0 = 0;
+    int y0 = 0;
+    int a = 0;
+    int b = 0;
+    int c = 0;
+    int d = 0;
+    int snesScreenWidth = 256;
+    int snesScreenHeight = 224;
+};
 
 class Render2D {
 public:
@@ -37,6 +49,8 @@ public:
 
     [[maybe_unused]] static void DrawTexture(Texture texture, vf2d pos, vf2d size, Color color = WHITE) { get()._drawTexture(texture, pos, size, color); };
     [[maybe_unused]] static void DrawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src, Color color = WHITE) { get()._drawTexturePart(texture, pos, size, src, color); };
+
+    [[maybe_unused]] static void DrawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE) { get()._drawTextureMode7(texture, pos, size, m7p, color); };
 
     [[maybe_unused]] static void BeginScissorMode(Rectangle area) { get()._beginScissorMode(area); };
     [[maybe_unused]] static void EndScissorMode() { get()._endScissorMode(); };
@@ -66,6 +80,8 @@ private:
 
     void _drawTexture(Texture texture, vf2d pos, vf2d size, Color color = WHITE);
     void _drawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src, Color color = WHITE);
+
+    void _drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE);
 
     void _beginScissorMode(Rectangle area);
     void _endScissorMode();
