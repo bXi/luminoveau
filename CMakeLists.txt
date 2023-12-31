@@ -83,7 +83,7 @@ set(INTERFACE_SDL3_SHARED OFF)
 set(SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS ON)
 CPMAddPackage(
     NAME SDL3
-    GIT_TAG dd5b8db
+    GIT_TAG 44c2f34
     GITHUB_REPOSITORY libsdl-org/SDL
 )
 
@@ -96,7 +96,7 @@ set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
 CPMAddPackage(
     NAME SDL3_image
-    GIT_TAG b3fcae2
+    GIT_TAG 34e2279
     GITHUB_REPOSITORY libsdl-org/SDL_image
 )
 
@@ -120,7 +120,7 @@ set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
 CPMAddPackage(
     NAME SDL3_ttf
-    GIT_TAG 3958dc2
+    GIT_TAG 303c280
     GITHUB_REPOSITORY libsdl-org/SDL_ttf
 )
 
@@ -131,7 +131,7 @@ endif()
 
 CPMAddPackage(
     NAME SDL3_mixer
-    GIT_TAG 3886458
+    GIT_TAG 2cc7a07
     GITHUB_REPOSITORY libsdl-org/SDL_mixer
 )
 
