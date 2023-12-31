@@ -4,7 +4,7 @@
 
 struct Music
 {
-	Mix_Music* music;
+	Mix_Music* music = nullptr;
 	bool shouldPlay = false;
 	bool started = false;
 };

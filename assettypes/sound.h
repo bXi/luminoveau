@@ -4,5 +4,5 @@
 
 struct Sound
 {
-    Mix_Chunk* sound;
+    Mix_Chunk* sound = nullptr;
 };

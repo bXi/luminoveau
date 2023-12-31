@@ -7,6 +7,6 @@ struct Texture
     int width;
     int height;
 
-    SDL_Surface* surface;
-    SDL_Texture* texture;
+    SDL_Surface* surface = nullptr;
+    SDL_Texture* texture = nullptr;
 };
