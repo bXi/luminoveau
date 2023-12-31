@@ -153,7 +153,7 @@ if (ADD_IMGUI)
         GITHUB_REPOSITORY ocornut/imgui
     )
 
-    if(Imgui_ADDED AND NOT EMSCRIPTEN)
+    if(Imgui_ADDED)
         target_include_directories("bixxy-engine" PUBLIC ${Imgui_SOURCE_DIR})
         target_sources("bixxy-engine" PUBLIC
             ${Imgui_SOURCE_DIR}/imgui.cpp
