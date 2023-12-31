@@ -21,7 +21,20 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
         throw std::runtime_error(SDL_GetError());
     }
 
-    SDL_CreateRenderer(window, "opengl", SDL_RENDERER_ACCELERATED);
+#ifdef __EMSCRIPTEN__
+    auto renderer = SDL_CreateRenderer(window, nullptr, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+#else
+    auto renderer = SDL_CreateRenderer(window, "opengl", SDL_RENDERER_ACCELERATED);
+#endif
+
+    if (!renderer) {
+        SDL_Log("SDL renderer failed: %s", SDL_GetError());
+        SDL_Log("Showing available SDL Renderers:");
+
+        for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
+            SDL_Log("Renderer: %s", SDL_GetRenderDriver(i));
+        }
+    }
 
     SDL_SetRenderDrawBlendMode(_getRenderer(), SDL_BLENDMODE_BLEND);
 
