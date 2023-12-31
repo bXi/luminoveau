@@ -122,7 +122,7 @@ Rectangle Render2D::_doCamera(vf2d pos, vf2d size) {
 
         dstRect = { screenPos.x, screenPos.y, screenSize.x, screenSize.y };
     } else {
-        // Camera is active, render directly in world space
+        // Camera is not active, render directly in screen space
         dstRect = { pos.x, pos.y, size.x, size.y };
     }
 
