@@ -297,7 +297,7 @@ int rectangleRGBA(SDL_Renderer * renderer, Sint16 x1, Sint16 y1, Sint16 x2, Sint
 {
 	int result;
 	Sint16 tmp;
-	SDL_Rect rect;
+	SDL_FRect rect;
 
 	/*
 	* Test for special cases of straight lines or single point 
@@ -732,7 +732,7 @@ int boxRGBA(SDL_Renderer * renderer, Sint16 x1, Sint16 y1, Sint16 x2, Sint16 y2,
 {
 	int result;
 	Sint16 tmp;
-	SDL_Rect rect;
+	SDL_FRect rect;
 
 	/*
 	* Test for special cases of straight lines or single point 
@@ -2493,7 +2493,7 @@ int polygon(SDL_Renderer * renderer, const Sint16 * vx, const Sint16 * vy, int n
 	*/
 	int result = 0;
 	int i, nn;
-	SDL_Point* points;
+	SDL_FPoint* points;
 
 	/*
 	* Vertex array NULL check 
@@ -2516,7 +2516,7 @@ int polygon(SDL_Renderer * renderer, const Sint16 * vx, const Sint16 * vy, int n
 	* Create array of points
 	*/
 	nn = n + 1;
-	points = (SDL_Point*)malloc(sizeof(SDL_Point) * nn);
+	points = (SDL_FPoint*)malloc(sizeof(SDL_FPoint) * nn);
 	if (points == NULL)
 	{
 		return -1;
@@ -2945,7 +2945,7 @@ int _HLineTextured(SDL_Renderer *renderer, Sint16 x1, Sint16 x2, Sint16 y, SDL_T
 	int result = 0;
 	int texture_x_walker;    
 	int texture_y_start;    
-	SDL_Rect source_rect,dst_rect;
+	SDL_FRect source_rect,dst_rect;
 	int pixels_written,write_width;
 
 	/*
@@ -3371,8 +3371,8 @@ void gfxPrimitivesSetFontRotation(Uint32 rotation)
 */
 int characterRGBA(SDL_Renderer *renderer, Sint16 x, Sint16 y, char c, Uint8 r, Uint8 g, Uint8 b, Uint8 a)
 {
-	SDL_Rect srect;
-	SDL_Rect drect;
+	SDL_FRect srect;
+	SDL_FRect drect;
 	int result;
 	Uint32 ix, iy;
 	const unsigned char *charpos;
