@@ -39,7 +39,7 @@ private:
     Rectangle _getTile(int tileId);
     Rectangle _getTile(int tileId, bool doubleHeight);
 
-    Texture _createEmptyTexture(vf2d size);
+    Texture _createEmptyTexture(const vf2d& size);
 
     void _saveTextureAsPNG(Texture texture, const char* fileName);
 

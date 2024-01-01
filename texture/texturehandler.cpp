@@ -43,19 +43,33 @@ Texture Textures::_loadTexture(const char *fileName) {
 
     auto surface = IMG_Load(fileName);
 
+    if (!surface)
+        SDL_Log("IMG_Load failed: %s", SDL_GetError());
+
     texture.width = surface->w;
     texture.height = surface->h;
 
     texture.surface = surface;
 
-    texture.texture = SDL_CreateTextureFromSurface(Window::GetRenderer(), surface);
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(Window::GetRenderer(), surface);
+    texture.texture = tex;
 
-    SDL_SetTextureBlendMode(texture.texture, SDL_BLENDMODE_BLEND);
+    if (!tex)
+        SDL_Log("Texture failed: %s", SDL_GetError());
+
+    auto error = SDL_SetTextureBlendMode(texture.texture, SDL_BLENDMODE_BLEND);
+
+    if (error)
+        SDL_Log("Blendmode failed: %s", SDL_GetError());
+
+    SDL_Log("Loaded texture: %s\n"
+            "\tX: %i - Y: %i", fileName, texture.width, texture.height);
+
     return texture;
 
 }
 
-Texture Textures::_createEmptyTexture(vf2d size) {
+Texture Textures::_createEmptyTexture(const vf2d& size) {
     Texture texture;
 
     texture.width = size.x;

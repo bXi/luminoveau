@@ -213,6 +213,13 @@ void Helpers::DrawMainMenu() {
             int my_image_height = texture.second.height;
 
             ImGui::Text("size = %d x %d", my_image_width, my_image_height);
+
+            SDL_PixelFormat* pixelFormat = texture.second.surface->format;
+            Uint32 pixelFormatEnum = pixelFormat->format;
+            const char* surfacePixelFormatName = SDL_GetPixelFormatName(pixelFormatEnum);
+
+            ImGui::Text("pixel format = %s", surfacePixelFormatName);
+
             ImGui::Image((void*) my_texture, ImVec2(my_image_width, my_image_height));
 
 

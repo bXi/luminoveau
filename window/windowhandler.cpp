@@ -127,7 +127,7 @@ void Window::_handleInput() {
         }
     }
 
-        if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) { // && SDL_GetModState() & SDL_KMOD_SHIFT) {
+    if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) { // && SDL_GetModState() & SDL_KMOD_SHIFT) {
         ToggleDebugMenu();
     }
 }
