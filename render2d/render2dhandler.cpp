@@ -5,7 +5,7 @@
 void Render2D::_drawRectangle(vf2d pos, vf2d size, Color color) {
     SDL_FRect dstRect = _doCamera(pos, size);;
 
-    SDL_SetRenderDrawColor(renderer, color.r, color.g,color.b,color.a);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
     SDL_RenderRect(renderer, &dstRect);
 }
 
@@ -43,7 +43,7 @@ void Render2D::_drawTexture(Texture texture, vf2d pos, vf2d size, Color color) {
 
 void Render2D::_drawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src, Color color) {
     SDL_FRect dstRect = _doCamera(pos, size);
-    SDL_FRect srcRect = { src.x, src.y, std::abs(src.width), std::abs(src.height) };
+    SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
     SDL_SetTextureColorMod(texture.texture, color.r, color.g, color.b);
     SDL_SetTextureAlphaMod(texture.texture, color.a);
@@ -53,7 +53,7 @@ void Render2D::_drawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle 
     if (src.width < 0.f) { flipFlags |= SDL_FLIP_HORIZONTAL; }
     if (src.height < 0.f) { flipFlags |= SDL_FLIP_VERTICAL; }
 
-    SDL_RenderTextureRotated(renderer, texture.texture, &srcRect, &dstRect, 0.0, nullptr, (SDL_RendererFlip)flipFlags);
+    SDL_RenderTextureRotated(renderer, texture.texture, &srcRect, &dstRect, 0.0, nullptr, (SDL_RendererFlip) flipFlags);
 }
 
 void Render2D::_beginScissorMode(Rectangle area) {
@@ -68,7 +68,7 @@ void Render2D::_endScissorMode() {
 void Render2D::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {
     SDL_FRect dstRect = _doCamera(pos, size);
 
-    SDL_SetRenderDrawColor(renderer, color.r, color.g,color.b,color.a);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
     SDL_RenderFillRect(renderer, &dstRect);
 }
 
@@ -79,12 +79,10 @@ void Render2D::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Co
         radius *= Camera::GetScale();
     }
     roundedBoxRGBA(Window::GetRenderer(),
-                         pos.x, pos.y,
-                         pos.x + size.x, pos.y + size.y,
-                         radius,
-                         color.r, color.g, color.b, color.a);
-
-    _drawRectangleFilled({pos.x, pos.y + radius}, {size.x, size.y - (radius * 2.f) + 1 }, color);
+                   pos.x, pos.y,
+                   pos.x + size.x, pos.y + size.y,
+                   radius,
+                   color.r, color.g, color.b, color.a);
 }
 
 void Render2D::_drawCircleFilled(vf2d pos, float radius, Color color) {
@@ -120,10 +118,10 @@ Rectangle Render2D::_doCamera(vf2d pos, vf2d size) {
         vf2d screenPos = Camera::ToScreenSpace(pos);
         vf2d screenSize = Camera::ToScreenSpace(pos + size) - screenPos;
 
-        dstRect = { screenPos.x, screenPos.y, screenSize.x, screenSize.y };
+        dstRect = {screenPos.x, screenPos.y, screenSize.x, screenSize.y};
     } else {
         // Camera is not active, render directly in screen space
-        dstRect = { pos.x, pos.y, size.x, size.y };
+        dstRect = {pos.x, pos.y, size.x, size.y};
     }
 
     return dstRect;
@@ -143,7 +141,7 @@ void Render2D::_drawThickLine(vf2d start, vf2d end, Color color, float width) {
             Window::GetRenderer(),
             start.x, start.y,
             end.x, end.y,
-            (int)width,
+            (int) width,
             color.r, color.g, color.b, color.a);
 }
 
@@ -154,15 +152,12 @@ void Render2D::_drawTriangle(vf2d v1, vf2d v2, vf2d v3, Color color) {
         v2 = Camera::ToScreenSpace(v2);
         v3 = Camera::ToScreenSpace(v3);
     }
-    _drawLine(v1, v2, color);
-    _drawLine(v2, v3, color);
-    _drawLine(v3, v1, color);
-//TODO: figure out why this doesn't draw
-//    trigonRGBA(Window::GetRenderer(),
-//               v1.x, v1.y,
-//               v2.x, v2.y,
-//               v3.x, v3.y,
-//                color.r, color.g, color.b, color.a);
+
+    trigonRGBA(Window::GetRenderer(),
+               v1.x, v1.y,
+               v2.x, v2.y,
+               v3.x, v3.y,
+               color.r, color.g, color.b, color.a);
 }
 
 void Render2D::_drawEllipse(vf2d center, float radiusX, float radiusY, Color color) {
@@ -174,9 +169,9 @@ void Render2D::_drawEllipse(vf2d center, float radiusX, float radiusY, Color col
 
 
     ellipseRGBA(Window::GetRenderer(),
-               center.x, center.y,
-               radiusX,
-               radiusY,
+                center.x, center.y,
+                radiusX,
+                radiusY,
                 color.r, color.g, color.b, color.a);
 }
 
@@ -189,10 +184,10 @@ void Render2D::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
     }
 
     filledTrigonRGBA(Window::GetRenderer(),
-               v1.x, v1.y,
-               v2.x, v2.y,
-               v3.x, v3.y,
-                color.r, color.g, color.b, color.a);
+                     v1.x, v1.y,
+                     v2.x, v2.y,
+                     v3.x, v3.y,
+                     color.r, color.g, color.b, color.a);
 }
 
 void Render2D::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
@@ -202,14 +197,14 @@ void Render2D::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Col
     }
 
     filledEllipseRGBA(Window::GetRenderer(),
-               center.x, center.y,
-               radiusX,
-               radiusY,
-                color.r, color.g, color.b, color.a);
+                      center.x, center.y,
+                      radiusX,
+                      radiusY,
+                      color.r, color.g, color.b, color.a);
 }
 
 void Render2D::_drawPixel(vi2d pos, Color color) {
-    SDL_SetRenderDrawColor(Window::GetRenderer(), color.r, color.g,color.b,color.a);
+    SDL_SetRenderDrawColor(Window::GetRenderer(), color.r, color.g, color.b, color.a);
     SDL_RenderPoint(Window::GetRenderer(), pos.x, pos.y);
 }
 
@@ -235,12 +230,12 @@ void Render2D::_drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Para
 //    ImGui::Text("srcRect.w : %f", srcRect.w);
 //    ImGui::Text("srcRect.h : %f", srcRect.h);
 
-    SDL_FRect destRect = { pos.x, pos.y, size.x, size.y };
+    SDL_FRect destRect = {pos.x, pos.y, size.x, size.y};
 
     bool shouldDrawBackground = false;
 
     if (srcRect.x + srcRect.w > texture.width) {
-        float diffX = ((srcRect.x + srcRect.w) - (float)texture.width);
+        float diffX = ((srcRect.x + srcRect.w) - (float) texture.width);
         destRect.w -= diffX * 2.f;
         srcRect.w -= diffX * 2.f;
 
@@ -249,7 +244,7 @@ void Render2D::_drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Para
     }
 
     if (srcRect.y + srcRect.h > texture.height) {
-        float diffX = ((srcRect.y + srcRect.h) - (float)texture.height);
+        float diffX = ((srcRect.y + srcRect.h) - (float) texture.height);
         destRect.h -= diffX * 2.f;
         srcRect.h -= diffX * 2.f;
 
@@ -269,7 +264,7 @@ void Render2D::_drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Para
     if (m7p.a < 0) { flipFlags |= SDL_FLIP_HORIZONTAL; }
     if (m7p.d < 0) { flipFlags |= SDL_FLIP_VERTICAL; }
 
-    SDL_FPoint center = {(float)m7p.x0, (float)m7p.y0};
+    SDL_FPoint center = {(float) m7p.x0, (float) m7p.y0};
 
     if (shouldDrawBackground) {
         DrawRectangleFilled(pos, size, BLACK);
@@ -277,7 +272,7 @@ void Render2D::_drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Para
 
 //    ImGui::End();
 
-    SDL_RenderTextureRotated(Window::GetRenderer(), texture.texture, &srcRect, &destRect, 0.0, &center, (SDL_RendererFlip)flipFlags);
+    SDL_RenderTextureRotated(Window::GetRenderer(), texture.texture, &srcRect, &destRect, 0.0, &center, (SDL_RendererFlip) flipFlags);
 
 }
 
