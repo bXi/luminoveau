@@ -38,6 +38,7 @@ public:
     static bool MouseButtonPressed(int button) { return get()._mouseButtonPressed(button); }
     static bool MouseButtonDown(int button) { return get()._mouseButtonDown(button); }
 
+    static void UpdateInputs(std::vector<Uint8> keys, bool held) { get()._updateInputs(keys, held); }
 private:
     std::vector<InputDevice*> inputs;
     void _init();
@@ -58,7 +59,9 @@ private:
     bool _mouseButtonPressed(int button);
     bool _mouseButtonDown(int button);
 
-    const Uint8 *currentKeyboardState;
+    void _updateInputs(const std::vector<Uint8>& keys, bool held);
+
+    std::vector<Uint8> currentKeyboardState;
     std::vector<Uint8> previousKeyboardState;
 
     Uint32 currentMouseButtons = 0;
@@ -81,7 +84,7 @@ public:
 private:
     Input() {
         SDL_PumpEvents();
-        currentKeyboardState = SDL_GetKeyboardState(nullptr);
+        currentKeyboardState.resize(SDL_NUM_SCANCODES);
         previousKeyboardState.resize(SDL_NUM_SCANCODES);
     }
 };

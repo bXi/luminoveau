@@ -164,7 +164,7 @@ if (ADD_IMGUI)
 
         )
 
-        add_compile_definitions(ADD_IMGUI)
+
 
         if (WIN32)
             target_sources("bixxy-engine" PRIVATE

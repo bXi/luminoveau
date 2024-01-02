@@ -114,18 +114,31 @@ void Window::_handleInput() {
 
     SDL_Event event;
 
+    std::vector<Uint8> newKeysDown;
+    std::vector<Uint8> newKeysUp;
 
     while (SDL_PollEvent(&event)) {
 #ifdef ADD_IMGUI
         ImGui_ImplSDL3_ProcessEvent(&event);
 #endif
 
+
         switch (event.type) {
             case SDL_EventType::SDL_EVENT_QUIT:
                 _shouldQuit = true;
                 break;
+            case SDL_EventType::SDL_EVENT_KEY_DOWN:
+                newKeysDown.push_back(event.key.keysym.scancode);
+                break;
+            case SDL_EventType::SDL_EVENT_KEY_UP:
+                newKeysUp.push_back(event.key.keysym.scancode);
+                break;
+
         }
     }
+
+    Input::UpdateInputs(newKeysDown, true);
+    Input::UpdateInputs(newKeysUp, false);
 
     if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) { // && SDL_GetModState() & SDL_KMOD_SHIFT) {
         ToggleDebugMenu();
@@ -167,7 +180,7 @@ void Window::_endFrame() {
     }
 
 #ifdef ADD_IMGUI
-    if (debugMenuVisible) {
+    if (_debugMenuVisible) {
         Helpers::DrawMainMenu();
     }
     ImGui::Render();
@@ -189,7 +202,7 @@ SDL_Window *Window::_getWindow() {
 
 void Window::_toggleDebugMenu() {
 #ifdef ADD_IMGUI
-    get().debugMenuVisible = !get().debugMenuVisible;
+    get()._debugMenuVisible = !get()._debugMenuVisible;
 #endif
 }
 

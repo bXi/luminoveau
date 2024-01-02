@@ -108,7 +108,7 @@ private:
 #ifdef ADD_IMGUI
     void SetupImGuiStyle();
 
-    bool debugMenuVisible = false;
+    bool _debugMenuVisible;
 #endif
 public:
     Window(const Window&) = delete;
@@ -122,5 +122,8 @@ private:
         _currentTime = _startTime;
 
         _fpsAccumulator = 0.f;
+#ifdef ADD_IMGUI
+        _debugMenuVisible = false;
+#endif
     };
 };

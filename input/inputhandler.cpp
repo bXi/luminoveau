@@ -29,12 +29,9 @@ void Input::_init() {
         gamepads.push_back(temp);
         inputs.push_back(new InputDevice(InputType::GAMEPAD, i));
     }
-
-
 }
 
 InputDevice *Input::_getController(int index) {
-
     return inputs[index];
 }
 
@@ -45,12 +42,7 @@ void Input::_clear() {
 void Input::_update() {
     UpdateTimings();
 
-
-    for (int i = 0; i < SDL_NUM_SCANCODES; i++) {
-        previousKeyboardState.at(i) = currentKeyboardState[i];
-    }
-    currentKeyboardState = SDL_GetKeyboardState(nullptr);
-
+    previousKeyboardState = currentKeyboardState;
 
     previousMouseButtons = currentMouseButtons;
     currentMouseButtons = SDL_GetMouseState(nullptr, nullptr);
@@ -117,7 +109,7 @@ bool Input::_keyDown(int key) {
 
     auto scancode = SDL_GetScancodeFromKey(key);
 
-    return SDL_GetKeyboardState(nullptr)[scancode] == 1;
+    return currentKeyboardState[scancode] == 1;
 }
 
 
@@ -155,4 +147,16 @@ bool Input::_mouseButtonPressed(int button) {
 bool Input::_mouseButtonDown(int button) {
     auto buttonmask = (1 << ((button) - 1));
     return (currentMouseButtons & buttonmask) != 0;
+}
+
+void Input::_updateInputs(const std::vector<Uint8>& keys, bool held) {
+    if (held) {
+        for (auto scancode : keys) {
+            currentKeyboardState[scancode] = 1;
+        }
+    } else {
+        for (auto scancode : keys) {
+            currentKeyboardState[scancode] = 0;
+        }
+    }
 }
