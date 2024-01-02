@@ -133,6 +133,12 @@ void Window::_handleInput() {
             case SDL_EventType::SDL_EVENT_KEY_UP:
                 newKeysUp.push_back(event.key.keysym.scancode);
                 break;
+            case SDL_EventType::SDL_EVENT_GAMEPAD_ADDED:
+                Input::AddGamepadDevice(event.gdevice.which);
+                break;
+            case SDL_EventType::SDL_EVENT_GAMEPAD_REMOVED:
+                Input::RemoveGamepadDevice(event.gdevice.which);
+                break;
 
         }
     }

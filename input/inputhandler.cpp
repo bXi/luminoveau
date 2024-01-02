@@ -14,7 +14,7 @@ void Input::_init() {
     SDL_SetHint(SDL_HINT_LINUX_JOYSTICK_DEADZONES, "1");
 
 
-    SDL_Init(SDL_INIT_GAMEPAD);
+    SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD);
 
     inputs.push_back(new InputDevice(InputType::MOUSE_KB));
 
@@ -23,6 +23,7 @@ void Input::_init() {
 
     for (int i = 0; i < gamePadCount; i++) {
         gamepadInfo temp;
+        temp.joystickId = joystickIds[i];
         temp.previousButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
         temp.currentButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
         temp.gamepad = SDL_OpenGamepad(joystickIds[i]);
@@ -159,4 +160,31 @@ void Input::_updateInputs(const std::vector<Uint8>& keys, bool held) {
             currentKeyboardState[scancode] = 0;
         }
     }
+}
+
+void Input::_addGamepadDevice(SDL_JoystickID joystickID) {
+    for (const auto& gamepad : gamepads) {
+        if (gamepad.joystickId == joystickID) return;
+    }
+
+
+    int newgamepadID = gamepads.size();
+    gamepadInfo temp;
+    temp.joystickId = joystickID;
+    temp.previousButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
+    temp.currentButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
+    temp.gamepad = SDL_OpenGamepad(joystickID);
+    gamepads.push_back(temp);
+    inputs.push_back(new InputDevice(InputType::GAMEPAD, newgamepadID));
+}
+
+void Input::_removeGamepadDevice(SDL_JoystickID joystickID) {
+    // Use std::remove_if to move the gamepad with the specified joystickID to the end
+    auto newEnd = std::remove_if(gamepads.begin(), gamepads.end(),
+                                  [joystickID](const auto& gamepad) {
+                                      return gamepad.joystickId == joystickID;
+                                  });
+
+    // Erase the removed gamepads from the vector
+    gamepads.erase(newEnd, gamepads.end());
 }

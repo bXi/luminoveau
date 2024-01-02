@@ -4,6 +4,7 @@
 #include <list>
 #include <map>
 #include <unordered_map>
+#include <algorithm>
 
 #include "SDL3/SDL.h"
 
@@ -38,7 +39,11 @@ public:
     static bool MouseButtonPressed(int button) { return get()._mouseButtonPressed(button); }
     static bool MouseButtonDown(int button) { return get()._mouseButtonDown(button); }
 
+    //For internal use. handle with care
     static void UpdateInputs(std::vector<Uint8> keys, bool held) { get()._updateInputs(keys, held); }
+
+    static void AddGamepadDevice(SDL_JoystickID joystickID) { get()._addGamepadDevice(joystickID); }
+    static void RemoveGamepadDevice(SDL_JoystickID joystickID) { get()._removeGamepadDevice(joystickID); }
 private:
     std::vector<InputDevice*> inputs;
     void _init();
@@ -61,6 +66,9 @@ private:
 
     void _updateInputs(const std::vector<Uint8>& keys, bool held);
 
+    void _addGamepadDevice(SDL_JoystickID joystickID);
+    void _removeGamepadDevice(SDL_JoystickID joystickID);
+
     std::vector<Uint8> currentKeyboardState;
     std::vector<Uint8> previousKeyboardState;
 
@@ -71,6 +79,7 @@ private:
     SDL_JoystickID* joystickIds = nullptr;
 
     struct gamepadInfo {
+        SDL_JoystickID joystickId;
         SDL_Gamepad* gamepad;
         std::vector<bool> currentButtonState;
         std::vector<bool> previousButtonState;
