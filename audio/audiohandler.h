@@ -22,37 +22,37 @@ public:
         get()._close();
     }
 
-	static void updateMusicStreams()
+	static void UpdateMusicStreams()
 	{
 		get()._updateMusicStreams();
 	}
 
-	static void stopMusic()
+	static void StopMusic()
 	{
 		get()._stopMusic();
 	}
 
-	static void getMusic(const char* fileName)
+	static void GetMusic(const char* fileName)
 	{
 		get()._getMusic(fileName);
 	}
 
-	static void getSound(const char* fileName)
+	static void GetSound(const char* fileName)
 	{
 		get()._getSound(fileName);
 	}
 
-	static void playMusic(const char* fileName)
+	static void PlayMusic(const char* fileName)
 	{
 		get()._playMusic(fileName);
 	}
 
-	static void playSound(const char* fileName)
+	static void PlaySound(const char* fileName)
 	{
 		get()._playSound(fileName);
 	}
 
-	static bool isMusicPlaying()
+	static bool IsMusicPlaying()
 	{
 		return get()._isMusicPlaying();
 	}
