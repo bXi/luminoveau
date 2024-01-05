@@ -37,9 +37,9 @@ class Window {
 public:
 
 
-    static void InitWindow(const std::string &title, int width = 800, int height = 600, unsigned int flags = 0)
+    static void InitWindow(const std::string &title, int width = 800, int height = 600, int scale = 1, unsigned int flags = 0)
     {
-        get()._initWindow(title, width, height, flags);
+        get()._initWindow(title, width, height, scale, flags);
     }
     static void Close() { get()._close(); }
 
