@@ -83,14 +83,13 @@ set(INTERFACE_SDL3_SHARED OFF)
 set(SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS ON)
 CPMAddPackage(
     NAME SDL3
-    GIT_TAG 44c2f34
+    GIT_TAG ed62d6e
     GITHUB_REPOSITORY libsdl-org/SDL
 )
 
 if(SDL3_ADDED)
     target_include_directories("bixxy-engine" PUBLIC ${SDL3_SOURCE_DIR}/include)
 endif()
-
 
 set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
@@ -103,7 +102,6 @@ CPMAddPackage(
 if(SDL3_image_ADDED)
     target_include_directories("bixxy-engine" PUBLIC ${SDL3_image_SOURCE_DIR}/include)
 endif()
-
 
 if(NOT MSVC)
     CPMAddPackage(
@@ -127,7 +125,6 @@ CPMAddPackage(
 if(SDL3_ttf_ADDED)
     target_include_directories("bixxy-engine" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
 endif()
-
 
 CPMAddPackage(
     NAME SDL3_mixer
@@ -161,10 +158,7 @@ if (ADD_IMGUI)
             ${Imgui_SOURCE_DIR}/imgui_draw.cpp
             ${Imgui_SOURCE_DIR}/imgui_tables.cpp
             ${Imgui_SOURCE_DIR}/imgui_widgets.cpp
-
         )
-
-
 
         if (WIN32)
             target_sources("bixxy-engine" PRIVATE
@@ -178,7 +172,5 @@ if (ADD_IMGUI)
                 window/imgui_impl_sdl3.cpp
             ) 
         endif()
-
-        
     endif()
 endif()
