@@ -145,6 +145,12 @@ bool Input::_mouseButtonPressed(int button) {
     return (currentMouseButtons & buttonmask) != 0 && (previousMouseButtons & buttonmask) == 0;
 }
 
+bool Input::_mouseButtonReleased(int button) {
+    auto buttonmask = (1 << ((button) - 1));
+    return (currentMouseButtons & buttonmask) == 0 && (previousMouseButtons & buttonmask) != 0;
+}
+
+
 bool Input::_mouseButtonDown(int button) {
     auto buttonmask = (1 << ((button) - 1));
     return (currentMouseButtons & buttonmask) != 0;

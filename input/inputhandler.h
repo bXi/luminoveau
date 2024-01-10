@@ -37,6 +37,7 @@ public:
 
     static vf2d GetMousePosition() { return get()._getMousePosition(); }
     static bool MouseButtonPressed(int button) { return get()._mouseButtonPressed(button); }
+    static bool MouseButtonReleased(int button) { return get()._mouseButtonReleased(button); }
     static bool MouseButtonDown(int button) { return get()._mouseButtonDown(button); }
 
     //For internal use. handle with care
@@ -62,6 +63,7 @@ private:
 
     vf2d _getMousePosition();
     bool _mouseButtonPressed(int button);
+    bool _mouseButtonReleased(int button);
     bool _mouseButtonDown(int button);
 
     void _updateInputs(const std::vector<Uint8>& keys, bool held);
