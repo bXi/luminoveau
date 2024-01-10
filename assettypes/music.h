@@ -1,10 +1,12 @@
 #pragma once
 
-#include "SDL3_mixer/SDL_mixer.h"
+#include "audio/miniaudio.h"
+
 
 struct Music
 {
-	Mix_Music* music = nullptr;
+    ma_sound* music = nullptr;
+
 	bool shouldPlay = false;
 	bool started = false;
 };

@@ -4,9 +4,6 @@
 
 #include "settings/settingshandler.h"
 
-#include "SDL3/SDL.h"
-#include "SDL3_mixer/SDL_mixer.h"
-
 #include "assettypes/sound.h"
 #include "assettypes/music.h"
 
@@ -71,8 +68,11 @@ private:
     void _init();
     void _close();
 
-    SDL_AudioSpec _spec;
+    ma_device device;
+    ma_engine engine;
+    ma_resource_manager resourceManager;
 
+    static void ma_data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount);
 
 public:
 	Audio(const Audio&) = delete;

@@ -1,8 +1,11 @@
 #pragma once
 
-#include "SDL3_mixer/SDL_mixer.h"
+#include "audio/miniaudio.h"
+
 
 struct Sound
 {
-    Mix_Chunk* sound = nullptr;
+
+    ma_sound* sound = nullptr;
+
 };

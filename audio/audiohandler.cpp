@@ -1,10 +1,15 @@
 #include "audiohandler.h"
 
+#define MINIAUDIO_IMPLEMENTATION
+#include "miniaudio.h"
+
+
 Sound Audio::_getSound(const char* fileName)
 {
 	if (_sounds.find(fileName) == _sounds.end()) {
 		Sound _sound;
-        _sound.sound = Mix_LoadWAV(fileName);
+        _sound.sound = new ma_sound();
+        ma_sound_init_from_file(&engine, fileName, MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sound.sound);
 
 		_sounds[fileName] = _sound;
 
@@ -19,7 +24,9 @@ Music Audio::_getMusic(const char* fileName)
 {
 	if (_musics.find(fileName) == _musics.end()) {
 		Music _music;
-        _music.music = Mix_LoadMUS(fileName);
+
+        _music.music = new ma_sound();
+        ma_sound_init_from_file(&engine, fileName, MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _music.music);
 
 		_musics[fileName] = _music;
 
@@ -36,18 +43,38 @@ void Audio::_playSound(const char* fileName)
 		static_assert(true, "File not loaded yet.");
 	}
 	else {
-        Mix_VolumeChunk(_sounds[fileName].sound, (int)(Settings::getSoundVolume() * 128.f));
-        Mix_PlayChannel(-1, _sounds[fileName].sound, 0);
+
+        if(ma_sound_is_playing(_sounds[fileName].sound))
+        {
+            ma_sound_seek_to_pcm_frame(_sounds[fileName].sound, 0);
+            return;
+        }
+
+        ma_sound_set_looping(_sounds[fileName].sound, false);
+        ma_sound_start(_sounds[fileName].sound);
+
 	}
 }
 
 void Audio::_updateMusicStreams()
 {
+    #ifdef __EMSCRIPTEN__
+        ma_resource_manager_process_next_job(&resourceManager);
+        #endif
+
 	for (auto& music : _musics) {
 		if (music.second.shouldPlay)
 		{
-			Mix_VolumeMusic((int)(Settings::getMusicVolume() * 128.f));
-			Mix_PlayMusic(music.second.music, 0);
+
+//            if(ma_sound_is_playing(music.second.music))
+//            {
+//                ma_sound_seek_to_pcm_frame(music.second.music, 0);
+//                return;
+//            }
+//
+//            ma_sound_set_looping(music.second.music, true);
+            ma_sound_start(music.second.music);
+
 		}
 
 	}
@@ -58,10 +85,10 @@ void Audio::_stopMusic()
 	for (auto& music : _musics) {
         if (music.second.shouldPlay) {
             music.second.shouldPlay = false;
-            //Mix_PauseMusic();
+            ma_sound_stop(music.second.music);
         }
     }
-	Mix_HaltMusic();
+	//Mix_HaltMusic();
 }
 
 bool Audio::_isMusicPlaying()
@@ -81,47 +108,63 @@ void Audio::_playMusic(const char* fileName)
 		_musics[fileName].shouldPlay = true;
 		if (!_musics[fileName].started)
 		{
+            if(ma_sound_is_playing(_musics[fileName].music))
+            {
+                ma_sound_seek_to_pcm_frame(_musics[fileName].music, 0);
+                return;
+            }
 
-            Mix_PlayMusic(_musics[fileName].music, 0);
+            ma_sound_set_looping(_musics[fileName].music, true);
+            ma_sound_start(_musics[fileName].music);
 		}
 
 
 	}
 }
 
-void Audio::_init() {
-    Mix_Init(MIX_INIT_MP3 | MIX_INIT_WAVPACK);
-
-    _spec.freq = MIX_DEFAULT_FREQUENCY;
-    _spec.format = MIX_DEFAULT_FORMAT;
-    _spec.channels = MIX_DEFAULT_CHANNELS;
-
-
-    if (Mix_OpenAudio(0, &_spec) < 0) {
-#ifndef __EMSCRIPTEN__
-        SDL_Log("Couldn't open audio: %s\n", SDL_GetError());
-#endif
-    } else {
-        Mix_QuerySpec(&_spec.freq, &_spec.format, &_spec.channels);
-#ifndef __EMSCRIPTEN__
-        SDL_Log("Opened audio at %d Hz %d bit%s %s", _spec.freq,
-            (_spec.format&0xFF),
-            (SDL_AUDIO_ISFLOAT(_spec.format) ? " (float)" : ""),
-            (_spec.channels > 2) ? "surround" :
-            (_spec.channels > 1) ? "stereo" : "mono");
-
-        putchar('\n');
-#endif
-
+    void Audio::ma_data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
+    {
+        ma_engine_read_pcm_frames((ma_engine*)(pDevice->pUserData), pOutput, frameCount, nullptr);
     }
 
+void Audio::_init() {
+    int sampleRate = 48000;
+
+    ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
+    deviceConfig.playback.format = ma_format_f32;
+    deviceConfig.playback.channels = 2;
+    deviceConfig.sampleRate = sampleRate;
+    deviceConfig.dataCallback = Audio::ma_data_callback;
+    deviceConfig.pUserData = &engine;
+
+    ma_device_init(nullptr, &deviceConfig, &device);
+
+
+    ma_resource_manager_config resourceManagerConfig = ma_resource_manager_config_init();
+    resourceManagerConfig.decodedFormat     = ma_format_f32;
+    resourceManagerConfig.decodedChannels   = 0;
+    resourceManagerConfig.decodedSampleRate = sampleRate;
+
+    #ifdef __EMSCRIPTEN__
+        resourceManagerConfig.jobThreadCount = 0;
+        resourceManagerConfig.flags |= MA_RESOURCE_MANAGER_FLAG_NON_BLOCKING;
+        resourceManagerConfig.flags |= MA_RESOURCE_MANAGER_FLAG_NO_THREADING;
+    #endif
+
+    ma_resource_manager_init(&resourceManagerConfig, &resourceManager);
+
+    ma_engine_config engineConfig = ma_engine_config_init();
+    engineConfig.pDevice = &device;
+    engineConfig.pResourceManager = &resourceManager;
+
+    ma_engine_init(&engineConfig, &engine);
 
 }
 
 void Audio::_close() {
     _stopMusic();
 
-    Mix_CloseAudio();
-
+    ma_resource_manager_uninit(&resourceManager);
+    ma_engine_uninit(&engine);
 }
 //*/
