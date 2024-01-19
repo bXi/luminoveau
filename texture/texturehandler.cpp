@@ -49,6 +49,8 @@ Texture Textures::_loadTexture(const char *fileName) {
     texture.width = surface->w;
     texture.height = surface->h;
 
+    texture.filename = fileName;
+
     texture.surface = surface;
 
     SDL_Texture* tex = SDL_CreateTextureFromSurface(Window::GetRenderer(), surface);
