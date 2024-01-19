@@ -16,26 +16,45 @@ Texture Textures::_getTexture(const char *fileName) {
     }
 }
 
-Rectangle Textures::_getRectangle(int x, int y) {
+rectf Textures::_getRectangle(int x, int y) {
 
-    const Rectangle rect = {(float) (x * Configuration::tileWidth), (float) (y * Configuration::tileHeight),
+    const rectf rect = {(float) (x * Configuration::tileWidth), (float) (y * Configuration::tileHeight),
                             (float) (Configuration::tileWidth),
                             (float) (Configuration::tileHeight)};
     return rect;
 };
 
-Rectangle Textures::_getTile(int tileId) {
+rectf Textures::_getRectangle(int x, int y, int spriteWidth, int spriteHeight) {
+
+    const rectf rect = {(float) (x * spriteWidth), (float) (y * spriteHeight),
+                            (float) (spriteWidth),
+                            (float) (spriteHeight)};
+    return rect;
+};
+
+rectf Textures::_getTile(int tileId) {
     return GetRectangle(tileId % 16, (int) tileId / 16);
 };
 
-Rectangle Textures::_getTile(int tileId, bool doubleHeight) {
-    Rectangle r = GetRectangle(tileId % 16, (int) tileId / 16);
+rectf Textures::_getTile(int tileId, bool doubleHeight) {
+    rectf r = GetRectangle(tileId % 16, (int) tileId / 16);
     if (doubleHeight) {
         r.y -= r.height;
         r.height *= 2;
     }
     return r;
 }
+
+rectf Textures::_getTile(int tileId, bool doubleHeight, int spriteWidth, int spriteHeight) {
+    rectf r = GetRectangle(tileId % 16, (int) tileId / 16, spriteWidth, spriteHeight);
+    if (doubleHeight) {
+        r.y -= r.height;
+        r.height *= 2;
+    }
+    return r;
+}
+
+
 
 Texture Textures::_loadTexture(const char *fileName) {
 

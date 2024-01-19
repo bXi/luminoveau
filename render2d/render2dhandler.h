@@ -48,11 +48,11 @@ public:
     [[maybe_unused]] static void DrawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) { get()._drawArcFilled(center, radius, startAngle, endAngle, segments, color); };
 
     [[maybe_unused]] static void DrawTexture(Texture texture, vf2d pos, vf2d size, Color color = WHITE) { get()._drawTexture(texture, pos, size, color); };
-    [[maybe_unused]] static void DrawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src, Color color = WHITE) { get()._drawTexturePart(texture, pos, size, src, color); };
+    [[maybe_unused]] static void DrawTexturePart(Texture texture, vf2d pos, vf2d size, rectf src, Color color = WHITE) { get()._drawTexturePart(texture, pos, size, src, color); };
 
     [[maybe_unused]] static void DrawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE) { get()._drawTextureMode7(texture, pos, size, m7p, color); };
 
-    [[maybe_unused]] static void BeginScissorMode(Rectangle area) { get()._beginScissorMode(area); };
+    [[maybe_unused]] static void BeginScissorMode(rectf area) { get()._beginScissorMode(area); };
     [[maybe_unused]] static void EndScissorMode() { get()._endScissorMode(); };
 
     [[maybe_unused]] static void BeginMode2D() { get()._beginMode2D(); };
@@ -79,17 +79,17 @@ private:
     void _drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color);
 
     void _drawTexture(Texture texture, vf2d pos, vf2d size, Color color = WHITE);
-    void _drawTexturePart(Texture texture, vf2d pos, vf2d size, Rectangle src, Color color = WHITE);
+    void _drawTexturePart(Texture texture, vf2d pos, vf2d size, rectf src, Color color = WHITE);
 
     void _drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE);
 
-    void _beginScissorMode(Rectangle area);
+    void _beginScissorMode(rectf area);
     void _endScissorMode();
 
     void _beginMode2D();
     void _endMode2D();
 
-    Rectangle _doCamera(vf2d pos, vf2d size);
+    rectf _doCamera(vf2d pos, vf2d size);
     SDL_Renderer* renderer = nullptr;
 
 //Singleton part

@@ -2,6 +2,7 @@
 
 #include <configuration/configuration.h>
 #include <utils/vectors.h>
+#include <utils/rectangles.h>
 
 #include <cstdarg>
 #include <cstdio>
@@ -20,9 +21,9 @@ public:
 	static void DrawMainMenu();
 	static float getDifficultyModifier(float mod);
 
-	static bool lineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, Rectangle rect);
+	static bool lineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, rectf rect);
 
-	static std::vector<std::pair<vf2d, vf2d>> getLinesFromRectangle(Rectangle rect);
+	static std::vector<std::pair<vf2d, vf2d>> getLinesFromRectangle(rectf rect);
 
 	static bool randomChance(const float required);
 	static const char* TextFormat(const char *text, ...);

@@ -88,7 +88,7 @@ float Helpers::getDifficultyModifier(float mod) {
     return 1.0f + ((mod / 10.0f) * (mod / 10.0f) / 1.9f);
 }
 
-bool Helpers::lineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, Rectangle rect) {
+bool Helpers::lineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, rectf rect) {
 
     auto doIntersect = [](vf2d p1, vf2d q1, vf2d p2, vf2d q2) -> bool {
         auto orientation = [](vf2d p, vf2d q, vf2d r) -> int {
@@ -143,7 +143,7 @@ bool Helpers::lineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, Rectangle re
     return false;
 }
 
-std::vector<std::pair<vf2d, vf2d>> Helpers::getLinesFromRectangle(Rectangle rect) {
+std::vector<std::pair<vf2d, vf2d>> Helpers::getLinesFromRectangle(rectf rect) {
     float x = rect.x;
     float y = rect.y;
     vf2d topLeft = {x, y};

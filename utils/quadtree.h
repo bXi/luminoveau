@@ -72,9 +72,9 @@ public:
                 );
         }
 
-        Rectangle getRectangle()
+        rectf getRectangle()
         {
-            Rectangle rect = {
+            rectf rect = {
                 getLeft(),
                 getTop(),
                 _width,
@@ -139,7 +139,7 @@ public:
 
 
 
-    QuadTree(Rectangle boundary)
+    QuadTree(rectf boundary)
     {
 
         const AABB aabbboundary = AABB(boundary.x, boundary.y, boundary.width, boundary.height);
@@ -149,10 +149,10 @@ public:
     void subdivide()
     {
 
-        const Rectangle nwRect = {_boundary._left                           , _boundary._top,                            _boundary._width / 2.0f, _boundary._height / 2.0f};
-        const Rectangle neRect = {_boundary._left + _boundary._width / 2.0f , _boundary._top,                            _boundary._width / 2.0f, _boundary._height / 2.0f};
-        const Rectangle swRect = {_boundary._left                           , _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f, _boundary._height / 2.0f};
-        const Rectangle seRect = {_boundary._left + _boundary._width / 2.0f , _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f, _boundary._height / 2.0f};
+        const rectf nwRect = {_boundary._left                           , _boundary._top,                            _boundary._width / 2.0f, _boundary._height / 2.0f};
+        const rectf neRect = {_boundary._left + _boundary._width / 2.0f , _boundary._top,                            _boundary._width / 2.0f, _boundary._height / 2.0f};
+        const rectf swRect = {_boundary._left                           , _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f, _boundary._height / 2.0f};
+        const rectf seRect = {_boundary._left + _boundary._width / 2.0f , _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f, _boundary._height / 2.0f};
 
         northWest = new QuadTree(nwRect);
         northEast = new QuadTree(neRect);
@@ -184,7 +184,7 @@ public:
     void draw(Color col)
     {
 
-        Rectangle screenBoundary = _boundary.getRectangle();
+        rectf screenBoundary = _boundary.getRectangle();
 
         screenBoundary.width *= Configuration::tileWidth;
         screenBoundary.height *= Configuration::tileHeight;
@@ -205,7 +205,7 @@ public:
     void draw(int x, int y, Color col)
     {
         
-        Rectangle screenBoundary = _boundary.getRectangle();
+        rectf screenBoundary = _boundary.getRectangle();
 
         screenBoundary.x += x;
         screenBoundary.y += y;

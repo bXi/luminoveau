@@ -41,7 +41,9 @@ add_library("bixxy-engine" STATIC
     utils/lerp.cpp
     utils/lerp.h
     utils/quadtree.h
+    utils/rectangles.cpp
     utils/rectangles.h
+    utils/vectors.cpp
     utils/vectors.h
     window/windowhandler.cpp
     window/windowhandler.h

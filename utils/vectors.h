@@ -9,7 +9,8 @@
 #include <cstdarg>
 #include <cstdio>
 
-#include "rectangles.h"
+template <class T>
+union rect_generic;
 
 #if __has_include("box2d/box2d.h")
 #include "box2d/box2d.h"
@@ -54,7 +55,7 @@ struct v2d_generic
 	v2d_generic  perp() const { return v2d_generic(-y, x); }
 	v2d_generic  floor() const { return v2d_generic(std::floor(x), std::floor(y)); }
 	v2d_generic  ceil() const { return v2d_generic(std::ceil(x), std::ceil(y)); }
-	v2d_generic  clamp(Rectangle target) const { return v2d_generic(std::clamp(x, target.x, target.x + target.width), std::clamp(y, target.y, target.y + target.height)); }
+	v2d_generic  clamp(const rect_generic<T>& target) const;
     float  distanceTo(const v2d_generic other) { return sqrtf(
             ((float)this->x - (float)other.x) *
             ((float)this->x - (float)other.x) +
@@ -67,8 +68,6 @@ struct v2d_generic
             result.y = this->y - (2.0f*normal.y)*dotProduct;
             return result;
     }
-    //	operator Vector2() { return Vector2(static_cast<float>(x), static_cast<float>(y)); }
-//	v2d_generic(const Vector2& v) : x(static_cast<T>(v.x)), y(static_cast<T>(v.y)) {}
 
 #if __has_include("box2d/box2d.h")
 	operator b2Vec2() { return b2Vec2(x, y); }

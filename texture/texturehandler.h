@@ -18,9 +18,12 @@ class Textures {
 public:
     static Texture GetTexture(const char* fileName) { return get()._getTexture(fileName); }
 
-    static Rectangle GetRectangle(int x, int y) { return get()._getRectangle(x, y); }
-    static Rectangle GetTile(int tileId) { return get()._getTile(tileId); }
-    static Rectangle GetTile(int tileId, bool doubleHeight) { return get()._getTile(tileId, doubleHeight); }
+    static rectf GetRectangle(int x, int y) { return get()._getRectangle(x, y); }
+    static rectf GetRectangle(int x, int y, int spriteWidth, int spriteHeight) { return get()._getRectangle(x, y, spriteWidth, spriteHeight); }
+
+    static rectf GetTile(int tileId) { return get()._getTile(tileId); }
+    static rectf GetTile(int tileId, bool doubleHeight) { return get()._getTile(tileId, doubleHeight); }
+    static rectf GetTile(int tileId, bool doubleHeight, int spriteWidth, int spriteHeight) { return get()._getTile(tileId, doubleHeight, spriteWidth, spriteHeight); }
 
     static void LoadTexture(const char* fileName) { get()._loadTexture(fileName); }
     static void SaveTextureAsPNG(Texture texture, const char* fileName) { get()._saveTextureAsPNG(texture, fileName); }
@@ -35,9 +38,12 @@ private:
 
     Texture _loadTexture(const char* fileName);
 
-    Rectangle _getRectangle(int x, int y);
-    Rectangle _getTile(int tileId);
-    Rectangle _getTile(int tileId, bool doubleHeight);
+    rectf _getRectangle(int x, int y);
+    rectf _getRectangle(int x, int y, int spriteWidth, int spriteHeight);
+
+    rectf _getTile(int tileId);
+    rectf _getTile(int tileId, bool doubleHeight);
+    rectf _getTile(int tileId, bool doubleHeight, int spriteWidth, int spriteHeight);
 
     Texture _createEmptyTexture(const vf2d& size);
 
