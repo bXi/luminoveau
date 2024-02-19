@@ -99,7 +99,30 @@ bool Window::_isFullscreen() {
 vf2d Window::_getSize(bool getRealSize) {
     int w, h;
 
-    SDL_GetWindowSize(m_window.get(), &w, &h);
+    if (IsFullscreen()) {
+
+        const SDL_DisplayMode* dm;
+
+        int windowX = 10;
+        int windowY = 10;
+
+        SDL_GetWindowPosition(Window::GetWindow(), &windowX, &windowY);
+
+        const SDL_Point* point = new const SDL_Point({ windowX + 10, windowY + 10 });
+
+        dm = SDL_GetCurrentDisplayMode(
+            SDL_GetDisplayForPoint(point)
+            );
+
+        w = dm->w;
+        h = dm->h;
+    }
+    else {
+        // Get the size of the window's client area
+        SDL_GetWindowSize(m_window.get(), &w, &h);
+    }
+
+
 
     if (!getRealSize && _scaleFactor > 1) {
         w /= _scaleFactor;
