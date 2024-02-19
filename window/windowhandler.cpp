@@ -69,7 +69,7 @@ void Window::_toggleFullscreen() {
     auto fullscreenFlag = SDL_WINDOW_FULLSCREEN;
     bool isFullscreen = SDL_GetWindowFlags(window) & fullscreenFlag;
 
-    SDL_SetWindowFullscreen(window, isFullscreen);
+    SDL_SetWindowFullscreen(window, !isFullscreen);
 }
 
 SDL_Renderer *Window::_getRenderer() {

@@ -14,7 +14,7 @@ class Settings {
 public:
 
     static void setRes(int width, int height) { get()._setRes(width, height); }
-    static void toggleFullscreen() { get()._toggleFullscreen(); }
+    static void ToggleFullscreen() { get()._toggleFullscreen(); }
     static void toggleVsync() { get()._toggleVsync(); }
     static bool getVsync() { return get()._getVsync(); }
     static void saveSettings() { get()._saveSettings(); }
