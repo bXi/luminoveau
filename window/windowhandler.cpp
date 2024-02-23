@@ -255,6 +255,19 @@ void Window::_setScaledSize(int widthInScaledPixels, int heightInScaledPixels, i
 
 }
 
+void Window::_setRenderTarget(Texture target) {
+    SDL_SetRenderTarget(Window::GetRenderer(), target.texture);
+}
+
+void Window::_resetRenderTarget() {
+    if (_scaleFactor > 1) {
+        _setRenderTarget(_screenBuffer);
+    } else {
+        SDL_SetRenderTarget(Window::GetRenderer(), nullptr);
+    }
+}
+
+
 #ifdef ADD_IMGUI
 void Window::SetupImGuiStyle()
 {

@@ -56,6 +56,9 @@ public:
 
     static void StartFrame() { get()._startFrame(); }
     static void EndFrame() { get()._endFrame(); }
+    static void SetRenderTarget(Texture target) { get()._setRenderTarget(target); }
+    static void ResetRenderTarget() { get()._resetRenderTarget(); }
+
 
     static void ClearBackground(Color color) { get()._clearBackground(color); }
 
@@ -90,6 +93,10 @@ private:
     void _startFrame();
     void _clearBackground(Color color);
     void _endFrame();
+
+    void _setRenderTarget(Texture target);
+    void _resetRenderTarget();
+
     void _toggleDebugMenu();
 
     Texture _screenBuffer;
