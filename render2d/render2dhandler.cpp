@@ -32,7 +32,7 @@ void Render2D::_drawArc(vf2d center, float radius, float startAngle, float endAn
 
 void Render2D::_drawTexture(Texture texture, vf2d pos, vf2d size, Color color) {
 
-    SDL_FRect dstRect = _doCamera(pos, size);;
+    SDL_FRect dstRect = _doCamera(pos, size);
 
 
     SDL_SetTextureColorMod(texture.texture, color.r, color.g, color.b);
