@@ -12,6 +12,9 @@ add_library("bixxy-engine" STATIC
     fonts/fonthandler.cpp
     fonts/fonthandler.h
 
+    eventbus/eventbushandler.cpp
+    eventbus/eventbushandler.h
+
     input/inputconstants.h
     input/inputdevice.cpp
     input/inputdevice.h
