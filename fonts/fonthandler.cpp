@@ -13,8 +13,11 @@ Font Fonts::_getFont(const char* fileName, const int fontSize)
         _font.font = TTF_OpenFont(fileName, fontSize);
 
         if (_font.font == nullptr) {
-            SDL_Log("Couldn't load %d pt font from %s: %s\n",
+            std::string error = Helpers::TextFormat("Couldn't load %d pt font from %s: %s\n",
                     fontSize, fileName, SDL_GetError());
+
+            SDL_Log(error.c_str());
+            throw std::runtime_error(error.c_str());
         }
 
 		_fonts[index] = _font;

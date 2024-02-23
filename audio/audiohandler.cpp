@@ -9,7 +9,14 @@ Sound Audio::_getSound(const char* fileName)
 	if (_sounds.find(fileName) == _sounds.end()) {
 		Sound _sound;
         _sound.sound = new ma_sound();
-        ma_sound_init_from_file(&engine, fileName, MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sound.sound);
+        ma_result result = ma_sound_init_from_file(&engine, fileName, MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sound.sound);
+
+        if (result != MA_SUCCESS) {
+            std::string error = Helpers::TextFormat("GetSound failed: %s", fileName);
+
+            SDL_Log(error.c_str());
+            throw std::runtime_error(error.c_str());
+        }
 
 		_sounds[fileName] = _sound;
 
@@ -26,7 +33,14 @@ Music Audio::_getMusic(const char* fileName)
 		Music _music;
 
         _music.music = new ma_sound();
-        ma_sound_init_from_file(&engine, fileName, MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _music.music);
+        ma_result result = ma_sound_init_from_file(&engine, fileName, MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _music.music);
+
+        if (result != MA_SUCCESS) {
+            std::string error = Helpers::TextFormat("GetMusic failed: %s", fileName);
+
+            SDL_Log(error.c_str());
+            throw std::runtime_error(error.c_str());
+        }
 
 		_musics[fileName] = _music;
 

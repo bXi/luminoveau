@@ -62,8 +62,12 @@ Texture Textures::_loadTexture(const char *fileName) {
 
     auto surface = IMG_Load(fileName);
 
-    if (!surface)
-        SDL_Log("IMG_Load failed: %s", SDL_GetError());
+    if (!surface) {
+        std::string error = Helpers::TextFormat("IMG_Load failed: %s", SDL_GetError());
+
+        SDL_Log(error.c_str());
+        throw std::runtime_error(error.c_str());
+    }
 
     texture.width = surface->w;
     texture.height = surface->h;
