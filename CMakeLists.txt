@@ -60,9 +60,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    # Add optimization flags
     target_compile_options("bixxy-engine" PRIVATE -O3)
-    # You can add more release-specific flags as needed
 endif()
 
 target_compile_options("bixxy-engine" PRIVATE -Wall)
@@ -131,21 +129,10 @@ if(SDL3_ttf_ADDED)
     target_include_directories("bixxy-engine" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
 endif()
 
-CPMAddPackage(
-    NAME SDL3_mixer
-    GIT_TAG 2cc7a07
-    GITHUB_REPOSITORY libsdl-org/SDL_mixer
-)
-
-if(SDL3_mixer_ADDED)
-    target_include_directories("bixxy-engine" PUBLIC ${SDL3_mixer_SOURCE_DIR}/include)
-endif()
-
 target_link_libraries("bixxy-engine" PUBLIC
     SDL3::SDL3-static
     SDL3_image::SDL3_image
     SDL3_ttf::SDL3_ttf
-    SDL3_mixer::SDL3_mixer
 )
 
 if (ADD_IMGUI)
