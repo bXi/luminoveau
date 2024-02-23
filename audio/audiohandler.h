@@ -29,14 +29,14 @@ public:
 		get()._stopMusic();
 	}
 
-	static void GetMusic(const char* fileName)
+	static Music GetMusic(const char* fileName)
 	{
-		get()._getMusic(fileName);
+		return get()._getMusic(fileName);
 	}
 
-	static void GetSound(const char* fileName)
+	static Sound GetSound(const char* fileName)
 	{
-		get()._getSound(fileName);
+		return get()._getSound(fileName);
 	}
 
 	static void PlayMusic(const char* fileName)
