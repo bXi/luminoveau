@@ -15,12 +15,19 @@ struct Color {
     Color(unsigned int red, unsigned int green, unsigned int blue, unsigned int alpha)
         : r(red), g(green), b(blue), a(alpha) {}
 
+    Color(uint32_t colorCode) {
+        r = (colorCode >> 24) & 0xFF; // Extract Red component
+        g = (colorCode >> 16) & 0xFF; // Extract Green component
+        b = (colorCode >> 8) & 0xFF;  // Extract Blue component
+        a = colorCode & 0xFF;          // Extract Alpha component
+    }
+
     // Constructor that takes floating-point values
     void CreateFromFloats(float red, float green, float blue, float alpha) {
         r = static_cast<unsigned int>(red * 255.0f);
-                g = static_cast<unsigned int>(green * 255.0f);
-                b = static_cast<unsigned int>(blue * 255.0f);
-                a = static_cast<unsigned int>(alpha * 255.0f);
+        g = static_cast<unsigned int>(green * 255.0f);
+        b = static_cast<unsigned int>(blue * 255.0f);
+        a = static_cast<unsigned int>(alpha * 255.0f);
     }
 
     // Conversion methods from integer to float
