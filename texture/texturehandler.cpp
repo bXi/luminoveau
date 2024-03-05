@@ -5,10 +5,10 @@
 #include "stb_image_write.h"
 
 
-Texture Textures::_getTexture(const char *fileName) {
+Texture Textures::_getTexture(const std::string& fileName) {
     if (_textures.find(fileName) == _textures.end()) {
         Texture _tex = _loadTexture(fileName);
-        _textures[fileName] = _tex;
+        _textures[std::string(fileName)] = _tex;
 
         return _textures[fileName];
     } else {
@@ -56,11 +56,11 @@ rectf Textures::_getTile(int tileId, bool doubleHeight, int spriteWidth, int spr
 
 
 
-Texture Textures::_loadTexture(const char *fileName) {
+Texture Textures::_loadTexture(const std::string& fileName) {
 
     Texture texture;
 
-    auto surface = IMG_Load(fileName);
+    auto surface = IMG_Load(fileName.c_str());
 
     if (!surface) {
         std::string error = Helpers::TextFormat("IMG_Load failed: %s", SDL_GetError());
@@ -88,7 +88,7 @@ Texture Textures::_loadTexture(const char *fileName) {
         SDL_Log("Blendmode failed: %s", SDL_GetError());
 
     SDL_Log("Loaded texture: %s\n"
-            "\tX: %i - Y: %i", fileName, texture.width, texture.height);
+            "\tX: %i - Y: %i", fileName.c_str(), texture.width, texture.height);
 
     return texture;
 

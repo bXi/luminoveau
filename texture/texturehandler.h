@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <string>
 
 #include "SDL3/SDL.h"
 #include "SDL3_image/SDL_image.h"
@@ -30,13 +31,13 @@ public:
 
     static Texture CreateEmptyTexture(vf2d size) { return get()._createEmptyTexture(size); }
 
-    static std::unordered_map<const char*, Texture> GetTextures() { return get()._textures; }
+    static std::unordered_map<std::string, Texture> GetTextures() { return get()._textures; }
 private:
-    std::unordered_map<const char*, Texture> _textures;
+    std::unordered_map<std::string, Texture> _textures;
 
-    Texture _getTexture(const char* fileName);
+    Texture _getTexture(const std::string& fileName);
 
-    Texture _loadTexture(const char* fileName);
+    Texture _loadTexture(const std::string& fileName);
 
     rectf _getRectangle(int x, int y);
     rectf _getRectangle(int x, int y, int spriteWidth, int spriteHeight);
