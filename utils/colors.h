@@ -37,7 +37,7 @@ struct Color {
     float getAFloat() const { return static_cast<float>(a) / 255.0f; }
 
     #if __has_include("SDL3/SDL.h")
-    operator SDL_Color() { return SDL_Color(r,g,b,a); }
+    operator SDL_Color() { return SDL_Color({ (Uint8)r, (Uint8)g, (Uint8)b, (Uint8)a }); }
     #endif
 };
 static inline Color RED = {255, 0, 0, 255};

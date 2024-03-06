@@ -49,7 +49,7 @@ struct RectangleOld
     float height;
 
     #if __has_include("SDL3/SDL.h")
-    operator SDL_FRect() { return SDL_FRect(x,y,width,height); }
-    operator SDL_Rect() { return SDL_Rect((int)x,(int)y,(int)width,(int)height); }
+    operator SDL_FRect() { return SDL_FRect({ x,y,width,height }); }
+    operator SDL_Rect() { return SDL_Rect({ (int)x,(int)y,(int)width,(int)height }); }
     #endif
 };
