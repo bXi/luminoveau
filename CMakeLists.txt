@@ -1,11 +1,11 @@
 ﻿cmake_minimum_required(VERSION 3.12)
 
-project("bixxy-engine" VERSION 0.0.1 DESCRIPTION "Bixxy-Engine")
+project("luminoveau" VERSION 0.0.1 DESCRIPTION "Luminoveau")
 
 option(ADD_IMGUI "Include ImGui" OFF)
 
 # Add the content from the provided "engine.cmake" file
-add_library("bixxy-engine" STATIC
+add_library("luminoveau" STATIC
     audio/audiohandler.cpp
     audio/audiohandler.h
     configuration/configuration.h
@@ -60,13 +60,13 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options("bixxy-engine" PRIVATE -O3)
+    target_compile_options("luminoveau" PRIVATE -O3)
 endif()
 
-target_compile_options("bixxy-engine" PRIVATE -Wall)
-target_compile_features("bixxy-engine" PRIVATE cxx_std_23)
+target_compile_options("luminoveau" PRIVATE -Wall)
+target_compile_features("luminoveau" PRIVATE cxx_std_23)
 
-target_include_directories("bixxy-engine" PUBLIC
+target_include_directories("luminoveau" PUBLIC
         "${PROJECT_SOURCE_DIR}"
 )
 
@@ -91,7 +91,7 @@ CPMAddPackage(
 )
 
 if(SDL3_ADDED)
-    target_include_directories("bixxy-engine" PUBLIC ${SDL3_SOURCE_DIR}/include)
+    target_include_directories("luminoveau" PUBLIC ${SDL3_SOURCE_DIR}/include)
 endif()
 
 set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
@@ -103,7 +103,7 @@ CPMAddPackage(
 )
 
 if(SDL3_image_ADDED)
-    target_include_directories("bixxy-engine" PUBLIC ${SDL3_image_SOURCE_DIR}/include)
+    target_include_directories("luminoveau" PUBLIC ${SDL3_image_SOURCE_DIR}/include)
 endif()
 
 if(NOT MSVC)
@@ -126,10 +126,10 @@ CPMAddPackage(
 )
 
 if(SDL3_ttf_ADDED)
-    target_include_directories("bixxy-engine" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
+    target_include_directories("luminoveau" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
 endif()
 
-target_link_libraries("bixxy-engine" PUBLIC
+target_link_libraries("luminoveau" PUBLIC
     SDL3::SDL3-static
     SDL3_image::SDL3_image
     SDL3_ttf::SDL3_ttf
@@ -143,8 +143,8 @@ if (ADD_IMGUI)
     )
 
     if(Imgui_ADDED)
-        target_include_directories("bixxy-engine" PUBLIC ${Imgui_SOURCE_DIR})
-        target_sources("bixxy-engine" PUBLIC
+        target_include_directories("luminoveau" PUBLIC ${Imgui_SOURCE_DIR})
+        target_sources("luminoveau" PUBLIC
             ${Imgui_SOURCE_DIR}/imgui.cpp
             ${Imgui_SOURCE_DIR}/imgui_demo.cpp
             ${Imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -153,13 +153,13 @@ if (ADD_IMGUI)
         )
 
         if (WIN32)
-            target_sources("bixxy-engine" PRIVATE
+            target_sources("luminoveau" PRIVATE
                 window/imgui_impl_win32.cpp
                 window/imgui_impl_sdlrenderer3.cpp
                 window/imgui_impl_sdl3.cpp
             )
         else()
-            target_sources("bixxy-engine" PRIVATE
+            target_sources("luminoveau" PRIVATE
                 window/imgui_impl_sdlrenderer3.cpp
                 window/imgui_impl_sdl3.cpp
             ) 
