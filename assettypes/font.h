@@ -2,7 +2,9 @@
 
 #include "SDL3_ttf/SDL_ttf.h"
 
-struct Font
-{
-    TTF_Font* font = nullptr;
+/**
+ * @brief Represents a font asset for rendering text using SDL_ttf.
+ */
+struct Font {
+    TTF_Font *font = nullptr; /**< Pointer to the TrueType font loaded with SDL_ttf. */
 };
