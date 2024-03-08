@@ -7,7 +7,54 @@
 
 #include "inputconstants.h"
 
+/**
+ * @brief Represents an input device for handling user input.
+ */
 class InputDevice {
+public:
+    /**
+     * @brief Updates the timings of the input device.
+     */
+    void updateTimings();
+
+    /**
+     * @brief Checks if a specific button is in a particular action state.
+     *
+     * @param button The button to check.
+     * @param action The action state to check.
+     * @return True if the button is in the specified action state, false otherwise.
+     */
+    bool is(Buttons button, Action action);
+
+    /**
+     * @brief Retrieves the ID of the gamepad associated with the input device.
+     *
+     * @return The ID of the gamepad.
+     */
+    [[nodiscard]] int getGamepadID() const;
+
+    /**
+     * @brief Constructs an input device with the specified type.
+     *
+     * @param _type The type of the input device.
+     */
+    explicit InputDevice(InputType _type);
+
+    /**
+     * @brief Constructs an input device with the specified type and gamepad ID.
+     *
+     * @param _type The type of the input device.
+     * @param _gamepadID The ID of the associated gamepad.
+     */
+    InputDevice(InputType _type, int _gamepadID);
+
+    /**
+     * @brief Retrieves the type of the input device.
+     *
+     * @return The type of the input device.
+     */
+    InputType getType();
+
 private:
     InputType type;
     int gamepadID;
@@ -60,16 +107,4 @@ private:
     float joystickCooldown = 0.10f;
 
 
-public:
-    void updateTimings();
-
-    bool is(Buttons button, Action action);
-
-    [[nodiscard]] int getGamepadID() const;
-
-    explicit InputDevice(InputType _type);
-
-    InputDevice(InputType _type, int _gamepadID);
-
-    InputType getType();
 };

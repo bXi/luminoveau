@@ -26,70 +26,229 @@ struct Mode7Parameters {
     int snesScreenHeight = 224;
 };
 
+/**
+ * @brief Provides functionality for 2D rendering operations.
+ */
 class Render2D {
 public:
-    [[maybe_unused]] static void DrawPixel(vi2d pos, Color color) { get()._drawPixel(pos, color); };
+    /**
+     * @brief Draws a pixel at the specified position with the given color.
+     *
+     * @param pos The position of the pixel.
+     * @param color The color of the pixel.
+     */
+    static void DrawPixel(vi2d pos, Color color) { get()._drawPixel(pos, color); };
 
-    [[maybe_unused]] static void DrawLine(vf2d start, vf2d end, Color color) { get()._drawLine(start, end, color); };
+    /**
+     * @brief Draws a line from the start to the end position with the given color.
+     *
+     * @param start The start position of the line.
+     * @param end The end position of the line.
+     * @param color The color of the line.
+     */
+    static void DrawLine(vf2d start, vf2d end, Color color) { get()._drawLine(start, end, color); };
 
-    [[maybe_unused]] static void DrawThickLine(vf2d start, vf2d end, Color color, float width) { get()._drawThickLine(start, end, color, width); };
+    /**
+     * @brief Draws a thick line from the start to the end position with the given color and width.
+     *
+     * @param start The start position of the line.
+     * @param end The end position of the line.
+     * @param color The color of the line.
+     * @param width The width of the line.
+     */
+    static void DrawThickLine(vf2d start, vf2d end, Color color, float width) { get()._drawThickLine(start, end, color, width); };
 
+    /**
+     * @brief Draws a triangle with vertices v1, v2, and v3, filled with the given color.
+     *
+     * @param v1 The first vertex of the triangle.
+     * @param v2 The second vertex of the triangle.
+     * @param v3 The third vertex of the triangle.
+     * @param color The color of the triangle.
+     */
+    static void DrawTriangle(vf2d v1, vf2d v2, vf2d v3, Color color) { get()._drawTriangle(v1, v2, v3, color); };
 
-    [[maybe_unused]] static void DrawTriangle(vf2d v1, vf2d v2, vf2d v3, Color color) { get()._drawTriangle(v1, v2, v3, color); };
+    /**
+     * @brief Draws a rectangle at the specified position with the given size and color.
+     *
+     * @param pos The position of the rectangle.
+     * @param size The size of the rectangle.
+     * @param color The color of the rectangle.
+     */
+    static void DrawRectangle(vf2d pos, vf2d size, Color color) { get()._drawRectangle(pos, size, color); };
 
-    [[maybe_unused]] static void DrawRectangle(vf2d pos, vf2d size, Color color) { get()._drawRectangle(pos, size, color); };
-
-    [[maybe_unused]] static void DrawRectangleRounded(vf2d pos, vf2d size, float radius, Color color) {
+    /**
+     * @brief Draws a rounded rectangle at the specified position with the given size, radius, and color.
+     *
+     * @param pos The position of the rectangle.
+     * @param size The size of the rectangle.
+     * @param radius The radius of the rounded corners.
+     * @param color The color of the rectangle.
+     */
+    static void DrawRectangleRounded(vf2d pos, vf2d size, float radius, Color color) {
         get()._drawRectangleRounded(pos, size, radius, color);
     };
 
-    [[maybe_unused]] static void DrawCircle(vf2d pos, float radius, Color color) { get()._drawCircle(pos, radius, color); };
+    /**
+     * @brief Draws a circle at the specified position with the given radius and color.
+     *
+     * @param pos The center position of the circle.
+     * @param radius The radius of the circle.
+     * @param color The color of the circle.
+     */
+    static void DrawCircle(vf2d pos, float radius, Color color) { get()._drawCircle(pos, radius, color); };
 
-    [[maybe_unused]] static void DrawEllipse(vf2d center, float radiusX, float radiusY, Color color) {
+    /**
+     * @brief Draws an ellipse at the specified center position with the given radii and color.
+     *
+     * @param center The center position of the ellipse.
+     * @param radiusX The radius of the ellipse along the X-axis.
+     * @param radiusY The radius of the ellipse along the Y-axis.
+     * @param color The color of the ellipse.
+     */
+    static void DrawEllipse(vf2d center, float radiusX, float radiusY, Color color) {
         get()._drawEllipse(center, radiusX, radiusY, color);
     };
 
-    [[maybe_unused]] static void DrawArc(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
+    /**
+     * @brief Draws an arc at the specified center position with the given radius, angles, number of segments, and color.
+     *
+     * @param center The center position of the arc.
+     * @param radius The radius of the arc.
+     * @param startAngle The starting angle of the arc in radians.
+     * @param endAngle The ending angle of the arc in radians.
+     * @param segments The number of segments to approximate the arc.
+     * @param color The color of the arc.
+     */
+    static void DrawArc(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
         get()._drawArc(center, radius, startAngle, endAngle, segments, color);
     };
 
-    [[maybe_unused]] static void DrawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) { get()._drawTriangleFilled(v1, v2, v3, color); };
+    /**
+     * @brief Draws a filled triangle with vertices v1, v2, and v3, filled with the given color.
+     *
+     * @param v1 The first vertex of the triangle.
+     * @param v2 The second vertex of the triangle.
+     * @param v3 The third vertex of the triangle.
+     * @param color The color of the triangle.
+     */
+    static void DrawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) { get()._drawTriangleFilled(v1, v2, v3, color); };
 
-    [[maybe_unused]] static void DrawRectangleFilled(vf2d pos, vf2d size, Color color) { get()._drawRectangleFilled(pos, size, color); };
+    /**
+     * @brief Draws a filled rectangle at the specified position with the given size and color.
+     *
+     * @param pos The position of the rectangle.
+     * @param size The size of the rectangle.
+     * @param color The color of the rectangle.
+     */
+    static void DrawRectangleFilled(vf2d pos, vf2d size, Color color) { get()._drawRectangleFilled(pos, size, color); };
 
-    [[maybe_unused]] static void DrawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
+    /**
+     * @brief Draws a filled rounded rectangle at the specified position with the given size, radius, and color.
+     *
+     * @param pos The position of the rectangle.
+     * @param size The size of the rectangle.
+     * @param radius The radius of the rounded corners.
+     * @param color The color of the rectangle.
+     */
+    static void DrawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
         get()._drawRectangleRoundedFilled(pos, size, radius, color);
     };
 
-    [[maybe_unused]] static void DrawCircleFilled(vf2d pos, float radius, Color color) { get()._drawCircleFilled(pos, radius, color); };
+    /**
+     * @brief Draws a filled circle at the specified position with the given radius and color.
+     *
+     * @param pos The center position of the circle.
+     * @param radius The radius of the circle.
+     * @param color The color of the circle.
+     */
+    static void DrawCircleFilled(vf2d pos, float radius, Color color) { get()._drawCircleFilled(pos, radius, color); };
 
-    [[maybe_unused]] static void DrawEllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
+    /**
+     * @brief Draws a filled ellipse at the specified center position with the given radii and color.
+     *
+     * @param center The center position of the ellipse.
+     * @param radiusX The radius of the ellipse along the X-axis.
+     * @param radiusY The radius of the ellipse along the Y-axis.
+     * @param color The color of the ellipse.
+     */
+    static void DrawEllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
         get()._drawEllipseFilled(center, radiusX, radiusY, color);
     };
 
-    [[maybe_unused]] static void DrawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
+    /**
+     * @brief Draws a filled arc at the specified center position with the given radius, angles, number of segments, and color.
+     *
+     * @param center The center position of the arc.
+     * @param radius The radius of the arc.
+     * @param startAngle The starting angle of the arc in radians.
+     * @param endAngle The ending angle of the arc in radians.
+     * @param segments The number of segments to approximate the arc.
+     * @param color The color of the arc.
+     */
+    static void DrawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
         get()._drawArcFilled(center, radius, startAngle, endAngle, segments, color);
     };
 
-    [[maybe_unused]] static void DrawTexture(Texture texture, vf2d pos, vf2d size, Color color = WHITE) {
+    /**
+     * @brief Draws a texture at the specified position with the given size and color.
+     *
+     * @param texture The texture to draw.
+     * @param pos The position at which to draw the texture.
+     * @param size The size of the drawn texture.
+     * @param color The color of the drawn texture.
+     */
+    static void DrawTexture(Texture texture, vf2d pos, vf2d size, Color color = WHITE) {
         get()._drawTexture(texture, pos, size, color);
     };
 
-    [[maybe_unused]] static void DrawTexturePart(Texture texture, vf2d pos, vf2d size, rectf src, Color color = WHITE) {
+    /**
+     * @brief Draws a part of a texture at the specified position with the given size, source rectangle, and color.
+     *
+     * @param texture The texture to draw.
+     * @param pos The position at which to draw the texture.
+     * @param size The size of the drawn texture.
+     * @param src The source rectangle defining which part of the texture to draw.
+     * @param color The color of the drawn texture.
+     */
+    static void DrawTexturePart(Texture texture, vf2d pos, vf2d size, rectf src, Color color = WHITE) {
         get()._drawTexturePart(texture, pos, size, src, color);
     };
 
-    [[maybe_unused]] static void DrawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE) {
+    /**
+     * @brief Draws a texture using Mode7 transformation at the specified position with the given size, transformation parameters, and color.
+     *
+     * @param texture The texture to draw.
+     * @param pos The position at which to draw the texture.
+     * @param size The size of the drawn texture.
+     * @param m7p The Mode7 transformation parameters.
+     * @param color The color of the drawn texture.
+     */
+    static void DrawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE) {
         get()._drawTextureMode7(texture, pos, size, m7p, color);
     };
 
-    [[maybe_unused]] static void BeginScissorMode(rectf area) { get()._beginScissorMode(area); };
+    /**
+     * @brief Begins scissor mode with the specified area.
+     *
+     * @param area The area to apply scissor mode.
+     */
+    static void BeginScissorMode(rectf area) { get()._beginScissorMode(area); };
 
-    [[maybe_unused]] static void EndScissorMode() { get()._endScissorMode(); };
+    /**
+     * @brief Ends scissor mode.
+     */
+    static void EndScissorMode() { get()._endScissorMode(); };
 
-    [[maybe_unused]] static void BeginMode2D() { get()._beginMode2D(); };
+    /**
+     * @brief Begins 2D rendering mode.
+     */
+    static void BeginMode2D() { get()._beginMode2D(); };
 
-    [[maybe_unused]] static void EndMode2D() { get()._endMode2D(); };
+    /**
+     * @brief Ends 2D rendering mode.
+     */
+    static void EndMode2D() { get()._endMode2D(); };
 
 private:
 

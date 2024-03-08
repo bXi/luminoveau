@@ -6,9 +6,7 @@
 
 #endif
 
-
 #include "vectors.h"
-
 
 template<class T>
 union rect_generic {

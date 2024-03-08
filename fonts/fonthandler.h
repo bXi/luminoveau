@@ -10,14 +10,44 @@
 #include "SDL3_ttf/SDL_ttf.h"
 #include "assettypes/font.h"
 
+/**
+ * @brief Provides functionality for managing fonts and rendering text.
+ */
 class Fonts {
 public:
-    static Font GetFont(const char *fileName, const int fontSize) { return get()._getFont(fileName, fontSize); }
+    /**
+     * @brief Retrieves a font asset with the specified filename and font size.
+     *
+     * @param fileName The filename of the font asset.
+     * @param fontSize The size of the font.
+     * @return The font asset.
+     */
+    static Font GetFont(const char *fileName, const int fontSize) {
+        return get()._getFont(fileName, fontSize);
+    }
 
-    static void DrawText(Font font, vf2d pos, const char *textToDraw, Color color) { get()._drawText(font, pos, textToDraw, color); }
+    /**
+     * @brief Draws text using the specified font, position, text to draw, and color.
+     *
+     * @param font The font to use for rendering.
+     * @param pos The position where the text will be drawn.
+     * @param textToDraw The text to draw.
+     * @param color The color of the text.
+     */
+    static void DrawText(Font font, vf2d pos, const char *textToDraw, Color color) {
+        get()._drawText(font, pos, textToDraw, color);
+    }
 
-    static int MeasureText(Font font, std::string text) { return get()._measureText(font, text); }
-
+    /**
+     * @brief Measures the width of the specified text when rendered with the given font.
+     *
+     * @param font The font used for rendering the text.
+     * @param text The text to measure.
+     * @return The width of the text in pixels.
+     */
+    static int MeasureText(Font font, std::string text) {
+        return get()._measureText(font, text);
+    }
 private:
     std::unordered_map<std::string, Font> _fonts;
 

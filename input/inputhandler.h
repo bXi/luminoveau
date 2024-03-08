@@ -16,40 +16,127 @@
 
 static const int DEADZONE = 8000;
 
+/**
+ * @brief Provides functionality for handling user input.
+ */
 class Input {
 public:
-
+    /**
+     * @brief Initializes the input system.
+     */
     static void Init() { get()._init(); }
 
+    /**
+     * @brief Retrieves the input device for the specified controller index.
+     *
+     * @param index The index of the controller.
+     * @return A pointer to the input device.
+     */
     static InputDevice *GetController(int index) { return get()._getController(index); }
 
+    /**
+     * @brief Clears the input system.
+     */
     static void Clear() { get()._clear(); }
 
+    /**
+     * @brief Retrieves all input devices.
+     *
+     * @return A vector containing pointers to all input devices.
+     */
     static std::vector<InputDevice *> GetAllInputs() { return get().inputs; }
 
+    /**
+     * @brief Updates the input system.
+     */
     static void Update() { get()._update(); }
 
+    /**
+     * @brief Updates the timings of all input devices.
+     */
     static void UpdateTimings() { get()._updateTimings(); }
 
+    /**
+     * @brief Retrieves the movement value of the specified gamepad axis.
+     *
+     * @param gamepadID The ID of the gamepad.
+     * @param axis The axis to retrieve the movement value for.
+     * @return The movement value of the axis.
+     */
     static float GetGamepadAxisMovement(int gamepadID, SDL_GamepadAxis axis) { return get()._getGamepadAxisMovement(gamepadID, axis); }
 
+    /**
+     * @brief Checks if the specified button on the gamepad is pressed.
+     *
+     * @param gamepadID The ID of the gamepad.
+     * @param button The button to check.
+     * @return True if the button is pressed, false otherwise.
+     */
     static bool GamepadButtonPressed(int gamepadID, int button) { return get()._gamepadButtonPressed(gamepadID, button); }
 
-    static bool GamepadButtonDown(int gamepadID, int button) { return get()._gamepadButtonPressed(gamepadID, button); }
+    /**
+     * @brief Checks if the specified button on the gamepad is down.
+     *
+     * @param gamepadID The ID of the gamepad.
+     * @param button The button to check.
+     * @return True if the button is down, false otherwise.
+     */
+    static bool GamepadButtonDown(int gamepadID, int button) { return get()._gamepadButtonDown(gamepadID, button); }
 
+    /**
+     * @brief Checks if the specified key is pressed.
+     *
+     * @param key The key to check.
+     * @return True if the key is pressed, false otherwise.
+     */
     static bool KeyPressed(int key) { return get()._keyPressed(key); }
 
+    /**
+     * @brief Checks if the specified key is released.
+     *
+     * @param key The key to check.
+     * @return True if the key is released, false otherwise.
+     */
     static bool KeyReleased(int key) { return get()._keyReleased(key); }
 
+    /**
+     * @brief Checks if the specified key is down.
+     *
+     * @param key The key to check.
+     * @return True if the key is down, false otherwise.
+     */
     static bool KeyDown(int key) { return get()._keyDown(key); }
 
+    /**
+     * @brief Retrieves the current mouse position.
+     *
+     * @return The current mouse position.
+     */
     static vf2d GetMousePosition() { return get()._getMousePosition(); }
 
+    /**
+     * @brief Checks if the specified mouse button is pressed.
+     *
+     * @param button The mouse button to check.
+     * @return True if the mouse button is pressed, false otherwise.
+     */
     static bool MouseButtonPressed(int button) { return get()._mouseButtonPressed(button); }
 
+    /**
+     * @brief Checks if the specified mouse button is released.
+     *
+     * @param button The mouse button to check.
+     * @return True if the mouse button is released, false otherwise.
+     */
     static bool MouseButtonReleased(int button) { return get()._mouseButtonReleased(button); }
 
-    static bool MouseButtonDown(int button) { return get()._mouseButtonDown(button); }
+    /**
+     * @brief Checks if the specified mouse button is down.
+     *
+     * @param button The mouse button to check.
+     * @return True if the mouse button is down, false otherwise.
+     */
+    static bool MouseButtonDown(int button) { return get()._mouseButtonDown(button); };
 
     //For internal use. handle with care
     static void UpdateInputs(std::vector<Uint8> keys, bool held) { get()._updateInputs(keys, held); }
