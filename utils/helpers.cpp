@@ -204,7 +204,7 @@ void Helpers::DrawMainMenu() {
 
         for (auto &texture: Textures::GetTextures()) {
 
-            ImGui::Text("%s", texture.first);
+            ImGui::Text("%s", texture.first.c_str());
 
             SDL_Texture *my_texture = texture.second.texture;
             int my_image_width = texture.second.width;
