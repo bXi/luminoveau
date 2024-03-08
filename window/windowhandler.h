@@ -10,6 +10,7 @@
 #include "utils/vectors.h"
 #include "utils/lerp.h"
 #include "input/inputhandler.h"
+#include "eventbus/eventbushandler.h"
 
 #include <chrono>
 #include "utils/colors.h"

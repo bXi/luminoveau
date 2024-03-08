@@ -18,7 +18,6 @@ void InputDevice::updateTimings() {
     }
 }
 
-
 bool InputDevice::isButtonPressed(Buttons button) {
     int keysHeld = 0;
     switch (type) {

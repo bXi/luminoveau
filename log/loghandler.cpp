@@ -1,4 +1,3 @@
-
 #include "loghandler.h"
 
 #include "fonts/fonthandler.h"
@@ -12,4 +11,3 @@ void Log::_addLine(const char *line1, const char *line2) {
 
     lines.emplace_back(line1, line2);
 }
-//*/

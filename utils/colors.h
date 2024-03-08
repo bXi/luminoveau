@@ -1,7 +1,9 @@
 #pragma once
 
 #if __has_include("SDL3/SDL.h")
+
 #include "SDL3/SDL.h"
+
 #endif
 
 
@@ -13,7 +15,7 @@ struct Color {
 
     // Constructor that takes integer values
     Color(unsigned int red, unsigned int green, unsigned int blue, unsigned int alpha)
-        : r(red), g(green), b(blue), a(alpha) {}
+            : r(red), g(green), b(blue), a(alpha) {}
 
     Color(uint32_t colorCode) {
         r = (colorCode >> 24) & 0xFF; // Extract Red component
@@ -32,28 +34,34 @@ struct Color {
 
     // Conversion methods from integer to float
     float getRFloat() const { return static_cast<float>(r) / 255.0f; }
+
     float getGFloat() const { return static_cast<float>(g) / 255.0f; }
+
     float getBFloat() const { return static_cast<float>(b) / 255.0f; }
+
     float getAFloat() const { return static_cast<float>(a) / 255.0f; }
 
-    #if __has_include("SDL3/SDL.h")
+#if __has_include("SDL3/SDL.h")
+
     operator SDL_Color() { return SDL_Color({ (Uint8)r, (Uint8)g, (Uint8)b, (Uint8)a }); }
-    #endif
+
+#endif
 };
+
 static inline Color RED = {255, 0, 0, 255};
 static inline Color BLACK = {0, 0, 0, 255};
 static inline Color WHITE = {255, 255, 255, 255};
-static inline Color BLUE  = {0,0,255,255};
-static inline Color GREEN = {0,255,0,255};
-static inline Color YELLOW = {255,255,0,255};
+static inline Color BLUE = {0, 0, 255, 255};
+static inline Color GREEN = {0, 255, 0, 255};
+static inline Color YELLOW = {255, 255, 0, 255};
 static inline Color PURPLE = {255, 0, 255, 255};
 static inline Color PINK = {255, 0, 127, 255};
 
 static inline Color DARKGREEN = {0, 128, 0, 255};
 static inline Color DARKRED = {128, 0, 0, 255};
 
-static inline Color GRAY = {128,128,128,255};
+static inline Color GRAY = {128, 128, 128, 255};
 static inline Color DARKGRAY = {64, 64, 64, 255};
-static inline Color LIME = {50, 205, 50,255};
+static inline Color LIME = {50, 205, 50, 255};
 
-static inline Color BROWN = {73, 54, 28,255};
+static inline Color BROWN = {73, 54, 28, 255};

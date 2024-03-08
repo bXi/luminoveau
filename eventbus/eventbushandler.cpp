@@ -1,7 +1,5 @@
 #include "eventbushandler.h"
 
-
-
 void EventBus::_fire(std::string eventName, std::optional<EventData> eventData) {
     bool eventFound = false;
 
@@ -28,9 +26,6 @@ void EventBus::_fire(std::string eventName, std::optional<EventData> eventData) 
     }
 }
 
-
-
-
 void EventBus::_register(std::string eventName, EventCallback callback) {
     _events[eventName].push_back(callback);
 }
@@ -39,37 +34,12 @@ void EventBus::_register(std::string eventName, EventCallbackData callback) {
     _eventsData[eventName].push_back(callback);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 void EventBus::_register(SystemEvent eventName, EventCallbackData callback) {
     _systemEvents[eventName].push_back(callback);
 }
 
 void EventBus::_fire(SystemEvent eventName, EventData eventData) {
-    for (auto& callback : _systemEvents[eventName]) {
+    for (auto &callback: _systemEvents[eventName]) {
         callback(eventData);
     }
 }
-

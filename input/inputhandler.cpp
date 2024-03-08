@@ -2,7 +2,6 @@
 
 #include "window/windowhandler.h"
 
-
 void Input::_init() {
 
     SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
@@ -156,20 +155,20 @@ bool Input::_mouseButtonDown(int button) {
     return (currentMouseButtons & buttonmask) != 0;
 }
 
-void Input::_updateInputs(const std::vector<Uint8>& keys, bool held) {
+void Input::_updateInputs(const std::vector<Uint8> &keys, bool held) {
     if (held) {
-        for (auto scancode : keys) {
+        for (auto scancode: keys) {
             currentKeyboardState[scancode] = 1;
         }
     } else {
-        for (auto scancode : keys) {
+        for (auto scancode: keys) {
             currentKeyboardState[scancode] = 0;
         }
     }
 }
 
 void Input::_addGamepadDevice(SDL_JoystickID joystickID) {
-    for (const auto& gamepad : gamepads) {
+    for (const auto &gamepad: gamepads) {
         if (gamepad.joystickId == joystickID) return;
     }
 
@@ -187,9 +186,9 @@ void Input::_addGamepadDevice(SDL_JoystickID joystickID) {
 void Input::_removeGamepadDevice(SDL_JoystickID joystickID) {
     // Use std::remove_if to move the gamepad with the specified joystickID to the end
     auto newEnd = std::remove_if(gamepads.begin(), gamepads.end(),
-                                  [joystickID](const auto& gamepad) {
-                                      return gamepad.joystickId == joystickID;
-                                  });
+                                 [joystickID](const auto &gamepad) {
+                                     return gamepad.joystickId == joystickID;
+                                 });
 
     // Erase the removed gamepads from the vector
     gamepads.erase(newEnd, gamepads.end());

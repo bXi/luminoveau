@@ -47,33 +47,31 @@ struct GamepadTest {
     float rumbleTriggerRight = 0.0f;
 
 
-
 };
 
-    typedef struct
-    {
-        Uint8 ucEnableBits1;              /* 0 */
-        Uint8 ucEnableBits2;              /* 1 */
-        Uint8 ucRumbleRight;              /* 2 */
-        Uint8 ucRumbleLeft;               /* 3 */
-        Uint8 ucHeadphoneVolume;          /* 4 */
-        Uint8 ucSpeakerVolume;            /* 5 */
-        Uint8 ucMicrophoneVolume;         /* 6 */
-        Uint8 ucAudioEnableBits;          /* 7 */
-        Uint8 ucMicLightMode;             /* 8 */
-        Uint8 ucAudioMuteBits;            /* 9 */
-        Uint8 rgucRightTriggerEffect[11]; /* 10 */
-        Uint8 rgucLeftTriggerEffect[11];  /* 21 */
-        Uint8 rgucUnknown1[6];            /* 32 */
-        Uint8 ucLedFlags;                 /* 38 */
-        Uint8 rgucUnknown2[2];            /* 39 */
-        Uint8 ucLedAnim;                  /* 41 */
-        Uint8 ucLedBrightness;            /* 42 */
-        Uint8 ucPadLights;                /* 43 */
-        Uint8 ucLedRed;                   /* 44 */
-        Uint8 ucLedGreen;                 /* 45 */
-        Uint8 ucLedBlue;                  /* 46 */
-    } DS5EffectsState_t;
+typedef struct {
+    Uint8 ucEnableBits1;              /* 0 */
+    Uint8 ucEnableBits2;              /* 1 */
+    Uint8 ucRumbleRight;              /* 2 */
+    Uint8 ucRumbleLeft;               /* 3 */
+    Uint8 ucHeadphoneVolume;          /* 4 */
+    Uint8 ucSpeakerVolume;            /* 5 */
+    Uint8 ucMicrophoneVolume;         /* 6 */
+    Uint8 ucAudioEnableBits;          /* 7 */
+    Uint8 ucMicLightMode;             /* 8 */
+    Uint8 ucAudioMuteBits;            /* 9 */
+    Uint8 rgucRightTriggerEffect[11]; /* 10 */
+    Uint8 rgucLeftTriggerEffect[11];  /* 21 */
+    Uint8 rgucUnknown1[6];            /* 32 */
+    Uint8 ucLedFlags;                 /* 38 */
+    Uint8 rgucUnknown2[2];            /* 39 */
+    Uint8 ucLedAnim;                  /* 41 */
+    Uint8 ucLedBrightness;            /* 42 */
+    Uint8 ucPadLights;                /* 43 */
+    Uint8 ucLedRed;                   /* 44 */
+    Uint8 ucLedGreen;                 /* 45 */
+    Uint8 ucLedBlue;                  /* 46 */
+} DS5EffectsState_t;
 
 int Helpers::clamp(const int input, const int min, const int max) {
     const int a = (input < min) ? min : input;
@@ -204,25 +202,23 @@ void Helpers::DrawMainMenu() {
 
         ImGui::BeginChild("Loaded textures");
 
-        for (auto& texture : Textures::GetTextures()) {
+        for (auto &texture: Textures::GetTextures()) {
 
             ImGui::Text("%s", texture.first);
 
-            SDL_Texture* my_texture = texture.second.texture;
+            SDL_Texture *my_texture = texture.second.texture;
             int my_image_width = texture.second.width;
             int my_image_height = texture.second.height;
 
             ImGui::Text("size = %d x %d", my_image_width, my_image_height);
 
-            SDL_PixelFormat* pixelFormat = texture.second.surface->format;
+            SDL_PixelFormat *pixelFormat = texture.second.surface->format;
             Uint32 pixelFormatEnum = pixelFormat->format;
-            const char* surfacePixelFormatName = SDL_GetPixelFormatName(pixelFormatEnum);
+            const char *surfacePixelFormatName = SDL_GetPixelFormatName(pixelFormatEnum);
 
             ImGui::Text("pixel format = %s", surfacePixelFormatName);
 
-            ImGui::Image((void*) my_texture, ImVec2(my_image_width, my_image_height));
-
-
+            ImGui::Image((void *) my_texture, ImVec2(my_image_width, my_image_height));
 
 
         }
@@ -240,7 +236,7 @@ void Helpers::DrawMainMenu() {
         ImGui::Begin("Gamepads", &imguiInputVisible);
 
         int numJoysticks;
-        SDL_JoystickID* joysticks = SDL_GetGamepads(&numJoysticks);
+        SDL_JoystickID *joysticks = SDL_GetGamepads(&numJoysticks);
 
         for (int i = 0; i < numJoysticks; ++i) {
 
@@ -283,7 +279,7 @@ void Helpers::DrawMainMenu() {
 
             std::map<SDL_GamepadButton, std::string> buttonNames;
 
-            switch (SDL_GetGamepadType(gamepad)){
+            switch (SDL_GetGamepadType(gamepad)) {
 
                 case SDL_GAMEPAD_TYPE_XBOXONE:
                     buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "Y";
@@ -334,7 +330,6 @@ void Helpers::DrawMainMenu() {
             ImGui::Checkbox("Right", &gamepaddata.DPadRight);
 
 
-
             ImGui::SetCursorPos(ImVec2(offSetX + 60, offSetY + 200));
             ImGui::SetNextItemWidth(150.0f);
             ImGui::SliderFloat(" ", &gamepaddata.LeftStickX, -1.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
@@ -359,7 +354,6 @@ void Helpers::DrawMainMenu() {
             ImGui::Text("X: %.3f", gamepaddata.RightStickX);
             ImGui::SetCursorPos(ImVec2(offSetX + 340, offSetY + 280));
             ImGui::Text("Y: %.3f", gamepaddata.RightStickY);
-
 
 
             ImGui::SetCursorPos(ImVec2(offSetX - 30, offSetY - 40));
@@ -430,14 +424,14 @@ void Helpers::DrawMainMenu() {
                 DS5EffectsState_t state;
 
                 Uint8 effects[4][11] = {
-                    /* Clear trigger effect */
-                    { 0x05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                    /* Constant resistance across entire trigger pull */
-                    { 0x21, 255, 110, 0, 0, 0, 0, 0, 0, 0, 0 },
-                    /* Resistance and vibration when trigger is pulled */
-                    { 0x26, 15, 63, 128, 0, 0, 0, 0, 0, 0, 0 },
+                        /* Clear trigger effect */
+                        {0x05, 0,   0,   0,   0, 0, 0, 0, 0, 0, 0},
+                        /* Constant resistance across entire trigger pull */
+                        {0x21, 255, 110, 0,   0, 0, 0, 0, 0, 0, 0},
+                        /* Resistance and vibration when trigger is pulled */
+                        {0x26, 15,  63,  128, 0, 0, 0, 0, 0, 0, 0},
 
-                    { 0x25, 15, 63, 128, 0, 0, 0, 0, 0, 0, 0 },
+                        {0x25, 15,  63,  128, 0, 0, 0, 0, 0, 0, 0},
                 };
 
                 SDL_zero(state);
@@ -455,9 +449,8 @@ void Helpers::DrawMainMenu() {
                 float rumbleRight = std::clamp(gamepaddata.rumbleRight * 65535.f, 0.f, 65535.f);
 
 
-
-                state.ucRumbleLeft = (int)rumbleLeft / 256;
-                state.ucRumbleRight = (int)rumbleRight / 256;
+                state.ucRumbleLeft = (int) rumbleLeft / 256;
+                state.ucRumbleRight = (int) rumbleRight / 256;
                 SDL_RumbleGamepad(gamepad, (Uint16) rumbleLeft, (Uint16) rumbleRight, 100);
 
 
@@ -469,7 +462,7 @@ void Helpers::DrawMainMenu() {
             }
 
 
-          ImGui::EndChild();
+            ImGui::EndChild();
 
         }
 
@@ -514,7 +507,7 @@ const char *Helpers::TextFormat(const char *text, ...) {
 #endif
 
     // We create an array of buffers so strings don't expire until MAX_TEXTFORMAT_BUFFERS invocations
-    static char buffers[MAX_TEXTFORMAT_BUFFERS][MAX_TEXT_BUFFER_LENGTH] = { {0} };
+    static char buffers[MAX_TEXTFORMAT_BUFFERS][MAX_TEXT_BUFFER_LENGTH] = {{0}};
     static int index = 0;
 
     char *currentBuffer = buffers[index];

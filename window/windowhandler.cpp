@@ -162,6 +162,12 @@ void Window::_handleInput() {
             case SDL_EventType::SDL_EVENT_GAMEPAD_REMOVED:
                 Input::RemoveGamepadDevice(event.gdevice.which);
                 break;
+            case SDL_EventType::SDL_EVENT_WINDOW_RESIZED:
+                EventData eventData;
+                eventData.emplace("width", event.window.data1);
+                eventData.emplace("height", event.window.data2);
+                EventBus::Fire(SystemEvent::WINDOW_RESIZE, eventData);
+                break;
 
         }
     }

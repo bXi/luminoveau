@@ -1,13 +1,12 @@
 #include "audiohandler.h"
 
 #define MINIAUDIO_IMPLEMENTATION
+
 #include "miniaudio.h"
 
-
-Sound Audio::_getSound(const char* fileName)
-{
-	if (_sounds.find(fileName) == _sounds.end()) {
-		Sound _sound;
+Sound Audio::_getSound(const char *fileName) {
+    if (_sounds.find(fileName) == _sounds.end()) {
+        Sound _sound;
         _sound.sound = new ma_sound();
         ma_result result = ma_sound_init_from_file(&engine, fileName, MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sound.sound);
 
@@ -18,19 +17,17 @@ Sound Audio::_getSound(const char* fileName)
             throw std::runtime_error(error.c_str());
         }
 
-		_sounds[fileName] = _sound;
+        _sounds[fileName] = _sound;
 
-		return _sounds[fileName];
-	}
-	else {
-		return _sounds[fileName];
-	}
+        return _sounds[fileName];
+    } else {
+        return _sounds[fileName];
+    }
 }
 
-Music Audio::_getMusic(const char* fileName)
-{
-	if (_musics.find(fileName) == _musics.end()) {
-		Music _music;
+Music Audio::_getMusic(const char *fileName) {
+    if (_musics.find(fileName) == _musics.end()) {
+        Music _music;
 
         _music.music = new ma_sound();
         ma_result result = ma_sound_init_from_file(&engine, fileName, MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _music.music);
@@ -42,24 +39,20 @@ Music Audio::_getMusic(const char* fileName)
             throw std::runtime_error(error.c_str());
         }
 
-		_musics[fileName] = _music;
+        _musics[fileName] = _music;
 
-		return _musics[fileName];
-	}
-	else {
-		return _musics[fileName];
-	}
+        return _musics[fileName];
+    } else {
+        return _musics[fileName];
+    }
 }
 
-void Audio::_playSound(const char* fileName)
-{
-	if (_sounds.find(fileName) == _sounds.end()) {
-		static_assert(true, "File not loaded yet.");
-	}
-	else {
+void Audio::_playSound(const char *fileName) {
+    if (_sounds.find(fileName) == _sounds.end()) {
+        static_assert(true, "File not loaded yet.");
+    } else {
 
-        if(ma_sound_is_playing(_sounds[fileName].sound))
-        {
+        if (ma_sound_is_playing(_sounds[fileName].sound)) {
             ma_sound_seek_to_pcm_frame(_sounds[fileName].sound, 0);
             return;
         }
@@ -67,18 +60,16 @@ void Audio::_playSound(const char* fileName)
         ma_sound_set_looping(_sounds[fileName].sound, false);
         ma_sound_start(_sounds[fileName].sound);
 
-	}
+    }
 }
 
-void Audio::_updateMusicStreams()
-{
-    #ifdef __EMSCRIPTEN__
-        ma_resource_manager_process_next_job(&resourceManager);
-        #endif
+void Audio::_updateMusicStreams() {
+#ifdef __EMSCRIPTEN__
+    ma_resource_manager_process_next_job(&resourceManager);
+#endif
 
-	for (auto& music : _musics) {
-		if (music.second.shouldPlay)
-		{
+    for (auto &music: _musics) {
+        if (music.second.shouldPlay) {
 
 //            if(ma_sound_is_playing(music.second.music))
 //            {
@@ -89,57 +80,50 @@ void Audio::_updateMusicStreams()
 //            ma_sound_set_looping(music.second.music, true);
             ma_sound_start(music.second.music);
 
-		}
+        }
 
-	}
+    }
 }
 
-void Audio::_stopMusic()
-{
-	for (auto& music : _musics) {
+void Audio::_stopMusic() {
+    for (auto &music: _musics) {
         if (music.second.shouldPlay) {
             music.second.shouldPlay = false;
             ma_sound_stop(music.second.music);
         }
     }
-	//Mix_HaltMusic();
+    //Mix_HaltMusic();
 }
 
-bool Audio::_isMusicPlaying()
-{
-	for (const auto& music : _musics) {
-		if (music.second.shouldPlay) return true;
-	}
-	return false;
+bool Audio::_isMusicPlaying() {
+    for (const auto &music: _musics) {
+        if (music.second.shouldPlay) return true;
+    }
+    return false;
 }
 
-void Audio::_playMusic(const char* fileName)
-{
-	if (_musics.find(fileName) == _musics.end()) {
-		static_assert(true, "File not loaded yet.");
-	}
-	else {
-		_musics[fileName].shouldPlay = true;
-		if (!_musics[fileName].started)
-		{
-            if(ma_sound_is_playing(_musics[fileName].music))
-            {
+void Audio::_playMusic(const char *fileName) {
+    if (_musics.find(fileName) == _musics.end()) {
+        static_assert(true, "File not loaded yet.");
+    } else {
+        _musics[fileName].shouldPlay = true;
+        if (!_musics[fileName].started) {
+            if (ma_sound_is_playing(_musics[fileName].music)) {
                 ma_sound_seek_to_pcm_frame(_musics[fileName].music, 0);
                 return;
             }
 
             ma_sound_set_looping(_musics[fileName].music, true);
             ma_sound_start(_musics[fileName].music);
-		}
+        }
 
 
-	}
+    }
 }
 
-    void Audio::ma_data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
-    {
-        ma_engine_read_pcm_frames((ma_engine*)(pDevice->pUserData), pOutput, frameCount, nullptr);
-    }
+void Audio::ma_data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount) {
+    ma_engine_read_pcm_frames((ma_engine *) (pDevice->pUserData), pOutput, frameCount, nullptr);
+}
 
 void Audio::_init() {
     int sampleRate = 48000;
@@ -155,15 +139,15 @@ void Audio::_init() {
 
 
     ma_resource_manager_config resourceManagerConfig = ma_resource_manager_config_init();
-    resourceManagerConfig.decodedFormat     = ma_format_f32;
-    resourceManagerConfig.decodedChannels   = 0;
+    resourceManagerConfig.decodedFormat = ma_format_f32;
+    resourceManagerConfig.decodedChannels = 0;
     resourceManagerConfig.decodedSampleRate = sampleRate;
 
-    #ifdef __EMSCRIPTEN__
-        resourceManagerConfig.jobThreadCount = 0;
-        resourceManagerConfig.flags |= MA_RESOURCE_MANAGER_FLAG_NON_BLOCKING;
-        resourceManagerConfig.flags |= MA_RESOURCE_MANAGER_FLAG_NO_THREADING;
-    #endif
+#ifdef __EMSCRIPTEN__
+    resourceManagerConfig.jobThreadCount = 0;
+    resourceManagerConfig.flags |= MA_RESOURCE_MANAGER_FLAG_NON_BLOCKING;
+    resourceManagerConfig.flags |= MA_RESOURCE_MANAGER_FLAG_NO_THREADING;
+#endif
 
     ma_resource_manager_init(&resourceManagerConfig, &resourceManager);
 

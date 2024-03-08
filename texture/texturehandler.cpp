@@ -2,10 +2,10 @@
 #include "window/windowhandler.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+
 #include "stb_image_write.h"
 
-
-Texture Textures::_getTexture(const std::string& fileName) {
+Texture Textures::_getTexture(const std::string &fileName) {
     if (_textures.find(fileName) == _textures.end()) {
         Texture _tex = _loadTexture(fileName);
         _textures[std::string(fileName)] = _tex;
@@ -19,16 +19,16 @@ Texture Textures::_getTexture(const std::string& fileName) {
 rectf Textures::_getRectangle(int x, int y) {
 
     const rectf rect = {(float) (x * Configuration::tileWidth), (float) (y * Configuration::tileHeight),
-                            (float) (Configuration::tileWidth),
-                            (float) (Configuration::tileHeight)};
+                        (float) (Configuration::tileWidth),
+                        (float) (Configuration::tileHeight)};
     return rect;
 };
 
 rectf Textures::_getRectangle(int x, int y, int spriteWidth, int spriteHeight) {
 
     const rectf rect = {(float) (x * spriteWidth), (float) (y * spriteHeight),
-                            (float) (spriteWidth),
-                            (float) (spriteHeight)};
+                        (float) (spriteWidth),
+                        (float) (spriteHeight)};
     return rect;
 };
 
@@ -55,8 +55,7 @@ rectf Textures::_getTile(int tileId, bool doubleHeight, int spriteWidth, int spr
 }
 
 
-
-Texture Textures::_loadTexture(const std::string& fileName) {
+Texture Textures::_loadTexture(const std::string &fileName) {
 
     Texture texture;
 
@@ -76,7 +75,7 @@ Texture Textures::_loadTexture(const std::string& fileName) {
 
     texture.surface = surface;
 
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(Window::GetRenderer(), surface);
+    SDL_Texture *tex = SDL_CreateTextureFromSurface(Window::GetRenderer(), surface);
     texture.texture = tex;
 
     if (!tex)
@@ -94,7 +93,7 @@ Texture Textures::_loadTexture(const std::string& fileName) {
 
 }
 
-Texture Textures::_createEmptyTexture(const vf2d& size) {
+Texture Textures::_createEmptyTexture(const vf2d &size) {
     Texture texture;
 
     texture.width = size.x;
@@ -102,7 +101,7 @@ Texture Textures::_createEmptyTexture(const vf2d& size) {
 
     texture.surface = nullptr;
 
-    texture.texture = SDL_CreateTexture(Window::GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, (int)size.x, (int)size.y);
+    texture.texture = SDL_CreateTexture(Window::GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, (int) size.x, (int) size.y);
 
     SDL_SetTextureBlendMode(texture.texture, SDL_BLENDMODE_BLEND);
     return texture;
@@ -110,7 +109,7 @@ Texture Textures::_createEmptyTexture(const vf2d& size) {
 
 void Textures::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
-    SDL_Surface* surface = texture.surface;
+    SDL_Surface *surface = texture.surface;
 
     if (!surface) {
         int texWidth, texHeight;
@@ -119,13 +118,13 @@ void Textures::_saveTextureAsPNG(Texture texture, const char *fileName) {
         SDL_RenderReadPixels(Window::GetRenderer(), NULL, SDL_PIXELFORMAT_RGBA32, surface->pixels, surface->pitch);
     }
 
-    SDL_Surface* rgbaSurface = surface;
+    SDL_Surface *rgbaSurface = surface;
 
     if (surface->format->format != SDL_PIXELFORMAT_RGBA32) {
         rgbaSurface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_RGBA32);
     }
 
-    unsigned char* pixels = new unsigned char[rgbaSurface->w * rgbaSurface->h * 4];
+    unsigned char *pixels = new unsigned char[rgbaSurface->w * rgbaSurface->h * 4];
 
     SDL_LockSurface(rgbaSurface);
     memcpy(pixels, rgbaSurface->pixels, rgbaSurface->w * rgbaSurface->h * 4);

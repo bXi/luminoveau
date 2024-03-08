@@ -9,76 +9,70 @@
 
 #include "render2d/render2dhandler.h"
 
-class QuadTree
-{
+class QuadTree {
 public:
 
-    struct qtPoint
-    {
+    struct qtPoint {
         float x;
         float y;
 
-        void* entity = nullptr;
+        void *entity = nullptr;
 
     };
 
-    struct AABB
-    {
+    struct AABB {
         float _top;
         float _left;
         float _width;
         float _height;
 
-        float getLeft()
-        {
+        float getLeft() {
             return _left;
         }
-        float getRight()
-        {
+
+        float getRight() {
             return _left + _width;
         }
-        float getTop()
-        {
+
+        float getTop() {
             return _top;
         }
-        float getBottom()
-        {
+
+        float getBottom() {
             return _top + _height;
         }
 
-        AABB(float left, float top, float width, float height)
-        {
+        AABB(float left, float top, float width, float height) {
             _top = top;
             _left = left;
             _width = width;
             _height = height;
         }
-        bool containsPoint(const qtPoint& point)
-        {
+
+        bool containsPoint(const qtPoint &point) {
             return (
-                getLeft() <= point.x &&
-                point.x <= getRight() &&
-                getTop() <= point.y &&
-                point.y <= getBottom()
-                );
-        }
-        bool intersectsAABB(const AABB& other)
-        {
-            return (
-                _left < other._left + other._width &&
-                _left + _width > other._left &&
-                _top < other._top + other._height &&
-                _top + _height > other._top
-                );
+                    getLeft() <= point.x &&
+                    point.x <= getRight() &&
+                    getTop() <= point.y &&
+                    point.y <= getBottom()
+            );
         }
 
-        rectf getRectangle()
-        {
+        bool intersectsAABB(const AABB &other) {
+            return (
+                    _left < other._left + other._width &&
+                    _left + _width > other._left &&
+                    _top < other._top + other._height &&
+                    _top + _height > other._top
+            );
+        }
+
+        rectf getRectangle() {
             rectf rect = {
-                getLeft(),
-                getTop(),
-                _width,
-                _height,
+                    getLeft(),
+                    getTop(),
+                    _width,
+                    _height,
             };
 
             return rect;
@@ -97,12 +91,12 @@ public:
             _r = r;
         }
 
-        bool containsPoint(const qtPoint& point) {
+        bool containsPoint(const qtPoint &point) {
             const double d = pow(point.x - _x, 2) + pow(point.y - _y, 2);
             return d <= static_cast<double>(_r) * static_cast<double>(_r);
         }
 
-        bool intersectsAABB(const AABB& range) {
+        bool intersectsAABB(const AABB &range) {
             const float recCenterX = (range._left + range._width / 2.0f);
             const float recCenterY = (range._top + range._height / 2.0f);
 
@@ -116,7 +110,7 @@ public:
             if (dy <= (range._height / 2.0f)) { return true; }
 
             const float cornerDistanceSq = (dx - range._width / 2.0f) * (dx - range._width / 2.0f) +
-                (dy - range._height / 2.0f) * (dy - range._height / 2.0f);
+                                           (dy - range._height / 2.0f) * (dy - range._height / 2.0f);
             return (cornerDistanceSq <= (_r * _r));
 
         }
@@ -138,21 +132,19 @@ private:
 public:
 
 
-
-    QuadTree(rectf boundary)
-    {
+    QuadTree(rectf boundary) {
 
         const AABB aabbboundary = AABB(boundary.x, boundary.y, boundary.width, boundary.height);
         _boundary = aabbboundary;
     };
 
-    void subdivide()
-    {
+    void subdivide() {
 
-        const rectf nwRect = {_boundary._left                           , _boundary._top,                            _boundary._width / 2.0f, _boundary._height / 2.0f};
-        const rectf neRect = {_boundary._left + _boundary._width / 2.0f , _boundary._top,                            _boundary._width / 2.0f, _boundary._height / 2.0f};
-        const rectf swRect = {_boundary._left                           , _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f, _boundary._height / 2.0f};
-        const rectf seRect = {_boundary._left + _boundary._width / 2.0f , _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f, _boundary._height / 2.0f};
+        const rectf nwRect = {_boundary._left, _boundary._top, _boundary._width / 2.0f, _boundary._height / 2.0f};
+        const rectf neRect = {_boundary._left + _boundary._width / 2.0f, _boundary._top, _boundary._width / 2.0f, _boundary._height / 2.0f};
+        const rectf swRect = {_boundary._left, _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f, _boundary._height / 2.0f};
+        const rectf seRect = {_boundary._left + _boundary._width / 2.0f, _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f,
+                              _boundary._height / 2.0f};
 
         northWest = new QuadTree(nwRect);
         northEast = new QuadTree(neRect);
@@ -160,8 +152,7 @@ public:
         southEast = new QuadTree(seRect);
     }
 
-    bool insert(const qtPoint &point)
-    {
+    bool insert(const qtPoint &point) {
         if (!_boundary.containsPoint(point))
             return false; // object cannot be added
 
@@ -172,7 +163,7 @@ public:
 
         if (northWest == nullptr)
             subdivide();
-       
+
         if (northWest->insert(point)) return true;
         if (northEast->insert(point)) return true;
         if (southEast->insert(point)) return true;
@@ -181,8 +172,7 @@ public:
         return false; // this should never happen.
     }
 
-    void draw(Color col)
-    {
+    void draw(Color col) {
 
         rectf screenBoundary = _boundary.getRectangle();
 
@@ -202,9 +192,8 @@ public:
         }
     }
 
-    void draw(int x, int y, Color col)
-    {
-        
+    void draw(int x, int y, Color col) {
+
         rectf screenBoundary = _boundary.getRectangle();
 
         screenBoundary.x += x;
@@ -221,20 +210,17 @@ public:
     }
 
 
-
-    void draw()
-    {
-        draw({255,255,255,255});
+    void draw() {
+        draw({255, 255, 255, 255});
     }
 
-    void query(AABB range, std::vector<void *> *found)
-    {
+    void query(AABB range, std::vector<void *> *found) {
 
         if (!range.intersectsAABB(_boundary)) {
             return;
         }
 
-        for (auto &p : points) {
+        for (auto &p: points) {
             if (range.containsPoint(p)) {
                 found->push_back(p.entity);
             }
@@ -249,14 +235,13 @@ public:
         return;
     }
 
-    void query(AABBCircle range, std::vector<void*>* found)
-    {
+    void query(AABBCircle range, std::vector<void *> *found) {
 
         if (!range.intersectsAABB(_boundary)) {
             return;
         }
 
-        for (auto& p : points) {
+        for (auto &p: points) {
             if (range.containsPoint(p)) {
                 found->push_back(p.entity);
             }
@@ -272,8 +257,7 @@ public:
     }
 
 
-    void reset()
-    {
+    void reset() {
         if (northWest != NULL) {
             northWest->reset();
             northEast->reset();
