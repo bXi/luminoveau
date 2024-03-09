@@ -1,0 +1,30 @@
+full_sname: Deploy to docs.luminovaeu.tech
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Install update package info
+      run: sudo apt-get update -y
+    - name: Install rsync
+      run: sudo apt-get install rsync -y
+    - uses: actions/checkout@v1
+    - name: Doxygen Action
+      uses: mattnotmitt/doxygen-action@1.9.8
+      with:
+        working-directory: './'
+        doxyfile-path: 'doxygen/Doxyfile'
+    - name: Deploy to Server
+      uses: easingthemes/ssh-deploy@main
+      env:
+          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          REMOTE_PORT: "10022" 
+          ARGS: "-rltgoDzvO --delete"
+          SOURCE: "html/"
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          TARGET: ${{ secrets.REMOTE_TARGET }}
