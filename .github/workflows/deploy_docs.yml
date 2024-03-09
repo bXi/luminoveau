@@ -1,4 +1,4 @@
-full_sname: Deploy to docs.luminovaeu.tech
+run-name: Deploy to docs.luminovaeu.tech
 
 on: [push]
 
