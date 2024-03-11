@@ -34,7 +34,7 @@ public:
      * @param textToDraw The text to draw.
      * @param color The color of the text.
      */
-    static void DrawText(Font font, vf2d pos, const char *textToDraw, Color color) {
+    static void DrawText(Font font, vf2d pos, std::string textToDraw, Color color) {
         get()._drawText(font, pos, textToDraw, color);
     }
 
@@ -48,6 +48,19 @@ public:
     static int MeasureText(Font font, std::string text) {
         return get()._measureText(font, text);
     }
+
+    /**
+     * @brief Draws text onto a texture using the specified font.
+     *
+     * @param font The font to use for rendering the text.
+     * @param textToDraw The text string to render.
+     * @param color The color of the rendered text (default is WHITE).
+     * @return A Texture object representing the rendered text, or an empty texture if rendering fails.
+     */
+    static Texture DrawTextToTexture(Font font, std::string textToDraw, Color color) {
+        return get()._drawTextToTexture(font, textToDraw, color);
+    }
+
 private:
     std::unordered_map<std::string, Font> _fonts;
 
@@ -56,6 +69,8 @@ private:
     void _drawText(Font font, vf2d pos, std::string textToDraw, Color color);
 
     int _measureText(Font font, std::string text);
+
+    Texture _drawTextToTexture(Font font, std::string textToDraw, Color color);
 
 public:
     Fonts(const Fonts &) = delete;

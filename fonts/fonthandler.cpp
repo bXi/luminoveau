@@ -60,4 +60,18 @@ int Fonts::_measureText(Font font, std::string textToDraw) {
     return width;
 }
 
-//*/
+Texture Fonts::_drawTextToTexture(Font font, std::string textToDraw, Color color) {
+    if (textToDraw.empty()) {
+        textToDraw = " ";
+    };
+
+    Texture tex;
+    tex.surface = TTF_RenderUTF8_Blended(font.font, textToDraw.c_str(), color);
+
+    tex.width = tex.surface->w;
+    tex.height = tex.surface->h;
+
+    tex.texture = SDL_CreateTextureFromSurface(Window::GetRenderer(), tex.surface);
+
+    return tex;
+}
