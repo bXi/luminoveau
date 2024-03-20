@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "SDL3/SDL.h"
 
 /**
