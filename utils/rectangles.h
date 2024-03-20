@@ -28,6 +28,10 @@ union rect_generic {
 
     rect_generic(T _x, T _y, T _width, T _height) : x(_x), y(_y), width(_width), height(_height) {}
 
+    bool contains(const v2d_generic<T> &_point) {
+		return !(_point.x < this->pos.x || _point.y < this->pos.y ||
+			_point.x > (this->pos.x + this->size.x) || _point.y > (this->pos.y + this->size.y));
+    }
 
 #if __has_include("SDL3/SDL.h")
 
