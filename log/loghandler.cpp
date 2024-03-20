@@ -1,6 +1,6 @@
 #include "loghandler.h"
 
-#include "fonts/fonthandler.h"
+#include "text/texthandler.h"
 
 void Log::_addLine(const char *line1, const char *line2) {
     auto font = Fonts::GetFont("assets/fonts/APL386.ttf", 20);
