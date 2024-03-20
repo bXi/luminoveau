@@ -1,4 +1,4 @@
-#include "fonthandler.h"
+#include "texthandler.h"
 
 
 Font Fonts::_getFont(const char *fileName, const int fontSize) {

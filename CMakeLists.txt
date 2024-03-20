@@ -6,11 +6,14 @@ option(ADD_IMGUI "Include ImGui" OFF)
 
 # Add the content from the provided "engine.cmake" file
 add_library("luminoveau" STATIC
+    luminoveau.h
+
     audio/audiohandler.cpp
     audio/audiohandler.h
     configuration/configuration.h
-    fonts/fonthandler.cpp
-    fonts/fonthandler.h
+
+    text/texthandler.cpp
+    text/texthandler.h
 
     eventbus/eventbushandler.cpp
     eventbus/eventbushandler.h
