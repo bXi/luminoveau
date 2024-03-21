@@ -13,7 +13,7 @@
 /**
  * @brief Provides functionality for managing fonts and rendering text.
  */
-class Fonts {
+class Text {
 public:
     /**
      * @brief Retrieves a font asset with the specified filename and font size.
@@ -73,15 +73,15 @@ private:
     Texture _drawTextToTexture(Font font, std::string textToDraw, Color color);
 
 public:
-    Fonts(const Fonts &) = delete;
+    Text(const Text &) = delete;
 
-    static Fonts &get() {
-        static Fonts instance;
+    static Text &get() {
+        static Text instance;
         return instance;
     }
 
 private:
-    Fonts() {
+    Text() {
         TTF_Init();
     };
 };

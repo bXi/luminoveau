@@ -1,7 +1,7 @@
 #include "texthandler.h"
 
 
-Font Fonts::_getFont(const char *fileName, const int fontSize) {
+Font Text::_getFont(const char *fileName, const int fontSize) {
     std::string index = std::string(Helpers::TextFormat("%s%d", fileName, fontSize));
 
     auto it = _fonts.find(index);
@@ -27,7 +27,7 @@ Font Fonts::_getFont(const char *fileName, const int fontSize) {
     }
 }
 
-void Fonts::_drawText(Font font, vf2d pos, std::string textToDraw, Color color) {
+void Text::_drawText(Font font, vf2d pos, std::string textToDraw, Color color) {
 
     if (textToDraw.empty()) return;
 
@@ -46,7 +46,7 @@ void Fonts::_drawText(Font font, vf2d pos, std::string textToDraw, Color color) 
 
 }
 
-int Fonts::_measureText(Font font, std::string textToDraw) {
+int Text::_measureText(Font font, std::string textToDraw) {
 
     if (textToDraw.empty()) return 0;
 
@@ -60,8 +60,10 @@ int Fonts::_measureText(Font font, std::string textToDraw) {
     return width;
 }
 
-Texture Fonts::_drawTextToTexture(Font font, std::string textToDraw, Color color) {
+Texture Text::_drawTextToTexture(Font font, std::string textToDraw, Color color) {
     if (textToDraw.empty()) {
+        // In this case we return space so we still render something for when the user uses
+        // the height of the returned texture to position multiple lines of text.
         textToDraw = " ";
     };
 
