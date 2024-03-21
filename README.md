@@ -47,8 +47,7 @@ Luminoveau provides a set of tools and utilities to help developers build immers
 ## Example program
   This is the bare minimum to get a window going.
   ```cpp
-  #include "window/windowhandler.h"
-  #include "render2d/render2dhandler.h"
+  #include "luminoveau.h"
   
   int main()
   {
