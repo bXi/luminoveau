@@ -9,6 +9,9 @@ Makefile
 
 project/imgui.ini
 
+!/log/
+!/log/*
+
 settings.ini
 
 # User-specific files
