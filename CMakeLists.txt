@@ -36,8 +36,8 @@ add_library("luminoveau" STATIC
     state/state.h
     state/state.cpp
 
-    texture/texturehandler.cpp
-    texture/texturehandler.h
+        assethandler/assethandler.cpp
+        assethandler/assethandler.h
     utils/camera.h
     utils/colors.h
     utils/constants.h

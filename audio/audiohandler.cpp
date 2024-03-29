@@ -4,63 +4,16 @@
 
 #include "miniaudio.h"
 
-Sound Audio::_getSound(const char *fileName) {
-    if (_sounds.find(fileName) == _sounds.end()) {
-        Sound _sound;
-        _sound.sound = new ma_sound();
-        ma_result result = ma_sound_init_from_file(&engine, fileName, MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sound.sound);
+#include "assethandler/assethandler.h"
 
-        if (result != MA_SUCCESS) {
-            std::string error = Helpers::TextFormat("GetSound failed: %s", fileName);
-
-            SDL_Log(error.c_str());
-            throw std::runtime_error(error.c_str());
-        }
-
-        _sounds[fileName] = _sound;
-
-        return _sounds[fileName];
-    } else {
-        return _sounds[fileName];
+void Audio::_playSound(Sound sound) {
+    if (ma_sound_is_playing(sound.sound)) {
+        ma_sound_seek_to_pcm_frame(sound.sound, 0);
+        return;
     }
-}
 
-Music Audio::_getMusic(const char *fileName) {
-    if (_musics.find(fileName) == _musics.end()) {
-        Music _music;
-
-        _music.music = new ma_sound();
-        ma_result result = ma_sound_init_from_file(&engine, fileName, MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _music.music);
-
-        if (result != MA_SUCCESS) {
-            std::string error = Helpers::TextFormat("GetMusic failed: %s", fileName);
-
-            SDL_Log(error.c_str());
-            throw std::runtime_error(error.c_str());
-        }
-
-        _musics[fileName] = _music;
-
-        return _musics[fileName];
-    } else {
-        return _musics[fileName];
-    }
-}
-
-void Audio::_playSound(const char *fileName) {
-    if (_sounds.find(fileName) == _sounds.end()) {
-        static_assert(true, "File not loaded yet.");
-    } else {
-
-        if (ma_sound_is_playing(_sounds[fileName].sound)) {
-            ma_sound_seek_to_pcm_frame(_sounds[fileName].sound, 0);
-            return;
-        }
-
-        ma_sound_set_looping(_sounds[fileName].sound, false);
-        ma_sound_start(_sounds[fileName].sound);
-
-    }
+    ma_sound_set_looping(sound.sound, false);
+    ma_sound_start(sound.sound);
 }
 
 void Audio::_updateMusicStreams() {
@@ -68,7 +21,7 @@ void Audio::_updateMusicStreams() {
     ma_resource_manager_process_next_job(&resourceManager);
 #endif
 
-    for (auto &music: _musics) {
+    for (auto &music: AssetHandler::GetLoadedMusics()) {
         if (music.second.shouldPlay) {
 
 //            if(ma_sound_is_playing(music.second.music))
@@ -86,7 +39,7 @@ void Audio::_updateMusicStreams() {
 }
 
 void Audio::_stopMusic() {
-    for (auto &music: _musics) {
+    for (auto& music: AssetHandler::GetLoadedMusics()) {
         if (music.second.shouldPlay) {
             music.second.shouldPlay = false;
             ma_sound_stop(music.second.music);
@@ -96,28 +49,23 @@ void Audio::_stopMusic() {
 }
 
 bool Audio::_isMusicPlaying() {
-    for (const auto &music: _musics) {
+    for (const auto &music: AssetHandler::GetLoadedMusics()) {
         if (music.second.shouldPlay) return true;
     }
     return false;
 }
 
-void Audio::_playMusic(const char *fileName) {
-    if (_musics.find(fileName) == _musics.end()) {
-        static_assert(true, "File not loaded yet.");
-    } else {
-        _musics[fileName].shouldPlay = true;
-        if (!_musics[fileName].started) {
-            if (ma_sound_is_playing(_musics[fileName].music)) {
-                ma_sound_seek_to_pcm_frame(_musics[fileName].music, 0);
-                return;
-            }
-
-            ma_sound_set_looping(_musics[fileName].music, true);
-            ma_sound_start(_musics[fileName].music);
+void Audio::_playMusic(Music &music) {
+music.isSame = true;
+    music.shouldPlay = true;
+    if (!music.started) {
+        if (ma_sound_is_playing(music.music)) {
+            ma_sound_seek_to_pcm_frame(music.music, 0);
+            return;
         }
 
-
+        ma_sound_set_looping(music.music, true);
+        ma_sound_start(music.music);
     }
 }
 

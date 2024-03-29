@@ -7,12 +7,12 @@
 #include <assettypes/texture.h>
 
 //Engine components
+#include <assethandler/assethandler.h>
 #include <audio/audiohandler.h>
 #include <eventbus/eventbushandler.h>
 #include <input/inputhandler.h>
 #include <render2d/render2dhandler.h>
 #include <text/texthandler.h>
-#include <texture/texturehandler.h>
 #include <window/windowhandler.h>
 
 //Utilities

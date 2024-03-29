@@ -1,32 +1,5 @@
 #include "texthandler.h"
 
-
-Font Text::_getFont(const char *fileName, const int fontSize) {
-    std::string index = std::string(Helpers::TextFormat("%s%d", fileName, fontSize));
-
-    auto it = _fonts.find(index);
-
-    if (it == _fonts.end()) {
-
-        Font _font;
-        _font.font = TTF_OpenFont(fileName, fontSize);
-
-        if (_font.font == nullptr) {
-            std::string error = Helpers::TextFormat("Couldn't load %d pt font from %s: %s\n",
-                                                    fontSize, fileName, SDL_GetError());
-
-            SDL_Log(error.c_str());
-            throw std::runtime_error(error.c_str());
-        }
-
-        _fonts[index] = _font;
-
-        return _fonts[index];
-    } else {
-        return _fonts[index];
-    }
-}
-
 void Text::_drawText(Font font, vf2d pos, std::string textToDraw, Color color) {
 
     if (textToDraw.empty()) return;

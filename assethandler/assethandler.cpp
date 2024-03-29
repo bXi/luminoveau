@@ -1,11 +1,11 @@
-#include "texturehandler.h"
+#include "assethandler.h"
 #include "window/windowhandler.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 
 #include "stb_image_write.h"
 
-Texture Textures::_getTexture(const std::string &fileName) {
+Texture AssetHandler::_getTexture(const std::string &fileName) {
     if (_textures.find(fileName) == _textures.end()) {
         Texture _tex = _loadTexture(fileName);
         _textures[std::string(fileName)] = _tex;
@@ -16,46 +16,9 @@ Texture Textures::_getTexture(const std::string &fileName) {
     }
 }
 
-rectf Textures::_getRectangle(int x, int y) {
-
-    const rectf rect = {(float) (x * Configuration::tileWidth), (float) (y * Configuration::tileHeight),
-                        (float) (Configuration::tileWidth),
-                        (float) (Configuration::tileHeight)};
-    return rect;
-};
-
-rectf Textures::_getRectangle(int x, int y, int spriteWidth, int spriteHeight) {
-
-    const rectf rect = {(float) (x * spriteWidth), (float) (y * spriteHeight),
-                        (float) (spriteWidth),
-                        (float) (spriteHeight)};
-    return rect;
-};
-
-rectf Textures::_getTile(int tileId) {
-    return GetRectangle(tileId % 16, (int) tileId / 16);
-};
-
-rectf Textures::_getTile(int tileId, bool doubleHeight) {
-    rectf r = GetRectangle(tileId % 16, (int) tileId / 16);
-    if (doubleHeight) {
-        r.y -= r.height;
-        r.height *= 2;
-    }
-    return r;
-}
-
-rectf Textures::_getTile(int tileId, bool doubleHeight, int spriteWidth, int spriteHeight) {
-    rectf r = GetRectangle(tileId % 16, (int) tileId / 16, spriteWidth, spriteHeight);
-    if (doubleHeight) {
-        r.y -= r.height;
-        r.height *= 2;
-    }
-    return r;
-}
 
 
-Texture Textures::_loadTexture(const std::string &fileName) {
+Texture AssetHandler::_loadTexture(const std::string &fileName) {
 
     Texture texture;
 
@@ -93,7 +56,7 @@ Texture Textures::_loadTexture(const std::string &fileName) {
 
 }
 
-Texture Textures::_createEmptyTexture(const vf2d &size) {
+Texture AssetHandler::_createEmptyTexture(const vf2d &size) {
     Texture texture;
 
     texture.width = size.x;
@@ -107,7 +70,7 @@ Texture Textures::_createEmptyTexture(const vf2d &size) {
     return texture;
 }
 
-void Textures::_saveTextureAsPNG(Texture texture, const char *fileName) {
+void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
     SDL_Surface *surface = texture.surface;
 
@@ -115,7 +78,13 @@ void Textures::_saveTextureAsPNG(Texture texture, const char *fileName) {
         int texWidth, texHeight;
         SDL_QueryTexture(texture.texture, NULL, NULL, &texWidth, &texHeight);
         surface = SDL_CreateSurface(texWidth, texHeight, 32);
+
+        if (!surface) {
+            SDL_Log("%s", SDL_GetError());
+        }
+
         SDL_RenderReadPixels(Window::GetRenderer(), NULL, SDL_PIXELFORMAT_RGBA32, surface->pixels, surface->pitch);
+
     }
 
     SDL_Surface *rgbaSurface = surface;
@@ -136,5 +105,75 @@ void Textures::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
     if (surface->format->format != SDL_PIXELFORMAT_RGBA32) {
         SDL_DestroySurface(rgbaSurface);
+    }
+}
+
+Sound AssetHandler::_getSound(const std::string &fileName) {
+    if (_sounds.find(fileName) == _sounds.end()) {
+        Sound _sound;
+        _sound.sound = new ma_sound();
+        ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(), MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sound.sound);
+
+        if (result != MA_SUCCESS) {
+            std::string error = Helpers::TextFormat("GetSound failed: %s", fileName.c_str());
+
+            SDL_Log("%s", error.c_str());
+            throw std::runtime_error(error.c_str());
+        }
+
+        _sounds[fileName] = _sound;
+
+        return _sounds[fileName];
+    } else {
+        return _sounds[fileName];
+    }
+}
+
+Music AssetHandler::_getMusic(const std::string &fileName) {
+    if (_musics.find(fileName) == _musics.end()) {
+        MusicAsset _music;
+
+        _music.music = new ma_sound();
+        ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(), MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _music.music);
+
+        if (result != MA_SUCCESS) {
+            std::string error = Helpers::TextFormat("GetMusic failed: %s", fileName.c_str());
+
+            SDL_Log("%s", error.c_str());
+            throw std::runtime_error(error.c_str());
+        }
+
+        _musics[fileName] = _music;
+
+        return _musics[fileName];
+    } else {
+        return _musics[fileName];
+    }
+}
+
+
+Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
+    std::string index = std::string(Helpers::TextFormat("%s%d", fileName.c_str(), fontSize));
+
+    auto it = _fonts.find(index);
+
+    if (it == _fonts.end()) {
+
+        Font _font;
+        _font.font = TTF_OpenFont(fileName.c_str(), fontSize);
+
+        if (_font.font == nullptr) {
+            std::string error = Helpers::TextFormat("Couldn't load %d pt font from %s: %s\n",
+                                                    fontSize, fileName.c_str(), SDL_GetError());
+
+            SDL_Log("%s", error.c_str());
+            throw std::runtime_error(error.c_str());
+        }
+
+        _fonts[index] = _font;
+
+        return _fonts[index];
+    } else {
+        return _fonts[index];
     }
 }

@@ -41,32 +41,12 @@ public:
     }
 
     /**
-     * @brief Retrieves a music asset.
-     *
-     * @param fileName The filename of the music asset.
-     * @return The music asset.
-     */
-    static Music GetMusic(const char *fileName) {
-        return get()._getMusic(fileName);
-    }
-
-    /**
-     * @brief Retrieves a sound asset.
-     *
-     * @param fileName The filename of the sound asset.
-     * @return The sound asset.
-     */
-    static Sound GetSound(const char *fileName) {
-        return get()._getSound(fileName);
-    }
-
-    /**
      * @brief Plays music from the specified file.
      *
      * @param fileName The filename of the music to play.
      */
-    static void PlayMusic(const char *fileName) {
-        get()._playMusic(fileName);
+    static void PlayMusic(Music &music) {
+        get()._playMusic(music);
     }
 
     /**
@@ -74,8 +54,8 @@ public:
      *
      * @param fileName The filename of the sound effect to play.
      */
-    static void PlaySound(const char *fileName) {
-        get()._playSound(fileName);
+    static void PlaySound(Sound sound) {
+        get()._playSound(sound);
     }
 
     /**
@@ -87,15 +67,15 @@ public:
         return get()._isMusicPlaying();
     }
 
+    static ma_engine* GetAudioEngine() {
+        return &get().engine;
+    }
+
+
+
 private:
-    std::unordered_map<const char *, Sound> _sounds;
-    std::unordered_map<const char *, Music> _musics;
 
-    Sound _getSound(const char *fileName);
-
-    Music _getMusic(const char *fileName);
-
-    void _playSound(const char *fileName);
+    void _playSound(Sound sound);
 
     void _updateMusicStreams();
 
@@ -103,7 +83,7 @@ private:
 
     bool _isMusicPlaying();
 
-    void _playMusic(const char *fileName);
+    void _playMusic(Music music);
 
     void _init();
 

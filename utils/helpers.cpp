@@ -2,7 +2,7 @@
 
 #include "state/state.h"
 
-#include "texture/texturehandler.h"
+#include "assethandler/assethandler.h"
 
 #include "SDL3/SDL.h"
 
@@ -202,7 +202,7 @@ void Helpers::DrawMainMenu() {
 
         ImGui::BeginChild("Loaded textures");
 
-        for (auto &texture: Textures::GetTextures()) {
+        for (auto &texture: AssetHandler::GetTextures()) {
 
             ImGui::Text("%s", texture.first.c_str());
 

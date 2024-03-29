@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include "audio/audiohandler.h"
 
-#include "texture/texturehandler.h"
+#include "assethandler/assethandler.h"
 #include "render2d/render2dhandler.h"
 
 void Window::_initWindow(const std::string &title, int width, int height, int scale, unsigned int flags) {
@@ -41,6 +41,8 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     if (scale > 1) {
         _setScale(scale);
     }
+
+    TTF_Init();
 
 #ifdef ADD_IMGUI
     ImGui::CreateContext();
@@ -245,7 +247,7 @@ void Window::_setScale(int scalefactor) {
     _scaleFactor = scalefactor;
 
     if (scalefactor > 1) {
-        _screenBuffer = Textures::CreateEmptyTexture(Window::GetSize());
+        _screenBuffer = AssetHandler::CreateEmptyTexture(Window::GetSize());
     } else {
         SDL_SetRenderTarget(GetRenderer(), nullptr);
     }

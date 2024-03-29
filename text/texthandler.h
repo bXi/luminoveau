@@ -15,16 +15,7 @@
  */
 class Text {
 public:
-    /**
-     * @brief Retrieves a font asset with the specified filename and font size.
-     *
-     * @param fileName The filename of the font asset.
-     * @param fontSize The size of the font.
-     * @return The font asset.
-     */
-    static Font GetFont(const char *fileName, const int fontSize) {
-        return get()._getFont(fileName, fontSize);
-    }
+
 
     /**
      * @brief Draws text using the specified font, position, text to draw, and color.
@@ -62,9 +53,6 @@ public:
     }
 
 private:
-    std::unordered_map<std::string, Font> _fonts;
-
-    Font _getFont(const char *fileName, int fontSize);
 
     void _drawText(Font font, vf2d pos, std::string textToDraw, Color color);
 
@@ -81,7 +69,5 @@ public:
     }
 
 private:
-    Text() {
-        TTF_Init();
-    };
+    Text() {};
 };

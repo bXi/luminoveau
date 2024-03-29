@@ -6,7 +6,7 @@
 
 #include "SDL3/SDL.h"
 
-#include "texture/texturehandler.h"
+#include "assethandler/assethandler.h"
 #include "window/windowhandler.h"
 
 #include "utils/vectors.h"
