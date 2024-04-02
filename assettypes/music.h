@@ -11,8 +11,6 @@ struct MusicAsset {
 
     bool shouldPlay = false; /**< Flag indicating whether the music should play. */
     bool started = false; /**< Flag indicating whether the music playback has started. */
-
-    bool isSame = false;
 };
 
 using Music = MusicAsset&;

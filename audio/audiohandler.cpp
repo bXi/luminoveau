@@ -56,7 +56,6 @@ bool Audio::_isMusicPlaying() {
 }
 
 void Audio::_playMusic(Music &music) {
-music.isSame = true;
     music.shouldPlay = true;
     if (!music.started) {
         if (ma_sound_is_playing(music.music)) {
