@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 #include <string>
+#include <utility>
 
 #include "SDL3/SDL.h"
 #include "SDL3_image/SDL_image.h"
@@ -15,6 +16,12 @@
 #include "assettypes/music.h"
 #include "assettypes/sound.h"
 #include "assettypes/texture.h"
+
+enum class ScaleMode {
+    NEAREST,
+    LINEAR,
+    BEST,
+};
 
 /**
  * @brief Manages assets and provides utility functions for working with assets.
@@ -37,12 +44,27 @@ public:
     static void LoadTexture(const char *fileName) { get()._loadTexture(fileName); }
 
     /**
+     * @brief Sets a scaling mode for all textures loaded after this call.
+     *
+     * @param mode The new ScaleMode to set as default.
+     */
+    static void SetDefaultTextureScaleMode(ScaleMode mode) { get()._setDefaultTextureScaleMode(mode); }
+
+    /**
+     * @brief Gets the current scaling mode.
+     *
+     * @return The current ScaleMode.
+     */
+    static ScaleMode GetDefaultTextureScaleMode() { return get()._getDefaultTextureScaleMode(); }
+
+
+    /**
      * @brief Saves the given texture as a PNG file.
      *
      * @param texture The texture to save.
      * @param fileName The name of the PNG file to save.
      */
-    static void SaveTextureAsPNG(Texture texture, const char *fileName) { get()._saveTextureAsPNG(texture, fileName); }
+    static void SaveTextureAsPNG(Texture texture, const char *fileName) { get()._saveTextureAsPNG(std::move(texture), fileName); }
 
     /**
      * @brief Creates an empty texture with the specified size.
@@ -50,7 +72,7 @@ public:
      * @param size The size of the empty texture.
      * @return The created empty texture.
      */
-    static Texture CreateEmptyTexture(vf2d size) { return get()._createEmptyTexture(size); }
+    static Texture CreateEmptyTexture(const vf2d& size) { return get()._createEmptyTexture(size); }
 
     /**
      * @brief Retrieves a map of all loaded textures.
@@ -103,6 +125,10 @@ private:
 
     Texture _loadTexture(const std::string &fileName);
 
+    void _setDefaultTextureScaleMode(ScaleMode mode);
+
+    ScaleMode _getDefaultTextureScaleMode();
+
     Texture _createEmptyTexture(const vf2d &size);
 
     void _saveTextureAsPNG(Texture texture, const char *fileName);
@@ -123,6 +149,8 @@ private:
     std::unordered_map<std::string, MusicAsset> _musics;
     std::unordered_map<std::string, Sound> _sounds;
     std::unordered_map<std::string, Texture> _textures;
+
+    ScaleMode defaultMode = ScaleMode::LINEAR;
 
 public:
     AssetHandler(const AssetHandler &) = delete;

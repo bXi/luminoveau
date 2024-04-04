@@ -41,6 +41,9 @@ Texture AssetHandler::_loadTexture(const std::string &fileName) {
     SDL_Texture *tex = SDL_CreateTextureFromSurface(Window::GetRenderer(), surface);
     texture.texture = tex;
 
+
+    SDL_SetTextureScaleMode(tex, (SDL_ScaleMode)defaultMode);
+
     if (!tex)
         SDL_Log("Texture failed: %s", SDL_GetError());
 
@@ -176,4 +179,12 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
     } else {
         return _fonts[index];
     }
+}
+
+void AssetHandler::_setDefaultTextureScaleMode(ScaleMode mode) {
+    defaultMode = mode;
+}
+
+ScaleMode AssetHandler::_getDefaultTextureScaleMode() {
+    return defaultMode;
 }
