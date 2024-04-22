@@ -150,7 +150,7 @@ private:
     std::unordered_map<std::string, Sound> _sounds;
     std::unordered_map<std::string, Texture> _textures;
 
-    ScaleMode defaultMode = ScaleMode::LINEAR;
+    ScaleMode defaultMode = ScaleMode::NEAREST;
 
 public:
     AssetHandler(const AssetHandler &) = delete;
