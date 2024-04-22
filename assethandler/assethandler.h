@@ -112,6 +112,16 @@ public:
         return get()._getSound(fileName);
     }
 
+    /**
+     * @brief Retrieves the default font asset.
+     *
+     * @return The default font.
+     */
+    static Font GetDefaultFont() {
+        return get().defaultFont;
+    }
+
+
 
     static std::unordered_map<std::string, MusicAsset> &GetLoadedMusics() {
         return get()._musics;
@@ -152,6 +162,12 @@ private:
 
     ScaleMode defaultMode = ScaleMode::NEAREST;
 
+    // default font asset Droid Sans Mono.ttf
+    static const unsigned char DroidSansMono_ttf[];
+    unsigned int DroidSansMono_ttf_len = 119380;
+
+    Font defaultFont;
+
 public:
     AssetHandler(const AssetHandler &) = delete;
 
@@ -161,7 +177,26 @@ public:
     }
 
 private:
-    AssetHandler() = default;
+    AssetHandler() {
+        SDL_RWops* rwops = SDL_RWFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
+        if (rwops == NULL) {
+            // Handle error
+            TTF_Quit();
+            SDL_Quit();
+            throw std::exception("Could not load the default font.");
+        }
+
+        // Load the font from the memory stream
+        TTF_Font* font = TTF_OpenFontRW(rwops, 1, 16); // Replace "24" with your desired font size
+        if (font == NULL) {
+            // Handle error
+            SDL_RWclose(rwops);
+            TTF_Quit();
+            SDL_Quit();
+            throw std::exception("Could not load the default font.");
+        }
+        defaultFont.font = font;
+    };
 };
 
 //*/

@@ -38,6 +38,7 @@ add_library("luminoveau" STATIC
 
         assethandler/assethandler.cpp
         assethandler/assethandler.h
+        assethandler/DroidSansMono.cpp
     utils/camera.h
     utils/colors.h
     utils/constants.h
@@ -62,11 +63,21 @@ add_library("luminoveau" STATIC
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
 
+if (FORCE_ALL_WARNINGS)
+    target_compile_options("luminoveau" PRIVATE -Wall)
+else()
+    if (MSVC)
+        # Add compiler flags to suppress specific warnings
+        add_compile_options(/wd4820 /wd4514 /wd5045)
+    endif()
+endif()
+
+
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_options("luminoveau" PRIVATE -O3)
 endif()
 
-target_compile_options("luminoveau" PRIVATE -Wall)
+
 target_compile_features("luminoveau" PRIVATE cxx_std_23)
 
 target_include_directories("luminoveau" PUBLIC
