@@ -816,7 +816,7 @@ SDL_Surface* rotateSurface90Degrees(SDL_Surface* src, int numClockwiseTurns)
 	    return NULL; 
 	}
 
-	if ((src->format->BitsPerPixel % 8) != 0) {
+	if ((src->format->bits_per_pixel % 8) != 0) {
 		SDL_SetError("Invalid source surface bit depth");
 	    return NULL; 
 	}
@@ -836,7 +836,7 @@ SDL_Surface* rotateSurface90Degrees(SDL_Surface* src, int numClockwiseTurns)
 		newHeight = src->h;
 	}
 
-    dst = SDL_CreateSurface(newWidth, newHeight, src->format->BitsPerPixel);
+    dst = SDL_CreateSurface(newWidth, newHeight, src->format->bits_per_pixel);
     if(!dst) {
 		SDL_SetError("Could not create destination surface"); 
 		return NULL;
@@ -850,7 +850,7 @@ SDL_Surface* rotateSurface90Degrees(SDL_Surface* src, int numClockwiseTurns)
 	}
 
 	/* Calculate byte-per-pixel */
-	bpp = src->format->BitsPerPixel / 8;
+	bpp = src->format->bits_per_pixel / 8;
 
 	switch(normalizedClockwiseTurns) {
 	case 0: /* Make a copy of the surface */
@@ -1070,8 +1070,8 @@ SDL_Surface *rotozoomSurfaceXY(SDL_Surface * src, double angle, double zoomx, do
 	/*
 	* Determine if source surface is 32bit or 8bit 
 	*/
-	is32bit = (src->format->BitsPerPixel == 32);
-	if ((is32bit) || (src->format->BitsPerPixel == 8)) {
+	is32bit = (src->format->bits_per_pixel == 32);
+	if ((is32bit) || (src->format->bits_per_pixel == 8)) {
 		/*
 		* Use source surface 'as is' 
 		*/
@@ -1362,8 +1362,8 @@ SDL_Surface *zoomSurface(SDL_Surface * src, double zoomx, double zoomy, int smoo
 	/*
 	* Determine if source surface is 32bit or 8bit 
 	*/
-	is32bit = (src->format->BitsPerPixel == 32);
-	if ((is32bit) || (src->format->BitsPerPixel == 8)) {
+	is32bit = (src->format->bits_per_pixel == 32);
+	if ((is32bit) || (src->format->bits_per_pixel == 8)) {
 		/*
 		* Use source surface 'as is' 
 		*/
@@ -1507,8 +1507,8 @@ SDL_Surface *shrinkSurface(SDL_Surface *src, int factorx, int factory)
 	/*
 	* Determine if source surface is 32bit or 8bit 
 	*/
-	is32bit = (src->format->BitsPerPixel == 32);
-	if ((is32bit) || (src->format->BitsPerPixel == 8)) {
+	is32bit = (src->format->bits_per_pixel == 32);
+	if ((is32bit) || (src->format->bits_per_pixel == 8)) {
 		/*
 		* Use source surface 'as is' 
 		*/

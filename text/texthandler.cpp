@@ -33,14 +33,14 @@ int Text::_measureText(Font font, std::string textToDraw) {
     return width;
 }
 
-Texture Text::_drawTextToTexture(Font font, std::string textToDraw, Color color) {
+TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color color) {
     if (textToDraw.empty()) {
         // In this case we return space so we still render something for when the user uses
         // the height of the returned texture to position multiple lines of text.
         textToDraw = " ";
     };
 
-    Texture tex;
+    TextureAsset tex;
     tex.surface = TTF_RenderUTF8_Blended(font.font, textToDraw.c_str(), color);
 
     tex.width = tex.surface->w;

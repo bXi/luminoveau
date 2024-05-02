@@ -226,7 +226,7 @@ private:
 
     void _toggleDebugMenu();
 
-    Texture _screenBuffer;
+    TextureAsset _screenBuffer;
 
     int _scaleFactor = 1;
 

@@ -213,7 +213,7 @@ void Helpers::DrawMainMenu() {
             ImGui::Text("size = %d x %d", my_image_width, my_image_height);
 
             SDL_PixelFormat *pixelFormat = texture.second.surface->format;
-            Uint32 pixelFormatEnum = pixelFormat->format;
+            SDL_PixelFormatEnum pixelFormatEnum = pixelFormat->format;
             const char *surfacePixelFormatName = SDL_GetPixelFormatName(pixelFormatEnum);
 
             ImGui::Text("pixel format = %s", surfacePixelFormatName);
@@ -391,8 +391,9 @@ void Helpers::DrawMainMenu() {
             ImGui::Checkbox("Guide", &gamepaddata.Guide);
 
             if (SDL_GetGamepadType(gamepad) != SDL_GAMEPAD_TYPE_PS5) {
+                SDL_PropertiesID props = SDL_GetGamepadProperties(gamepad);
 
-                if (SDL_GamepadHasRumble(gamepad)) {
+                if (SDL_GetBooleanProperty(props, SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, SDL_FALSE)) {
 
                     ImGui::SetCursorPos(ImVec2(offSetX + 550, offSetY - 40));
                     ImGui::VSliderFloat("      ", {30, 150}, &gamepaddata.rumbleLeft, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
@@ -407,7 +408,7 @@ void Helpers::DrawMainMenu() {
                     SDL_RumbleGamepad(gamepad, (Uint16) rumbleLeft, (Uint16) rumbleRight, 100);
                 }
 
-                if (SDL_GamepadHasRumbleTriggers(gamepad)) {
+                if (SDL_GetBooleanProperty(props, SDL_PROP_GAMEPAD_CAP_TRIGGER_RUMBLE_BOOLEAN, SDL_FALSE)) {
                     ImGui::SetCursorPos(ImVec2(offSetX + 550, offSetY + 200));
                     ImGui::VSliderFloat("          ", {30, 150}, &gamepaddata.rumbleTriggerLeft, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
 

@@ -7,7 +7,7 @@
 
 Texture AssetHandler::_getTexture(const std::string &fileName) {
     if (_textures.find(fileName) == _textures.end()) {
-        Texture _tex = _loadTexture(fileName);
+        auto _tex = _loadTexture(fileName);
         _textures[std::string(fileName)] = _tex;
 
         return _textures[fileName];
@@ -16,11 +16,9 @@ Texture AssetHandler::_getTexture(const std::string &fileName) {
     }
 }
 
+TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
 
-
-Texture AssetHandler::_loadTexture(const std::string &fileName) {
-
-    Texture texture;
+    TextureAsset texture;
 
     auto surface = IMG_Load(fileName.c_str());
 
@@ -59,8 +57,8 @@ Texture AssetHandler::_loadTexture(const std::string &fileName) {
 
 }
 
-Texture AssetHandler::_createEmptyTexture(const vf2d &size) {
-    Texture texture;
+TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
+    TextureAsset texture;
 
     texture.width = size.x;
     texture.height = size.y;
@@ -80,13 +78,13 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
     if (!surface) {
         int texWidth, texHeight;
         SDL_QueryTexture(texture.texture, NULL, NULL, &texWidth, &texHeight);
-        surface = SDL_CreateSurface(texWidth, texHeight, 32);
+        surface = SDL_CreateSurface(texWidth, texHeight,SDL_PixelFormatEnum::SDL_PIXELFORMAT_RGBA32);
 
         if (!surface) {
             SDL_Log("%s", SDL_GetError());
         }
 
-        SDL_RenderReadPixels(Window::GetRenderer(), NULL, SDL_PIXELFORMAT_RGBA32, surface->pixels, surface->pitch);
+        SDL_RenderReadPixels(Window::GetRenderer(), nullptr);
 
     }
 
@@ -113,7 +111,7 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
 Sound AssetHandler::_getSound(const std::string &fileName) {
     if (_sounds.find(fileName) == _sounds.end()) {
-        Sound _sound;
+        SoundAsset _sound;
         _sound.sound = new ma_sound();
         ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(), MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sound.sound);
 
@@ -162,7 +160,7 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
 
     if (it == _fonts.end()) {
 
-        Font _font;
+        FontAsset _font;
         _font.font = TTF_OpenFont(fileName.c_str(), fontSize);
 
         if (_font.font == nullptr) {

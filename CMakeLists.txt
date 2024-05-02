@@ -10,6 +10,7 @@ add_library("luminoveau" STATIC
 
     audio/audiohandler.cpp
     audio/audiohandler.h
+
     configuration/configuration.h
 
     text/texthandler.cpp
@@ -26,8 +27,10 @@ add_library("luminoveau" STATIC
 
     log/loghandler.cpp
     log/loghandler.h
+
     render2d/render2dhandler.cpp
     render2d/render2dhandler.h
+
     settings/mini.h
     settings/settingshandler.cpp
     settings/settingshandler.h
@@ -36,9 +39,10 @@ add_library("luminoveau" STATIC
     state/state.h
     state/state.cpp
 
-        assethandler/assethandler.cpp
-        assethandler/assethandler.h
-        assethandler/DroidSansMono.cpp
+    assethandler/assethandler.cpp
+    assethandler/assethandler.h
+    assethandler/DroidSansMono.cpp
+
     utils/camera.h
     utils/colors.h
     utils/constants.h
@@ -52,16 +56,17 @@ add_library("luminoveau" STATIC
     utils/rectangles.h
     utils/vectors.cpp
     utils/vectors.h
+
     window/windowhandler.cpp
     window/windowhandler.h
+
     render2d/SDL2_gfxPrimitives.c
     render2d/SDL2_gfxPrimitives.h
     render2d/SDL2_gfxPrimitives_font.h
     render2d/SDL2_rotozoom.h
     render2d/SDL2_rotozoom.c
 )
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIGURATION>)
+
 
 if (FORCE_ALL_WARNINGS)
     target_compile_options("luminoveau" PRIVATE -Wall)
@@ -78,10 +83,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 
-target_compile_features("luminoveau" PRIVATE cxx_std_23)
+target_compile_features("luminoveau" PRIVATE cxx_std_20)
 
 target_include_directories("luminoveau" PUBLIC
-        "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}"
 )
 
 file(
@@ -100,7 +105,7 @@ set(INTERFACE_SDL3_SHARED OFF)
 set(SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS ON)
 CPMAddPackage(
     NAME SDL3
-    GIT_TAG ed62d6e
+    GIT_TAG e3395a7
     GITHUB_REPOSITORY libsdl-org/SDL
 )
 
@@ -112,7 +117,7 @@ set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
 CPMAddPackage(
     NAME SDL3_image
-    GIT_TAG 34e2279
+    GIT_TAG 9add12c
     GITHUB_REPOSITORY libsdl-org/SDL_image
 )
 
@@ -125,7 +130,7 @@ if(NOT MSVC)
         NAME freetype
         GIT_REPOSITORY https://github.com/aseprite/freetype2.git
         GIT_TAG e8ebfe9
-    )
+)
 
     if (freetype_ADDED)
         add_library(Freetype::Freetype ALIAS freetype)
@@ -135,7 +140,7 @@ set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
 CPMAddPackage(
     NAME SDL3_ttf
-    GIT_TAG 303c280
+    GIT_TAG 6e260a2
     GITHUB_REPOSITORY libsdl-org/SDL_ttf
 )
 
@@ -152,7 +157,7 @@ target_link_libraries("luminoveau" PUBLIC
 if (ADD_IMGUI)
     CPMAddPackage(
         NAME Imgui
-        GIT_TAG 5288687
+        GIT_TAG 4f9ba19
         GITHUB_REPOSITORY ocornut/imgui
     )
 

@@ -24,7 +24,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 #ifdef __EMSCRIPTEN__
     auto renderer = SDL_CreateRenderer(window, nullptr, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 #else
-    auto renderer = SDL_CreateRenderer(window, "opengl", SDL_RENDERER_ACCELERATED | flags);
+    auto renderer = SDL_CreateRenderer(window, "opengl", flags);
 #endif
 
     if (!renderer) {

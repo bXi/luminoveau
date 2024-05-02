@@ -7,11 +7,14 @@
 /**
  * @brief Represents a texture asset for rendering images using SDL.
  */
-struct Texture {
-    int width; /**< Width of the texture. */
-    int height; /**< Height of the texture. */
+struct TextureAsset {
+    int width = -1; /**< Width of the texture. */
+    int height = -1; /**< Height of the texture. */
     std::string filename; /**< Filename of the texture image file. */
 
     SDL_Surface *surface = nullptr; /**< Pointer to the SDL surface representing the texture. */
     SDL_Texture *texture = nullptr; /**< Pointer to the SDL texture. */
 };
+
+using Texture = TextureAsset&;
+

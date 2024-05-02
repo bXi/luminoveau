@@ -48,7 +48,7 @@ public:
      * @param color The color of the rendered text (default is WHITE).
      * @return A Texture object representing the rendered text, or an empty texture if rendering fails.
      */
-    static Texture DrawTextToTexture(Font font, std::string textToDraw, Color color) {
+    static TextureAsset DrawTextToTexture(Font font, std::string textToDraw, Color color) {
         return get()._drawTextToTexture(font, textToDraw, color);
     }
 
@@ -58,7 +58,7 @@ private:
 
     int _measureText(Font font, std::string text);
 
-    Texture _drawTextToTexture(Font font, std::string textToDraw, Color color);
+    TextureAsset _drawTextToTexture(Font font, std::string textToDraw, Color color);
 
 public:
     Text(const Text &) = delete;
@@ -69,5 +69,5 @@ public:
     }
 
 private:
-    Text() {};
+    Text() = default;
 };

@@ -53,7 +53,7 @@ void Render2D::_drawTexturePart(Texture texture, vf2d pos, vf2d size, rectf src,
     if (src.width < 0.f) { flipFlags |= SDL_FLIP_HORIZONTAL; }
     if (src.height < 0.f) { flipFlags |= SDL_FLIP_VERTICAL; }
 
-    SDL_RenderTextureRotated(renderer, texture.texture, &srcRect, &dstRect, 0.0, nullptr, (SDL_RendererFlip) flipFlags);
+    SDL_RenderTextureRotated(renderer, texture.texture, &srcRect, &dstRect, 0.0, nullptr, (SDL_FlipMode) flipFlags);
 }
 
 void Render2D::_beginScissorMode(rectf area) {
@@ -272,7 +272,7 @@ void Render2D::_drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Para
 
 //    ImGui::End();
 
-    SDL_RenderTextureRotated(Window::GetRenderer(), texture.texture, &srcRect, &destRect, 0.0, &center, (SDL_RendererFlip) flipFlags);
+    SDL_RenderTextureRotated(Window::GetRenderer(), texture.texture, &srcRect, &destRect, 0.0, &center, (SDL_FlipMode) flipFlags);
 
 }
 
