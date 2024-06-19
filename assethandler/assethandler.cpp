@@ -67,7 +67,8 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
 
     texture.texture = SDL_CreateTexture(Window::GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, (int) size.x, (int) size.y);
 
-    SDL_SetTextureBlendMode(texture.texture, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureScaleMode(texture.texture, (SDL_ScaleMode)defaultMode);
+
     return texture;
 }
 
@@ -151,7 +152,6 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
         return _musics[fileName];
     }
 }
-
 
 Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
     std::string index = std::string(Helpers::TextFormat("%s%d", fileName.c_str(), fontSize));
