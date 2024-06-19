@@ -16,6 +16,17 @@ struct Color {
     unsigned int a; /**< The alpha component of the color. */
 
     /**
+     * @brief Constructs a color without specifying a value.
+     *
+     * @param red The red component (0-255).
+     * @param green The green component (0-255).
+     * @param blue The blue component (0-255).
+     * @param alpha The alpha component (0-255).
+     */
+    Color()
+        : r(0), g(0), b(0), a(0) {}
+
+    /**
      * @brief Constructs a color from integer values.
      *
      * @param red The red component (0-255).
