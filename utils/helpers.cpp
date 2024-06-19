@@ -6,6 +6,25 @@
 
 #include "SDL3/SDL.h"
 
+#include <iostream>
+
+#if defined(_WIN32) || defined(_WIN64)
+
+#include <windows.h>
+
+#elif defined(__linux__) && !defined(__ANDROID__)
+#include <sys/sysinfo.h>
+#elif defined(__APPLE__)
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#elif defined(__ANDROID__)
+#include <sys/sysinfo.h>
+#include <jni.h>
+#include <android/log.h>
+#elif defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
+
 bool Helpers::imguiTexturesVisible = false;
 bool Helpers::imguiAudioVisible = false;
 bool Helpers::imguiInputVisible = false;
@@ -523,6 +542,47 @@ const char *Helpers::TextFormat(const char *text, ...) {
     if (index >= MAX_TEXTFORMAT_BUFFERS) index = 0;
 
     return currentBuffer;
+}
+
+uint64_t Helpers::GetTotalSystemMemory() {
+#if defined(_WIN32) || defined(_WIN64)
+    MEMORYSTATUSEX statex;
+    statex.dwLength = sizeof(statex);
+    if (GlobalMemoryStatusEx(&statex)) {
+        return statex.ullTotalPhys;
+    } else {
+        return 0; // Failed to get memory status
+    }
+#elif defined(__linux__) && !defined(__ANDROID__)
+    struct sysinfo info;
+    if (sysinfo(&info) == 0) {
+        return info.totalram * info.mem_unit;
+    } else {
+        return 0; // Failed to get memory status
+    }
+#elif defined(__APPLE__)
+    int mib[2] = {CTL_HW, HW_MEMSIZE};
+    uint64_t totalMemory = 0;
+    size_t length = sizeof(totalMemory);
+    if (sysctl(mib, 2, &totalMemory, &length, NULL, 0) == 0) {
+        return totalMemory;
+    } else {
+        return 0; // Failed to get memory status
+    }
+#elif defined(__ANDROID__)
+    struct sysinfo info;
+    if (sysinfo(&info) == 0) {
+        return info.totalram * info.mem_unit;
+    } else {
+        return 0; // Failed to get memory status
+    }
+#elif defined(__EMSCRIPTEN__)
+    return EM_ASM_INT({
+        return HEAP8.length;
+    });
+#else
+    return 0; // Unsupported platform
+#endif
 }
 
 

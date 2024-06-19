@@ -36,6 +36,7 @@ public:
 
     static int GetRandomValue(int min, int max);
 
+    static uint64_t GetTotalSystemMemory();
 
     static bool imguiTexturesVisible;
     static bool imguiAudioVisible;
