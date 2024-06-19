@@ -262,7 +262,7 @@ private:
             // Handle error
             TTF_Quit();
             SDL_Quit();
-            throw std::exception("Could not load the default font.");
+            throw std::runtime_error("Could not load the default font.");
         }
 
         // Load the font from the memory stream
@@ -272,7 +272,7 @@ private:
             SDL_CloseIO(rwops);
             TTF_Quit();
             SDL_Quit();
-            throw std::exception("Could not load the default font.");
+            throw std::runtime_error("Could not load the default font.");
         }
         defaultFont.font = font;
     };
