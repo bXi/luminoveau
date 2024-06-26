@@ -9,7 +9,7 @@
 #include <iostream>
 
 #if defined(_WIN32) || defined(_WIN64)
-
+#define NOMINMAX
 #include <windows.h>
 
 #elif defined(__linux__) && !defined(__ANDROID__)
