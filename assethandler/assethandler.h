@@ -257,6 +257,10 @@ public:
 private:
     AssetHandler() {
 
+        if (!TTF_WasInit()) {
+            TTF_Init();
+        }
+
         SDL_IOStream* rwops = SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
         if (rwops == NULL) {
             // Handle error
