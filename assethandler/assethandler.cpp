@@ -39,6 +39,10 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     SDL_Texture *tex = SDL_CreateTextureFromSurface(Window::GetRenderer(), surface);
     texture.texture = tex;
 
+    SDL_PropertiesID props = SDL_GetTextureProperties(tex);
+
+    texture.id = props[SDL_PROP_TEXTURE_OPENGL_TEXTURE_NUMBER];
+
 
     SDL_SetTextureScaleMode(tex, (SDL_ScaleMode)defaultMode);
 
@@ -67,6 +71,9 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
 
     texture.texture = SDL_CreateTexture(Window::GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, (int) size.x, (int) size.y);
 
+    SDL_PropertiesID props = SDL_GetTextureProperties(texture.texture);
+    texture.id = props[SDL_PROP_TEXTURE_OPENGL_TEXTURE_NUMBER];
+
     SDL_SetTextureScaleMode(texture.texture, (SDL_ScaleMode)defaultMode);
 
     return texture;
@@ -77,9 +84,11 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
     SDL_Surface *surface = texture.surface;
 
     if (!surface) {
-        int texWidth, texHeight;
-        SDL_QueryTexture(texture.texture, NULL, NULL, &texWidth, &texHeight);
-        surface = SDL_CreateSurface(texWidth, texHeight,SDL_PixelFormatEnum::SDL_PIXELFORMAT_RGBA32);
+        float texWidth, texHeight;
+
+        SDL_PropertiesID props = SDL_GetTextureProperties(texture.texture);
+        SDL_GetTextureSize(texture.texture, &texWidth, &texHeight);
+        surface = SDL_CreateSurface((int)texWidth, (int)texHeight, SDL_PixelFormat::SDL_PIXELFORMAT_RGBA32);
 
         if (!surface) {
             SDL_Log("%s", SDL_GetError());
@@ -91,8 +100,8 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
     SDL_Surface *rgbaSurface = surface;
 
-    if (surface->format->format != SDL_PIXELFORMAT_RGBA32) {
-        rgbaSurface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_RGBA32);
+    if (surface->format != SDL_PIXELFORMAT_RGBA32) {
+        rgbaSurface = SDL_ConvertSurface(surface, SDL_PixelFormat::SDL_PIXELFORMAT_RGBA32);
     }
 
     unsigned char *pixels = new unsigned char[rgbaSurface->w * rgbaSurface->h * 4];
@@ -105,7 +114,7 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
     delete[] pixels;
 
-    if (surface->format->format != SDL_PIXELFORMAT_RGBA32) {
+    if (surface->format != SDL_PixelFormat::SDL_PIXELFORMAT_RGBA32) {
         SDL_DestroySurface(rgbaSurface);
     }
 }

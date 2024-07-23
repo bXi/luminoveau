@@ -60,16 +60,16 @@ private:
     int gamepadID;
 
     std::map<Buttons, std::list<int>> mappingKB = {
-            {Buttons::LEFT,        {SDLK_a,      SDLK_LEFT}},
-            {Buttons::RIGHT,       {SDLK_d,      SDLK_RIGHT}},
-            {Buttons::UP,          {SDLK_w,      SDLK_UP}},
-            {Buttons::DOWN,        {SDLK_s,      SDLK_DOWN}},
+            {Buttons::LEFT,        {SDLK_A,      SDLK_LEFT}},
+            {Buttons::RIGHT,       {SDLK_D,      SDLK_RIGHT}},
+            {Buttons::UP,          {SDLK_W,      SDLK_UP}},
+            {Buttons::DOWN,        {SDLK_S,      SDLK_DOWN}},
 
             {Buttons::ACCEPT,      {SDLK_SPACE,  SDLK_KP_ENTER, SDLK_RETURN}},
             {Buttons::BACK,        {SDLK_ESCAPE, SDLK_BACKSPACE}},
 
             {Buttons::SWITCH_NEXT, {SDLK_TAB}},
-            {Buttons::SWITCH_PREV, {SDLK_BACKQUOTE}},
+            {Buttons::SWITCH_PREV, {SDLK_GRAVE}},
 
             {Buttons::RUN,         {SDL_SCANCODE_LSHIFT}},
 

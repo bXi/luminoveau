@@ -191,7 +191,7 @@ private:
     Uint32 previousMouseButtons = 0;
 
 
-    SDL_JoystickID *joystickIds = nullptr;
+    const SDL_JoystickID *joystickIds = nullptr;
 
     struct gamepadInfo {
         SDL_JoystickID joystickId;

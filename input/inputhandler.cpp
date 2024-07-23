@@ -87,7 +87,7 @@ bool Input::_keyPressed(int key) {
     auto curState = currentKeyboardState;
     auto prevState = previousKeyboardState;
 
-    auto scancode = SDL_GetScancodeFromKey(key);
+    auto scancode = SDL_GetScancodeFromKey(key, nullptr);
 
     return curState[scancode] == 1 && prevState[scancode] == 0;
 }
@@ -97,14 +97,14 @@ bool Input::_keyReleased(int key) {
     auto curState = currentKeyboardState;
     auto prevState = previousKeyboardState;
 
-    auto scancode = SDL_GetScancodeFromKey(key);
+    auto scancode = SDL_GetScancodeFromKey(key, nullptr);
 
     return curState[scancode] == 0 && prevState[scancode] == 1;
 }
 
 bool Input::_keyDown(int key) {
 
-    auto scancode = SDL_GetScancodeFromKey(key);
+    auto scancode = SDL_GetScancodeFromKey(key, nullptr);
 
     return currentKeyboardState[scancode] == 1;
 }

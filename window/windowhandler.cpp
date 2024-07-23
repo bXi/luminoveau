@@ -13,7 +13,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
         height *= scale;
     }
 
-    SDL_InitSubSystem(SDL_InitFlags::SDL_INIT_VIDEO);
+    SDL_InitSubSystem(SDL_INIT_VIDEO);
     auto window = SDL_CreateWindow(title.c_str(), width, height, flags);
     if (window) {
         m_window.reset(window);
@@ -21,11 +21,18 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
         throw std::runtime_error(SDL_GetError());
     }
 
+    SDL_PropertiesID props;
+
+    props = SDL_CreateProperties();
+
+    SDL_SetPointerProperty(props, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window);
 #ifdef __EMSCRIPTEN__
-    auto renderer = SDL_CreateRenderer(window, nullptr, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    SDL_SetStringProperty(props, SDL_PROP_RENDERER_VSYNC_NUMBER, 1);
 #else
-    auto renderer = SDL_CreateRenderer(window, "opengl", flags);
+    SDL_SetStringProperty(props, SDL_PROP_RENDERER_CREATE_NAME_STRING, "opengl");
 #endif
+
+    auto renderer = SDL_CreateRendererWithProperties(props);
 
     if (!renderer) {
         SDL_Log("SDL renderer failed: %s", SDL_GetError());
@@ -153,10 +160,10 @@ void Window::_handleInput() {
                 _shouldQuit = true;
                 break;
             case SDL_EventType::SDL_EVENT_KEY_DOWN:
-                newKeysDown.push_back(event.key.keysym.scancode);
+                newKeysDown.push_back(event.key.scancode);
                 break;
             case SDL_EventType::SDL_EVENT_KEY_UP:
-                newKeysUp.push_back(event.key.keysym.scancode);
+                newKeysUp.push_back(event.key.scancode);
                 break;
             case SDL_EventType::SDL_EVENT_GAMEPAD_ADDED:
                 Input::AddGamepadDevice(event.gdevice.which);

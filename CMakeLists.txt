@@ -105,7 +105,7 @@ set(INTERFACE_SDL3_SHARED OFF)
 set(SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS ON)
 CPMAddPackage(
     NAME SDL3
-    GIT_TAG e3395a7
+    GIT_TAG f5f44de
     GITHUB_REPOSITORY libsdl-org/SDL
 )
 
@@ -117,7 +117,7 @@ set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
 CPMAddPackage(
     NAME SDL3_image
-    GIT_TAG 9add12c
+    GIT_TAG 8abc07d
     GITHUB_REPOSITORY libsdl-org/SDL_image
 )
 
@@ -129,8 +129,8 @@ if(NOT MSVC)
     CPMAddPackage(
         NAME freetype
         GIT_REPOSITORY https://github.com/aseprite/freetype2.git
-        GIT_TAG e8ebfe9
-)
+        GIT_TAG 9a2d6d9
+    )
 
     if (freetype_ADDED)
         add_library(Freetype::Freetype ALIAS freetype)
@@ -140,7 +140,7 @@ set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
 CPMAddPackage(
     NAME SDL3_ttf
-    GIT_TAG 6e260a2
+    GIT_TAG 5b6171c
     GITHUB_REPOSITORY libsdl-org/SDL_ttf
 )
 
@@ -157,7 +157,7 @@ target_link_libraries("luminoveau" PUBLIC
 if (ADD_IMGUI)
     CPMAddPackage(
         NAME Imgui
-        GIT_TAG 4f9ba19
+        GIT_TAG fe09ebb
         GITHUB_REPOSITORY ocornut/imgui
     )
 
