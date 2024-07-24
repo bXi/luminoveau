@@ -115,6 +115,10 @@ endif()
 
 set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
+#remove AV1 support in SDL3Image because it requires perl and nasm which just breaks in MSVC
+set(SDL3IMAGE_AVIF_SAVE OFF)
+set(SDL3IMAGE_AVIF OFF)
+
 CPMAddPackage(
     NAME SDL3_image
     GIT_TAG 8abc07d
