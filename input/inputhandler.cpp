@@ -131,7 +131,7 @@ vf2d Input::_getMousePosition() {
 
     SDL_GetMouseState(&xMouse, &yMouse);
 
-    return {xMouse, yMouse};
+    return {xMouse / Window::GetScale(), yMouse / Window::GetScale()};
 #endif
 }
 
