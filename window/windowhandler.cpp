@@ -230,7 +230,7 @@ void Window::_endFrame() {
     ImGui::Render();
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData());
 #endif
-
+    ResetRenderTarget();
     SDL_RenderPresent(Window::GetRenderer());
 
     _frameCount++;
