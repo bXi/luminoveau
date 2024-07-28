@@ -167,6 +167,7 @@ private:
     std::unordered_map<std::string, MusicAsset> _musics;
     std::unordered_map<std::string, SoundAsset> _sounds;
     std::unordered_map<std::string, TextureAsset> _textures;
+    int _createTextureId = 0;
 
     ScaleMode defaultMode = ScaleMode::NEAREST;
 

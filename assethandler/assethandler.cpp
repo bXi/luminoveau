@@ -71,8 +71,10 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
 
     texture.texture = SDL_CreateTexture(Window::GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, (int) size.x, (int) size.y);
 
-    SDL_PropertiesID props = SDL_GetTextureProperties(texture.texture);
-    texture.id = props[SDL_PROP_TEXTURE_OPENGL_TEXTURE_NUMBER];
+    //TODO: fix for other renderers
+
+    get()._createTextureId++;
+    texture.id = get()._createTextureId;
 
     SDL_SetTextureScaleMode(texture.texture, (SDL_ScaleMode)defaultMode);
 
