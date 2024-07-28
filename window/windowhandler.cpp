@@ -43,7 +43,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
         }
     }
 
-    SDL_SetRenderDrawBlendMode(_getRenderer(), SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawBlendMode(GetRenderer(), SDL_BLENDMODE_BLEND);
 
     if (scale > 1) {
         _setScale(scale);
@@ -276,7 +276,7 @@ void Window::_setRenderTarget(Texture target) {
 
 void Window::_resetRenderTarget() {
     if (_scaleFactor > 1) {
-        _setRenderTarget(_screenBuffer);
+        SetRenderTarget(_screenBuffer);
     } else {
         SDL_SetRenderTarget(Window::GetRenderer(), nullptr);
     }
