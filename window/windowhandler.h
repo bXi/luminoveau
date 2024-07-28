@@ -85,6 +85,14 @@ public:
      * @param width The width of the window.
      * @param height The height of the window.
      */
+
+    static float GetScale() { return get()._getScale(); }
+
+    /**
+     * @brief Gets the size of the window.
+     *
+     * @return The currently used scaling factor.
+     */
     static void SetSize(int width, int height) { get()._setSize(width, height); }
 
     /**
@@ -215,6 +223,7 @@ private:
 
     SDL_Window* _getWindow();
     void _setScale(int scalefactor);
+    float _getScale();
     void _setSize(int width, int height);
     void _setScaledSize(int width, int height, int scale = 0);
     void _startFrame();

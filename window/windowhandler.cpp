@@ -282,6 +282,10 @@ void Window::_resetRenderTarget() {
     }
 }
 
+float Window::_getScale() {
+    return (float)_scaleFactor;
+}
+
 
 #ifdef ADD_IMGUI
 void Window::SetupImGuiStyle()
