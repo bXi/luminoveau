@@ -82,8 +82,7 @@ public:
     /**
      * @brief Sets the size of the window.
      *
-     * @param width The width of the window.
-     * @param height The height of the window.
+     * @return The currently used scaling factor.
      */
 
     static float GetScale() { return get()._getScale(); }
@@ -91,7 +90,8 @@ public:
     /**
      * @brief Gets the size of the window.
      *
-     * @return The currently used scaling factor.
+     * @param width The width of the window.
+     * @param height The height of the window.
      */
     static void SetSize(int width, int height) { get()._setSize(width, height); }
 
