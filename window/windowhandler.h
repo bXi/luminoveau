@@ -80,7 +80,7 @@ public:
     static void SetScale(int scalefactor) { get()._setScale(scalefactor); }
 
     /**
-     * @brief Sets the size of the window.
+     * @brief Gets the scale factor of the window.
      *
      * @return The currently used scaling factor.
      */
@@ -88,7 +88,7 @@ public:
     static float GetScale() { return get()._getScale(); }
 
     /**
-     * @brief Gets the size of the window.
+     * @brief Sets the size of the window.
      *
      * @param width The width of the window.
      * @param height The height of the window.
