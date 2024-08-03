@@ -233,9 +233,8 @@ void Helpers::DrawMainMenu() {
 
             ImGui::Text("size = %d x %d", my_image_width, my_image_height);
 
-            SDL_PixelFormat *pixelFormat = texture.second.surface->format;
-            SDL_PixelFormatEnum pixelFormatEnum = pixelFormat->format;
-            const char *surfacePixelFormatName = SDL_GetPixelFormatName(pixelFormatEnum);
+
+            const char *surfacePixelFormatName = SDL_GetPixelFormatName(texture.second.surface->format);
 
             ImGui::Text("pixel format = %s", surfacePixelFormatName);
 
@@ -257,7 +256,7 @@ void Helpers::DrawMainMenu() {
         ImGui::Begin("Gamepads", &imguiInputVisible);
 
         int numJoysticks;
-        SDL_JoystickID *joysticks = SDL_GetGamepads(&numJoysticks);
+        const SDL_JoystickID *joysticks = SDL_GetGamepads(&numJoysticks);
 
         for (int i = 0; i < numJoysticks; ++i) {
 
