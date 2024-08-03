@@ -184,11 +184,18 @@ void ImGui_ImplSDLRenderer3_RenderDrawData(ImDrawData* draw_data)
                 const int* color = (const int*)(const void*)((const char*)(vtx_buffer + pcmd->VtxOffset) + offsetof(ImDrawVert, col)); // SDL 2.0.17 and 2.0.18
 #endif
 
+                SDL_FColor fcolor {};
+
+                fcolor.r = ((float)color->r / 255.f);
+                fcolor.g = ((float)color->g / 255.f);
+                fcolor.b = ((float)color->b / 255.f);
+                fcolor.a = ((float)color->a / 255.f);
+
                 // Bind texture, Draw
 				SDL_Texture* tex = (SDL_Texture*)pcmd->GetTexID();
                 SDL_RenderGeometryRaw(bd->SDLRenderer, tex,
                     xy, (int)sizeof(ImDrawVert),
-                    color, (int)sizeof(ImDrawVert),
+                    &fcolor, (int)sizeof(ImDrawVert),
                     uv, (int)sizeof(ImDrawVert),
                     cmd_list->VtxBuffer.Size - pcmd->VtxOffset,
                     idx_buffer + pcmd->IdxOffset, pcmd->ElemCount, sizeof(ImDrawIdx));
