@@ -181,11 +181,6 @@ private:
     template<typename T>
     void _delete(T& asset) {
 
-        int a =1;
-
-
-
-
         if constexpr (std::is_same_v<T, FontAsset>) {
             std::cout << "Deleting Font..." << std::endl;
             auto it = std::find_if(_fonts.begin(), _fonts.end(), [&](const auto& pair) {

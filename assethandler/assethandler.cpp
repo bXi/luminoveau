@@ -25,7 +25,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     if (!surface) {
         std::string error = Helpers::TextFormat("IMG_Load failed: %s", SDL_GetError());
 
-        SDL_Log(error.c_str());
+        SDL_Log("%s", error.c_str());
         throw std::runtime_error(error.c_str());
     }
 
