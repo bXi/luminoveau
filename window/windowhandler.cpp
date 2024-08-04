@@ -27,7 +27,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 
     SDL_SetPointerProperty(props, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window);
 #ifdef __EMSCRIPTEN__
-    SDL_SetStringProperty(props, SDL_PROP_RENDERER_VSYNC_NUMBER, 1);
+    SDL_SetBooleanProperty(props, SDL_PROP_RENDERER_VSYNC_NUMBER, 1);
 #else
     SDL_SetStringProperty(props, SDL_PROP_RENDERER_CREATE_NAME_STRING, "opengl");
 #endif
