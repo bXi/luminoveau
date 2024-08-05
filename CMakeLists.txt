@@ -25,9 +25,6 @@ add_library("luminoveau" STATIC
     input/inputhandler.cpp
     input/inputhandler.h
 
-    log/loghandler.cpp
-    log/loghandler.h
-
     render2d/render2dhandler.cpp
     render2d/render2dhandler.h
 
@@ -67,6 +64,14 @@ add_library("luminoveau" STATIC
     render2d/SDL2_rotozoom.c
 )
 
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/log/loghandler.cpp")
+    target_sources("luminoveau" PRIVATE
+        log/loghandler.cpp
+        log/loghandler.h
+    )
+    message("[Luminoveau]: adding loghandler")
+
+endif()
 
 if (FORCE_ALL_WARNINGS)
     target_compile_options("luminoveau" PRIVATE -Wall)
@@ -97,12 +102,33 @@ file(
 )
 include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 
-
-set(BUILD_SHARED_LIBS OFF)
-set(SDL_STATIC ON)
-set(SDL_SHARED OFF)
-set(INTERFACE_SDL3_SHARED OFF)
 set(SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS ON)
+
+#remove AV1 support in SDL3Image because it requires perl and nasm which just breaks in MSVC
+set(SDL3IMAGE_AVIF_SAVE OFF)
+set(SDL3IMAGE_AVIF OFF)
+
+if (ANDROID) #for android we want to build shared libs
+
+    set(BUILD_SHARED_LIBS ON)
+    set(SDL_STATIC OFF)
+    set(SDL_SHARED ON)
+    set(INTERFACE_SDL3_SHARED ON)
+
+    set(SDL3IMAGE_BUILD_SHARED_LIBS ON)
+
+else()
+
+    set(BUILD_SHARED_LIBS OFF)
+    set(SDL_STATIC ON)
+    set(SDL_SHARED OFF)
+    set(INTERFACE_SDL3_SHARED OFF)
+    set(SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS ON)
+
+    set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
+
+endif()
+
 CPMAddPackage(
     NAME SDL3
     GIT_TAG f5f44de
@@ -112,12 +138,6 @@ CPMAddPackage(
 if(SDL3_ADDED)
     target_include_directories("luminoveau" PUBLIC ${SDL3_SOURCE_DIR}/include)
 endif()
-
-set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
-
-#remove AV1 support in SDL3Image because it requires perl and nasm which just breaks in MSVC
-set(SDL3IMAGE_AVIF_SAVE OFF)
-set(SDL3IMAGE_AVIF OFF)
 
 CPMAddPackage(
     NAME SDL3_image
@@ -129,7 +149,7 @@ if(SDL3_image_ADDED)
     target_include_directories("luminoveau" PUBLIC ${SDL3_image_SOURCE_DIR}/include)
 endif()
 
-if(NOT MSVC)
+if(NOT MSVC AND NOT ANDROID)
     CPMAddPackage(
         NAME freetype
         GIT_REPOSITORY https://github.com/aseprite/freetype2.git
@@ -140,7 +160,6 @@ if(NOT MSVC)
         add_library(Freetype::Freetype ALIAS freetype)
     endif()
 endif()
-set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
 CPMAddPackage(
     NAME SDL3_ttf
@@ -152,11 +171,20 @@ if(SDL3_ttf_ADDED)
     target_include_directories("luminoveau" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
 endif()
 
-target_link_libraries("luminoveau" PUBLIC
-    SDL3::SDL3-static
-    SDL3_image::SDL3_image
-    SDL3_ttf::SDL3_ttf
-)
+
+if (ANDROID)
+    target_link_libraries("luminoveau" PUBLIC
+        SDL3::SDL3
+        SDL3_image::SDL3_image
+        SDL3_ttf::SDL3_ttf
+    )
+else()
+    target_link_libraries("luminoveau" PUBLIC
+        SDL3::SDL3-static
+        SDL3_image::SDL3_image
+        SDL3_ttf::SDL3_ttf
+    )
+endif()
 
 if (ADD_IMGUI)
     CPMAddPackage(
@@ -185,7 +213,7 @@ if (ADD_IMGUI)
             target_sources("luminoveau" PRIVATE
                 window/imgui_impl_sdlrenderer3.cpp
                 window/imgui_impl_sdl3.cpp
-            ) 
+            )
         endif()
     endif()
 endif()
