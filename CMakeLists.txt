@@ -161,7 +161,7 @@ target_link_libraries("luminoveau" PUBLIC
 if (ADD_IMGUI)
     CPMAddPackage(
         NAME Imgui
-        GIT_TAG fe09ebb
+        GIT_TAG 8cc6eee
         GITHUB_REPOSITORY ocornut/imgui
     )
 
