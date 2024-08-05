@@ -228,7 +228,7 @@ void Window::_endFrame() {
         Helpers::DrawMainMenu();
     }
     ImGui::Render();
-    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData());
+    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), Window::GetRenderer());
 #endif
     ResetRenderTarget();
     SDL_RenderPresent(Window::GetRenderer());

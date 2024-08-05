@@ -25,10 +25,11 @@
 
 struct SDL_Renderer;
 
+// Follow "Getting Started" link and check examples/ folder to learn about using backends!
 IMGUI_IMPL_API bool     ImGui_ImplSDLRenderer3_Init(SDL_Renderer* renderer);
 IMGUI_IMPL_API void     ImGui_ImplSDLRenderer3_Shutdown();
 IMGUI_IMPL_API void     ImGui_ImplSDLRenderer3_NewFrame();
-IMGUI_IMPL_API void     ImGui_ImplSDLRenderer3_RenderDrawData(ImDrawData* draw_data);
+IMGUI_IMPL_API void     ImGui_ImplSDLRenderer3_RenderDrawData(ImDrawData* draw_data, SDL_Renderer* renderer);
 
 // Called by Init/NewFrame/Shutdown
 IMGUI_IMPL_API bool     ImGui_ImplSDLRenderer3_CreateFontsTexture();
