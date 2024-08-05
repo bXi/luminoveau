@@ -38,9 +38,25 @@ union rect_generic {
 
 #if __has_include("SDL3/SDL.h")
 
-    operator SDL_FRect() { return SDL_FRect((float) x, (float) y, (float) width, (float) height); }
+    operator SDL_FRect() {
+        SDL_FRect frect;
+        frect.x = (float)x;
+        frect.y = (float)y;
+        frect.w = (float)width;
+        frect.h = (float)height;
 
-    operator SDL_Rect() { return SDL_Rect((int) x, (int) y, (int) width, (int) height); }
+        return frect;
+    }
+
+    operator SDL_Rect() {
+        SDL_Rect rect;
+        rect.x = (int)x;
+        rect.y = (int)y;
+        rect.w = (int)width;
+        rect.h = (int)height;
+
+        return rect;
+    }
 
 #endif
 };
