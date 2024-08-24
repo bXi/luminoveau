@@ -3,6 +3,7 @@
 #include <string>
 
 #include "SDL3/SDL.h"
+#include "utils/vectors.h"
 
 /**
  * @brief Represents a texture asset for rendering images using SDL.
@@ -17,6 +18,10 @@ struct TextureAsset {
 
     SDL_Surface *surface = nullptr; /**< Pointer to the SDL surface representing the texture. */
     SDL_Texture *texture = nullptr; /**< Pointer to the SDL texture. */
+
+    vi2d getSize() const {
+        return { width, height};
+    }
 };
 
 using Texture = TextureAsset&;
