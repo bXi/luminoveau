@@ -68,6 +68,11 @@ void Audio::_playMusic(Music &music) {
     }
 }
 
+
+void Audio::_rewindMusic(Music &music) {
+    ma_sound_seek_to_pcm_frame(music.music, 0);
+    return;
+}
 void Audio::ma_data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount) {
     ma_engine_read_pcm_frames((ma_engine *) (pDevice->pUserData), pOutput, frameCount, nullptr);
 }

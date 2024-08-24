@@ -50,6 +50,15 @@ public:
     }
 
     /**
+     * @brief Rewinds the music file from the specified file.
+     *
+     * @param fileName The filename of the music to play.
+     */
+    static void RewindMusic(Music &music) {
+        get()._rewindMusic(music);
+    }
+
+    /**
      * @brief Plays a sound effect from the specified file.
      *
      * @param fileName The filename of the sound effect to play.
@@ -84,6 +93,8 @@ private:
     bool _isMusicPlaying();
 
     void _playMusic(Music music);
+
+    void _rewindMusic(Music music);
 
     void _init();
 
