@@ -82,7 +82,7 @@ void Audio::_init() {
 
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
     deviceConfig.playback.format = ma_format_f32;
-    deviceConfig.playback.channels = 2;
+    deviceConfig.playback.channels = 6;
     deviceConfig.sampleRate = sampleRate;
     deviceConfig.dataCallback = Audio::ma_data_callback;
     deviceConfig.pUserData = &engine;
