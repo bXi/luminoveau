@@ -1,10 +1,6 @@
 #include "assethandler.h"
 #include "window/windowhandler.h"
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-
-#include "stb_image_write.h"
-
 Texture AssetHandler::_getTexture(const std::string &fileName) {
     if (_textures.find(fileName) == _textures.end()) {
         auto _tex = _loadTexture(fileName);
@@ -20,7 +16,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
 
     TextureAsset texture;
 
-    auto surface = IMG_Load(fileName.c_str());
+    auto surface = STBIMG_Load(fileName.c_str());
 
     if (!surface) {
         std::string error = Helpers::TextFormat("IMG_Load failed: %s", SDL_GetError());

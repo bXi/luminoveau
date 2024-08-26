@@ -5,7 +5,9 @@
 #include <utility>
 
 #include "SDL3/SDL.h"
-#include "SDL3_image/SDL_image.h"
+#include "stb_image.h"
+#include "stb_image_write.h"
+#include "SDL_stbimage.h"
 
 #include "utils/vectors.h"
 #include "utils/rectangles.h"

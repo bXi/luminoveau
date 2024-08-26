@@ -1,6 +1,6 @@
 #pragma once
 
-#include "audio/miniaudio.h"
+#include "miniaudio.h"
 
 /**
  * @brief Represents a sound asset for playing short audio clips using miniaudio.

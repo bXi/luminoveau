@@ -64,6 +64,13 @@ add_library("luminoveau" STATIC
     render2d/SDL2_rotozoom.c
 )
 
+target_sources("luminoveau" PRIVATE
+    extern/miniaudio.cpp
+    extern/SDL_stbimage.cpp
+    extern/stb_image.cpp
+    extern/stb_image_write.cpp
+)
+
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/log/loghandler.cpp")
     target_sources("luminoveau" PRIVATE
         log/loghandler.cpp
@@ -92,6 +99,7 @@ target_compile_features("luminoveau" PRIVATE cxx_std_20)
 
 target_include_directories("luminoveau" PUBLIC
     "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/extern"
 )
 
 file(
@@ -140,17 +148,6 @@ if(SDL3_ADDED)
 endif()
 
 CPMAddPackage(
-    NAME SDL3_image
-    GIT_TAG 8abc07d
-    GITHUB_REPOSITORY libsdl-org/SDL_image
-)
-
-if(SDL3_image_ADDED)
-    target_include_directories("luminoveau" PUBLIC ${SDL3_image_SOURCE_DIR}/include)
-endif()
-
-
-CPMAddPackage(
     NAME harfbuzz
     GIT_REPOSITORY https://github.com/harfbuzz/harfbuzz.git
     GIT_TAG ea430c1
@@ -188,7 +185,6 @@ if (ANDROID)
 else()
     target_link_libraries("luminoveau" PUBLIC
         SDL3::SDL3-static
-        SDL3_image::SDL3_image
         SDL3_ttf::SDL3_ttf
     )
 endif()

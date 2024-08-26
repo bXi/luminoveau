@@ -65,7 +65,6 @@ void Window::_close() {
     // SDL_QuitSubSystem is ref-counted
     Audio::Close();
     SDL_Quit();
-    IMG_Quit();
 }
 
 double Window::_getRunTime() {
