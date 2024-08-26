@@ -149,6 +149,13 @@ if(SDL3_image_ADDED)
     target_include_directories("luminoveau" PUBLIC ${SDL3_image_SOURCE_DIR}/include)
 endif()
 
+
+CPMAddPackage(
+    NAME harfbuzz
+    GIT_REPOSITORY https://github.com/harfbuzz/harfbuzz.git
+    GIT_TAG ea430c1
+)
+
 if(NOT MSVC AND NOT ANDROID)
     CPMAddPackage(
         NAME freetype
