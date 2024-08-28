@@ -131,6 +131,13 @@ void Audio::_init() {
 void Audio::_close() {
     _stopMusic();
 
+    for (size_t i = 0; i < get()._sounds.size(); ++i) {
+        if (_sounds[i] && ma_sound_is_playing(_sounds[i])) {
+            ma_sound_stop(_sounds[i]);
+            ma_sound_uninit(_sounds[i]);
+        }
+    }
+
     ma_resource_manager_uninit(&resourceManager);
     ma_engine_uninit(&engine);
 }
