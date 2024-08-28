@@ -14,25 +14,37 @@ void Audio::_playSound(Sound sound) {
     ma_sound_start(sound.sound);
 }
 
+void Audio::_playSound(Sound sound, float volume, float panning) {
+    int index = -1;
+
+    for (int i = 0; i < _sounds.size(); i++) {
+        auto s = _sounds[i];
+        if (!s || !ma_sound_is_playing(s)) {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == -1) return;
+
+    volume = std::clamp(volume, 0.0f, 1.0f);
+    panning = std::clamp(panning, -1.0f, 1.0f);
+
+    _sounds[index] = new ma_sound;
+    ma_sound_init_from_file(&engine, sound.path.c_str(), MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sounds[index]);
+    ma_sound_set_volume(_sounds[index], volume);
+    ma_sound_set_pan(_sounds[index], panning);
+    ma_sound_start(_sounds[index]);
+}
+
 void Audio::_updateMusicStreams() {
 #ifdef __EMSCRIPTEN__
     ma_resource_manager_process_next_job(&resourceManager);
 #endif
-
     for (auto &music: AssetHandler::GetLoadedMusics()) {
         if (music.second.shouldPlay) {
-
-//            if(ma_sound_is_playing(music.second.music))
-//            {
-//                ma_sound_seek_to_pcm_frame(music.second.music, 0);
-//                return;
-//            }
-//
-//            ma_sound_set_looping(music.second.music, true);
             ma_sound_start(music.second.music);
-
         }
-
     }
 }
 
@@ -106,6 +118,10 @@ void Audio::_init() {
     engineConfig.pResourceManager = &resourceManager;
 
     ma_engine_init(&engineConfig, &engine);
+
+    for (size_t i = 0; i < get()._sounds.size(); ++i) {
+        _sounds[i] = nullptr;
+    }
 
 }
 

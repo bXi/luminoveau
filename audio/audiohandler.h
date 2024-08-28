@@ -68,6 +68,17 @@ public:
     }
 
     /**
+     * @brief Plays a sound effect from the specified file with specified volume and panning.
+     *
+     * @param fileName The filename of the sound effect to play.
+     * @param volume The volume of the sound from 0.0f to 1.0f
+     * @param panning The panning of the sound from -1.0f to 1.0f
+     */
+    static void PlaySound(Sound sound, float volume, float panning) {
+        get()._playSound(sound, volume, panning);
+    }
+
+    /**
      * @brief Checks if music is currently playing.
      *
      * @return True if music is playing, false otherwise.
@@ -86,6 +97,8 @@ private:
 
     void _playSound(Sound sound);
 
+    void _playSound(Sound sound, float volume, float panning);
+
     void _updateMusicStreams();
 
     void _stopMusic();
@@ -103,6 +116,8 @@ private:
     ma_device device;
     ma_engine engine;
     ma_resource_manager resourceManager;
+
+    std::array<ma_sound*, 128> _sounds;
 
     static void ma_data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount);
 
