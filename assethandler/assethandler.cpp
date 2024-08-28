@@ -121,6 +121,7 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
     if (_sounds.find(fileName) == _sounds.end()) {
         SoundAsset _sound;
         _sound.sound = new ma_sound();
+        _sound.fileName = fileName;
         ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(), MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sound.sound);
 
         if (result != MA_SUCCESS) {
