@@ -87,6 +87,15 @@ public:
         return get()._isMusicPlaying();
     }
 
+    /**
+     * @brief Sets the number of channels to be used. Defaults to 2 for normal stereo.
+     *
+     * @param newNumberOfChannels Number of channels to initialize audio engine with.
+     */
+    static void SetNumberOfChannels(int newNumberOfChannels) {
+        get()._setNumberOfChannels(newNumberOfChannels);
+    }
+
     static ma_engine* GetAudioEngine() {
         return &get().engine;
     }
@@ -113,6 +122,11 @@ private:
 
     void _close();
 
+    void _setNumberOfChannels(int newNumberOfChannels);
+
+    int _numberChannels = 2;
+
+    bool audioInit = false;
     ma_device device;
     ma_engine engine;
     ma_resource_manager resourceManager;

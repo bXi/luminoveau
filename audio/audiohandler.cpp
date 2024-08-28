@@ -92,7 +92,7 @@ void Audio::_init() {
 
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
     deviceConfig.playback.format = ma_format_f32;
-    deviceConfig.playback.channels = 6;
+    deviceConfig.playback.channels = _numberChannels;
     deviceConfig.sampleRate = sampleRate;
     deviceConfig.dataCallback = Audio::ma_data_callback;
     deviceConfig.pUserData = &engine;
@@ -117,7 +117,10 @@ void Audio::_init() {
     engineConfig.pDevice = &device;
     engineConfig.pResourceManager = &resourceManager;
 
-    ma_engine_init(&engineConfig, &engine);
+    ma_result result = ma_engine_init(&engineConfig, &engine);
+    if (result == MA_SUCCESS) {
+        get().audioInit = true;
+    }
 
     for (size_t i = 0; i < get()._sounds.size(); ++i) {
         _sounds[i] = nullptr;
@@ -130,5 +133,11 @@ void Audio::_close() {
 
     ma_resource_manager_uninit(&resourceManager);
     ma_engine_uninit(&engine);
+}
+
+void Audio::_setNumberOfChannels(int newNumberOfChannels) {
+    if (get().audioInit) throw std::runtime_error("Can't run SetNumberOfChannels() after audio has been initialized.");
+
+    get()._numberChannels = std::clamp(newNumberOfChannels, 1, 8);
 }
 //*/
