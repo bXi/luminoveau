@@ -91,6 +91,8 @@ public:
      * @brief Sets the number of channels to be used. Defaults to 2 for normal stereo.
      *
      * @param newNumberOfChannels Number of channels to initialize audio engine with.
+     *
+     * @note This needs to be called before Audio::Init().
      */
     static void SetNumberOfChannels(int newNumberOfChannels) {
         get()._setNumberOfChannels(newNumberOfChannels);
