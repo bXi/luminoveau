@@ -31,7 +31,7 @@ void Audio::_playSound(Sound sound, float volume, float panning) {
     panning = std::clamp(panning, -1.0f, 1.0f);
 
     _sounds[index] = new ma_sound;
-    ma_sound_init_from_file(&engine, sound.path.c_str(), MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sounds[index]);
+    ma_sound_init_from_file(&engine, sound.fileName.c_str(), MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sounds[index]);
     ma_sound_set_volume(_sounds[index], volume);
     ma_sound_set_pan(_sounds[index], panning);
     ma_sound_start(_sounds[index]);
