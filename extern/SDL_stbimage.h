@@ -252,7 +252,7 @@ static SDL_Surface* STBIMG__CreateSurfaceImpl(STBIMG__image img, int freeWithSur
 	SDL_Surface* surf = NULL;
 	
 
-	auto format = (img.format == STBI_rgb) ? SDL_PIXELFORMAT_RGB24 : SDL_PIXELFORMAT_RGBA32;
+	auto format = (img.format == STBI_rgb) ? SDL_PIXELFORMAT_RGB24 : SDL_PIXELFORMAT_ARGB8888;
 
     surf = SDL_CreateSurfaceFrom(img.w, img.h, format, (void*)img.data, img.format*img.w);
 

@@ -65,7 +65,7 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
 
     texture.surface = nullptr;
 
-    texture.texture = SDL_CreateTexture(Window::GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, (int) size.x, (int) size.y);
+    texture.texture = SDL_CreateTexture(Window::GetRenderer(), SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, (int) size.x, (int) size.y);
 
     //TODO: fix for other renderers
 
@@ -86,7 +86,7 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
         SDL_PropertiesID props = SDL_GetTextureProperties(texture.texture);
         SDL_GetTextureSize(texture.texture, &texWidth, &texHeight);
-        surface = SDL_CreateSurface((int)texWidth, (int)texHeight, SDL_PixelFormat::SDL_PIXELFORMAT_RGBA32);
+        surface = SDL_CreateSurface((int)texWidth, (int)texHeight, SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888);
 
         if (!surface) {
             SDL_Log("%s", SDL_GetError());
@@ -98,8 +98,8 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
     SDL_Surface *rgbaSurface = surface;
 
-    if (surface->format != SDL_PIXELFORMAT_RGBA32) {
-        rgbaSurface = SDL_ConvertSurface(surface, SDL_PixelFormat::SDL_PIXELFORMAT_RGBA32);
+    if (surface->format != SDL_PIXELFORMAT_ARGB8888) {
+        rgbaSurface = SDL_ConvertSurface(surface, SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888);
     }
 
     unsigned char *pixels = new unsigned char[rgbaSurface->w * rgbaSurface->h * 4];
@@ -112,7 +112,7 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
     delete[] pixels;
 
-    if (surface->format != SDL_PixelFormat::SDL_PIXELFORMAT_RGBA32) {
+    if (surface->format != SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888) {
         SDL_DestroySurface(rgbaSurface);
     }
 }
