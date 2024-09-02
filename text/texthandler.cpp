@@ -26,6 +26,9 @@ int Text::_measureText(Font font, std::string textToDraw) {
     SDL_Surface *textSurface;
 
     textSurface = TTF_RenderUTF8_Blended(font.font, textToDraw.c_str(), {255, 255, 255, 255});
+
+    if (!textSurface) return 0;
+
     int width = textSurface->w;
 
     SDL_DestroySurface(textSurface);
