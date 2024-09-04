@@ -7,7 +7,7 @@
 #include "utils/helpers.h"
 #include "utils/colors.h"
 
-#include "SDL3_ttf/SDL_ttf.h"
+#include "blend2d.h"
 #include "assettypes/font.h"
 
 /**
@@ -41,6 +41,18 @@ public:
     }
 
     /**
+     * @brief Measures the width of the specified text when rendered with the given font.
+     *
+     * @param font The font used for rendering the text.
+     * @param text The text to measure.
+     * @return A 2d vector containing the size of the text in pixels.
+     */
+
+    static vf2d GetRenderedTextSize(Font font, std::string text) {
+        return get()._getRenderedTextSize(font, text);
+    }
+
+    /**
      * @brief Draws text onto a texture using the specified font.
      *
      * @param font The font to use for rendering the text.
@@ -57,6 +69,8 @@ private:
     void _drawText(Font font, vf2d pos, std::string textToDraw, Color color);
 
     int _measureText(Font font, std::string text);
+
+    vf2d _getRenderedTextSize(Font font, std::string textToDraw);
 
     TextureAsset _drawTextToTexture(Font font, std::string textToDraw, Color color);
 

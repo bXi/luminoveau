@@ -117,14 +117,10 @@ set(SDL3IMAGE_AVIF_SAVE OFF)
 set(SDL3IMAGE_AVIF OFF)
 
 if (ANDROID) #for android we want to build shared libs
-
     set(BUILD_SHARED_LIBS ON)
     set(SDL_STATIC OFF)
     set(SDL_SHARED ON)
     set(INTERFACE_SDL3_SHARED ON)
-
-    set(SDL3IMAGE_BUILD_SHARED_LIBS ON)
-
 else()
 
     set(BUILD_SHARED_LIBS OFF)
@@ -132,8 +128,6 @@ else()
     set(SDL_SHARED OFF)
     set(INTERFACE_SDL3_SHARED OFF)
     set(SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS ON)
-
-    set(SDL3IMAGE_BUILD_SHARED_LIBS OFF)
 
 endif()
 
@@ -147,45 +141,38 @@ if(SDL3_ADDED)
     target_include_directories("luminoveau" PUBLIC ${SDL3_SOURCE_DIR}/include)
 endif()
 
-CPMAddPackage(
-    NAME harfbuzz
-    GIT_REPOSITORY https://github.com/harfbuzz/harfbuzz.git
-    GIT_TAG ea430c1
-)
 
-if(NOT MSVC AND NOT ANDROID)
-    CPMAddPackage(
-        NAME freetype
-        GIT_REPOSITORY https://github.com/aseprite/freetype2.git
-        GIT_TAG 9a2d6d9
-    )
+set(BLEND2D_STATIC TRUE)
+set(ASMJIT_EMBED TRUE)
 
-    if (freetype_ADDED)
-        add_library(Freetype::Freetype ALIAS freetype)
-    endif()
-endif()
 
 CPMAddPackage(
-    NAME SDL3_ttf
-    GIT_TAG 5b6171c
-    GITHUB_REPOSITORY libsdl-org/SDL_ttf
+    NAME asmjit
+    GIT_TAG 6784722
+    GITHUB_REPOSITORY asmjit/asmjit
 )
 
-if(SDL3_ttf_ADDED)
-    target_include_directories("luminoveau" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
+
+CPMAddPackage(
+    NAME blend2d
+    GIT_TAG 44baf9e
+    GITHUB_REPOSITORY blend2d/blend2d
+)
+
+if(blend2d_ADDED)
+    target_include_directories("luminoveau" PUBLIC ${blend2d_SOURCE_DIR}/src)
 endif()
 
 
 if (ANDROID)
     target_link_libraries("luminoveau" PUBLIC
         SDL3::SDL3
-        SDL3_image::SDL3_image
-        SDL3_ttf::SDL3_ttf
+        blend2d::blend2d
     )
 else()
     target_link_libraries("luminoveau" PUBLIC
         SDL3::SDL3-static
-        SDL3_ttf::SDL3_ttf
+        blend2d::blend2d
     )
 endif()
 

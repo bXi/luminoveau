@@ -18,6 +18,7 @@
 #include "assettypes/music.h"
 #include "assettypes/sound.h"
 #include "assettypes/texture.h"
+#include "blend2d.h"
 
 enum class ScaleMode {
     NEAREST,
@@ -190,7 +191,7 @@ private:
             });
 
             if (it != _fonts.end()) {
-                TTF_CloseFont(static_cast<FontAsset>(asset).font);
+                blFontDestroy(static_cast<FontAsset>(asset).font);
                 _fonts.erase(it);
             } else {
                 throw std::runtime_error("Font not found in the map");
@@ -255,29 +256,23 @@ public:
 private:
     AssetHandler() {
 
-        if (!TTF_WasInit()) {
-            TTF_Init();
-        }
-
-        SDL_IOStream* rwops = SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
-        if (rwops == NULL) {
-            // Handle error
-            TTF_Quit();
-            SDL_Quit();
-            throw std::runtime_error("Could not load the default font.");
-        }
+        BLFontData fontData;
+        fontData.createFromData(DroidSansMono_ttf, DroidSansMono_ttf_len);
 
         // Load the font from the memory stream
-        TTF_Font* font = TTF_OpenFontIO(rwops, 1, 16); // Replace "24" with your desired font size
-        if (font == NULL) {
-            // Handle error
-            SDL_CloseIO(rwops);
-            TTF_Quit();
-            SDL_Quit();
-            throw std::runtime_error("Could not load the default font.");
+        BLFontFace fontFace;
+        BLResult result = fontFace.createFromData(fontData, 0);
+
+        if (result != BL_SUCCESS) {
+            printf("Failed to create font face from loader\n");
+            return;
         }
-        defaultFont.font = font;
-    };
+
+        BLFont font;
+        font.createFromFace(fontFace, 16.0);
+
+        defaultFont.font = new BLFont(font);
+     };
 };
 
 //*/

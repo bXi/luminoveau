@@ -169,7 +169,15 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
     if (it == _fonts.end()) {
 
         FontAsset _font;
-        _font.font = TTF_OpenFont(fileName.c_str(), fontSize);
+
+        // Load a font face from a file
+        BLFontFace face;
+        face.createFromFile(fileName.c_str());
+
+        // Create a font with a specific size
+        BLFont font;
+        _font.font->createFromFace(face, (float)fontSize); // 24.0 is the font size
+
 
         if (_font.font == nullptr) {
             std::string error = Helpers::TextFormat("Couldn't load %d pt font from %s: %s\n",

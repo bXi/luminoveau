@@ -1,40 +1,54 @@
 #include "texthandler.h"
 
+#include "luminoveau.h"
+
+#include <utility>
+
 void Text::_drawText(Font font, vf2d pos, std::string textToDraw, Color color) {
 
     if (textToDraw.empty()) return;
 
-    SDL_Surface *textSurface;
+    auto size = _getRenderedTextSize(font, textToDraw);
 
-    textSurface = TTF_RenderUTF8_Blended(font.font, textToDraw.c_str(), color);
+    BLImage _blSurface;
+    _blSurface.create(std::ceil(size.x), std::ceil(size.y), BL_FORMAT_PRGB32);
 
-    SDL_FRect dstRect = {pos.x, pos.y, (float) textSurface->w, (float) textSurface->h};
-    SDL_FRect srcRect = {0.f, 0.f, (float) textSurface->w, (float) textSurface->h};
+    BLContext ctx(_blSurface);
 
-    auto tex = SDL_CreateTextureFromSurface(Window::GetRenderer(), textSurface);
-    SDL_RenderTexture(Window::GetRenderer(), tex, &srcRect, &dstRect);
+    ctx.setCompOp(BL_COMP_OP_SRC_COPY);
+    ctx.setFillStyle(BLRgba32(0x00000000u));
+    ctx.fillAll();
 
-    SDL_DestroyTexture(tex);
-    SDL_DestroySurface(textSurface);
+    ctx.setFillStyle(BLRgba32(color.r, color.g, color.b, color.a));
+    ctx.fillUtf8Text(BLPoint(0, _blSurface.height() * 0.75), *font.font, textToDraw.c_str());
 
+    ctx.end();
+
+    Render2D::DrawBlend2DImage(_blSurface, pos, {(float)_blSurface.width(), (float)_blSurface.height()});
 }
 
 int Text::_measureText(Font font, std::string textToDraw) {
-
-    if (textToDraw.empty()) return 0;
-
-    SDL_Surface *textSurface;
-
-    textSurface = TTF_RenderUTF8_Blended(font.font, textToDraw.c_str(), {255, 255, 255, 255});
-
-    if (!textSurface) return 0;
-
-    int width = textSurface->w;
-
-    SDL_DestroySurface(textSurface);
-
-    return width;
+    return (int)(_getRenderedTextSize(font, textToDraw).x + 0.1f);
 }
+
+vf2d Text::_getRenderedTextSize(Font font, std::string textToDraw) {
+
+    if (textToDraw.empty()) return {0, 0};
+
+    BLTextMetrics textMetrics;
+    BLGlyphBuffer glyphBuffer;
+    BLFontMetrics fm = font.font->metrics();
+
+    glyphBuffer.setUtf8Text(textToDraw.c_str());
+    font.font->shape(glyphBuffer);
+    font.font->getTextMetrics(glyphBuffer, textMetrics);
+
+    double width = textMetrics.advance.x;
+    double height = fm.xHeight * 2.0;
+
+    return {(float)width, (float)height};
+}
+
 
 TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color color) {
     if (textToDraw.empty()) {
@@ -43,13 +57,36 @@ TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color c
         textToDraw = " ";
     };
 
+    auto size = _getRenderedTextSize(font, textToDraw);
+
+    BLImage _blSurface;
+    _blSurface.create(std::ceil(size.x), std::ceil(size.y), BL_FORMAT_PRGB32);
+
+    BLContext ctx(_blSurface);
+
+    ctx.setCompOp(BL_COMP_OP_SRC_COPY);
+    ctx.setFillStyle(BLRgba32(0x00000000u));
+    ctx.fillAll();
+
+    ctx.setFillStyle(BLRgba32(color.r, color.g, color.b, color.a));
+    ctx.fillUtf8Text(BLPoint(0, _blSurface.height() * 0.75), *font.font, textToDraw.c_str());
+
+    ctx.end();
+
+    BLImageData data;
+    _blSurface.getData(&data);
+
     TextureAsset tex;
-    tex.surface = TTF_RenderUTF8_Blended(font.font, textToDraw.c_str(), color);
 
-    tex.width = tex.surface->w;
-    tex.height = tex.surface->h;
+    SDL_Texture *textTexture = SDL_CreateTexture(Window::GetRenderer(), SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, _blSurface.width(), _blSurface.height());
+    SDL_SetTextureBlendMode(textTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
 
-    tex.texture = SDL_CreateTextureFromSurface(Window::GetRenderer(), tex.surface);
+    SDL_UpdateTexture(textTexture, nullptr, data.pixelData, int(data.stride));
+
+    tex.width = _blSurface.width();
+    tex.height = _blSurface.height();
+
+    tex.texture = textTexture;
 
     return tex;
 }

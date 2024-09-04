@@ -48,9 +48,6 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     if (scale > 1) {
         _setScale(scale);
     }
-
-    TTF_Init();
-
 #ifdef ADD_IMGUI
     ImGui::CreateContext();
 

@@ -276,4 +276,23 @@ void Render2D::_drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Para
 
 }
 
+void Render2D::_drawBlend2DImage(BLImage img, vf2d pos, vf2d size, Color color) {
+
+    BLImageData data;
+    img.getData(&data);
+
+    SDL_Texture *_tex = SDL_CreateTexture(Window::GetRenderer(), SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, img.width(), img.height());
+    SDL_SetTextureBlendMode(_tex, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
+
+    SDL_UpdateTexture(_tex, nullptr, data.pixelData, int(data.stride));
+
+    SDL_FRect dstRect = {pos.x, pos.y, size.x, size.y};
+    SDL_FRect srcRect = {0.f, 0.f, (float) img.width(), (float) img.height()};
+
+    SDL_RenderTexture(Window::GetRenderer(), _tex, &srcRect, &dstRect);
+
+    SDL_DestroyTexture(_tex);
+
+}
+
 
