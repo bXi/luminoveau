@@ -93,7 +93,22 @@ void Render2D::_drawCircleFilled(vf2d pos, float radius, Color color) {
 
     }
 
-    filledCircleRGBA(Window::GetRenderer(), pos.x, pos.y, radius, color.r, color.g, color.b, color.a);
+    int imgSize = static_cast<int>(radius * 2) + 2;  // Adding a margin for anti-aliasing
+
+    BLImage circleImage(imgSize, imgSize, BL_FORMAT_PRGB32);
+    BLContext ctx(circleImage);
+
+    ctx.setCompOp(BL_COMP_OP_SRC_COPY);
+    ctx.setFillStyle(BLRgba32(0x00000000u));
+    ctx.fillAll();
+
+    ctx.setFillStyle(BLRgba32(color.r, color.g, color.b, color.a));
+    ctx.fillCircle(radius, radius, radius);  // Center at (radius, radius) with the specified radius
+
+    ctx.end();
+
+    Render2D::DrawBlend2DImage(circleImage, pos, {(float)imgSize, (float)imgSize});
+
 }
 
 void Render2D::_drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
