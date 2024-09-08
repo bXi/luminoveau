@@ -3,8 +3,7 @@
 
 Texture AssetHandler::_getTexture(const std::string &fileName) {
     if (_textures.find(fileName) == _textures.end()) {
-        auto _tex = _loadTexture(fileName);
-        _textures[std::string(fileName)] = _tex;
+        _loadTexture(fileName);
 
         return _textures[fileName];
     } else {
@@ -52,6 +51,8 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
 
     SDL_Log("Loaded texture: %s\n"
             "\tX: %i - Y: %i", fileName.c_str(), texture.width, texture.height);
+
+    _textures[std::string(fileName)] = texture;
 
     return texture;
 
