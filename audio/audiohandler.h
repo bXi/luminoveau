@@ -2,6 +2,8 @@
 
 #include <unordered_map>
 
+#include <array>
+
 #include "settings/settingshandler.h"
 
 #include "assettypes/sound.h"
