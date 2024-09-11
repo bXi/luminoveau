@@ -171,22 +171,17 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
 
         FontAsset _font;
 
-        // Load a font face from a file
-        BLFontFace face;
-        face.createFromFile(fileName.c_str());
+        // Load the font from the memory stream
+        BLFontFace fontFace;
+        BLResult result = fontFace.createFromFile(fileName.c_str());
 
-        // Create a font with a specific size
-        BLFont font;
-        _font.font->createFromFace(face, (float)fontSize); // 24.0 is the font size
-
-
-        if (_font.font == nullptr) {
-            std::string error = Helpers::TextFormat("Couldn't load %d pt font from %s: %s\n",
-                                                    fontSize, fileName.c_str(), SDL_GetError());
-
-            SDL_Log("%s", error.c_str());
-            throw std::runtime_error(error.c_str());
+        if (result != BL_SUCCESS) {
+            throw std::runtime_error("Can't load font.");
         }
+
+        BLFont font;
+        font.createFromFace(fontFace, (float)fontSize);
+        _font.font = new BLFont(font);
 
         _fonts[index] = _font;
 
