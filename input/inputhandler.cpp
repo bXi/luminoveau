@@ -20,8 +20,8 @@ void Input::_init() {
     for (int i = 0; i < gamePadCount; i++) {
         gamepadInfo temp;
         temp.joystickId = joystickIds[i];
-        temp.previousButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
-        temp.currentButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
+        temp.previousButtonState.resize(SDL_GAMEPAD_BUTTON_COUNT);
+        temp.currentButtonState.resize(SDL_GAMEPAD_BUTTON_COUNT);
         temp.gamepad = SDL_OpenGamepad(joystickIds[i]);
         gamepads.push_back(temp);
         inputs.push_back(new InputDevice(InputType::GAMEPAD, i));
@@ -47,7 +47,7 @@ void Input::_update() {
     for (auto &gamepad: gamepads) {
         gamepad.previousButtonState = gamepad.currentButtonState;
 
-        for (int i = 0; i < SDL_GAMEPAD_BUTTON_MAX; ++i) {
+        for (int i = 0; i < SDL_GAMEPAD_BUTTON_COUNT; ++i) {
             gamepad.currentButtonState[i] = SDL_GetGamepadButton(gamepad.gamepad, static_cast<SDL_GamepadButton>(i));
         }
     }
@@ -173,8 +173,8 @@ void Input::_addGamepadDevice(SDL_JoystickID joystickID) {
     int newgamepadID = gamepads.size();
     gamepadInfo temp;
     temp.joystickId = joystickID;
-    temp.previousButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
-    temp.currentButtonState.resize(SDL_GAMEPAD_BUTTON_MAX);
+    temp.previousButtonState.resize(SDL_GAMEPAD_BUTTON_COUNT);
+    temp.currentButtonState.resize(SDL_GAMEPAD_BUTTON_COUNT);
     temp.gamepad = SDL_OpenGamepad(joystickID);
     gamepads.push_back(temp);
     inputs.push_back(new InputDevice(InputType::GAMEPAD, newgamepadID));

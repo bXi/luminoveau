@@ -328,7 +328,6 @@ void Helpers::DrawMainMenu() {
                 case SDL_GAMEPAD_TYPE_XBOX360:
                 case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
                 case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT:
-                case SDL_GAMEPAD_TYPE_MAX:
                     buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "2";
                     buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "0";
                     buttonNames[SDL_GAMEPAD_BUTTON_EAST] = "1";

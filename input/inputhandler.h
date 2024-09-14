@@ -212,7 +212,7 @@ public:
 private:
     Input() {
         SDL_PumpEvents();
-        currentKeyboardState.resize(SDL_NUM_SCANCODES);
-        previousKeyboardState.resize(SDL_NUM_SCANCODES);
+        currentKeyboardState.resize(SDL_SCANCODE_COUNT);
+        previousKeyboardState.resize(SDL_SCANCODE_COUNT);
     }
 };

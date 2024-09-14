@@ -133,7 +133,7 @@ endif()
 
 CPMAddPackage(
     NAME SDL3
-    GIT_TAG f5f44de
+    GIT_TAG 2786290
     GITHUB_REPOSITORY libsdl-org/SDL
 )
 

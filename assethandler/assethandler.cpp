@@ -46,7 +46,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
 
     auto error = SDL_SetTextureBlendMode(texture.texture, SDL_BLENDMODE_BLEND);
 
-    if (error)
+    if (error == SDL_FALSE)
         SDL_Log("Blendmode failed: %s", SDL_GetError());
 
     SDL_Log("Loaded texture: %s\n"
