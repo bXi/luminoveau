@@ -15,7 +15,7 @@ void State::_setState(std::string newState) {
             if (state) state->unload();
 
             currentState = newState;
-            state = registeredStates[currentState];
+            state        = registeredStates[currentState];
 
             state->load();
         } else {

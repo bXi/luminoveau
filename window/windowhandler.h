@@ -53,6 +53,14 @@ public:
     }
 
     /**
+     * @brief Sets the window icon.
+     *
+     * @param icon The new icon to set as window icon.
+     */
+    static void SetIcon(Texture icon) { get()._setIcon(icon); }
+
+
+    /**
      * @brief Closes the application window.
      */
     static void Close() { get()._close(); }
@@ -212,6 +220,7 @@ private:
 
     double _getRunTime();
     void _initWindow(const std::string &title, int width, int height, int scale = 0, unsigned int flags = 0);
+    void _setIcon(Texture icon);
     void _close();
     void _toggleFullscreen();
     bool _isFullscreen();

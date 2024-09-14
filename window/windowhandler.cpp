@@ -374,4 +374,13 @@ void Window::SetupImGuiStyle()
 	style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.2000000029802322f, 0.2000000029802322f, 0.2000000029802322f, 0.2000000029802322f);
 	style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.2000000029802322f, 0.2000000029802322f, 0.2000000029802322f, 0.3499999940395355f);
 }
+
 #endif
+
+
+void Window::_setIcon(Texture icon) {
+
+    if (icon.surface)
+        SDL_SetWindowIcon(_getWindow(), icon.surface);
+}
+
