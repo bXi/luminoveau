@@ -30,6 +30,21 @@ public:
     }
 
     /**
+     * @brief Renders text that is wider than the given width by splitting it at space boundaries.
+     *        The text will be drawn across multiple lines to ensure it fits within the maximum width.
+     *
+     * @param font The font to use for rendering the text.
+     * @param pos The starting position (top-left) to begin rendering the text.
+     * @param textToDraw The full text string to render, potentially split across multiple lines.
+     * @param maxWidth The maximum width allowed for each line of text. If a line exceeds this width, it is wrapped.
+     * @param color The color to use for rendering the text.
+     */
+    static void DrawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color) {
+        get()._drawWrappedText(font, pos, textToDraw, maxWidth, color);
+    }
+
+
+    /**
      * @brief Measures the width of the specified text when rendered with the given font.
      *
      * @param font The font used for rendering the text.
@@ -67,6 +82,8 @@ public:
 private:
 
     void _drawText(Font font, vf2d pos, std::string textToDraw, Color color);
+
+    void _drawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color);
 
     int _measureText(Font font, std::string text);
 
