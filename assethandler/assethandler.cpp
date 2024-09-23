@@ -24,7 +24,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
         throw std::runtime_error(error.c_str());
     }
 
-    texture.width = surface->w;
+    texture.width  = surface->w;
     texture.height = surface->h;
 
     texture.filename = fileName;
@@ -38,8 +38,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
 
     texture.id = props[SDL_PROP_TEXTURE_OPENGL_TEXTURE_NUMBER];
 
-
-    SDL_SetTextureScaleMode(tex, (SDL_ScaleMode)defaultMode);
+    SDL_SetTextureScaleMode(tex, (SDL_ScaleMode) defaultMode);
 
     if (!tex)
         SDL_Log("Texture failed: %s", SDL_GetError());
@@ -55,25 +54,25 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     _textures[std::string(fileName)] = texture;
 
     return texture;
-
 }
 
 TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
     TextureAsset texture;
 
-    texture.width = size.x;
+    texture.width  = size.x;
     texture.height = size.y;
 
     texture.surface = nullptr;
 
-    texture.texture = SDL_CreateTexture(Window::GetRenderer(), SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, (int) size.x, (int) size.y);
+    texture.texture = SDL_CreateTexture(Window::GetRenderer(), SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888,
+                                        SDL_TEXTUREACCESS_TARGET, (int) size.x, (int) size.y);
 
     //TODO: fix for other renderers
 
     get()._createTextureId++;
     texture.id = get()._createTextureId;
 
-    SDL_SetTextureScaleMode(texture.texture, (SDL_ScaleMode)defaultMode);
+    SDL_SetTextureScaleMode(texture.texture, (SDL_ScaleMode) defaultMode);
 
     return texture;
 }
@@ -87,14 +86,13 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
         SDL_PropertiesID props = SDL_GetTextureProperties(texture.texture);
         SDL_GetTextureSize(texture.texture, &texWidth, &texHeight);
-        surface = SDL_CreateSurface((int)texWidth, (int)texHeight, SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888);
+        surface = SDL_CreateSurface((int) texWidth, (int) texHeight, SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888);
 
         if (!surface) {
             SDL_Log("%s", SDL_GetError());
         }
 
         SDL_RenderReadPixels(Window::GetRenderer(), nullptr);
-
     }
 
     SDL_Surface *rgbaSurface = surface;
@@ -121,9 +119,11 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 Sound AssetHandler::_getSound(const std::string &fileName) {
     if (_sounds.find(fileName) == _sounds.end()) {
         SoundAsset _sound;
-        _sound.sound = new ma_sound();
+        _sound.sound    = new ma_sound();
         _sound.fileName = fileName;
-        ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(), MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _sound.sound);
+        ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
+                                                   MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr,
+                                                   _sound.sound);
 
         if (result != MA_SUCCESS) {
             std::string error = Helpers::TextFormat("GetSound failed: %s", fileName.c_str());
@@ -145,7 +145,9 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
         MusicAsset _music;
 
         _music.music = new ma_sound();
-        ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(), MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr, _music.music);
+        ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
+                                                   MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr,
+                                                   _music.music);
 
         if (result != MA_SUCCESS) {
             std::string error = Helpers::TextFormat("GetMusic failed: %s", fileName.c_str());
@@ -173,14 +175,14 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
 
         // Load the font from the memory stream
         BLFontFace fontFace;
-        BLResult result = fontFace.createFromFile(fileName.c_str());
+        BLResult   result = fontFace.createFromFile(fileName.c_str());
 
         if (result != BL_SUCCESS) {
             throw std::runtime_error("Can't load font.");
         }
 
         BLFont font;
-        font.createFromFace(fontFace, (float)fontSize);
+        font.createFromFace(fontFace, (float) fontSize);
         _font.font = new BLFont(font);
 
         _fonts[index] = _font;
@@ -198,3 +200,58 @@ void AssetHandler::_setDefaultTextureScaleMode(ScaleMode mode) {
 ScaleMode AssetHandler::_getDefaultTextureScaleMode() {
     return defaultMode;
 }
+
+Shader AssetHandler::_getShader(const std::string &fileName, Uint32 samplerCount,
+                                Uint32 uniformBufferCount,
+                                Uint32 storageBufferCount,
+                                Uint32 storageTextureCount) {
+
+    if (_shaders.find(fileName) == _shaders.end()) {
+
+        // Auto-detect the shader stage from the file name for convenience
+        SDL_GPUShaderStage stage;
+        if (SDL_strstr(fileName.c_str(), ".vert")) {
+            stage = SDL_GPU_SHADERSTAGE_VERTEX;
+        } else if (SDL_strstr(fileName.c_str(), ".frag")) {
+            stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
+        } else {
+            throw std::runtime_error("Invalid shader stage!!");
+        }
+
+        size_t codeSize;
+        Uint8  *code = (Uint8 *) SDL_LoadFile(fileName.c_str(), &codeSize);
+        if (code == NULL) {
+            throw std::runtime_error(Helpers::TextFormat("Failed to load shader from disk! %s", fileName.c_str()));
+        }
+
+        SDL_GPUShaderCreateInfo shaderInfo = {
+            .code_size = codeSize,
+            .code = code,
+            .entrypoint = "main",
+            .format = SDL_GPU_SHADERFORMAT_SPIRV,
+            .stage = stage,
+            .num_samplers = samplerCount,
+            .num_storage_textures = storageTextureCount,
+            .num_storage_buffers = storageBufferCount,
+            .num_uniform_buffers = uniformBufferCount,
+        };
+
+        ShaderAsset _shader;
+
+        _shader.shader = (SDL_GPUShader *) SDL_ShaderCross_CompileFromSPIRV(Window::GetDevice(), &shaderInfo,
+                                                                            SDL_FALSE);
+        if (_shader.shader == NULL) {
+            SDL_free(code);
+            throw std::runtime_error("Failed to create shader!");
+        }
+
+        SDL_free(code);
+
+        _shaders[std::string(fileName)] = _shader;
+
+        return _shaders[fileName];
+    } else {
+        return _shaders[fileName];
+    }
+}
+

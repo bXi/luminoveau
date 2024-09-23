@@ -3,6 +3,7 @@
 //Asset types
 #include <assettypes/font.h>
 #include <assettypes/music.h>
+#include <assettypes/shader.h>
 #include <assettypes/sound.h>
 #include <assettypes/texture.h>
 

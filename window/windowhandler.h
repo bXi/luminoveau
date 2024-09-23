@@ -14,7 +14,7 @@
 #include <chrono>
 #include "utils/colors.h"
 #include "assettypes/texture.h"
-
+#include "SDL_gpu_shadercross.h"
 
 #ifdef ADD_IMGUI
     #include "imgui.h"
@@ -32,6 +32,12 @@ struct SDL_Window;
 union SDL_Event;
 
 using SDL_Window_deleter = void (*)(SDL_Window *);
+
+typedef struct PositionTextureVertex
+{
+    float x, y, z;
+    float u, v;
+} PositionTextureVertex;
 
 /**
  * @brief Provides functionality for managing the application window.
@@ -78,6 +84,14 @@ public:
      * @return Pointer to the SDL renderer object.
      */
     static SDL_Renderer *GetRenderer() { return get()._getRenderer(); };
+
+    /**
+     * @brief Retrieves the SDL device object.
+     *
+     * @return Pointer to the SDL device object.
+     */
+    static SDL_GPUDevice *GetDevice() { return get()._getDevice(); };
+
 
     /**
      * @brief Sets the scale factor of the window.
@@ -217,6 +231,26 @@ public:
 
 private:
     std::unique_ptr<SDL_Window, SDL_Window_deleter> m_window;
+    SDL_GPUDevice* m_device;
+
+
+
+
+    SDL_GPUGraphicsPipeline* m_pipeline;
+    SDL_GPUBuffer* _vertexBuffer;
+    SDL_GPUBuffer* _indexBuffer;
+    SDL_GPUTexture* _gpuTexture;
+    SDL_GPUSampler* _sampler;
+
+
+
+
+
+
+
+
+
+
 
     double _getRunTime();
     void _initWindow(const std::string &title, int width, int height, int scale = 0, unsigned int flags = 0);
@@ -225,6 +259,7 @@ private:
     void _toggleFullscreen();
     bool _isFullscreen();
     SDL_Renderer *_getRenderer();
+    SDL_GPUDevice *_getDevice();
     vf2d _getSize(bool getRealSize = false);
     void _handleInput();
     int _getFPS(float milliseconds);

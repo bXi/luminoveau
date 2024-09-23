@@ -69,6 +69,7 @@ target_sources("luminoveau" PRIVATE
     extern/SDL_stbimage.cpp
     extern/stb_image.cpp
     extern/stb_image_write.cpp
+    extern/SDL_gpu_shadercross.cpp
 )
 
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/log/loghandler.cpp")

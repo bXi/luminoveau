@@ -16,6 +16,7 @@
 
 #include "assettypes/font.h"
 #include "assettypes/music.h"
+#include "assettypes/shader.h"
 #include "assettypes/sound.h"
 #include "assettypes/texture.h"
 #include "blend2d.h"
@@ -60,7 +61,6 @@ public:
      */
     static ScaleMode GetDefaultTextureScaleMode() { return get()._getDefaultTextureScaleMode(); }
 
-
     /**
      * @brief Saves the given texture as a PNG file.
      *
@@ -75,7 +75,7 @@ public:
      * @param size The size of the empty texture.
      * @return The created empty texture.
      */
-    static TextureAsset CreateEmptyTexture(const vf2d& size) { return get()._createEmptyTexture(size); }
+    static TextureAsset CreateEmptyTexture(const vf2d &size) { return get()._createEmptyTexture(size); }
 
     /**
      * @brief Retrieves a map of all loaded textures.
@@ -101,7 +101,7 @@ public:
      * @param fileName The filename of the music asset.
      * @return The music asset.
      */
-    static Music& GetMusic(const char *fileName) {
+    static Music &GetMusic(const char *fileName) {
         return get()._getMusic(fileName);
     }
 
@@ -124,20 +124,30 @@ public:
         return get().defaultFont;
     }
 
-
-    template<typename T>
-    static void Delete(T& asset) {
-        get()._delete(asset);
+    /**
+     * @brief Retrieves a shader by its file name.
+     *
+     * @param fileName The name of the texture file.
+     * @return The texture corresponding to the file name.
+     */
+    static Shader GetShader(const char *fileName, Uint32 samplerCount,
+                            Uint32 uniformBufferCount,
+                            Uint32 storageBufferCount,
+                            Uint32 storageTextureCount) {
+        return get()._getShader(fileName, samplerCount,
+                                uniformBufferCount,
+                                storageBufferCount,
+                                storageTextureCount);
     }
 
-
-
-
+    template<typename T>
+    static void Delete(T &asset) {
+        get()._delete(asset);
+    }
 
     static std::unordered_map<std::string, MusicAsset> &GetLoadedMusics() {
         return get()._musics;
     }
-
 
 private:
     // Textures
@@ -164,29 +174,37 @@ private:
 
     Music _getMusic(const std::string &fileName);
 
+    // Shaders
+
+    Shader _getShader(const std::string &fileName, Uint32 samplerCount,
+                      Uint32 uniformBufferCount,
+                      Uint32 storageBufferCount,
+                      Uint32 storageTextureCount);
+
+
     //Containers
 
-    std::unordered_map<std::string, FontAsset> _fonts;
-    std::unordered_map<std::string, MusicAsset> _musics;
-    std::unordered_map<std::string, SoundAsset> _sounds;
+    std::unordered_map<std::string, FontAsset>    _fonts;
+    std::unordered_map<std::string, MusicAsset>   _musics;
+    std::unordered_map<std::string, ShaderAsset>  _shaders;
+    std::unordered_map<std::string, SoundAsset>   _sounds;
     std::unordered_map<std::string, TextureAsset> _textures;
-    int _createTextureId = 0;
+    int                                           _createTextureId = 0;
 
     ScaleMode defaultMode = ScaleMode::NEAREST;
 
     // default font asset Droid Sans Mono.ttf
     static const unsigned char DroidSansMono_ttf[];
-    unsigned int DroidSansMono_ttf_len = 119380;
+    unsigned int               DroidSansMono_ttf_len = 119380;
 
     FontAsset defaultFont;
 
-
     template<typename T>
-    void _delete(T& asset) {
+    void _delete(T &asset) {
 
         if constexpr (std::is_same_v<T, FontAsset>) {
             std::cout << "Deleting Font..." << std::endl;
-            auto it = std::find_if(_fonts.begin(), _fonts.end(), [&](const auto& pair) {
+            auto it = std::find_if(_fonts.begin(), _fonts.end(), [&](const auto &pair) {
                 return &pair.second == &asset;
             });
 
@@ -198,7 +216,7 @@ private:
             }
         } else if constexpr (std::is_same_v<T, MusicAsset>) {
             std::cout << "Deleting Music..." << std::endl;
-            auto it = std::find_if(_musics.begin(), _musics.end(), [&](const auto& pair) {
+            auto it = std::find_if(_musics.begin(), _musics.end(), [&](const auto &pair) {
                 return &pair.second == &asset;
             });
 
@@ -210,7 +228,7 @@ private:
             }
         } else if constexpr (std::is_same_v<T, SoundAsset>) {
             std::cout << "Deleting Sound..." << std::endl;
-            auto it = std::find_if(_sounds.begin(), _sounds.end(), [&](const auto& pair) {
+            auto it = std::find_if(_sounds.begin(), _sounds.end(), [&](const auto &pair) {
                 return &pair.second == &asset;
             });
 
@@ -222,7 +240,7 @@ private:
             }
         } else if constexpr (std::is_same_v<T, TextureAsset>) {
             std::cout << "Deleting Texture..." << std::endl;
-            auto it = std::find_if(_textures.begin(), _textures.end(), [&](const auto& pair) {
+            auto it = std::find_if(_textures.begin(), _textures.end(), [&](const auto &pair) {
                 return &pair.second == &asset;
             });
 
@@ -240,10 +258,7 @@ private:
         } else {
             throw std::runtime_error("Trying to delete invalid asset");
         }
-
-
     };
-
 
 public:
     AssetHandler(const AssetHandler &) = delete;
@@ -261,7 +276,7 @@ private:
 
         // Load the font from the memory stream
         BLFontFace fontFace;
-        BLResult result = fontFace.createFromData(fontData, 0);
+        BLResult   result = fontFace.createFromData(fontData, 0);
 
         if (result != BL_SUCCESS) {
             printf("Failed to create font face from loader\n");
@@ -272,7 +287,7 @@ private:
         font.createFromFace(fontFace, 16.0);
 
         defaultFont.font = new BLFont(font);
-     };
+    };
 };
 
 //*/
