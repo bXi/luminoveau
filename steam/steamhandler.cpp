@@ -11,8 +11,14 @@ void Steam::_init(int appId) {
 		// Once you get a public Steam AppID assigned for this game, you need to replace k_uAppIdInvalid with it and
 		// removed steam_appid.txt from the game depot.
 
-//        throw std::runtime_error("Can't initialize steam.");
+//        throw std::runtime_error("SteamAPI_RestartAppIfNecessary failed.");
 	}
+    SteamErrMsg errMsg;
+
+    if ( SteamAPI_InitEx(&errMsg) != k_ESteamAPIInitResult_OK )
+        throw std::runtime_error(Helpers::TextFormat("Failed to init Steam.  %s", errMsg ));
+
+
 }
 
 void Steam::_close() {
@@ -36,10 +42,12 @@ bool Steam::_hasAchievement(std::string pchName) {
 
 void Steam::_setAchievement(std::string pchName) {
     SteamUserStats()->SetAchievement(pchName.c_str());
+    SteamUserStats()->StoreStats();
 
 
 }
 
 void Steam::_clearAchievement(std::string pchName) {
     SteamUserStats()->ClearAchievement(pchName.c_str());
+    SteamUserStats()->StoreStats();
 }
