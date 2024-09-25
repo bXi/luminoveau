@@ -56,12 +56,6 @@ add_library("luminoveau" STATIC
 
     window/windowhandler.cpp
     window/windowhandler.h
-
-    render2d/SDL2_gfxPrimitives.c
-    render2d/SDL2_gfxPrimitives.h
-    render2d/SDL2_gfxPrimitives_font.h
-    render2d/SDL2_rotozoom.h
-    render2d/SDL2_rotozoom.c
 )
 
 target_sources("luminoveau" PRIVATE
