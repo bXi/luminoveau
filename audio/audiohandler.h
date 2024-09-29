@@ -52,6 +52,16 @@ public:
     }
 
     /**
+     * @brief Sets the volume on the supplied music.
+     *
+     * @param music The Music asset to change the volume on.
+     * @param volume The new volume for the Music asset.
+     */
+    static void SetMusicVolume(Music &music, float volume) {
+        get()._setMusicVolume(music, volume);
+    }
+
+    /**
      * @brief Rewinds the music file from the specified file.
      *
      * @param fileName The filename of the music to play.
@@ -119,6 +129,8 @@ private:
     bool _isMusicPlaying();
 
     void _playMusic(Music music);
+
+    void _setMusicVolume(Music &music, float volume);
 
     void _rewindMusic(Music music);
 

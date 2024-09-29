@@ -78,6 +78,11 @@ void Audio::_playMusic(Music &music) {
     }
 }
 
+void Audio::_setMusicVolume(Music &music, float volume) {
+    volume = std::clamp(volume, 0.0f, 1.0f);
+    ma_sound_set_volume(music.music, volume);
+
+}
 
 void Audio::_rewindMusic(Music &music) {
     ma_sound_seek_to_pcm_frame(music.music, 0);
