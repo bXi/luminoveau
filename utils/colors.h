@@ -38,6 +38,17 @@ struct Color {
         : r(red), g(green), b(blue), a(alpha) {}
 
     /**
+     * @brief Constructs a color from integer values.
+     *
+     * @param red The red component (0-255).
+     * @param green The green component (0-255).
+     * @param blue The blue component (0-255).
+     * @param alpha The alpha component (0-255).
+     */
+    Color(unsigned int red, unsigned int green, unsigned int blue)
+        : r(red), g(green), b(blue), a(255) {}
+
+    /**
      * @brief Constructs a color from a 32-bit color code.
      *
      * @param colorCode The color code in the format 0xAARRGGBB.

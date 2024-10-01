@@ -214,10 +214,13 @@ void Window::_startFrame() {
 
 void Window::_endFrame() {
 
+    Render2D::FlushBatch();
+
     if (_scaleFactor > 1) {
         SDL_SetRenderTarget(GetRenderer(), nullptr);
         Render2D::DrawTexture(_screenBuffer, {0.f, 0.f}, {static_cast<float>(GetSize(true).x), static_cast<float>(GetSize(true).y)}, WHITE);
     }
+
 
 #ifdef ADD_IMGUI
     if (_debugMenuVisible) {
