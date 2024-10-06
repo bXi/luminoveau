@@ -14,15 +14,15 @@
 #include "utils/camera.h"
 
 struct Mode7Parameters {
-    int h                = 0;
-    int v                = 0;
-    int x0               = 0;
-    int y0               = 0;
-    int a                = 0;
-    int b                = 0;
-    int c                = 0;
-    int d                = 0;
-    int snesScreenWidth  = 256;
+    int h = 0;
+    int v = 0;
+    int x0 = 0;
+    int y0 = 0;
+    int a = 0;
+    int b = 0;
+    int c = 0;
+    int d = 0;
+    int snesScreenWidth = 256;
     int snesScreenHeight = 224;
 };
 
@@ -56,9 +56,7 @@ public:
      * @param color The color of the line.
      * @param width The width of the line.
      */
-    static void DrawThickLine(vf2d start, vf2d end, Color color, float width) {
-        get()._drawThickLine(start, end, color, width);
-    };
+    static void DrawThickLine(vf2d start, vf2d end, Color color, float width) { get()._drawThickLine(start, end, color, width); };
 
     /**
      * @brief Draws a triangle with vertices v1, v2, and v3, filled with the given color.
@@ -134,9 +132,7 @@ public:
      * @param v3 The third vertex of the triangle.
      * @param color The color of the triangle.
      */
-    static void DrawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
-        get()._drawTriangleFilled(v1, v2, v3, color);
-    };
+    static void DrawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) { get()._drawTriangleFilled(v1, v2, v3, color); };
 
     /**
      * @brief Draws a filled rectangle at the specified position with the given size and color.
@@ -262,19 +258,8 @@ public:
      * @param size The size of the drawn texture.
      * @param color The color of the drawn texture.
      */
-    static void DrawBlend2DImage(BLImage img, vf2d pos, vf2d size, Color color = WHITE) {
-        get()._drawBlend2DImage(img, pos, size, color);
-    };
+    static void DrawBlend2DImage(BLImage img, vf2d pos, vf2d size, Color color = WHITE) { get()._drawBlend2DImage(img, pos, size, color); };
 
-    /**
-     * @brief Prepares the batch for drawing operations.
-     */
-    static void PrepareBatch() { get()._prepareBatch(); }
-
-    /**
-     * @brief Flushes the current batch and resets it for the next operations.
-     */
-    static void FlushBatch() { get()._flushBatch(); }
 
 private:
 
@@ -324,28 +309,12 @@ private:
 
     void _drawBlend2DImage(BLImage img, vf2d pos, vf2d size, Color color);
 
-    BLImage   _img;
-    BLContext _ctx;
-
-    void _prepareBatch();
-
-    void _flushBatch();
-
-    void _outputBatch();
-
-    void _resetBatch();
-
-    bool _isBatchReady();
 
     rectf _doCamera(vf2d pos, vf2d size);
 
     SDL_Renderer *renderer = nullptr;
 
-
-
-
-
-    //Singleton part
+//Singleton part
 public:
     Render2D(const Render2D &) = delete;
 
