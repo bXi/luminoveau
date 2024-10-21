@@ -36,6 +36,10 @@ add_library("luminoveau" STATIC
     state/state.h
     state/state.cpp
 
+    steam/steamhandler.cpp
+    steam/steamhandler.h
+
+
     assethandler/assethandler.cpp
     assethandler/assethandler.h
     assethandler/DroidSansMono.cpp
@@ -56,12 +60,6 @@ add_library("luminoveau" STATIC
 
     window/windowhandler.cpp
     window/windowhandler.h
-
-    render2d/SDL2_gfxPrimitives.c
-    render2d/SDL2_gfxPrimitives.h
-    render2d/SDL2_gfxPrimitives_font.h
-    render2d/SDL2_rotozoom.h
-    render2d/SDL2_rotozoom.c
 )
 
 target_sources("luminoveau" PRIVATE
@@ -71,6 +69,34 @@ target_sources("luminoveau" PRIVATE
     extern/stb_image_write.cpp
     extern/SDL_gpu_shadercross.cpp
 )
+
+target_sources("luminoveau" PRIVATE
+    steam/steamhandler.cpp
+)
+
+
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/public/steam/steam_api.h")
+
+    find_package(Threads REQUIRED)
+
+    target_include_directories("luminoveau" PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/public/steam/"
+    )
+
+    target_link_libraries(${PROJECT_NAME}
+        PRIVATE Threads::Threads
+        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/redistributable_bin/win64/steam_api64.lib
+        #"C:/Users/user/Documents/Visual Studio 2022/Libraries/steam-sdk/redistributable_bin/win64/steam_api64.lib"
+    )
+
+    message("[Luminoveau]: adding SteamWorks SDK")
+
+
+
+endif()
+
+
+
 
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/log/loghandler.cpp")
     target_sources("luminoveau" PRIVATE

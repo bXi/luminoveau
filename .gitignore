@@ -6,7 +6,7 @@ Makefile
 *.sln
 *.vcxproj
 *.vcxproj.filters
-
+steam/sdk/
 project/imgui.ini
 
 !/log/
