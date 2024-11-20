@@ -1,5 +1,6 @@
 #include "steamhandler.h"
 
+
 //*/
 void Steam::_init(int appId) {
 
@@ -22,6 +23,11 @@ void Steam::_init(int appId) {
 }
 
 void Steam::_close() {
+}
+
+bool Steam::_isReady()
+{
+    return isInit;
 }
 
 float Steam::_getStat(std::string pchName) {
@@ -50,4 +56,10 @@ void Steam::_setAchievement(std::string pchName) {
 void Steam::_clearAchievement(std::string pchName) {
     SteamUserStats()->ClearAchievement(pchName.c_str());
     SteamUserStats()->StoreStats();
+}
+
+int Steam::_getUserSteamId() {
+
+    auto userId = SteamUser()->GetSteamID();
+    return userId.GetAccountID();
 }
