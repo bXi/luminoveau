@@ -43,5 +43,8 @@ public:
     static bool imguiInputVisible;
     static bool imguiDemoVisible;
 
+    static std::string Slugify(std::string input);
+
+
 
 };
