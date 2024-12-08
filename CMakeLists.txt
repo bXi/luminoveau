@@ -67,7 +67,6 @@ target_sources("luminoveau" PRIVATE
     extern/SDL_stbimage.cpp
     extern/stb_image.cpp
     extern/stb_image_write.cpp
-    extern/SDL_gpu_shadercross.cpp
 )
 
 target_sources("luminoveau" PRIVATE
