@@ -116,13 +116,13 @@ SDL_STBIMG_DEF SDL_Surface* STBIMG_Load_RW(SDL_IOStream* src, int freesrc);
 // (this doesn't use stb_image and is just a simple SDL_CreateSurfaceFrom()-wrapper)
 // ! It must be byte-wise 24bit RGB ("888", bytesPerPixel=3) !
 // !  or byte-wise 32bit RGBA ("8888", bytesPerPixel=4) data !
-// If freeWithSurface is SDL_TRUE, SDL_FreeSurface() will free the pixelData
+// If freeWithSurface is true, SDL_FreeSurface() will free the pixelData
 //  you passed with SDL_free() - NOTE that you should only do that if pixelData
 //  was allocated with SDL_malloc(), SDL_calloc() or SDL_realloc()!
 // Returns NULL on error (in that case pixelData won't be freed!),
 //  use SDL_GetError() to get more information.
 SDL_STBIMG_DEF SDL_Surface* STBIMG_CreateSurface(unsigned char* pixelData, int width, int height,
-                                                 int bytesPerPixel, SDL_bool freeWithSurface);
+                                                 int bytesPerPixel, bool freeWithSurface);
 
 
 #if SDL_MAJOR_VERSION > 1
@@ -162,11 +162,11 @@ typedef struct {
 // creates stbi_io_callbacks and userdata to use stbi_*_from_callbacks() directly,
 //  especially useful to use SDL_IOStream with stb_image, without using SDL_Surface
 // src must be readable and seekable!
-// Returns SDL_FALSE on error (SDL_GetError() will give you info), else SDL_TRUE
+// Returns false on error (SDL_GetError() will give you info), else true
 // NOTE: If you want to use src twice (e.g. for info and load), remember to rewind
 //       it by seeking back to its initial position and resetting out->atEOF to 0
 //       inbetween the uses!
-SDL_STBIMG_DEF SDL_bool STBIMG_stbi_callback_from_RW(SDL_IOStream* src, STBIMG_stbio_RWops* out);
+SDL_STBIMG_DEF bool STBIMG_stbi_callback_from_RW(SDL_IOStream* src, STBIMG_stbio_RWops* out);
 
 #if 0 //  Use STBIMG_stbi_callback_from_RW() like this:
   SDL_IOStream* src = ...; // wherever it's from
@@ -360,12 +360,12 @@ static int STBIMG__io_eof(void* user)
 }
 
 
-SDL_STBIMG_DEF SDL_bool STBIMG_stbi_callback_from_RW(SDL_IOStream* src, STBIMG_stbio_RWops* out)
+SDL_STBIMG_DEF bool STBIMG_stbi_callback_from_RW(SDL_IOStream* src, STBIMG_stbio_RWops* out)
 {
 	if(out == NULL)
 	{
 		SDL_SetError("STBIMG_stbi_callback_from_RW(): out must not be NULL!");
-		return SDL_FALSE;
+		return false;
 	}
 
 	// make sure out is at least initialized to something deterministic
@@ -374,7 +374,7 @@ SDL_STBIMG_DEF SDL_bool STBIMG_stbi_callback_from_RW(SDL_IOStream* src, STBIMG_s
 	if(src == NULL)
 	{
 		SDL_SetError("STBIMG_stbi_callback_from_RW(): src must not be NULL!");
-		return SDL_FALSE;
+		return false;
 	}
 
 	out->src = src;
@@ -383,7 +383,7 @@ SDL_STBIMG_DEF SDL_bool STBIMG_stbi_callback_from_RW(SDL_IOStream* src, STBIMG_s
 	out->stb_cbs.skip = STBIMG__io_skip;
 	out->stb_cbs.eof  = STBIMG__io_eof;
 
-	return SDL_TRUE;
+	return true;
 }
 
 
@@ -534,7 +534,7 @@ SDL_STBIMG_DEF SDL_Surface* STBIMG_Load(const char* file)
 }
 
 
-SDL_STBIMG_DEF SDL_Surface* STBIMG_CreateSurface(unsigned char* pixelData, int width, int height, int bytesPerPixel, SDL_bool freeWithSurface)
+SDL_STBIMG_DEF SDL_Surface* STBIMG_CreateSurface(unsigned char* pixelData, int width, int height, int bytesPerPixel, bool freeWithSurface)
 {
 	STBIMG__image img;
 
@@ -600,7 +600,7 @@ SDL_STBIMG_DEF SDL_Texture*
 STBIMG_CreateTexture(SDL_Renderer* renderer, const unsigned char* pixelData,
                      int width, int height, int bytesPerPixel)
 {
-	SDL_Surface* surf = STBIMG_CreateSurface((unsigned char*)pixelData, width, height, bytesPerPixel, SDL_FALSE);
+	SDL_Surface* surf = STBIMG_CreateSurface((unsigned char*)pixelData, width, height, bytesPerPixel, false);
 	return STBIMG__SurfToTex(renderer, surf);
 }
 
