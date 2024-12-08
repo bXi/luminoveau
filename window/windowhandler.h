@@ -14,30 +14,29 @@
 #include <chrono>
 #include "utils/colors.h"
 #include "assettypes/texture.h"
-#include "SDL_gpu_shadercross.h"
+
+#include "renderpass.h"
+#include "renderable.h"
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #ifdef ADD_IMGUI
-    #include "imgui.h"
-    #include "imgui_impl_sdlrenderer3.h"
-    #include "imgui_impl_sdl3.h"
+#include "imgui.h"
+#include "imgui_impl_sdlrenderer3.h"
+#include "imgui_impl_sdl3.h"
 
-    #ifdef WIN32
-    #include "imgui_impl_win32.h"
-    #endif
+#ifdef WIN32
+#include "imgui_impl_win32.h"
+#endif
 #endif
 
 // SDL Forward Declarations
 struct SDL_Window;
-
 union SDL_Event;
 
-using SDL_Window_deleter = void (*)(SDL_Window *);
-
-typedef struct PositionTextureVertex
-{
-    float x, y, z;
-    float u, v;
-} PositionTextureVertex;
+class RenderPass;
 
 /**
  * @brief Provides functionality for managing the application window.
@@ -53,8 +52,7 @@ public:
      * @param scale The scale factor of the window.
      * @param flags Additional flags for window creation.
      */
-    static void InitWindow(const std::string &title, int width = 800, int height = 600, int scale = 1, unsigned int flags = 0)
-    {
+    static void InitWindow(const std::string &title, int width = 800, int height = 600, int scale = 1, unsigned int flags = 0) {
         get()._initWindow(title, width, height, scale, flags);
     }
 
@@ -64,7 +62,6 @@ public:
      * @param icon The new icon to set as window icon.
      */
     static void SetIcon(Texture icon) { get()._setIcon(icon); }
-
 
     /**
      * @brief Closes the application window.
@@ -76,7 +73,7 @@ public:
      *
      * @return Pointer to the SDL window object.
      */
-    static SDL_Window* GetWindow() { return get()._getWindow(); }
+    static SDL_Window *GetWindow() { return get()._getWindow(); }
 
     /**
      * @brief Retrieves the SDL renderer object.
@@ -91,7 +88,6 @@ public:
      * @return Pointer to the SDL device object.
      */
     static SDL_GPUDevice *GetDevice() { return get()._getDevice(); };
-
 
     /**
      * @brief Sets the scale factor of the window.
@@ -195,7 +191,9 @@ public:
      *
      * @return The total runtime of the application in seconds.
      */
-    static double GetRunTime() { return std::chrono::duration_cast<std::chrono::milliseconds >( get()._currentTime - get()._startTime ).count() / 1000.; }
+    static double GetRunTime() {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(get()._currentTime - get()._startTime).count() / 1000.;
+    }
 
     /**
      * @brief Checks if the application should quit.
@@ -229,51 +227,64 @@ public:
      */
     static void ToggleDebugMenu() { get()._toggleDebugMenu(); }
 
+    static std::vector<Renderable> &GetRenderQueue(const std::string &passname) { return get()._getRenderQueue(passname); }
+
+    static void ResetRenderQueue(const std::string &passname) { GetRenderQueue(passname).clear(); }
+
+    static void AddToRenderQueue(const std::string &passname, const Renderable &renderable) { get()._addToRenderQueue(passname, renderable); };
+
 private:
-    std::unique_ptr<SDL_Window, SDL_Window_deleter> m_window;
-    SDL_GPUDevice* m_device;
+    SDL_Window           *m_window;
+    SDL_GPUDevice        *m_device;
+    SDL_GPUCommandBuffer *m_cmdbuf;
+
+    std::map<std::string, RenderPass *> renderpasses;
 
 
+    void _addToRenderQueue(const std::string& passname, const Renderable& renderable);
 
-
-    SDL_GPUGraphicsPipeline* m_pipeline;
-    SDL_GPUBuffer* _vertexBuffer;
-    SDL_GPUBuffer* _indexBuffer;
-    SDL_GPUTexture* _gpuTexture;
-    SDL_GPUSampler* _sampler;
-
-
-
-
-
-
-
-
-
-
+    std::vector<Renderable> &_getRenderQueue(const std::string &passname);
 
     double _getRunTime();
+
     void _initWindow(const std::string &title, int width, int height, int scale = 0, unsigned int flags = 0);
+
     void _setIcon(Texture icon);
+
     void _close();
+
     void _toggleFullscreen();
+
     bool _isFullscreen();
+
     SDL_Renderer *_getRenderer();
+
     SDL_GPUDevice *_getDevice();
+
     vf2d _getSize(bool getRealSize = false);
+
     void _handleInput();
+
     int _getFPS(float milliseconds);
 
-    SDL_Window* _getWindow();
+    SDL_Window *_getWindow();
+
     void _setScale(int scalefactor);
+
     float _getScale();
+
     void _setSize(int width, int height);
+
     void _setScaledSize(int width, int height, int scale = 0);
+
     void _startFrame();
+
     void _clearBackground(Color color);
+
     void _endFrame();
 
     void _setRenderTarget(Texture target);
+
     void _resetRenderTarget();
 
     void _toggleDebugMenu();
@@ -284,10 +295,11 @@ private:
 
     bool _shouldQuit = false;
 
-    int _frameCount;
-    int _fps;
+    int    _frameCount;
+    int    _fps;
     double _lastFrameTime;
     double _fpsAccumulator;
+
     std::chrono::high_resolution_clock::time_point _startTime;
     std::chrono::high_resolution_clock::time_point _currentTime;
     std::chrono::high_resolution_clock::time_point _previousTime;
@@ -297,14 +309,18 @@ private:
     bool _debugMenuVisible;
 #endif
 public:
-    Window(const Window&) = delete;
-    static Window& get() { static Window instance; return instance; }
+    Window(const Window &) = delete;
+
+    static Window &get() {
+        static Window instance;
+        return instance;
+    }
+
 private:
-    Window() : m_window(nullptr, SDL_DestroyWindow)
-    {
-        _fps = 0;
-        _frameCount = 0;
-        _startTime = std::chrono::high_resolution_clock::now();
+    Window() : m_window(nullptr) {
+        _fps         = 0;
+        _frameCount  = 0;
+        _startTime   = std::chrono::high_resolution_clock::now();
         _currentTime = _startTime;
 
         _fpsAccumulator = 0.f;

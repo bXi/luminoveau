@@ -15,12 +15,23 @@ struct TextureAsset {
     std::string filename; /**< Filename of the texture image file. */
 
 
+    SDL_GPUTexture *gpuTexture = nullptr;
+    SDL_GPUSampler *gpuSampler = nullptr;
 
     SDL_Surface *surface = nullptr; /**< Pointer to the SDL surface representing the texture. */
     SDL_Texture *texture = nullptr; /**< Pointer to the SDL texture. */
 
     vi2d getSize() const {
         return { width, height};
+    }
+
+    void release(SDL_GPUDevice *device) {
+        if (this->gpuSampler != nullptr) {
+            SDL_ReleaseGPUSampler(device, this->gpuSampler);
+        }
+        if (this->gpuTexture != nullptr) {
+            SDL_ReleaseGPUTexture(device, this->gpuTexture);
+        }
     }
 };
 

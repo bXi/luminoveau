@@ -1,7 +1,9 @@
 #include "render2dhandler.h"
 
+#include <utility>
+
 void Render2D::_drawRectangle(vf2d pos, vf2d size, Color color) {
-    SDL_FRect dstRect = _doCamera(pos, size);;
+    SDL_FRect dstRect = _doCamera(pos, size);
 
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
     SDL_RenderRect(renderer, &dstRect);
@@ -31,7 +33,7 @@ void Render2D::_drawCircle(vf2d pos, float radius, Color color) {
     Render2D::DrawBlend2DImage(circleImage, pos - vi2d{1,1}, {(float) imgSize, (float) imgSize});
 }
 
-void Render2D::_drawRectangleRounded(vf2d pos, vf2d size, float radius, Color color) {
+void Render2D::_drawRectangleRounded(vf2d pos, const vf2d& size, float radius, Color color) {
     if (Camera::IsActive()) {
         pos = Camera::ToScreenSpace(pos);
         radius *= Camera::GetScale();
@@ -100,7 +102,7 @@ void Render2D::_drawLine(vf2d start, vf2d end, Color color) {
 void Render2D::_drawArc(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
 }
 
-void Render2D::_drawTexture(Texture texture, vf2d pos, vf2d size, Color color) {
+void Render2D::_drawTexture(Texture texture, vf2d pos, const vf2d& size, Color color) {
 
     SDL_FRect dstRect = _doCamera(pos, size);
 
@@ -108,9 +110,25 @@ void Render2D::_drawTexture(Texture texture, vf2d pos, vf2d size, Color color) {
     SDL_SetTextureAlphaMod(texture.texture, color.a);
 
     SDL_RenderTextureRotated(renderer, texture.texture, nullptr, &dstRect, 0.0, nullptr, SDL_FLIP_NONE);
+
+    vf2d scale = size / texture.getSize();
+
+    Renderable tex = {
+        .texture = texture,
+        .size = {texture.width, texture.height},
+        .transform = {
+            .position = { pos.x, pos.y},
+            .scale = {scale.x, scale.y }
+        },
+        .tintColor = color,
+
+    };
+
+    Window::AddToRenderQueue("2dsprites", tex);
+
 }
 
-void Render2D::_drawTexturePart(Texture texture, vf2d pos, vf2d size, rectf src, Color color) {
+void Render2D::_drawTexturePart(Texture texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color) {
     SDL_FRect dstRect = _doCamera(pos, size);
     SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
@@ -123,6 +141,37 @@ void Render2D::_drawTexturePart(Texture texture, vf2d pos, vf2d size, rectf src,
     if (src.height < 0.f) { flipFlags |= SDL_FLIP_VERTICAL; }
 
     SDL_RenderTextureRotated(renderer, texture.texture, &srcRect, &dstRect, 0.0, nullptr, (SDL_FlipMode) flipFlags);
+
+
+    vf2d scale = size / texture.getSize();
+
+    float u0 = srcRect.x / (float)texture.getSize().x;
+    float v0 = srcRect.y / (float)texture.getSize().y;
+    float u1 = (srcRect.x + srcRect.w) / (float)texture.getSize().x;
+    float v1 = (srcRect.y + srcRect.h) / (float)texture.getSize().y;
+
+    Renderable renderable = {
+        .texture = texture,
+        .size = {texture.width, texture.height},
+        .flipped_horizontally = (src.width >= 0.f),
+        .flipped_vertically = (src.height < 0.f),
+        .transform = {
+            .position = { dstRect.x, dstRect.y},
+            .scale = {scale.x, scale.y }
+        },
+        .uv = {
+            glm::vec2(u1, v1),  // Top-right
+            glm::vec2(u0, v1),  // Top-left
+            glm::vec2(u1, v0),  // Bottom-right
+            glm::vec2(u0, v1),  // Top-left (repeated for triangle)
+            glm::vec2(u0, v0),  // Bottom-left
+            glm::vec2(u1, v0)   // Bottom-right
+        },
+        .tintColor = color,
+    };
+
+    Window::AddToRenderQueue("2dsprites", renderable);
+
 }
 
 void Render2D::_beginScissorMode(rectf area) {
@@ -196,11 +245,11 @@ void Render2D::_drawCircleFilled(vf2d pos, float radius, Color color) {
     ctx.fillAll();
 
     ctx.setFillStyle(BLRgba32(color.r, color.g, color.b, color.a));
-    ctx.fillCircle(radius, radius, radius);  // Center at (radius, radius) with the specified radius
+    ctx.fillCircle(radius+1.f, radius+1.f, radius);  // Center at (radius, radius) with the specified radius
 
     ctx.end();
 
-    Render2D::DrawBlend2DImage(circleImage, pos, {(float) imgSize, (float) imgSize});
+    Render2D::DrawBlend2DImage(circleImage, pos - vf2d{1.f, 1.f}, {(float) imgSize, (float) imgSize});
 }
 
 void Render2D::_drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
@@ -216,7 +265,7 @@ void Render2D::_endMode2D() {
     Camera::Deactivate();
 }
 
-rectf Render2D::_doCamera(vf2d pos, vf2d size) {
+rectf Render2D::_doCamera(const vf2d& pos, const vf2d& size) {
 
     rectf dstRect;
 
@@ -425,7 +474,7 @@ void Render2D::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Col
     // End the context
     ctx.end();
 
-    // Render the image to the screen
+        // Render the image to the screen
     Render2D::DrawBlend2DImage(img, center - vi2d{1,1}, {imgWidth, imgHeight});
 
 }
@@ -497,29 +546,33 @@ void Render2D::_drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Para
         DrawRectangleFilled(pos, size, BLACK);
     }
 
-    //    ImGui::End();
-
     SDL_RenderTextureRotated(Window::GetRenderer(), texture.texture, &srcRect, &destRect, 0.0, &center,
                              (SDL_FlipMode) flipFlags);
 }
 
-void Render2D::_drawBlend2DImage(BLImage img, vf2d pos, vf2d size, Color color) {
+void Render2D::_drawBlend2DImage(const BLImage& img, vf2d pos, vf2d origsize, Color color, std::string fileName) {
+
+    vi2d size = {img.width(), img.height()};
 
     BLImageData data;
     img.getData(&data);
 
-    SDL_Texture *_tex = SDL_CreateTexture(Window::GetRenderer(), SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-                                          img.width(), img.height());
-    SDL_SetTextureBlendMode(_tex, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
+    size.x -= 1;
 
-    SDL_UpdateTexture(_tex, nullptr, data.pixelData, int(data.stride));
+//    TextureAsset texture = AssetHandler::LoadFromPixelData(size, data.pixelData, std::move(fileName));
+//
+//    Renderable renderable = {
+//        .texture = texture,
+//        .size = {img.width(), img.height()},
+//        .transform = {
+//            .position = { pos.x, pos.y},
+//            .scale = {1.f, 1.f }
+//        },
+//        .tintColor = color,
+//        .temporary = true,
+//    };
 
-    SDL_FRect dstRect = {pos.x, pos.y, size.x, size.y};
-    SDL_FRect srcRect = {0.f, 0.f, (float) img.width(), (float) img.height()};
-
-    SDL_RenderTexture(Window::GetRenderer(), _tex, &srcRect, &dstRect);
-
-    SDL_DestroyTexture(_tex);
+//    Window::AddToRenderQueue(renderable);
 }
 
 

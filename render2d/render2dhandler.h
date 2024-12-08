@@ -258,7 +258,7 @@ public:
      * @param size The size of the drawn texture.
      * @param color The color of the drawn texture.
      */
-    static void DrawBlend2DImage(BLImage img, vf2d pos, vf2d size, Color color = WHITE) { get()._drawBlend2DImage(img, pos, size, color); };
+    static void DrawBlend2DImage(BLImage img, const vf2d& pos, const vf2d& size, Color color = WHITE, std::string fileName = "") { get()._drawBlend2DImage(img, pos, size, color, fileName); };
 
 
 private:
@@ -273,7 +273,7 @@ private:
 
     void _drawRectangle(vf2d pos, vf2d size, Color color);
 
-    void _drawRectangleRounded(vf2d pos, vf2d size, float radius, Color color);
+    void _drawRectangleRounded(vf2d pos, const vf2d& size, float radius, Color color);
 
     void _drawCircle(vf2d pos, float radius, Color color);
 
@@ -293,9 +293,9 @@ private:
 
     void _drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color);
 
-    void _drawTexture(Texture texture, vf2d pos, vf2d size, Color color = WHITE);
+    void _drawTexture(Texture texture, vf2d pos, const vf2d& size, Color color = WHITE);
 
-    void _drawTexturePart(Texture texture, vf2d pos, vf2d size, rectf src, Color color = WHITE);
+    void _drawTexturePart(Texture texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color = WHITE);
 
     void _drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE);
 
@@ -307,10 +307,10 @@ private:
 
     void _endMode2D();
 
-    void _drawBlend2DImage(BLImage img, vf2d pos, vf2d size, Color color);
+    void _drawBlend2DImage(const BLImage& img, vf2d pos, vf2d size, Color color, std::string fileName);
 
 
-    rectf _doCamera(vf2d pos, vf2d size);
+    rectf _doCamera(const vf2d& pos, const vf2d& size);
 
     SDL_Renderer *renderer = nullptr;
 

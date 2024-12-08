@@ -60,6 +60,10 @@ add_library("luminoveau" STATIC
 
     window/windowhandler.cpp
     window/windowhandler.h
+
+    window/renderpass.cpp
+    window/renderpass.h
+
 )
 
 target_sources("luminoveau" PRIVATE

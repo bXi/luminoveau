@@ -47,6 +47,10 @@ public:
      */
     static void LoadTexture(const char *fileName) { get()._loadTexture(fileName); }
 
+
+
+    static TextureAsset LoadFromPixelData(vf2d size, void *pixelData, std::string fileName) { return get()._loadFromPixelData(size, pixelData, std::move(fileName)); }
+
     /**
      * @brief Sets a scaling mode for all textures loaded after this call.
      *
@@ -140,6 +144,14 @@ public:
                                 storageTextureCount);
     }
 
+    static TextureAsset CreateDepthTarget(SDL_GPUDevice *device, uint32_t width, uint32_t height) {
+        return get()._createDepthTarget(device, width, height);
+    }
+
+
+
+
+
     template<typename T>
     static void Delete(T &asset) {
         get()._delete(asset);
@@ -156,6 +168,10 @@ private:
 
     TextureAsset _loadTexture(const std::string &fileName);
 
+    TextureAsset _loadFromPixelData(const vf2d& size, void *pixelData, std::string fileName);
+
+    bool _copy_to_texture(SDL_GPUDevice *device, void *src_data, uint32_t src_data_len, SDL_GPUTexture *dst_texture, uint32_t dst_texture_width, uint32_t dst_texture_height);
+
     void _setDefaultTextureScaleMode(ScaleMode mode);
 
     ScaleMode _getDefaultTextureScaleMode();
@@ -163,6 +179,8 @@ private:
     TextureAsset _createEmptyTexture(const vf2d &size);
 
     void _saveTextureAsPNG(Texture texture, const char *fileName);
+
+    TextureAsset _createDepthTarget(SDL_GPUDevice *device, uint32_t width, uint32_t height);
 
     // Fonts
 
