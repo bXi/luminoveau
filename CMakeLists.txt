@@ -158,6 +158,21 @@ else()
 
 endif()
 
+
+CPMAddPackage(
+    NAME glm
+    GIT_TAG 33b4a62
+    GITHUB_REPOSITORY g-truc/glm
+)
+
+
+if(glm_ADDED)
+    target_include_directories("luminoveau" PUBLIC ${glm_SOURCE_DIR})
+endif()
+
+
+
+
 CPMAddPackage(
     NAME SDL3
     GIT_TAG 2786290
