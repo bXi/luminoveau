@@ -261,6 +261,10 @@ public:
     static void DrawBlend2DImage(BLImage img, const vf2d& pos, const vf2d& size, Color color = WHITE, std::string fileName = "") { get()._drawBlend2DImage(img, pos, size, color, fileName); };
 
 
+    static void ResetTargetRenderPass() { get()._resetTargetRenderPass(); }
+
+    static void SetTargetRenderPass(const std::string& newTargetRenderPass) { get()._setTargetRenderPass(newTargetRenderPass); }
+
 private:
 
     void _drawPixel(vi2d pos, Color color);
@@ -313,6 +317,12 @@ private:
     rectf _doCamera(const vf2d& pos, const vf2d& size);
 
     SDL_Renderer *renderer = nullptr;
+
+    void _resetTargetRenderPass() { get()._setTargetRenderPass("2dsprites"); }
+
+    void _setTargetRenderPass(const std::string& newTargetRenderPass) { get()._targetRenderPass = newTargetRenderPass; }
+
+    std::string _targetRenderPass = "2dsprites";
 
 //Singleton part
 public:

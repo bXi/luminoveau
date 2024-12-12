@@ -124,7 +124,7 @@ void Render2D::_drawTexture(Texture texture, vf2d pos, const vf2d& size, Color c
 
     };
 
-    Window::AddToRenderQueue("2dsprites", tex);
+    Window::AddToRenderQueue(_targetRenderPass, tex);
 
 }
 
