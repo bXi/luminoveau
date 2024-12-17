@@ -9,6 +9,8 @@
 #include "utils/helpers.h"
 
 #include "renderpass.h"
+#include "spriterenderpass.h"
+#include "textrenderpass.h"
 
 void Window::_initWindow(const std::string &title, int width, int height, int scale, unsigned int flags) {
 
@@ -41,16 +43,18 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     }
     SDL_Log("%s: claimed window for gpu device", CURRENT_METHOD());
 
-    renderpasses["2dsprites"] = new RenderPass(m_device);
-    renderpasses["text"] = new RenderPass(m_device);
+    renderpasses["2dsprites"] = new SpriteRenderPass(m_device);
+    //    renderpasses["2edsprites"] = new SpriteRenderPass(m_device);
+    //    renderpasses["text"] = new TextRenderPass(m_device);
 
+    renderpasses.begin()->second->color_target_info_loadop      = SDL_GPU_LOADOP_CLEAR;
+    renderpasses.begin()->second->color_target_info_clear_color = SDL_FColor(BLACK);
 
-    for (auto& [passname, renderpass] : renderpasses) {
-        bool success = renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, m_window), width, height, passname);
+    for (auto &[passname, renderpass]: renderpasses) {
+        if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, m_window), width, height, passname)) {
+            SDL_Log("%s: renderpass (%s) failed to init()", CURRENT_METHOD(), passname.c_str());
+        }
     }
-
-
-
 
     if (scale > 1) {
         _setScale(scale);
@@ -68,10 +72,11 @@ double Window::_getRunTime() {
 }
 
 void Window::_toggleFullscreen() {
-    auto fullscreenFlag = SDL_WINDOW_FULLSCREEN;
-    bool isFullscreen   = SDL_GetWindowFlags(m_window) & fullscreenFlag;
+    bool isFullscreen = _isFullscreen();
 
     SDL_SetWindowFullscreen(m_window, !isFullscreen);
+
+    _setSize((int)_getSize().x, (int)_getSize().y);
 }
 
 SDL_Renderer *Window::_getRenderer() {
@@ -98,7 +103,7 @@ bool Window::_isFullscreen() {
 vf2d Window::_getSize(bool getRealSize) {
     int w, h;
 
-    if (IsFullscreen()) {
+    if (_isFullscreen()) {
 
         const SDL_DisplayMode *dm;
 
@@ -179,8 +184,28 @@ void Window::_setSize(int width, int height) {
 }
 
 void Window::_clearBackground(Color color) {
-    SDL_SetRenderDrawColor(GetRenderer(), color.r, color.g, color.b, color.a);
-    SDL_RenderClear(GetRenderer());
+    return;
+    m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
+
+    SDL_GPUTexture *swapchain_texture = nullptr;
+
+    if (!SDL_AcquireGPUSwapchainTexture(m_cmdbuf, m_window, &swapchain_texture, nullptr, nullptr)) {
+        SDL_Log("Renderer::render: failed to acquire gpu swapchain texture: %s", SDL_GetError());
+        return;
+    }
+
+    SDL_GPUColorTargetInfo color_target_info{
+        .texture = swapchain_texture,
+        .mip_level = 0,
+        .layer_or_depth_plane = 0,
+        .clear_color = {.r = color.getRFloat(), .g = color.getGFloat(), .b = color.getBFloat(), .a = color.getAFloat()},
+        .load_op = SDL_GPU_LOADOP_CLEAR,
+        .store_op = SDL_GPU_STOREOP_STORE,
+    };
+
+    SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(m_cmdbuf, &color_target_info, 1, nullptr);
+
+    SDL_EndGPURenderPass(render_pass);
 }
 
 void Window::_startFrame() {
@@ -206,35 +231,24 @@ void Window::_endFrame() {
                               {static_cast<float>(GetSize(true).x), static_cast<float>(GetSize(true).y)}, WHITE);
     }
 
-
     auto m_camera = glm::ortho(0.0f, (float) GetWidth(), float(GetHeight()), 0.0f);
 
-
-
-    for (auto& [passname, renderpass] : renderpasses) {
-        m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
-        if (!m_cmdbuf) {
-            SDL_Log("Window::StartFrame: failed to acquire gpu command buffer: %s", SDL_GetError());
-            return;
-        }
-
-        SDL_GPUTexture *swapchain_texture;
-        if (!SDL_AcquireGPUSwapchainTexture(m_cmdbuf, m_window, &swapchain_texture, nullptr, nullptr)) {
-            SDL_Log("Renderer::render: failed to acquire gpu swapchain texture: %s", SDL_GetError());
-            return;
-        }
-        renderpass->render(m_cmdbuf, swapchain_texture, m_camera);
-
-        SDL_SubmitGPUCommandBuffer(m_cmdbuf);
-
-        for (auto &renderable: GetRenderQueue(passname)) {
-            if (!renderable.temporary) continue;
-            renderable.texture.release(Window::GetDevice());
-        }
+    m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
+    if (!m_cmdbuf) {
+        SDL_Log("Window::StartFrame: failed to acquire gpu command buffer: %s", SDL_GetError());
+        return;
+    }
+    SDL_GPUTexture *swapchain_texture;
+    if (!SDL_AcquireGPUSwapchainTexture(m_cmdbuf, m_window, &swapchain_texture, nullptr, nullptr)) {
+        SDL_Log("Renderer::render: failed to acquire gpu swapchain texture: %s", SDL_GetError());
+        return;
     }
 
+    for (auto &[passname, renderpass]: renderpasses) {
+        renderpass->render(m_cmdbuf, swapchain_texture, m_camera);
+    }
 
-
+    SDL_SubmitGPUCommandBuffer(m_cmdbuf);
 
 #ifdef ADD_IMGUI
     if (_debugMenuVisible) {
@@ -243,9 +257,8 @@ void Window::_endFrame() {
     ImGui::Render();
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), Window::GetRenderer());
 #endif
-    for (auto& [passname, renderpass] : renderpasses) {
-
-        Window::ResetRenderQueue(passname);
+    for (auto &[passname, renderpass]: renderpasses) {
+        renderpass->resetRenderQueue();
     }
     m_cmdbuf = nullptr;
 
@@ -284,7 +297,7 @@ void Window::_setScaledSize(int widthInScaledPixels, int heightInScaledPixels, i
         SetScale(scale);
     }
 
-    SetSize(_scaleFactor * widthInScaledPixels, _scaleFactor * heightInScaledPixels);
+    _setSize(_scaleFactor * widthInScaledPixels, _scaleFactor * heightInScaledPixels);
 }
 
 void Window::_setRenderTarget(Texture target) {
@@ -407,12 +420,14 @@ SDL_GPUDevice *Window::_getDevice() {
     return m_device;
 }
 
-void Window::_addToRenderQueue(const std::string& passname, const Renderable& renderable) {
-    get().renderpasses[passname]->renderQueue.push_back(renderable);
+void Window::_addToRenderQueue(const std::string &passname, const Renderable &renderable) {
+
+    if (get().renderpasses.contains(passname))
+        get().renderpasses[passname]->addToRenderQueue(renderable);
 }
 
-std::vector<Renderable> &Window::_getRenderQueue(const std::string &passname) {
-    return get().renderpasses[passname]->renderQueue;
+SDL_GPUTransferBuffer *Window::_getTransferBuffer() {
+    return m_transbuf;
 }
 
 

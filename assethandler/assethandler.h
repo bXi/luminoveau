@@ -5,6 +5,8 @@
 #include <utility>
 
 #include "SDL3/SDL.h"
+#include "SDL3_ttf/SDL_ttf.h"
+
 #include "stb_image.h"
 #include "stb_image_write.h"
 #include "SDL_stbimage.h"
@@ -19,7 +21,6 @@
 #include "assettypes/shader.h"
 #include "assettypes/sound.h"
 #include "assettypes/texture.h"
-#include "blend2d.h"
 
 enum class ScaleMode {
     NEAREST,
@@ -227,7 +228,7 @@ private:
             });
 
             if (it != _fonts.end()) {
-                blFontDestroy(static_cast<FontAsset>(asset).font);
+                TTF_CloseFont(static_cast<FontAsset>(asset).ttfFont);
                 _fonts.erase(it);
             } else {
                 throw std::runtime_error("Font not found in the map");
@@ -263,12 +264,10 @@ private:
             });
 
             if (it != _textures.end()) {
-                if (static_cast<TextureAsset>(asset).surface) {
-                    SDL_DestroySurface(static_cast<Texture>(asset).surface);
+                if (static_cast<TextureAsset>(asset).gpuTexture) {
+//                    static_cast<Texture>(asset).release(Window::GetDevice());
                 }
-                if (static_cast<Texture>(asset).texture) {
-                    SDL_DestroyTexture(static_cast<Texture>(asset).texture);
-                }
+
                 _textures.erase(it);
             } else {
                 throw std::runtime_error("Texture not found in the map");
@@ -288,23 +287,16 @@ public:
 
 private:
     AssetHandler() {
-
-        BLFontData fontData;
-        fontData.createFromData(DroidSansMono_ttf, DroidSansMono_ttf_len);
-
-        // Load the font from the memory stream
-        BLFontFace fontFace;
-        BLResult   result = fontFace.createFromData(fontData, 0);
-
-        if (result != BL_SUCCESS) {
-            printf("Failed to create font face from loader\n");
-            return;
+        if (!TTF_WasInit()) {
+            TTF_Init();
         }
 
-        BLFont font;
-        font.createFromFace(fontFace, 16.0);
-
-        defaultFont.font = new BLFont(font);
+        SDL_IOStream * ttfFontData =  SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
+        auto font = TTF_OpenFontIO(ttfFontData, true, 16.0);
+        if (!font) {
+            throw std::runtime_error(Helpers::TextFormat("%s: failed to create default font: %s", CURRENT_METHOD(), SDL_GetError()));
+        }
+        defaultFont.ttfFont = font;
     };
 };
 

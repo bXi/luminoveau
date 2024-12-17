@@ -7,15 +7,32 @@
 #include "utils/helpers.h"
 #include "utils/colors.h"
 
-#include "blend2d.h"
 #include "assettypes/font.h"
+
+#include <SDL3_ttf/SDL_ttf.h>
+
+
+#define MAX_VERTEX_COUNT 4000
+#define MAX_INDEX_COUNT 6000
+
+typedef struct Vertex {
+    glm::vec3  pos;
+    SDL_FColor color;
+    glm::vec2  uv;
+} Vertex;
+
+typedef struct GeometryData {
+    Vertex *vertices;
+    int    vertex_count;
+    int    *indices;
+    int    index_count;
+} GeometryData;
 
 /**
  * @brief Provides functionality for managing fonts and rendering text.
  */
 class Text {
 public:
-
 
     /**
      * @brief Draws text using the specified font, position, text to draw, and color.
@@ -25,7 +42,7 @@ public:
      * @param textToDraw The text to draw.
      * @param color The color of the text.
      */
-    static void DrawText(Font font, vf2d pos, std::string textToDraw, Color color) {
+    static void DrawText(Font font, const vf2d& pos, const std::string& textToDraw, Color color) {
         get()._drawText(font, pos, textToDraw, color);
     }
 
@@ -42,7 +59,6 @@ public:
     static void DrawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color) {
         get()._drawWrappedText(font, pos, textToDraw, maxWidth, color);
     }
-
 
     /**
      * @brief Measures the width of the specified text when rendered with the given font.
@@ -81,15 +97,18 @@ public:
 
 private:
 
-    void _drawText(Font font, vf2d pos, std::string textToDraw, Color color);
+    void _drawText(Font font, const vf2d& pos, const std::string &textToDraw, Color color);
 
     void _drawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color);
 
     int _measureText(Font font, std::string text);
 
-    vf2d _getRenderedTextSize(Font font, std::string textToDraw);
+    vf2d _getRenderedTextSize(Font font, const std::string &textToDraw);
 
     TextureAsset _drawTextToTexture(Font font, std::string textToDraw, Color color);
+
+    SDL_GPUSampler *textSampler;
+
 
 public:
     Text(const Text &) = delete;
@@ -100,5 +119,17 @@ public:
     }
 
 private:
-    Text() = default;
+    Text() {
+        TTF_Init();
+
+        SDL_GPUSamplerCreateInfo sampler_info = {
+            .min_filter = SDL_GPU_FILTER_LINEAR,
+            .mag_filter = SDL_GPU_FILTER_LINEAR,
+            .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+            .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+            .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+            .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
+        };
+        textSampler = SDL_CreateGPUSampler(Window::GetDevice(), &sampler_info);
+    };
 };

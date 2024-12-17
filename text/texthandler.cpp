@@ -1,54 +1,99 @@
 #include "texthandler.h"
 
-#include "luminoveau.h"
+#include <algorithm>
 
-#include <utility>
-
-void Text::_drawText(Font font, vf2d pos, std::string textToDraw, Color color) {
+void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color) {
 
     if (textToDraw.empty()) return;
 
-    auto size = _getRenderedTextSize(font, textToDraw);
+    TTF_Text *text = TTF_CreateText(font.textEngine, font.ttfFont, textToDraw.c_str(), textToDraw.length());
 
-    BLImage _blSurface;
-    _blSurface.create(std::ceil(size.x), std::ceil(size.y), BL_FORMAT_PRGB32);
+    TTF_SetTextWrapWidth(text, 0);
 
-    BLContext ctx(_blSurface);
+    TTF_GPUAtlasDrawSequence *sequence = TTF_GetGPUTextDrawData(text);
 
-    ctx.setCompOp(BL_COMP_OP_SRC_COPY);
-    ctx.setFillStyle(BLRgba32(0x00000000u));
-    ctx.fillAll();
+    if (!sequence) {
+        throw std::runtime_error(Helpers::TextFormat("%s: failed to create a font sequence: %s", CURRENT_METHOD(), SDL_GetError()));
+    }
 
-    ctx.setFillStyle(BLRgba32(color.r, color.g, color.b, color.a));
-    ctx.fillUtf8Text(BLPoint(0, _blSurface.height() * 0.75), *font.font, textToDraw.c_str());
+    do {
+        TextureAsset tex = {
+            .gpuTexture = sequence->atlas_texture,
+            .gpuSampler = textSampler,
+        };
 
-    ctx.end();
+        for (int i = 0; i + 5 < sequence->num_indices; i += 6) {
 
-    Render2D::DrawBlend2DImage(_blSurface, pos, {(float)_blSurface.width(), (float)_blSurface.height()});
+            auto xy = (Uint8 *) sequence->xy;
+            auto uv = (Uint8 *) sequence->uv;
+
+            auto v1 = glm::vec2(((float *) (xy + sequence->indices[i + 1] * sequence->xy_stride))[0],
+                                ((float *) (xy + sequence->indices[i + 1] * sequence->xy_stride))[1]);
+
+            auto v5 = glm::vec2(((float *) (xy + sequence->indices[i + 5] * sequence->xy_stride))[0],
+                                ((float *) (xy + sequence->indices[i + 5] * sequence->xy_stride))[1]);
+
+            auto uv2 = glm::vec2(((float *) (uv + sequence->indices[i + 2] * sequence->uv_stride))[0],
+                                 ((float *) (uv + sequence->indices[i + 2] * sequence->uv_stride))[1]);
+
+            auto uv3 = glm::vec2(((float *) (uv + sequence->indices[i + 3] * sequence->uv_stride))[0],
+                                 ((float *) (uv + sequence->indices[i + 3] * sequence->uv_stride))[1]);
+
+            float minX = v5.x;
+            float minY = v5.y;
+            float maxX = v1.x;
+            float maxY = v1.y;
+
+            float uvMinX = uv3.x;
+            float uvMinY = uv3.y;
+            float uvMaxX = uv2.x;
+            float uvMaxY = uv2.y;
+
+
+            // Set up the Renderable object with UVs
+            Renderable ren = {
+                .texture = tex,
+                .size = glm::vec2(maxX - minX, maxY - minY),
+                .transform = {
+                    .position = glm::vec2(minX + pos.x, pos.y + (0 - maxY)),
+                },
+                .uv = {
+                    glm::vec2(uvMaxX, uvMaxY),  // Top-right
+                    glm::vec2(uvMinX, uvMaxY),  // Top-left
+                    glm::vec2(uvMaxX, uvMinY),  // Bottom-right
+                    glm::vec2(uvMinX, uvMaxY),  // Top-left (repeated for triangle)
+                    glm::vec2(uvMinX, uvMinY),  // Bottom-left
+                    glm::vec2(uvMaxX, uvMinY)   // Bottom-right
+                },
+                .tintColor = color,
+            };
+
+            // Add to the render queue
+            Window::AddToRenderQueue("2dsprites", ren);
+        }
+
+        sequence = sequence->next;
+    } while (sequence);
 }
 
 int Text::_measureText(Font font, std::string textToDraw) {
-    return (int)(_getRenderedTextSize(font, textToDraw).x + 0.1f);
+    return (int) (_getRenderedTextSize(font, textToDraw).x + 0.1f);
 }
 
-vf2d Text::_getRenderedTextSize(Font font, std::string textToDraw) {
+vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw) {
 
     if (textToDraw.empty()) return {0, 0};
 
-    BLTextMetrics textMetrics;
-    BLGlyphBuffer glyphBuffer;
-    BLFontMetrics fm = font.font->metrics();
+    TTF_Text *text = TTF_CreateText(font.textEngine, font.ttfFont, textToDraw.c_str(), textToDraw.length());
 
-    glyphBuffer.setUtf8Text(textToDraw.c_str());
-    font.font->shape(glyphBuffer);
-    font.font->getTextMetrics(glyphBuffer, textMetrics);
+    int tw, th;
+    TTF_GetTextSize(text, &tw, &th);
 
-    double width = textMetrics.advance.x;
-    double height = fm.xHeight * 2.0;
+    auto width  = (float)tw;
+    auto height = (float)th;
 
-    return {(float)width, (float)height};
+    return {width, height};
 }
-
 
 TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color color) {
     if (textToDraw.empty()) {
@@ -59,34 +104,10 @@ TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color c
 
     auto size = _getRenderedTextSize(font, textToDraw);
 
-    BLImage _blSurface;
-    _blSurface.create(std::ceil(size.x), std::ceil(size.y), BL_FORMAT_PRGB32);
-
-    BLContext ctx(_blSurface);
-
-    ctx.setCompOp(BL_COMP_OP_SRC_COPY);
-    ctx.setFillStyle(BLRgba32(0x00000000u));
-    ctx.fillAll();
-
-    ctx.setFillStyle(BLRgba32(color.r, color.g, color.b, color.a));
-    ctx.fillUtf8Text(BLPoint(0, _blSurface.height() * 0.75), *font.font, textToDraw.c_str());
-
-    ctx.end();
-
-    BLImageData data;
-    _blSurface.getData(&data);
-
     TextureAsset tex;
 
-    SDL_Texture *textTexture = SDL_CreateTexture(Window::GetRenderer(), SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, _blSurface.width(), _blSurface.height());
-    SDL_SetTextureBlendMode(textTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
-
-    SDL_UpdateTexture(textTexture, nullptr, data.pixelData, int(data.stride));
-
-    tex.width = _blSurface.width();
-    tex.height = _blSurface.height();
-
-    tex.texture = textTexture;
+    tex.width  = size.x;
+    tex.height = size.y;
 
     return tex;
 }
@@ -94,12 +115,12 @@ TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color c
 void Text::_drawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color) {
 
     std::stringstream ss(textToDraw);
-    std::string word;
-    std::string currentLine;
+    std::string       word;
+    std::string       currentLine;
 
     while (ss >> word) {
-        std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
-        float testLineWidth = MeasureText(font, testLine);
+        std::string testLine      = currentLine.empty() ? word : currentLine + " " + word;
+        float       testLineWidth = MeasureText(font, testLine);
 
         if (testLineWidth <= maxWidth) {
             currentLine = testLine;

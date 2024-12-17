@@ -1,16 +1,16 @@
-#include "renderpass.h"
+#include "spriterenderpass.h"
 
 #include <utility>
 
 #include "SDL3/SDL_gpu.h"
 
-void RenderPass::release() {
+void SpriteRenderPass::release() {
     m_depth_texture.release(Window::GetDevice());
     SDL_ReleaseGPUGraphicsPipeline(Window::GetDevice(), m_pipeline);
     SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
 }
 
-bool RenderPass::init(
+bool SpriteRenderPass::init(
     SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name
 ) {
     passname = std::move(name);
@@ -102,24 +102,21 @@ bool RenderPass::init(
     return true;
 }
 
-void RenderPass::render(
+void SpriteRenderPass::render(
     SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *target_texture, const glm::mat4 &camera
 ) {
+
+
+    SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
 
     SDL_GPUColorTargetInfo color_target_info{
         .texture = target_texture,
         .mip_level = 0,
         .layer_or_depth_plane = 0,
-        .clear_color = {.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0},
-        .load_op = SDL_GPU_LOADOP_CLEAR,
+        .clear_color = color_target_info_clear_color,
+        .load_op = color_target_info_loadop,
         .store_op = SDL_GPU_STOREOP_STORE,
-        .resolve_texture = nullptr,
-        .resolve_mip_level = 0,
-        .resolve_layer = 0,
-        .cycle = false,
-        .cycle_resolve_texture = false,
-        .padding1 = 0,
-        .padding2 = 0,
+
     };
 
     SDL_GPUDepthStencilTargetInfo depth_stencil_info{
@@ -129,10 +126,6 @@ void RenderPass::render(
         .store_op = SDL_GPU_STOREOP_STORE,
         .stencil_load_op = SDL_GPU_LOADOP_DONT_CARE,
         .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
-        .cycle = false,
-        .clear_stencil = 0,
-        .padding1 = 0,
-        .padding2 = 0,
     };
 
     SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(cmd_buffer, &color_target_info, 1, &depth_stencil_info);
@@ -140,13 +133,11 @@ void RenderPass::render(
     {
         SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
 
-        int zIndex = INT32_MAX;
-
         for (const auto &renderable: renderQueue) {
             glm::mat4 z_index_matrix = glm::translate(
                 glm::mat4(1.0f),
                 //TODO: fix Zindex
-                glm::vec3(0.0f, 0.0f, (float) zIndex / (float) INT32_MAX)// + (renderable.z_index * 10000)))
+                glm::vec3(0.0f, 0.0f, (float) Window::GetZIndex() / (float) INT32_MAX)// + (renderable.z_index * 10000)))
             );
             glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(renderable.size, 1.0f));
 
@@ -180,4 +171,7 @@ void RenderPass::render(
         }
     }
     SDL_EndGPURenderPass(render_pass);
+
+    SDL_PopGPUDebugGroup(cmd_buffer);
+
 }

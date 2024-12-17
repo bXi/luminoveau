@@ -105,6 +105,10 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     texture.gpuSampler = sampler;
     texture.gpuTexture = gpuTexture;
 
+    if (!texture.filename.empty()) {
+        SDL_SetGPUTextureName(Window::GetDevice(), gpuTexture, texture.filename.c_str());
+    }
+
 
     SDL_Log("%s: loaded texture %s (%i x %i)", CURRENT_METHOD(), fileName.c_str(), texture.width, texture.height);
 
@@ -230,17 +234,12 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
 
         FontAsset _font;
 
-        // Load the font from the memory stream
-        BLFontFace fontFace;
-        BLResult   result = fontFace.createFromFile(fileName.c_str());
+        _font.textEngine = TTF_CreateGPUTextEngine(Window::GetDevice());
+        _font.ttfFont = TTF_OpenFont(fileName.c_str(), fontSize);
 
-        if (result != BL_SUCCESS) {
+        if (!_font.ttfFont) {
             throw std::runtime_error("Can't load font.");
         }
-
-        BLFont font;
-        font.createFromFace(fontFace, (float) fontSize);
-        _font.font = new BLFont(font);
 
         _fonts[index] = _font;
 
@@ -480,6 +479,11 @@ TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData,
 
     texture.gpuSampler = sampler;
     texture.gpuTexture = gpuTexture;
+
+    if (!texture.filename.empty()) {
+        SDL_SetGPUTextureName(Window::GetDevice(), gpuTexture, texture.filename.c_str());
+    }
+
 
     //_textures[std::string(fileName)] = texture;
 

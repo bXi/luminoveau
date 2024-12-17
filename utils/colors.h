@@ -69,32 +69,33 @@ struct Color {
      *
      * @return The red component (0.0 - 1.0).
      */
-    float getRFloat() const { return static_cast<float>(r) / 255.0f; }
+    [[nodiscard]] float getRFloat() const { return static_cast<float>(r) / 255.0f; }
 
     /**
      * @brief Gets the green component as a floating-point value.
      *
      * @return The green component (0.0 - 1.0).
      */
-    float getGFloat() const { return static_cast<float>(g) / 255.0f; }
+    [[nodiscard]] float getGFloat() const { return static_cast<float>(g) / 255.0f; }
 
     /**
      * @brief Gets the blue component as a floating-point value.
      *
      * @return The blue component (0.0 - 1.0).
      */
-    float getBFloat() const { return static_cast<float>(b) / 255.0f; }
+    [[nodiscard]] float getBFloat() const { return static_cast<float>(b) / 255.0f; }
 
     /**
      * @brief Gets the alpha component as a floating-point value.
      *
      * @return The alpha component (0.0 - 1.0).
      */
-    float getAFloat() const { return static_cast<float>(a) / 255.0f; }
+    [[nodiscard]] float getAFloat() const { return static_cast<float>(a) / 255.0f; }
 
 #if __has_include("SDL3/SDL.h")
 
-    operator SDL_Color() { return SDL_Color({ (Uint8)r, (Uint8)g, (Uint8)b, (Uint8)a }); }
+    explicit operator SDL_Color() const { return SDL_Color({ (Uint8)r, (Uint8)g, (Uint8)b, (Uint8)a }); }
+    explicit operator SDL_FColor() const { return SDL_FColor({ getRFloat(), getRFloat(), getBFloat(), getAFloat() }); }
 
 #endif
 };

@@ -61,8 +61,14 @@ add_library("luminoveau" STATIC
     window/windowhandler.cpp
     window/windowhandler.h
 
-    window/renderpass.cpp
     window/renderpass.h
+
+    window/spriterenderpass.cpp
+    window/spriterenderpass.h
+
+    window/textrenderpass.cpp
+    window/textrenderpass.h
+
 
 )
 
@@ -188,9 +194,33 @@ if(SDL3_ADDED)
     target_include_directories("luminoveau" PUBLIC ${SDL3_SOURCE_DIR}/include)
 endif()
 
+CPMAddPackage(
+    NAME harfbuzz
+    GIT_REPOSITORY https://github.com/harfbuzz/harfbuzz.git
+    GIT_TAG 40ef6c0
+)
 
-set(BLEND2D_STATIC TRUE)
-set(ASMJIT_EMBED TRUE)
+if(NOT MSVC AND NOT ANDROID)
+    CPMAddPackage(
+        NAME freetype
+        GIT_REPOSITORY https://github.com/freetype/freetype.git
+        GIT_TAG 59320b2
+    )
+
+    if (freetype_ADDED)
+        add_library(Freetype::Freetype ALIAS freetype)
+    endif()
+endif()
+
+CPMAddPackage(
+    NAME SDL3_ttf
+    GIT_TAG a670386
+    GITHUB_REPOSITORY libsdl-org/SDL_ttf
+)
+
+if(SDL3_ttf_ADDED)
+    target_include_directories("luminoveau" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
+endif()
 
 
 CPMAddPackage(
@@ -199,27 +229,15 @@ CPMAddPackage(
     GITHUB_REPOSITORY asmjit/asmjit
 )
 
-
-CPMAddPackage(
-    NAME blend2d
-    GIT_TAG 44baf9e
-    GITHUB_REPOSITORY blend2d/blend2d
-)
-
-if(blend2d_ADDED)
-    target_include_directories("luminoveau" PUBLIC ${blend2d_SOURCE_DIR}/src)
-endif()
-
-
 if (ANDROID)
     target_link_libraries("luminoveau" PUBLIC
         SDL3::SDL3
-        blend2d::blend2d
+        SDL3_ttf::SDL3_ttf
     )
 else()
     target_link_libraries("luminoveau" PUBLIC
         SDL3::SDL3-static
-        blend2d::blend2d
+        SDL3_ttf::SDL3_ttf
     )
 endif()
 

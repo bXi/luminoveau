@@ -7,10 +7,20 @@
 #include "utils/colors.h"
 
 
+struct RenderableVertex {
+    glm::vec3 pos;
+    SDL_FColor color;
+    glm::vec2 uv;
+};
 
 struct Renderable {
     TextureAsset texture;
     glm::ivec2   size;
+
+    struct GeometryData {
+        std::vector<RenderableVertex> vertices;
+        std::vector<int> indices;
+    } geometryData;
 
     int  z_index{0};
     bool flipped_horizontally{false};
@@ -26,7 +36,7 @@ struct Renderable {
             mat = glm::scale(mat, glm::vec3(this->scale, 1.0f));
             return mat;
         }
-    }    transform;
+    } transform;
 
     glm::vec2 uv[6] = {
         glm::vec2(1.0, 1.0),   // top-right

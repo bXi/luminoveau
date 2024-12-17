@@ -250,17 +250,6 @@ public:
      */
     static void EndMode2D() { get()._endMode2D(); };
 
-    /**
-     * @brief Draws the given Blend2D image at the specified position with the given size and color.
-     *
-     * @param img The Blend2D image to draw.
-     * @param pos The position at which to draw the texture.
-     * @param size The size of the drawn texture.
-     * @param color The color of the drawn texture.
-     */
-    static void DrawBlend2DImage(BLImage img, const vf2d& pos, const vf2d& size, Color color = WHITE, std::string fileName = "") { get()._drawBlend2DImage(img, pos, size, color, fileName); };
-
-
     static void ResetTargetRenderPass() { get()._resetTargetRenderPass(); }
 
     static void SetTargetRenderPass(const std::string& newTargetRenderPass) { get()._setTargetRenderPass(newTargetRenderPass); }
@@ -310,9 +299,6 @@ private:
     void _beginMode2D();
 
     void _endMode2D();
-
-    void _drawBlend2DImage(const BLImage& img, vf2d pos, vf2d size, Color color, std::string fileName);
-
 
     rectf _doCamera(const vf2d& pos, const vf2d& size);
 

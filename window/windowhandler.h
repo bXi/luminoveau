@@ -89,6 +89,9 @@ public:
      */
     static SDL_GPUDevice *GetDevice() { return get()._getDevice(); };
 
+
+
+    static SDL_GPUTransferBuffer *GetTransferBuffer() { return get()._getTransferBuffer(); };
     /**
      * @brief Sets the scale factor of the window.
      *
@@ -227,23 +230,24 @@ public:
      */
     static void ToggleDebugMenu() { get()._toggleDebugMenu(); }
 
-    static std::vector<Renderable> &GetRenderQueue(const std::string &passname) { return get()._getRenderQueue(passname); }
-
-    static void ResetRenderQueue(const std::string &passname) { GetRenderQueue(passname).clear(); }
 
     static void AddToRenderQueue(const std::string &passname, const Renderable &renderable) { get()._addToRenderQueue(passname, renderable); };
 
-private:
-    SDL_Window           *m_window;
-    SDL_GPUDevice        *m_device;
-    SDL_GPUCommandBuffer *m_cmdbuf;
+    static uint32_t GetZIndex() {
+        return get()._zIndex--;
+    }
 
-    std::map<std::string, RenderPass *> renderpasses;
+private:
+    SDL_Window            *m_window;
+    SDL_GPUDevice         *m_device;
+    SDL_GPUCommandBuffer  *m_cmdbuf;
+    SDL_GPUTransferBuffer *m_transbuf;
+    uint32_t _zIndex = INT_MAX;
+
+    std::unordered_map<std::string, RenderPass *> renderpasses;
 
 
     void _addToRenderQueue(const std::string& passname, const Renderable& renderable);
-
-    std::vector<Renderable> &_getRenderQueue(const std::string &passname);
 
     double _getRunTime();
 
@@ -260,6 +264,7 @@ private:
     SDL_Renderer *_getRenderer();
 
     SDL_GPUDevice *_getDevice();
+    SDL_GPUTransferBuffer *_getTransferBuffer();
 
     vf2d _getSize(bool getRealSize = false);
 
