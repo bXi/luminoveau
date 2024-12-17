@@ -8,6 +8,10 @@ void SpriteRenderPass::release() {
     m_depth_texture.release(Window::GetDevice());
     SDL_ReleaseGPUGraphicsPipeline(Window::GetDevice(), m_pipeline);
     SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+
+//    SDL_ReleaseGPUShader(Window::GetDevice(), vertex_shader);
+//    SDL_ReleaseGPUShader(Window::GetDevice(), fragment_shader);
+
 }
 
 bool SpriteRenderPass::init(
@@ -17,11 +21,15 @@ bool SpriteRenderPass::init(
 
     m_depth_texture = AssetHandler::CreateDepthTarget(Window::GetDevice(), surface_width, surface_height);
 
-    auto vertShader = AssetHandler::GetShader("assets/shaders/sprite.vert", 0, 2, 0, 0);
-    auto fragShader = AssetHandler::GetShader("assets/shaders/sprite.frag", 1, 1, 0, 0);
+    if (!vertex_shader) {
+        auto vertShader = AssetHandler::GetShader("assets/shaders/sprite.vert", 0, 2, 0, 0);
+        vertex_shader = vertShader.shader;
+    }
 
-    SDL_GPUShader *vertex_shader   = vertShader.shader;
-    SDL_GPUShader *fragment_shader = fragShader.shader;
+    if (!fragment_shader) {
+        auto fragShader = AssetHandler::GetShader("assets/shaders/sprite.frag", 1, 1, 0, 0);
+        fragment_shader = fragShader.shader;
+    }
 
     SDL_GPUColorTargetDescription color_target_description{
         .format = swapchain_texture_format,
@@ -96,8 +104,7 @@ bool SpriteRenderPass::init(
 
     SDL_Log("%s: created graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
 
-    SDL_ReleaseGPUShader(Window::GetDevice(), vertex_shader);
-    SDL_ReleaseGPUShader(Window::GetDevice(), fragment_shader);
+
 
     return true;
 }
@@ -105,7 +112,6 @@ bool SpriteRenderPass::init(
 void SpriteRenderPass::render(
     SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *target_texture, const glm::mat4 &camera
 ) {
-
 
     SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
 
@@ -116,7 +122,6 @@ void SpriteRenderPass::render(
         .clear_color = color_target_info_clear_color,
         .load_op = color_target_info_loadop,
         .store_op = SDL_GPU_STOREOP_STORE,
-
     };
 
     SDL_GPUDepthStencilTargetInfo depth_stencil_info{
@@ -173,5 +178,4 @@ void SpriteRenderPass::render(
     SDL_EndGPURenderPass(render_pass);
 
     SDL_PopGPUDebugGroup(cmd_buffer);
-
 }

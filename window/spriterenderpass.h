@@ -36,6 +36,9 @@ class SpriteRenderPass : public RenderPass {
 
     std::string passname;
 
+    SDL_GPUShader *vertex_shader   = nullptr;
+    SDL_GPUShader *fragment_shader = nullptr;
+
 public:
 
     std::vector<Renderable> renderQueue;

@@ -89,9 +89,8 @@ public:
      */
     static SDL_GPUDevice *GetDevice() { return get()._getDevice(); };
 
-
-
     static SDL_GPUTransferBuffer *GetTransferBuffer() { return get()._getTransferBuffer(); };
+
     /**
      * @brief Sets the scale factor of the window.
      *
@@ -195,7 +194,7 @@ public:
      * @return The total runtime of the application in seconds.
      */
     static double GetRunTime() {
-        return std::chrono::duration_cast<std::chrono::milliseconds>(get()._currentTime - get()._startTime).count() / 1000.;
+        return (double)std::chrono::duration_cast<std::chrono::milliseconds>(get()._currentTime - get()._startTime).count() / 1000.;
     }
 
     /**
@@ -230,7 +229,6 @@ public:
      */
     static void ToggleDebugMenu() { get()._toggleDebugMenu(); }
 
-
     static void AddToRenderQueue(const std::string &passname, const Renderable &renderable) { get()._addToRenderQueue(passname, renderable); };
 
     static uint32_t GetZIndex() {
@@ -242,12 +240,11 @@ private:
     SDL_GPUDevice         *m_device;
     SDL_GPUCommandBuffer  *m_cmdbuf;
     SDL_GPUTransferBuffer *m_transbuf;
-    uint32_t _zIndex = INT_MAX;
+    uint32_t              _zIndex = INT_MAX;
 
     std::unordered_map<std::string, RenderPass *> renderpasses;
 
-
-    void _addToRenderQueue(const std::string& passname, const Renderable& renderable);
+    void _addToRenderQueue(const std::string &passname, const Renderable &renderable);
 
     double _getRunTime();
 
@@ -264,6 +261,7 @@ private:
     SDL_Renderer *_getRenderer();
 
     SDL_GPUDevice *_getDevice();
+
     SDL_GPUTransferBuffer *_getTransferBuffer();
 
     vf2d _getSize(bool getRealSize = false);
@@ -295,6 +293,11 @@ private:
     void _toggleDebugMenu();
 
     TextureAsset _screenBuffer;
+
+    int _lastWindowWidth  = 0;
+    int _lastWindowHeight = 0;
+
+    bool _sizeDirty = false;
 
     int _scaleFactor = 1;
 

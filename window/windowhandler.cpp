@@ -74,9 +74,21 @@ double Window::_getRunTime() {
 void Window::_toggleFullscreen() {
     bool isFullscreen = _isFullscreen();
 
-    SDL_SetWindowFullscreen(m_window, !isFullscreen);
+    if (!isFullscreen) {
 
-    _setSize((int)_getSize().x, (int)_getSize().y);
+        _lastWindowWidth  = (int) _getSize().x;
+        _lastWindowHeight = (int) _getSize().y;
+
+        SDL_SetWindowFullscreen(m_window, true);
+        SDL_SyncWindow(m_window);
+
+        _setSize((int) _getSize().x, (int) _getSize().y);
+    } else {
+
+        SDL_SetWindowFullscreen(m_window, false);
+        SDL_SyncWindow(m_window);
+        _setSize(_lastWindowWidth, _lastWindowHeight);
+    }
 }
 
 SDL_Renderer *Window::_getRenderer() {
@@ -92,45 +104,6 @@ int Window::_getFPS(float milliseconds) {
         _fps = (int) (1. / _lastFrameTime);
     }
     return _fps;
-}
-
-bool Window::_isFullscreen() {
-    auto flag          = SDL_GetWindowFlags(m_window);
-    auto is_fullscreen = flag & SDL_WINDOW_FULLSCREEN;
-    return is_fullscreen == SDL_WINDOW_FULLSCREEN;
-}
-
-vf2d Window::_getSize(bool getRealSize) {
-    int w, h;
-
-    if (_isFullscreen()) {
-
-        const SDL_DisplayMode *dm;
-
-        int windowX = 10;
-        int windowY = 10;
-
-        SDL_GetWindowPosition(Window::GetWindow(), &windowX, &windowY);
-
-        const SDL_Point *point = new const SDL_Point({windowX + 10, windowY + 10});
-
-        dm = SDL_GetCurrentDisplayMode(
-            SDL_GetDisplayForPoint(point)
-        );
-
-        w = dm->w;
-        h = dm->h;
-    } else {
-        // Get the size of the window's client area
-        SDL_GetWindowSize(m_window, &w, &h);
-    }
-
-    if (!getRealSize && _scaleFactor > 1) {
-        w /= _scaleFactor;
-        h /= _scaleFactor;
-    }
-
-    return {(float) w, (float) h};
 }
 
 void Window::_handleInput() {
@@ -179,8 +152,52 @@ void Window::_handleInput() {
     }
 }
 
+bool Window::_isFullscreen() {
+    auto flag          = SDL_GetWindowFlags(m_window);
+    auto is_fullscreen = flag & SDL_WINDOW_FULLSCREEN;
+    return is_fullscreen == SDL_WINDOW_FULLSCREEN;
+}
+
+vf2d Window::_getSize(bool getRealSize) {
+    int w, h;
+
+    if (_isFullscreen()) {
+
+        const SDL_DisplayMode *dm;
+
+        int windowX = 10;
+        int windowY = 10;
+
+        SDL_GetWindowPosition(Window::GetWindow(), &windowX, &windowY);
+
+        const SDL_Point *point = new const SDL_Point({windowX + 10, windowY + 10});
+
+        dm = SDL_GetCurrentDisplayMode(
+            SDL_GetDisplayForPoint(point)
+        );
+
+        w = dm->w;
+        h = dm->h;
+    } else {
+        // Get the size of the window's client area
+        SDL_GetWindowSize(m_window, &w, &h);
+    }
+
+    if (!getRealSize && _scaleFactor > 1) {
+        w /= _scaleFactor;
+        h /= _scaleFactor;
+    }
+
+    return {(float) w, (float) h};
+}
+
 void Window::_setSize(int width, int height) {
     SDL_SetWindowSize(m_window, width, height);
+    SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    SDL_SyncWindow(m_window);
+    _sizeDirty = true;
+
+
 }
 
 void Window::_clearBackground(Color color) {
@@ -261,6 +278,24 @@ void Window::_endFrame() {
         renderpass->resetRenderQueue();
     }
     m_cmdbuf = nullptr;
+
+
+    if (_sizeDirty) {
+        for (auto &[passname, renderpass]: renderpasses) {
+
+            renderpass->release();
+
+            SDL_WaitForGPUIdle(m_device);
+
+            if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, m_window), GetWidth(), GetHeight(), passname)) {
+                SDL_Log("%s: renderpass (%s) failed to init()", CURRENT_METHOD(), passname.c_str());
+            }
+        }
+
+        _sizeDirty = false;
+    }
+
+
 
     _frameCount++;
     _previousTime = _currentTime;
