@@ -12,7 +12,7 @@ struct ShaderAsset {
 
     SDL_GPUShader *shader;
 
-    const char *shaderFilename;
+    std::string shaderFilename;
 
     Uint32 samplerCount;
     Uint32 uniformBufferCount;

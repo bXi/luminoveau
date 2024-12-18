@@ -302,6 +302,13 @@ Shader AssetHandler::_getShader(const std::string &fileName, Uint32 samplerCount
 
         ShaderAsset _shader;
 
+        _shader.shaderFilename = fileName;
+
+        _shader.samplerCount = samplerCount;
+        _shader.uniformBufferCount = uniformBufferCount;
+        _shader.storageBufferCount = storageBufferCount;
+        _shader.storageTextureCount = storageTextureCount;
+
         _shader.shader = SDL_CreateGPUShader(Window::GetDevice(), &shaderInfo);
         if (_shader.shader == NULL) {
             SDL_free(code);
