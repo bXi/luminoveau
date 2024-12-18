@@ -32,15 +32,15 @@ private:
     void _init(int appId);
     void _close();
 
-    bool _isReady();
+    bool _isReady() const;
 
-    float _getStat(std::string pchName);
-    void _setStat(std::string pchName, float fData);
+    float _getStat(const std::string& pchName);
+    void _setStat(const std::string& pchName, float fData);
 
-    bool _hasAchievement(std::string pchName);
-    void _setAchievement(std::string pchName);
+    bool _hasAchievement(const std::string& pchName);
+    void _setAchievement(const std::string& pchName);
 
-    void _clearAchievement(std::string pchName);
+    void _clearAchievement(const std::string& pchName);
 
     int _getUserSteamId();
 
