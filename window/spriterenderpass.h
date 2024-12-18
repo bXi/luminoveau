@@ -73,4 +73,12 @@ public:
     void resetRenderQueue() override {
         renderQueue.clear();
     }
+
+    static const uint8_t sprite_frag_bin[];
+    const size_t         sprite_frag_bin_len = 1000;
+
+    static const uint8_t sprite_vert_bin[];
+    const size_t         sprite_vert_bin_len = 3212;
+
+    void createShaders();
 };

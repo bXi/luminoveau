@@ -43,6 +43,8 @@ add_library("luminoveau" STATIC
     assethandler/assethandler.cpp
     assethandler/assethandler.h
     assethandler/DroidSansMono.cpp
+    assethandler/spritefrag.cpp
+    assethandler/spritevert.cpp
 
     utils/camera.h
     utils/colors.h

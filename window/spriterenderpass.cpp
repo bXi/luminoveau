@@ -21,15 +21,7 @@ bool SpriteRenderPass::init(
 
     m_depth_texture = AssetHandler::CreateDepthTarget(Window::GetDevice(), surface_width, surface_height);
 
-    if (!vertex_shader) {
-        auto vertShader = AssetHandler::GetShader("assets/shaders/sprite.vert", 0, 2, 0, 0);
-        vertex_shader = vertShader.shader;
-    }
-
-    if (!fragment_shader) {
-        auto fragShader = AssetHandler::GetShader("assets/shaders/sprite.frag", 1, 1, 0, 0);
-        fragment_shader = fragShader.shader;
-    }
+    createShaders();
 
     SDL_GPUColorTargetDescription color_target_description{
         .format = swapchain_texture_format,
@@ -178,4 +170,43 @@ void SpriteRenderPass::render(
     SDL_EndGPURenderPass(render_pass);
 
     SDL_PopGPUDebugGroup(cmd_buffer);
+}
+
+void SpriteRenderPass::createShaders() {
+Uint8 test;
+        SDL_GPUShaderCreateInfo vertexShaderInfo = {
+            .code_size = sprite_vert_bin_len,
+            .code = sprite_vert_bin,
+            .entrypoint = "main",
+            .format = SDL_GPU_SHADERFORMAT_SPIRV,
+            .stage = SDL_GPU_SHADERSTAGE_VERTEX,
+            .num_samplers = 0,
+            .num_storage_textures = 0,
+            .num_storage_buffers = 0,
+            .num_uniform_buffers = 2,
+        };
+
+        vertex_shader = SDL_CreateGPUShader(Window::GetDevice(), &vertexShaderInfo);
+
+        if (!vertex_shader) {
+            throw std::runtime_error(Helpers::TextFormat("%s: failed to create vertex shader for: %s (%s)", CURRENT_METHOD(), passname.c_str(), SDL_GetError()));
+        }
+
+        SDL_GPUShaderCreateInfo fragmentShaderInfo = {
+            .code_size = sprite_frag_bin_len,
+            .code = sprite_frag_bin,
+            .entrypoint = "main",
+            .format = SDL_GPU_SHADERFORMAT_SPIRV,
+            .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
+            .num_samplers = 1,
+            .num_storage_textures = 0,
+            .num_storage_buffers = 0,
+            .num_uniform_buffers = 1,
+        };
+
+        fragment_shader = SDL_CreateGPUShader(Window::GetDevice(), &fragmentShaderInfo);
+
+        if (!fragment_shader) {
+            throw std::runtime_error(Helpers::TextFormat("%s: failed to create fragment shader for: %s (%s)", CURRENT_METHOD(), passname.c_str(), SDL_GetError()));
+        }
 }
