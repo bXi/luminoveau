@@ -224,13 +224,6 @@ if(SDL3_ttf_ADDED)
     target_include_directories("luminoveau" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
 endif()
 
-
-CPMAddPackage(
-    NAME asmjit
-    GIT_TAG 6784722
-    GITHUB_REPOSITORY asmjit/asmjit
-)
-
 if (ANDROID)
     target_link_libraries("luminoveau" PUBLIC
         SDL3::SDL3
