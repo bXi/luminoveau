@@ -412,7 +412,7 @@ void Helpers::DrawMainMenu() {
             if (SDL_GetGamepadType(gamepad) != SDL_GAMEPAD_TYPE_PS5) {
                 SDL_PropertiesID props = SDL_GetGamepadProperties(gamepad);
 
-                if (SDL_GetBooleanProperty(props, SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, SDL_FALSE)) {
+                if (SDL_GetBooleanProperty(props, SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false)) {
 
                     ImGui::SetCursorPos(ImVec2(offSetX + 550, offSetY - 40));
                     ImGui::VSliderFloat("      ", {30, 150}, &gamepaddata.rumbleLeft, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
@@ -427,7 +427,7 @@ void Helpers::DrawMainMenu() {
                     SDL_RumbleGamepad(gamepad, (Uint16) rumbleLeft, (Uint16) rumbleRight, 100);
                 }
 
-                if (SDL_GetBooleanProperty(props, SDL_PROP_GAMEPAD_CAP_TRIGGER_RUMBLE_BOOLEAN, SDL_FALSE)) {
+                if (SDL_GetBooleanProperty(props, SDL_PROP_GAMEPAD_CAP_TRIGGER_RUMBLE_BOOLEAN, false)) {
                     ImGui::SetCursorPos(ImVec2(offSetX + 550, offSetY + 200));
                     ImGui::VSliderFloat("          ", {30, 150}, &gamepaddata.rumbleTriggerLeft, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
 

@@ -24,7 +24,7 @@
 
 #ifdef ADD_IMGUI
 #include "imgui.h"
-#include "imgui_impl_sdlrenderer3.h"
+#include "imgui_impl_sdlgpu3.h"
 #include "imgui_impl_sdl3.h"
 
 #ifdef WIN32
