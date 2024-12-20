@@ -491,4 +491,8 @@ SDL_GPUTransferBuffer *Window::_getTransferBuffer() {
     return m_transbuf;
 }
 
+void Window::_setTitle(const std::string &title) {
+    SDL_SetWindowTitle(_getWindow(), title.c_str());
+}
+
 

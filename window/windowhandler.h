@@ -63,6 +63,9 @@ public:
      */
     static void SetIcon(Texture icon) { get()._setIcon(icon); }
 
+
+    static void SetTitle(const std::string& title) { get()._setTitle(title); }
+
     /**
      * @brief Closes the application window.
      */
@@ -251,6 +254,8 @@ private:
     void _initWindow(const std::string &title, int width, int height, int scale = 0, unsigned int flags = 0);
 
     void _setIcon(Texture icon);
+
+    void _setTitle(const std::string& title);
 
     void _close();
 
