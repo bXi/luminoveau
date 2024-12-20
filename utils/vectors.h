@@ -71,6 +71,9 @@ union rect_generic;
 #include "box2d/box2d.h"
 #endif
 
+#if __has_include("glm/vec2.hpp")
+#include "glm/vec2.hpp"
+#endif
 
 [[maybe_unused]] static const char *doTextFormat(const char *text, ...) {
 #define MAX_TEXT_BUFFER_LENGTH              1024
@@ -147,6 +150,10 @@ struct v2d_generic {
     v2d_generic(const b2Vec2& v) : x(v.x), y(v.y) {}
 #endif
 
+#if __has_include("glm/vec2.hpp")
+    operator glm::vec2() { return glm::vec2(x, y); }
+    v2d_generic(const glm::vec2& v) : x(v.x), y(v.y) {}
+#endif
     T getAngle() const { return atan2(y, x); }
 
     void rotateBy(float l) {
