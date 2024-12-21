@@ -182,10 +182,15 @@ if(glm_ADDED)
     target_include_directories("luminoveau" PUBLIC ${glm_SOURCE_DIR})
 endif()
 
+CPMAddPackage(
+    NAME SPIRV-Cross
+    GIT_TAG 6173e24
+    GITHUB_REPOSITORY KhronosGroup/SPIRV-Cross
+)
 
-
-
-
+if(SPIRV-Cross_ADDED)
+    target_include_directories("luminoveau" PUBLIC ${SPIRV-Cross_SOURCE_DIR})
+endif()
 
 CPMAddPackage(
     NAME SDL3
@@ -229,11 +234,13 @@ if (ANDROID)
     target_link_libraries("luminoveau" PUBLIC
         SDL3::SDL3
         SDL3_ttf::SDL3_ttf
+        spirv-cross-c
     )
 else()
     target_link_libraries("luminoveau" PUBLIC
         SDL3::SDL3-static
         SDL3_ttf::SDL3_ttf
+        spirv-cross-c
     )
 endif()
 

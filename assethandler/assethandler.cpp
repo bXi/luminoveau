@@ -1,5 +1,6 @@
 #include "assethandler.h"
 #include "window/windowhandler.h"
+#include "spirv_cross.hpp"
 
 #include <filesystem>
 #include <utility>
@@ -257,10 +258,7 @@ ScaleMode AssetHandler::_getDefaultTextureScaleMode() {
     return defaultMode;
 }
 
-Shader AssetHandler::_getShader(const std::string &fileName, Uint32 samplerCount,
-                                Uint32 uniformBufferCount,
-                                Uint32 storageBufferCount,
-                                Uint32 storageTextureCount) {
+Shader AssetHandler::_getShader(const std::string &fileName) {
 
     if (_shaders.find(fileName) == _shaders.end()) {
 
@@ -283,10 +281,18 @@ Shader AssetHandler::_getShader(const std::string &fileName, Uint32 samplerCount
         }
 
         size_t codeSize;
-        Uint8  *code = (Uint8 *) SDL_LoadFile(binFileName.c_str(), &codeSize);
-        if (code == NULL) {
+        auto  *code = (Uint8 *) SDL_LoadFile(binFileName.c_str(), &codeSize);
+        if (code == nullptr) {
             throw std::runtime_error(Helpers::TextFormat("Failed to load shader from disk! %s", fileName.c_str()));
         }
+
+        spirv_cross::Compiler compiler(reinterpret_cast<const uint32_t*>(code), codeSize / sizeof(uint32_t));
+        const auto resources = compiler.get_shader_resources();
+
+        Uint32 samplerCount        = resources.sampled_images.size();
+        Uint32 uniformBufferCount  = resources.uniform_buffers.size();
+        Uint32 storageBufferCount  = resources.storage_buffers.size();
+        Uint32 storageTextureCount = resources.storage_images.size();
 
         SDL_GPUShaderCreateInfo shaderInfo = {
             .code_size = codeSize,
@@ -310,7 +316,7 @@ Shader AssetHandler::_getShader(const std::string &fileName, Uint32 samplerCount
         _shader.storageTextureCount = storageTextureCount;
 
         _shader.shader = SDL_CreateGPUShader(Window::GetDevice(), &shaderInfo);
-        if (_shader.shader == NULL) {
+        if (_shader.shader == nullptr) {
             SDL_free(code);
             throw std::runtime_error("Failed to create shader!");
         }

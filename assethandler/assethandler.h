@@ -135,14 +135,8 @@ public:
      * @param fileName The name of the texture file.
      * @return The texture corresponding to the file name.
      */
-    static Shader GetShader(const char *fileName, Uint32 samplerCount,
-                            Uint32 uniformBufferCount,
-                            Uint32 storageBufferCount,
-                            Uint32 storageTextureCount) {
-        return get()._getShader(fileName, samplerCount,
-                                uniformBufferCount,
-                                storageBufferCount,
-                                storageTextureCount);
+    static Shader GetShader(const char *fileName) {
+        return get()._getShader(fileName);
     }
 
     static TextureAsset CreateDepthTarget(SDL_GPUDevice *device, uint32_t width, uint32_t height) {
@@ -195,10 +189,7 @@ private:
 
     // Shaders
 
-    Shader _getShader(const std::string &fileName, Uint32 samplerCount,
-                      Uint32 uniformBufferCount,
-                      Uint32 storageBufferCount,
-                      Uint32 storageTextureCount);
+    Shader _getShader(const std::string &fileName);
 
 
     //Containers

@@ -16,8 +16,8 @@ bool TextRenderPass::init(
 ) {
     passname = std::move(name);
 
-    auto vertShader = AssetHandler::GetShader("assets/shaders/sprite.vert", 0, 2, 0, 0);
-    auto fragShader = AssetHandler::GetShader("assets/shaders/sprite.frag", 1, 1, 0, 0);
+    auto vertShader = AssetHandler::GetShader("assets/shaders/sprite.vert");
+    auto fragShader = AssetHandler::GetShader("assets/shaders/sprite.frag");
 
     SDL_GPUShader *vertex_shader   = vertShader.shader;
     SDL_GPUShader *fragment_shader = fragShader.shader;
