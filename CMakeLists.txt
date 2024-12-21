@@ -72,6 +72,9 @@ add_library("luminoveau" STATIC
     window/spriterenderpass.cpp
     window/spriterenderpass.h
 
+    window/shaderrenderpass.cpp
+    window/shaderrenderpass.h
+
     window/textrenderpass.cpp
     window/textrenderpass.h
 
