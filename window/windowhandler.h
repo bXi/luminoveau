@@ -13,6 +13,7 @@
 
 #include <chrono>
 #include "utils/colors.h"
+#include "assettypes/shader.h"
 #include "assettypes/texture.h"
 
 #include "renderpass.h"
@@ -238,14 +239,20 @@ public:
         return get()._zIndex--;
     }
 
+    static void AddShaderPass(std::string passname, ShaderAsset vertShader, ShaderAsset fragShader) { get()._addShaderPass(passname, vertShader, fragShader); }
+
+
 private:
-    SDL_Window            *m_window;
-    SDL_GPUDevice         *m_device;
-    SDL_GPUCommandBuffer  *m_cmdbuf;
-    SDL_GPUTransferBuffer *m_transbuf;
+    SDL_Window            *m_window = nullptr;
+    SDL_GPUDevice         *m_device = nullptr;
+    SDL_GPUCommandBuffer  *m_cmdbuf = nullptr;
+    SDL_GPUTransferBuffer *m_transbuf = nullptr;
     uint32_t              _zIndex = INT_MAX;
 
-    std::unordered_map<std::string, RenderPass *> renderpasses;
+
+    std::vector<std::pair<std::string, RenderPass*>> renderpasses;
+
+    void _addShaderPass(const std::string& passname, const ShaderAsset& vertShader, const ShaderAsset& fragShader);
 
     void _addToRenderQueue(const std::string &passname, const Renderable &renderable);
 
@@ -285,7 +292,7 @@ private:
 
     void _setScaledSize(int width, int height, int scale = 0);
 
-    void _startFrame();
+    void _startFrame() const;
 
     void _clearBackground(Color color);
 
@@ -308,10 +315,10 @@ private:
 
     bool _shouldQuit = false;
 
-    int    _frameCount;
-    int    _fps;
-    double _lastFrameTime;
-    double _fpsAccumulator;
+    int    _frameCount = 0;
+    int    _fps = 0;
+    double _lastFrameTime = 0.0;
+    double _fpsAccumulator = 0.0;
 
     std::chrono::high_resolution_clock::time_point _startTime;
     std::chrono::high_resolution_clock::time_point _currentTime;
@@ -319,7 +326,7 @@ private:
 #ifdef ADD_IMGUI
     void SetupImGuiStyle();
 
-    bool _debugMenuVisible;
+    bool _debugMenuVisible = false;
 #endif
 public:
     Window(const Window &) = delete;
@@ -331,14 +338,8 @@ public:
 
 private:
     Window() : m_window(nullptr) {
-        _fps         = 0;
-        _frameCount  = 0;
         _startTime   = std::chrono::high_resolution_clock::now();
-        _currentTime = _startTime;
 
-        _fpsAccumulator = 0.f;
-#ifdef ADD_IMGUI
-        _debugMenuVisible = false;
-#endif
     };
+
 };

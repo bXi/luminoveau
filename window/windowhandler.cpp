@@ -11,6 +11,7 @@
 #include "renderpass.h"
 #include "spriterenderpass.h"
 #include "textrenderpass.h"
+#include "shaderrenderpass.h"
 
 void Window::_initWindow(const std::string &title, int width, int height, int scale, unsigned int flags) {
 
@@ -43,9 +44,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     }
     SDL_Log("%s: claimed window for gpu device", CURRENT_METHOD());
 
-    renderpasses["2dsprites"] = new SpriteRenderPass(m_device);
-    //    renderpasses["2edsprites"] = new SpriteRenderPass(m_device);
-    //    renderpasses["text"] = new TextRenderPass(m_device);
+    renderpasses.emplace_back("2dsprites", new SpriteRenderPass(m_device));
 
     renderpasses.begin()->second->color_target_info_loadop      = SDL_GPU_LOADOP_CLEAR;
     renderpasses.begin()->second->color_target_info_clear_color = SDL_FColor(BLACK);
@@ -207,31 +206,30 @@ void Window::_setSize(int width, int height) {
 }
 
 void Window::_clearBackground(Color color) {
-    return;
-    m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
-
-    SDL_GPUTexture *swapchain_texture = nullptr;
-
-    if (!SDL_AcquireGPUSwapchainTexture(m_cmdbuf, m_window, &swapchain_texture, nullptr, nullptr)) {
-        SDL_Log("Renderer::render: failed to acquire gpu swapchain texture: %s", SDL_GetError());
-        return;
-    }
-
-    SDL_GPUColorTargetInfo color_target_info{
-        .texture = swapchain_texture,
-        .mip_level = 0,
-        .layer_or_depth_plane = 0,
-        .clear_color = {.r = color.getRFloat(), .g = color.getGFloat(), .b = color.getBFloat(), .a = color.getAFloat()},
-        .load_op = SDL_GPU_LOADOP_CLEAR,
-        .store_op = SDL_GPU_STOREOP_STORE,
-    };
-
-    SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(m_cmdbuf, &color_target_info, 1, nullptr);
-
-    SDL_EndGPURenderPass(render_pass);
+//    m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
+//
+//    SDL_GPUTexture *swapchain_texture = nullptr;
+//
+//    if (!SDL_AcquireGPUSwapchainTexture(m_cmdbuf, m_window, &swapchain_texture, nullptr, nullptr)) {
+//        SDL_Log("Renderer::render: failed to acquire gpu swapchain texture: %s", SDL_GetError());
+//        return;
+//    }
+//
+//    SDL_GPUColorTargetInfo color_target_info{
+//        .texture = swapchain_texture,
+//        .mip_level = 0,
+//        .layer_or_depth_plane = 0,
+//        .clear_color = {.r = color.getRFloat(), .g = color.getGFloat(), .b = color.getBFloat(), .a = color.getAFloat()},
+//        .load_op = SDL_GPU_LOADOP_CLEAR,
+//        .store_op = SDL_GPU_STOREOP_STORE,
+//    };
+//
+//    SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(m_cmdbuf, &color_target_info, 1, nullptr);
+//
+//    SDL_EndGPURenderPass(render_pass);
 }
 
-void Window::_startFrame() {
+void Window::_startFrame() const {
     Lerp::updateLerps();
 
     Window::HandleInput();
@@ -479,8 +477,14 @@ SDL_GPUDevice *Window::_getDevice() {
 
 void Window::_addToRenderQueue(const std::string &passname, const Renderable &renderable) {
 
-    if (get().renderpasses.contains(passname))
-        get().renderpasses[passname]->addToRenderQueue(renderable);
+    auto it = std::find_if(renderpasses.begin(), renderpasses.end(),
+                           [&passname](const std::pair<std::string, RenderPass *> &entry) {
+                               return entry.first == passname;
+                           });
+
+    if (it != renderpasses.end()) {
+        it->second->addToRenderQueue(renderable);
+    }
 }
 
 SDL_GPUTransferBuffer *Window::_getTransferBuffer() {
@@ -491,4 +495,15 @@ void Window::_setTitle(const std::string &title) {
     SDL_SetWindowTitle(_getWindow(), title.c_str());
 }
 
+void Window::_addShaderPass(const std::string& passname, const ShaderAsset& vertShader, const ShaderAsset& fragShader) {
+
+
+    auto shaderPass = new ShaderRenderPass(m_device);
+
+    shaderPass->vertex_shader = vertShader.shader;
+    shaderPass->fragment_shader = fragShader.shader;
+
+    bool succes = shaderPass->init(SDL_GetGPUSwapchainTextureFormat(m_device, m_window), Window::GetWidth(), Window::GetHeight(), passname);
+    renderpasses.emplace_back(passname, shaderPass);
+}
 
