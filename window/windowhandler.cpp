@@ -279,11 +279,8 @@ void Window::_endFrame() {
 
     {
         auto copy_pass = SDL_BeginGPUCopyPass(m_cmdbuf);
-
         ImGui_ImplSDLGPU3_UploadDrawData(ImGui::GetDrawData(), copy_pass);
-
         SDL_EndGPUCopyPass(copy_pass);
-//        SDL_SubmitGPUCommandBuffer(m_cmdbuf);
     }
     {
 
@@ -300,9 +297,8 @@ void Window::_endFrame() {
         SDL_EndGPURenderPass(render_pass);
     }
 
-    SDL_SubmitGPUCommandBuffer(m_cmdbuf);
-
 #endif
+    SDL_SubmitGPUCommandBuffer(m_cmdbuf);
     for (auto &[passname, renderpass]: renderpasses) {
         renderpass->resetRenderQueue();
     }
