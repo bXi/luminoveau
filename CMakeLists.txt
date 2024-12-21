@@ -1,5 +1,9 @@
 ﻿cmake_minimum_required(VERSION 3.12)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 project("luminoveau" VERSION 0.0.1 DESCRIPTION "Luminoveau")
 
 option(ADD_IMGUI "Include ImGui" OFF)
@@ -135,6 +139,9 @@ endif()
 
 
 target_compile_features("luminoveau" PRIVATE cxx_std_20)
+target_compile_options("luminoveau" PUBLIC -static-libstdc++ -static-libgcc)
+target_link_options("luminoveau" INTERFACE -static-libstdc++ -static-libgcc)
+
 
 target_include_directories("luminoveau" PUBLIC
     "${PROJECT_SOURCE_DIR}"
