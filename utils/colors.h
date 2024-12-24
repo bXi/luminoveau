@@ -1,9 +1,11 @@
 #pragma once
 
 #if __has_include("SDL3/SDL.h")
-
 #include "SDL3/SDL.h"
+#endif
 
+#if __has_include("glm/vec4.hpp")
+#include "glm/vec4.hpp"
 #endif
 
 /**
@@ -64,6 +66,9 @@ struct Color {
         a = static_cast<unsigned int>(alpha * 255.0f);
     }
 
+
+
+
     /**
      * @brief Gets the red component as a floating-point value.
      *
@@ -91,6 +96,20 @@ struct Color {
      * @return The alpha component (0.0 - 1.0).
      */
     [[nodiscard]] float getAFloat() const { return static_cast<float>(a) / 255.0f; }
+
+
+#if __has_include("glm/vec4.hpp")
+
+    glm::vec4 asVec4() {
+        return {
+            getRFloat(),
+            getGFloat(),
+            getBFloat(),
+            getAFloat(),
+        };
+    }
+
+#endif
 
 #if __has_include("SDL3/SDL.h")
 
