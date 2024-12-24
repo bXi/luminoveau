@@ -16,17 +16,16 @@
 #include "spirv_cross.hpp"
 
 class ShaderRenderPass : public RenderPass {
-    glm::vec2 lastMousePos = {0,0};
+    glm::vec2 lastMousePos = {0, 0};
 
     SDL_GPUGraphicsPipeline *m_pipeline{nullptr};
+    SDL_GPUGraphicsPipeline *m_rendertotexturepipeline{nullptr};
 
     std::string passname;
 
-
-
     int _frameCounter = 0;
 
-    Renderable fs;
+    Renderable   fs;
     TextureAsset transparentPixel;
 
     UniformBuffer uniformBuffer;
@@ -36,9 +35,11 @@ public:
     SDL_GPUShader *vertex_shader   = nullptr;
     SDL_GPUShader *fragment_shader = nullptr;
 
+    ShaderAsset             vertShader;
+    ShaderAsset             fragShader;
 
-    void loadUniformsFromShader(const std::vector<uint8_t>& spirvBinary);
-    ShaderType mapSPIRTypeToShaderType(const spirv_cross::SPIRType& type);
+    void loadUniformsFromShader(const std::vector<uint8_t> &spirvBinary);
+
     std::vector<Renderable> renderQueue;
 
 public:
@@ -71,4 +72,6 @@ public:
     void resetRenderQueue() override {
         renderQueue.clear();
     }
+
+    SDL_GPUTexture *renderCurrentContentsToTexture(SDL_GPUCommandBuffer *cmd_buffer);
 };

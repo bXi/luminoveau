@@ -500,8 +500,8 @@ void Window::_addShaderPass(const std::string& passname, const ShaderAsset& vert
 
     auto shaderPass = new ShaderRenderPass(m_device);
 
-    shaderPass->vertex_shader = vertShader.shader;
-    shaderPass->fragment_shader = fragShader.shader;
+    shaderPass->vertShader = vertShader;
+    shaderPass->fragShader = fragShader;
 
     bool succes = shaderPass->init(SDL_GetGPUSwapchainTextureFormat(m_device, m_window), Window::GetWidth(), Window::GetHeight(), passname);
     renderpasses.emplace_back(passname, shaderPass);
