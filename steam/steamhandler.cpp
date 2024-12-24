@@ -3,12 +3,13 @@
 //*/
 void Steam::_init(int newAppId) {
 
-    #ifdef NDEBUG
+#if __has_include("steam_api.h")
+#ifdef NDEBUG
     if ( SteamAPI_RestartAppIfNecessary( newAppId ) )
     {
          throw std::runtime_error("SteamAPI_RestartAppIfNecessary failed.");
     }
-    #endif
+#endif
 
     SteamErrMsg errMsg;
 
@@ -16,6 +17,7 @@ void Steam::_init(int newAppId) {
         throw std::runtime_error(Helpers::TextFormat("%s failed to init Steam.  %s", CURRENT_METHOD(), errMsg));
 
     isInit = true;
+#endif
 }
 
 void Steam::_close() {
@@ -36,29 +38,37 @@ void Steam::_setStat(const std::string &pchName, float fData) {
 bool Steam::_hasAchievement(const std::string &pchName) {
     if (!_isReady()) return false;
 
+#if __has_include("steam_api.h")
     bool hasAchievement = false;
     SteamUserStats()->GetAchievement(pchName.c_str(), &hasAchievement);
 
     return hasAchievement;
+#endif
 }
 
 void Steam::_setAchievement(const std::string &pchName) {
     if (!_isReady()) return;
 
+#if __has_include("steam_api.h")
     SteamUserStats()->SetAchievement(pchName.c_str());
     SteamUserStats()->StoreStats();
+#endif
 }
 
 void Steam::_clearAchievement(const std::string &pchName) {
     if (!_isReady()) return;
 
+#if __has_include("steam_api.h")
     SteamUserStats()->ClearAchievement(pchName.c_str());
     SteamUserStats()->StoreStats();
+#endif
 }
 
 int Steam::_getUserSteamId() {
     if (!_isReady()) return -1;
 
+#if __has_include("steam_api.h")
     auto userId = SteamUser()->GetSteamID();
     return userId.GetAccountID();
+#endif
 }

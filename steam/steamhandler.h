@@ -3,7 +3,10 @@
 #include <string>
 #include <stdexcept>
 
+#if __has_include("steam_api.h")
 #include "steam_api.h"
+#endif
+
 #include "utils/helpers.h"
 class Steam {
 public:
@@ -12,13 +15,13 @@ public:
 
     static bool IsReady() { return get()._isReady(); }
 
-    static float GetStat(std::string pchName) { return get()._getStat(pchName); }
-    static void SetStat(std::string pchName, float fData) { get()._setStat(pchName, fData); }
+    static float GetStat(const std::string& pchName) { return get()._getStat(pchName); }
+    static void SetStat(const std::string& pchName, float fData) { get()._setStat(pchName, fData); }
 
-    static bool HasAchievement(std::string pchName) { return get()._hasAchievement(pchName); }
-    static void SetAchievement(std::string pchName) { get()._setAchievement(pchName); }
+    static bool HasAchievement(const std::string& pchName) { return get()._hasAchievement(pchName); }
+    static void SetAchievement(const std::string& pchName) { get()._setAchievement(pchName); }
 
-    static void ClearAchievement(std::string pchName) { get()._clearAchievement(pchName); }
+    static void ClearAchievement(const std::string& pchName) { get()._clearAchievement(pchName); }
 
     static int GetUserSteamId() { return get()._getUserSteamId(); }
 
@@ -32,7 +35,7 @@ private:
     void _init(int appId);
     void _close();
 
-    bool _isReady() const;
+    [[nodiscard]] bool _isReady() const;
 
     float _getStat(const std::string& pchName);
     void _setStat(const std::string& pchName, float fData);

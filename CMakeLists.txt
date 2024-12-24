@@ -40,10 +40,6 @@ add_library("luminoveau" STATIC
     state/state.h
     state/state.cpp
 
-    steam/steamhandler.cpp
-    steam/steamhandler.h
-
-
     assethandler/assethandler.cpp
     assethandler/assethandler.h
     assethandler/DroidSansMono.cpp
@@ -80,7 +76,6 @@ add_library("luminoveau" STATIC
 
 
 )
-
 target_sources("luminoveau" PRIVATE
     extern/miniaudio.cpp
     extern/SDL_stbimage.cpp
@@ -89,9 +84,9 @@ target_sources("luminoveau" PRIVATE
 )
 
 target_sources("luminoveau" PRIVATE
-    steam/steamhandler.cpp
+        steam/steamhandler.cpp
+        steam/steamhandler.h
 )
-
 
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/public/steam/steam_api.h")
     find_package(Threads REQUIRED)
