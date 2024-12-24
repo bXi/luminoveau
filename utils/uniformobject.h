@@ -1,19 +1,21 @@
 #include <cstdint>
+#include <utility>
 #include <vector>
 #include <string>
 #include <tuple>
 
-enum class ShaderType {
-    Float = 4,
-    Int   = 4,
-    UInt  = 4,
-    Bool  = 1,
-    Vec2  = 8, Vec3 = 12, Vec4 = 16,
-    IVec2 = 8, IVec3 = 12, IVec4 = 16,
-    UVec2 = 8, UVec3 = 12, UVec4 = 16,
-    BVec2 = 4, BVec3 = 4, BVec4 = 4,
-    Mat2  = 16, Mat3 = 36, Mat4 = 64
+#include <type_traits>
+
+template<typename T>
+struct is_std_array : std::false_type {
 };
+
+template<typename T, std::size_t N>
+struct is_std_array<std::array<T, N>> : std::true_type {
+};
+
+template<typename T>
+inline constexpr bool is_std_array_v = is_std_array<T>::value;
 
 class UniformBuffer {
 public:
@@ -21,27 +23,38 @@ public:
         buffer.reserve(1024);
     }
 
-    size_t getSizeOfType(ShaderType type) {
-        return static_cast<size_t>(type);
+    // Proxy class for assignment through []
+    class VariableProxy {
+    public:
+        VariableProxy(UniformBuffer &buffer, const std::string &name)
+            : buffer(buffer), name(name) {}
+
+        template<typename T>
+        VariableProxy &operator=(const T &value) {
+            buffer.setVariable(name, value);
+            return *this;
+        }
+
+    private:
+        UniformBuffer &buffer;
+        std::string   name;
+    };
+
+    VariableProxy operator[](const std::string &name) {
+        return {*this, name};
     }
 
-    void addVariable(const std::string &name, ShaderType type) {
-        size_t typeSize = getSizeOfType(type);
+    void addVariable(const std::string &name, size_t typeSize, size_t offset) {
 
-        // Calculate the padding required to align the current offset to the next boundary
-        size_t padding = (currentOffset % alignment) ? alignment - (currentOffset % alignment) : 0;
+        variables.emplace_back(name, typeSize, offset);
 
-
-        if (padding + typeSize > alignment) //make sure it still
-            currentOffset += padding;
-
-        variables.emplace_back(name, type, currentOffset);
-
-        currentOffset += typeSize;
-
-        if (currentOffset > buffer.capacity()) {
-            buffer.resize(buffer.capacity() + 1024);
+        size_t requiredCapacity = offset + typeSize;
+        if (requiredCapacity > buffer.capacity()) {
+            size_t newCapacity = ((requiredCapacity + 1023) / 1024) * 1024; // Round up to the nearest multiple of 1024
+            buffer.resize(newCapacity);
         }
+
+        currentOffset = std::max(currentOffset, offset);
     }
 
     void setAlignment(size_t newAlignment) {
@@ -50,70 +63,56 @@ public:
 
     template<typename T>
     void setVariable(const std::string &name, const T &value) {
-        for (auto &var: variables) {
-            if (std::get<0>(var) == name) {
+
+        if constexpr (std::is_array<T>::value) {
+            for (auto &var: variables) {
+                size_t size   = sizeof(std::remove_extent<T>::type);
                 size_t offset = std::get<2>(var);
 
-                if constexpr (std::is_same_v<T, float>) {
-                    if (std::get<1>(var) == ShaderType::Float) {
-                        *reinterpret_cast<float *>(&buffer[offset]) = value;
-                        return;
+                if (std::get<0>(var) == name) {
+                    for (size_t i = 0; i < std::extent<T>::value; ++i) {
+                        std::memcpy(&buffer[offset], &value[i], size);
+                        offset += alignment;
                     }
-                } else if constexpr (std::is_same_v<T, glm::vec2>) {
-                    if (std::get<1>(var) == ShaderType::Vec2) {
-                        std::memcpy(&buffer[offset], &value, sizeof(glm::vec2));
-                        return;
-                    }
-                } else if constexpr (std::is_same_v<T, glm::vec3>) {
-                    if (std::get<1>(var) == ShaderType::Vec3) {
-                        std::memcpy(&buffer[offset], &value, sizeof(glm::vec3));
-                        return;
-                    }
-                } else if constexpr (std::is_same_v<T, glm::vec4>) {
-                    if (std::get<1>(var) == ShaderType::Vec4) {
-                        std::memcpy(&buffer[offset], &value, sizeof(glm::vec4));
-                        return;
-                    }
-                } else if constexpr (std::is_same_v<T, glm::mat4x4>) {
-                    if (std::get<1>(var) == ShaderType::Mat4) {
-                        std::memcpy(&buffer[offset], &value, sizeof(glm::mat4x4));
-                        return;
-                    }
-                } else {
-                    throw std::logic_error("type not found.");
                 }
+            }
+            return;
+        }
+        else if constexpr (is_std_array_v<T>) {
+            for (auto &var: variables) {
+                if (std::get<0>(var) == name) {
+                    size_t size   = sizeof(typename T::value_type);
+                    size_t offset = std::get<2>(var);
+
+                    for (size_t i = 0; i < value.size(); ++i) {
+                        std::memcpy(&buffer[offset], &value[i], size);
+                        offset += alignment;
+                    }
+                }
+            }
+            return;
+        }
+
+        for (auto &var: variables) {
+            if (std::get<0>(var) == name) {
+                size_t size   = std::get<1>(var);
+                size_t offset = std::get<2>(var);
+
+                std::memcpy(&buffer[offset], &value, size);
+                return;
             }
         }
     }
 
     template<typename T>
-    T *getVariablePointer(const std::string &name) {
-
-        for (auto &var: variables) {
+    T getVariable(const std::string &name) const {
+        for (const auto &var: variables) {
             if (std::get<0>(var) == name) {
                 size_t offset = std::get<2>(var);
-
-                if constexpr (std::is_same_v<T, float>) {
-                    if (std::get<1>(var) == ShaderType::Float) {
-                        return reinterpret_cast<float *>(&buffer[offset]);
-                    }
-                } else if constexpr (std::is_same_v<T, float[2]>) {
-                    if (std::get<1>(var) == ShaderType::Vec2) {
-                        return reinterpret_cast<glm::vec2 *>(&buffer[offset]);
-                    }
-                } else if constexpr (std::is_same_v<T, float[3]>) {
-                    if (std::get<1>(var) == ShaderType::Vec3) {
-                        return reinterpret_cast<glm::vec3 *>(&buffer[offset]);
-                    }
-                } else if constexpr (std::is_same_v<T, float[4]>) {
-                    if (std::get<1>(var) == ShaderType::Vec4) {
-                        return reinterpret_cast<glm::vec4 *>(&buffer[offset]);
-                    }
-                }
+                return *reinterpret_cast<const T *>(&buffer[offset]);
             }
         }
-
-        return nullptr;
+        throw std::runtime_error("Variable not found: " + name);
     }
 
     [[nodiscard]] const void *getBufferPointer() const {
@@ -125,7 +124,7 @@ public:
     }
 
 private:
-    std::vector<std::tuple<std::string, ShaderType, size_t>> variables;
+    std::vector<std::tuple<std::string, size_t, size_t>> variables;
 
     std::vector<uint8_t> buffer;
     size_t               currentOffset;
