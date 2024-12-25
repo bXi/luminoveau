@@ -43,6 +43,8 @@ bool Steam::_hasAchievement(const std::string &pchName) {
     SteamUserStats()->GetAchievement(pchName.c_str(), &hasAchievement);
 
     return hasAchievement;
+#else
+    return false;
 #endif
 }
 
@@ -70,5 +72,7 @@ int Steam::_getUserSteamId() {
 #if __has_include("steam_api.h")
     auto userId = SteamUser()->GetSteamID();
     return userId.GetAccountID();
+#else
+    return -1;
 #endif
 }
