@@ -75,6 +75,10 @@ union rect_generic;
 #include "glm/vec2.hpp"
 #endif
 
+#if __has_include("imgui.h")
+#include "imgui.h"
+#endif
+
 [[maybe_unused]] static const char *doTextFormat(const char *text, ...) {
 #define MAX_TEXT_BUFFER_LENGTH              1024
 #ifndef MAX_TEXTFORMAT_BUFFERS
@@ -154,6 +158,12 @@ struct v2d_generic {
     operator glm::vec2() { return glm::vec2(x, y); }
     v2d_generic(const glm::vec2& v) : x(v.x), y(v.y) {}
 #endif
+
+#if __has_include("imgui.h")
+    operator ImVec2() { return ImVec2(x, y); }
+    v2d_generic(const ImVec2& v) : x(v.x), y(v.y) {}
+#endif
+
     T getAngle() const { return atan2(y, x); }
 
     void rotateBy(float l) {
