@@ -20,6 +20,9 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
         height *= scale;
     }
 
+    _lastWindowWidth = width;
+    _lastWindowHeight = height;
+
     SDL_Init(SDL_INIT_VIDEO);
 
     auto window = SDL_CreateWindow(title.c_str(), width, height, flags);
@@ -82,7 +85,7 @@ void Window::_toggleFullscreen() {
     bool isFullscreen = _isFullscreen();
 
     if (!isFullscreen) {
-
+        _maximized = true;
         _lastWindowWidth  = (int) _getSize().x;
         _lastWindowHeight = (int) _getSize().y;
 
@@ -142,13 +145,33 @@ void Window::_handleInput() {
             case SDL_EventType::SDL_EVENT_GAMEPAD_REMOVED:
                 Input::RemoveGamepadDevice(event.gdevice.which);
                 break;
-            case SDL_EventType::SDL_EVENT_WINDOW_RESIZED:
-                EventData eventData;
-                eventData.emplace("width", event.window.data1);
-                eventData.emplace("height", event.window.data2);
+            case SDL_EventType::SDL_EVENT_WINDOW_RESIZED: {
+                EventData resizeEventData;
+                resizeEventData.emplace("width", event.window.data1);
+                resizeEventData.emplace("height", event.window.data2);
+                EventBus::Fire(SystemEvent::WINDOW_RESIZE, resizeEventData);
                 _setSize(event.window.data1, event.window.data2);
-                EventBus::Fire(SystemEvent::WINDOW_RESIZE, eventData);
+
+                if (!_maximized) {
+                    _lastWindowWidth = event.window.data1;
+                    _lastWindowHeight = event.window.data2;
+                }
+
                 break;
+            }
+            case SDL_EventType::SDL_EVENT_WINDOW_MAXIMIZED: {
+                _maximized = true;
+                break;
+            }
+            case SDL_EventType::SDL_EVENT_WINDOW_RESTORED: {
+                _maximized = false;
+                EventData restoreEventData;
+                restoreEventData.emplace("width", _lastWindowWidth);
+                restoreEventData.emplace("height", _lastWindowHeight);
+                _setSize(_lastWindowWidth, _lastWindowHeight);
+                EventBus::Fire(SystemEvent::WINDOW_RESIZE, restoreEventData);
+                break;
+            }
         }
     }
 

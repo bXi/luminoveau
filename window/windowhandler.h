@@ -308,6 +308,8 @@ private:
 
     int _lastWindowWidth  = 0;
     int _lastWindowHeight = 0;
+    bool _maximized = false;
+
 
     bool _sizeDirty = false;
 
