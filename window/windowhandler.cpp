@@ -146,6 +146,7 @@ void Window::_handleInput() {
                 EventData eventData;
                 eventData.emplace("width", event.window.data1);
                 eventData.emplace("height", event.window.data2);
+                _setSize(event.window.data1, event.window.data2);
                 EventBus::Fire(SystemEvent::WINDOW_RESIZE, eventData);
                 break;
         }
@@ -200,7 +201,7 @@ vf2d Window::_getSize(bool getRealSize) {
 
 void Window::_setSize(int width, int height) {
     SDL_SetWindowSize(m_window, width, height);
-    SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    //SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_SyncWindow(m_window);
     _sizeDirty = true;
 }
