@@ -18,6 +18,7 @@
 
 #include "renderpass.h"
 #include "renderable.h"
+#include "utils/uniformobject.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -241,6 +242,8 @@ public:
 
     static void AddShaderPass(std::string passname, ShaderAsset vertShader, ShaderAsset fragShader) { get()._addShaderPass(passname, vertShader, fragShader); }
 
+    static UniformBuffer& GetUniformBuffer(const std::string& passname) { return get()._getUniformBuffer(passname); }
+
 
 private:
     SDL_Window            *m_window = nullptr;
@@ -303,6 +306,8 @@ private:
     void _resetRenderTarget();
 
     void _toggleDebugMenu();
+
+    UniformBuffer& _getUniformBuffer(const std::string& passname);
 
     TextureAsset _screenBuffer;
 

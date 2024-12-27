@@ -74,6 +74,13 @@ public:
         renderQueue.clear();
     }
 
+    UniformBuffer& getUniformBuffer() override {
+
+        return uniformBuffer;
+    }
+
+    UniformBuffer uniformBuffer;
+
     static const uint8_t sprite_frag_bin[];
     static const size_t  sprite_frag_bin_len = 1000;
 

@@ -61,6 +61,8 @@ public:
 
     void release() override;
 
+    UniformBuffer &getUniformBuffer() override;
+
     void render(
         SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *target_texture, const glm::mat4 &camera
     ) override;

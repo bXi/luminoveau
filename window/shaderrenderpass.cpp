@@ -344,3 +344,7 @@ SDL_GPUTexture *ShaderRenderPass::renderCurrentContentsToTexture(SDL_GPUCommandB
 
     return currentSwapchainContent;
 }
+
+UniformBuffer &ShaderRenderPass::getUniformBuffer() {
+    return uniformBuffer;
+}

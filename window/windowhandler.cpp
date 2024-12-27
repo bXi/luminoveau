@@ -531,3 +531,13 @@ void Window::_addShaderPass(const std::string& passname, const ShaderAsset& vert
     renderpasses.emplace_back(passname, shaderPass);
 }
 
+UniformBuffer &Window::_getUniformBuffer(const std::string &passname) {
+    auto it = std::find_if(renderpasses.begin(), renderpasses.end(),
+                           [&passname](const std::pair<std::string, RenderPass *> &entry) {
+                               return entry.first == passname;
+                           });
+
+    if (it != renderpasses.end()) {
+        return it->second->getUniformBuffer();
+    }
+}

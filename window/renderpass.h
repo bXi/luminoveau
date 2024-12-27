@@ -6,6 +6,7 @@
 #include "assettypes/texture.h"
 #include "assethandler/assethandler.h"
 #include "renderable.h"
+#include "utils/uniformobject.h"
 
 class RenderPass {
 protected:
@@ -60,4 +61,6 @@ public:
 
     virtual void addToRenderQueue(const Renderable &renderable) = 0;
     virtual void resetRenderQueue() = 0;
+
+    virtual UniformBuffer &getUniformBuffer() = 0;
 };
