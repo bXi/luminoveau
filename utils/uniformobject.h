@@ -56,7 +56,7 @@ public:
             buffer.resize(newCapacity);
         }
 
-        currentOffset = std::max(currentOffset, offset);
+        currentOffset = std::max(currentOffset, requiredCapacity);
     }
 
     void setAlignment(size_t newAlignment) {
