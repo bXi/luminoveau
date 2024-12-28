@@ -100,7 +100,7 @@ void Renderer::_endFrame() {
         return;
     }
     SDL_GPUTexture *swapchain_texture;
-    if (!SDL_AcquireGPUSwapchainTexture(m_cmdbuf, Window::GetWindow(), &swapchain_texture, nullptr, nullptr)) {
+    if (!SDL_WaitAndAcquireGPUSwapchainTexture(m_cmdbuf, Window::GetWindow(), &swapchain_texture, nullptr, nullptr)) {
         SDL_Log("Renderer::render: failed to acquire gpu swapchain texture: %s", SDL_GetError());
         return;
     }
@@ -119,6 +119,8 @@ void Renderer::_endFrame() {
     {
         SDL_GPUColorTargetInfo color_target_info = {};
         color_target_info.texture     = swapchain_texture;
+        color_target_info.mip_level = 0;
+        color_target_info.layer_or_depth_plane = 0;
         color_target_info.clear_color = {0.25f, 0.25f, 0.25f, 0.0f};
         color_target_info.load_op     = SDL_GPU_LOADOP_LOAD;
         color_target_info.store_op    = SDL_GPU_STOREOP_STORE;
