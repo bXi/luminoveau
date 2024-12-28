@@ -194,30 +194,6 @@ void Window::_setSize(int width, int height) {
     _sizeDirty = true;
 }
 
-void Window::_clearBackground(Color color) {
-//    m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
-//
-//    SDL_GPUTexture *swapchain_texture = nullptr;
-//
-//    if (!SDL_AcquireGPUSwapchainTexture(m_cmdbuf, m_window, &swapchain_texture, nullptr, nullptr)) {
-//        SDL_Log("Renderer::render: failed to acquire gpu swapchain texture: %s", SDL_GetError());
-//        return;
-//    }
-//
-//    SDL_GPUColorTargetInfo color_target_info{
-//        .texture = swapchain_texture,
-//        .mip_level = 0,
-//        .layer_or_depth_plane = 0,
-//        .clear_color = {.r = color.getRFloat(), .g = color.getGFloat(), .b = color.getBFloat(), .a = color.getAFloat()},
-//        .load_op = SDL_GPU_LOADOP_CLEAR,
-//        .store_op = SDL_GPU_STOREOP_STORE,
-//    };
-//
-//    SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(m_cmdbuf, &color_target_info, 1, nullptr);
-//
-//    SDL_EndGPURenderPass(render_pass);
-}
-
 void Window::_startFrame() const {
     Lerp::updateLerps();
 

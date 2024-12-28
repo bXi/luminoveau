@@ -143,13 +143,6 @@ public:
     static void EndFrame() { get()._endFrame(); }
 
     /**
-     * @brief Clears the background of the window with the specified color.
-     *
-     * @param color The color to clear the background with.
-     */
-    static void ClearBackground(Color color) { get()._clearBackground(color); }
-
-    /**
      * @brief Toggles the fullscreen mode of the window.
      */
     static void ToggleFullscreen() { get()._toggleFullscreen(); }
