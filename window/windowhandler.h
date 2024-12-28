@@ -16,8 +16,6 @@
 #include "assettypes/shader.h"
 #include "assettypes/texture.h"
 
-#include "renderpass.h"
-#include "renderable.h"
 #include "utils/uniformobject.h"
 
 #include <glm/glm.hpp>
@@ -26,11 +24,11 @@
 
 #ifdef ADD_IMGUI
 #include "imgui.h"
-#include "imgui_impl_sdlgpu3.h"
-#include "imgui_impl_sdl3.h"
+#include "backends/imgui_impl_sdlgpu3.h"
+#include "backends/imgui_impl_sdl3.h"
 
 #ifdef WIN32
-#include "imgui_impl_win32.h"
+#include "backends/imgui_impl_win32.h"
 #endif
 #endif
 
@@ -38,7 +36,6 @@
 struct SDL_Window;
 union SDL_Event;
 
-class RenderPass;
 
 /**
  * @brief Provides functionality for managing the application window.
@@ -65,8 +62,7 @@ public:
      */
     static void SetIcon(Texture icon) { get()._setIcon(icon); }
 
-
-    static void SetTitle(const std::string& title) { get()._setTitle(title); }
+    static void SetTitle(const std::string &title) { get()._setTitle(title); }
 
     /**
      * @brief Closes the application window.
@@ -79,22 +75,6 @@ public:
      * @return Pointer to the SDL window object.
      */
     static SDL_Window *GetWindow() { return get()._getWindow(); }
-
-    /**
-     * @brief Retrieves the SDL renderer object.
-     *
-     * @return Pointer to the SDL renderer object.
-     */
-    static SDL_Renderer *GetRenderer() { return get()._getRenderer(); };
-
-    /**
-     * @brief Retrieves the SDL device object.
-     *
-     * @return Pointer to the SDL device object.
-     */
-    static SDL_GPUDevice *GetDevice() { return get()._getDevice(); };
-
-    static SDL_GPUTransferBuffer *GetTransferBuffer() { return get()._getTransferBuffer(); };
 
     /**
      * @brief Sets the scale factor of the window.
@@ -142,7 +122,7 @@ public:
      * @param getRealSize Flag indicating whether to retrieve the real size (not scaled).
      * @return The width of the window.
      */
-    static int GetWidth(bool getRealSize = false) { return get()._getSize(getRealSize).x; }
+    static int GetWidth(bool getRealSize = false) { return (int) get()._getSize(getRealSize).x; }
 
     /**
      * @brief Retrieves the height of the window.
@@ -150,7 +130,7 @@ public:
      * @param getRealSize Flag indicating whether to retrieve the real size (not scaled).
      * @return The height of the window.
      */
-    static int GetHeight(bool getRealSize = false) { return get()._getSize(getRealSize).y; }
+    static int GetHeight(bool getRealSize = false) { return (int) get()._getSize(getRealSize).y; }
 
     /**
      * @brief Starts a new frame for rendering.
@@ -161,18 +141,6 @@ public:
      * @brief Ends the current frame.
      */
     static void EndFrame() { get()._endFrame(); }
-
-    /**
-     * @brief Sets the render target to the specified texture.
-     *
-     * @param target The texture to set as the render target.
-     */
-    static void SetRenderTarget(Texture target) { get()._setRenderTarget(target); }
-
-    /**
-     * @brief Resets the render target to the window.
-     */
-    static void ResetRenderTarget() { get()._resetRenderTarget(); }
 
     /**
      * @brief Clears the background of the window with the specified color.
@@ -199,7 +167,7 @@ public:
      * @return The total runtime of the application in seconds.
      */
     static double GetRunTime() {
-        return (double)std::chrono::duration_cast<std::chrono::milliseconds>(get()._currentTime - get()._startTime).count() / 1000.;
+        return (double) std::chrono::duration_cast<std::chrono::milliseconds>(get()._currentTime - get()._startTime).count() / 1000.;
     }
 
     /**
@@ -234,50 +202,20 @@ public:
      */
     static void ToggleDebugMenu() { get()._toggleDebugMenu(); }
 
-    static void AddToRenderQueue(const std::string &passname, const Renderable &renderable) { get()._addToRenderQueue(passname, renderable); };
-
-    static uint32_t GetZIndex() {
-        return get()._zIndex--;
-    }
-
-    static void AddShaderPass(std::string passname, ShaderAsset vertShader, ShaderAsset fragShader) { get()._addShaderPass(passname, vertShader, fragShader); }
-
-    static UniformBuffer& GetUniformBuffer(const std::string& passname) { return get()._getUniformBuffer(passname); }
-
-
 private:
-    SDL_Window            *m_window = nullptr;
-    SDL_GPUDevice         *m_device = nullptr;
-    SDL_GPUCommandBuffer  *m_cmdbuf = nullptr;
-    SDL_GPUTransferBuffer *m_transbuf = nullptr;
-    uint32_t              _zIndex = INT_MAX;
-
-
-    std::vector<std::pair<std::string, RenderPass*>> renderpasses;
-
-    void _addShaderPass(const std::string& passname, const ShaderAsset& vertShader, const ShaderAsset& fragShader);
-
-    void _addToRenderQueue(const std::string &passname, const Renderable &renderable);
-
     double _getRunTime();
 
     void _initWindow(const std::string &title, int width, int height, int scale = 0, unsigned int flags = 0);
 
     void _setIcon(Texture icon);
 
-    void _setTitle(const std::string& title);
+    void _setTitle(const std::string &title);
 
     void _close();
 
     void _toggleFullscreen();
 
     bool _isFullscreen();
-
-    SDL_Renderer *_getRenderer();
-
-    SDL_GPUDevice *_getDevice();
-
-    SDL_GPUTransferBuffer *_getTransferBuffer();
 
     vf2d _getSize(bool getRealSize = false);
 
@@ -301,20 +239,13 @@ private:
 
     void _endFrame();
 
-    void _setRenderTarget(Texture target);
-
-    void _resetRenderTarget();
-
     void _toggleDebugMenu();
 
-    UniformBuffer& _getUniformBuffer(const std::string& passname);
+    int  _lastWindowWidth  = 0;
+    int  _lastWindowHeight = 0;
+    bool _maximized        = false;
 
-    TextureAsset _screenBuffer;
-
-    int _lastWindowWidth  = 0;
-    int _lastWindowHeight = 0;
-    bool _maximized = false;
-
+    SDL_Window *m_window = nullptr;
 
     bool _sizeDirty = false;
 
@@ -322,9 +253,9 @@ private:
 
     bool _shouldQuit = false;
 
-    int    _frameCount = 0;
-    int    _fps = 0;
-    double _lastFrameTime = 0.0;
+    int    _frameCount     = 0;
+    int    _fps            = 0;
+    double _lastFrameTime  = 0.0;
     double _fpsAccumulator = 0.0;
 
     std::chrono::high_resolution_clock::time_point _startTime;
@@ -344,9 +275,7 @@ public:
     }
 
 private:
-    Window() : m_window(nullptr) {
-        _startTime   = std::chrono::high_resolution_clock::now();
-
+    Window() {
+        _startTime = std::chrono::high_resolution_clock::now();
     };
-
 };

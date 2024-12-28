@@ -4,20 +4,15 @@
 #include "audio/audiohandler.h"
 
 #include "assethandler/assethandler.h"
-#include "render2d/render2dhandler.h"
 
 #include "utils/helpers.h"
 
-#include "renderpass.h"
-#include "spriterenderpass.h"
-#include "textrenderpass.h"
-#include "shaderrenderpass.h"
+#include "renderer/rendererhandler.h"
 
 void Window::_initWindow(const std::string &title, int width, int height, int scale, unsigned int flags) {
 
     if (scale > 1) { //when scaling asume width is virtual pixels instead of real screen pixels
-        width *= scale;
-        height *= scale;
+        //TODO: fix scaling
     }
 
     _lastWindowWidth = width;
@@ -32,42 +27,16 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
         throw std::runtime_error(SDL_GetError());
     }
 
-    m_device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, nullptr);
-    if (!m_device) {
-        SDL_Log("%s: failed to create gpu device: %s", CURRENT_METHOD(), SDL_GetError());
-        SDL_DestroyWindow(m_window);
-        return;
-    }
-
-    SDL_Log("%s: using graphics backend: %s", CURRENT_METHOD(), SDL_GetGPUDeviceDriver(m_device));
-
-    if (!SDL_ClaimWindowForGPUDevice(m_device, m_window)) {
-        SDL_Log("%s: failed to claim window for gpu device: %s", CURRENT_METHOD(), SDL_GetError());
-        return;
-    }
-    SDL_Log("%s: claimed window for gpu device", CURRENT_METHOD());
-
-    renderpasses.emplace_back("2dsprites", new SpriteRenderPass(m_device));
-
-    renderpasses.begin()->second->color_target_info_loadop      = SDL_GPU_LOADOP_CLEAR;
-    renderpasses.begin()->second->color_target_info_clear_color = SDL_FColor(BLACK);
-
-    for (auto &[passname, renderpass]: renderpasses) {
-        if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, m_window), width, height, passname)) {
-            SDL_Log("%s: renderpass (%s) failed to init()", CURRENT_METHOD(), passname.c_str());
-        }
-    }
-
-    #ifdef ADD_IMGUI
+#ifdef ADD_IMGUI
     ImGui::CreateContext();
     SetupImGuiStyle();
+#endif
 
-    ImGui_ImplSDL3_InitForOther(m_window);
-    ImGui_ImplSDLGPU3_Init(m_device, SDL_GetGPUSwapchainTextureFormat(m_device, m_window));
-    #endif
+    Renderer::InitRendering();
+
 
     if (scale > 1) {
-        _setScale(scale);
+        //TODO: fix scaling
     }
 }
 
@@ -99,10 +68,6 @@ void Window::_toggleFullscreen() {
         SDL_SyncWindow(m_window);
         _setSize(_lastWindowWidth, _lastWindowHeight);
     }
-}
-
-SDL_Renderer *Window::_getRenderer() {
-    return SDL_GetRenderer(m_window);
 }
 
 int Window::_getFPS(float milliseconds) {
@@ -259,84 +224,28 @@ void Window::_startFrame() const {
     Window::HandleInput();
 
     if (_scaleFactor > 1) {
-        SDL_SetRenderTarget(GetRenderer(), _screenBuffer.texture);
+        //TODO: fix scaling
     }
-#ifdef ADD_IMGUI
-    ImGui_ImplSDL3_NewFrame();
-    ImGui_ImplSDLGPU3_NewFrame();
-    ImGui::NewFrame();
-#endif
+
+    Renderer::StartFrame();
 }
 
 void Window::_endFrame() {
 
     if (_scaleFactor > 1) {
-        SDL_SetRenderTarget(GetRenderer(), nullptr);
-        Render2D::DrawTexture(_screenBuffer, {0.f, 0.f},
-                              {static_cast<float>(GetSize(true).x), static_cast<float>(GetSize(true).y)}, WHITE);
+        //TODO: fix scaling
     }
 
-    auto m_camera = glm::ortho(0.0f, (float) GetWidth(), float(GetHeight()), 0.0f);
-
-    m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
-    if (!m_cmdbuf) {
-        SDL_Log("Window::StartFrame: failed to acquire gpu command buffer: %s", SDL_GetError());
-        return;
-    }
-    SDL_GPUTexture *swapchain_texture;
-    if (!SDL_AcquireGPUSwapchainTexture(m_cmdbuf, m_window, &swapchain_texture, nullptr, nullptr)) {
-        SDL_Log("Renderer::render: failed to acquire gpu swapchain texture: %s", SDL_GetError());
-        return;
-    }
-
-    for (auto &[passname, renderpass]: renderpasses) {
-        renderpass->render(m_cmdbuf, swapchain_texture, m_camera);
-    }
+    Renderer::EndFrame();
 
 #ifdef ADD_IMGUI
     if (_debugMenuVisible) {
         Helpers::DrawMainMenu();
     }
-    ImGui::Render();
-
-    {
-        auto copy_pass = SDL_BeginGPUCopyPass(m_cmdbuf);
-        ImGui_ImplSDLGPU3_UploadDrawData(ImGui::GetDrawData(), copy_pass);
-        SDL_EndGPUCopyPass(copy_pass);
-    }
-    {
-
-        SDL_GPUColorTargetInfo color_target_info = {};
-        color_target_info.texture     = swapchain_texture;
-        color_target_info.clear_color = {0.25f, 0.25f, 0.25f, 0.0f};
-        color_target_info.load_op     = SDL_GPU_LOADOP_LOAD;
-        color_target_info.store_op    = SDL_GPU_STOREOP_STORE;
-
-        auto render_pass = SDL_BeginGPURenderPass(m_cmdbuf, &color_target_info, 1, nullptr);
-
-        ImGui_ImplSDLGPU3_RenderDrawData(ImGui::GetDrawData(), m_cmdbuf, render_pass);
-
-        SDL_EndGPURenderPass(render_pass);
-    }
-
 #endif
-    SDL_SubmitGPUCommandBuffer(m_cmdbuf);
-    for (auto &[passname, renderpass]: renderpasses) {
-        renderpass->resetRenderQueue();
-    }
-    m_cmdbuf = nullptr;
 
     if (_sizeDirty) {
-        for (auto &[passname, renderpass]: renderpasses) {
-
-            renderpass->release();
-
-            SDL_WaitForGPUIdle(m_device);
-
-            if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, m_window), GetWidth(), GetHeight(), passname)) {
-                SDL_Log("%s: renderpass (%s) failed to init()", CURRENT_METHOD(), passname.c_str());
-            }
-        }
+        Renderer::Reset();
 
         _sizeDirty = false;
     }
@@ -364,6 +273,8 @@ void Window::_setScale(int scalefactor) {
     _scaleFactor = scalefactor;
 
     if (scalefactor > 1) {
+        //TODO: fix scaling
+
         //        _screenBuffer = AssetHandler::CreateEmptyTexture(Window::GetSize());
     } else {
         //        SDL_SetRenderTarget(GetRenderer(), nullptr);
@@ -377,18 +288,6 @@ void Window::_setScaledSize(int widthInScaledPixels, int heightInScaledPixels, i
     }
 
     _setSize(_scaleFactor * widthInScaledPixels, _scaleFactor * heightInScaledPixels);
-}
-
-void Window::_setRenderTarget(Texture target) {
-    //    SDL_SetRenderTarget(Window::GetRenderer(), target.texture);
-}
-
-void Window::_resetRenderTarget() {
-    //    if (_scaleFactor > 1) {
-    //        SetRenderTarget(_screenBuffer);
-    //    } else {
-    //        SDL_SetRenderTarget(Window::GetRenderer(), nullptr);
-    //    }
 }
 
 float Window::_getScale() {
@@ -490,54 +389,11 @@ void Window::SetupImGuiStyle() {
 #endif
 
 void Window::_setIcon(Texture icon) {
-
     if (icon.surface)
         SDL_SetWindowIcon(_getWindow(), icon.surface);
-}
-
-SDL_GPUDevice *Window::_getDevice() {
-    return m_device;
-}
-
-void Window::_addToRenderQueue(const std::string &passname, const Renderable &renderable) {
-
-    auto it = std::find_if(renderpasses.begin(), renderpasses.end(),
-                           [&passname](const std::pair<std::string, RenderPass *> &entry) {
-                               return entry.first == passname;
-                           });
-
-    if (it != renderpasses.end()) {
-        it->second->addToRenderQueue(renderable);
-    }
-}
-
-SDL_GPUTransferBuffer *Window::_getTransferBuffer() {
-    return m_transbuf;
 }
 
 void Window::_setTitle(const std::string &title) {
     SDL_SetWindowTitle(_getWindow(), title.c_str());
 }
 
-void Window::_addShaderPass(const std::string& passname, const ShaderAsset& vertShader, const ShaderAsset& fragShader) {
-
-
-    auto shaderPass = new ShaderRenderPass(m_device);
-
-    shaderPass->vertShader = vertShader;
-    shaderPass->fragShader = fragShader;
-
-    bool succes = shaderPass->init(SDL_GetGPUSwapchainTextureFormat(m_device, m_window), Window::GetWidth(), Window::GetHeight(), passname);
-    renderpasses.emplace_back(passname, shaderPass);
-}
-
-UniformBuffer &Window::_getUniformBuffer(const std::string &passname) {
-    auto it = std::find_if(renderpasses.begin(), renderpasses.end(),
-                           [&passname](const std::pair<std::string, RenderPass *> &entry) {
-                               return entry.first == passname;
-                           });
-
-    if (it != renderpasses.end()) {
-        return it->second->getUniformBuffer();
-    }
-}

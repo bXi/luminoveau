@@ -6,8 +6,8 @@
 #include "spriterenderpass.h"
 
 void ShaderRenderPass::release() {
-    m_depth_texture.release(Window::GetDevice());
-    SDL_ReleaseGPUGraphicsPipeline(Window::GetDevice(), m_pipeline);
+    m_depth_texture.release(Renderer::GetDevice());
+    SDL_ReleaseGPUGraphicsPipeline(Renderer::GetDevice(), m_pipeline);
     SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
 }
 
@@ -118,7 +118,7 @@ bool ShaderRenderPass::init(
             },
         .props = 0,
     };
-    m_pipeline = SDL_CreateGPUGraphicsPipeline(Window::GetDevice(), &pipeline_create_info);
+    m_pipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &pipeline_create_info);
 
     if (!m_pipeline) {
         throw std::runtime_error(Helpers::TextFormat("%s: failed to create graphics pipeline: %s", CURRENT_METHOD(), SDL_GetError()));
@@ -155,7 +155,7 @@ void ShaderRenderPass::render(
 
         glm::mat4 z_index_matrix = glm::translate(
             glm::mat4(1.0f),
-            glm::vec3(0.0f, 0.0f, (float) Window::GetZIndex() / (float) INT32_MAX)// + (renderable.z_index * 10000)))
+            glm::vec3(0.0f, 0.0f, (float) Renderer::GetZIndex() / (float) INT32_MAX)// + (renderable.z_index * 10000)))
         );
         glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(Window::GetWidth(), Window::GetHeight(), 1.0f));
 
@@ -204,6 +204,7 @@ void ShaderRenderPass::render(
     SDL_PopGPUDebugGroup(cmd_buffer);
 }
 
+
 SDL_GPUTexture *ShaderRenderPass::renderCurrentContentsToTexture(SDL_GPUCommandBuffer *cmd_buffer) {
     SDL_GPUShader *rtt_vertex_shader   = nullptr;
     SDL_GPUShader *rtt_fragment_shader = nullptr;
@@ -236,7 +237,7 @@ SDL_GPUTexture *ShaderRenderPass::renderCurrentContentsToTexture(SDL_GPUCommandB
         .num_uniform_buffers = 2,
     };
 
-    rtt_vertex_shader = SDL_CreateGPUShader(Window::GetDevice(), &rttVertexShaderInfo);
+    rtt_vertex_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &rttVertexShaderInfo);
 
     if (!rtt_vertex_shader) {
         throw std::runtime_error(
@@ -255,7 +256,7 @@ SDL_GPUTexture *ShaderRenderPass::renderCurrentContentsToTexture(SDL_GPUCommandB
         .num_uniform_buffers = 1,
     };
 
-    rtt_fragment_shader = SDL_CreateGPUShader(Window::GetDevice(), &rttFragmentShaderInfo);
+    rtt_fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &rttFragmentShaderInfo);
 
     SDL_GPUGraphicsPipelineCreateInfo rtt_pipeline_create_info{
         .vertex_shader = rtt_vertex_shader,
@@ -301,23 +302,11 @@ SDL_GPUTexture *ShaderRenderPass::renderCurrentContentsToTexture(SDL_GPUCommandB
         .props = 0,
     };
 
-    m_rendertotexturepipeline = SDL_CreateGPUGraphicsPipeline(Window::GetDevice(), &rtt_pipeline_create_info);
+    m_rendertotexturepipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &rtt_pipeline_create_info);
 
-    SDL_GPUTextureFormat swapchainFormat = SDL_GetGPUSwapchainTextureFormat(m_gpu_device, Window::GetWindow());
+    auto currentSwapchainContent = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
 
-    SDL_GPUTextureCreateInfo sdlGpuTextureCreateInfo = {
-        .type = SDL_GPU_TEXTURETYPE_2D,
-        .format = swapchainFormat,
-        .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
-        .width = static_cast<Uint32>(Window::GetWidth()),
-        .height = static_cast<Uint32>(Window::GetHeight()),
-        .layer_count_or_depth = 1,
-        .num_levels = 1,
-    };
-
-    auto *currentSwapchainContent = SDL_CreateGPUTexture(m_gpu_device, &sdlGpuTextureCreateInfo);
-
-    SDL_SetGPUTextureName(Window::GetDevice(), currentSwapchainContent, "swapchain texture");
+    SDL_SetGPUTextureName(Renderer::GetDevice(), currentSwapchainContent, "swapchain texture");
 
     SDL_GPUColorTargetInfo sdlGpuColorTargetInfo = {
         .texture = currentSwapchainContent,

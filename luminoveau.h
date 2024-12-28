@@ -12,7 +12,7 @@
 #include <audio/audiohandler.h>
 #include <eventbus/eventbushandler.h>
 #include <input/inputhandler.h>
-#include <render2d/render2dhandler.h>
+#include <draw/drawhandler.h>
 #include <text/texthandler.h>
 #include <window/windowhandler.h>
 

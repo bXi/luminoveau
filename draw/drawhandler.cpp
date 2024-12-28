@@ -1,15 +1,15 @@
-#include "render2dhandler.h"
+#include "drawhandler.h"
 
 #include <utility>
 
-void Render2D::_drawRectangle(vf2d pos, vf2d size, Color color) {
+void Draw::_drawRectangle(vf2d pos, vf2d size, Color color) {
     SDL_FRect dstRect = _doCamera(pos, size);
 
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
     SDL_RenderRect(renderer, &dstRect);
 }
 
-void Render2D::_drawCircle(vf2d pos, float radius, Color color) {
+void Draw::_drawCircle(vf2d pos, float radius, Color color) {
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         pos = Camera::ToScreenSpace(pos);
@@ -17,7 +17,7 @@ void Render2D::_drawCircle(vf2d pos, float radius, Color color) {
 
 }
 
-void Render2D::_drawRectangleRounded(vf2d pos, const vf2d& size, float radius, Color color) {
+void Draw::_drawRectangleRounded(vf2d pos, const vf2d& size, float radius, Color color) {
     if (Camera::IsActive()) {
         pos = Camera::ToScreenSpace(pos);
         radius *= Camera::GetScale();
@@ -25,7 +25,7 @@ void Render2D::_drawRectangleRounded(vf2d pos, const vf2d& size, float radius, C
 
 }
 
-void Render2D::_drawLine(vf2d start, vf2d end, Color color) {
+void Draw::_drawLine(vf2d start, vf2d end, Color color) {
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         start = Camera::ToScreenSpace(start);
@@ -35,10 +35,10 @@ void Render2D::_drawLine(vf2d start, vf2d end, Color color) {
 
 }
 
-void Render2D::_drawArc(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
+void Draw::_drawArc(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
 }
 
-void Render2D::_drawTexture(Texture texture, vf2d pos, const vf2d& size, Color color) {
+void Draw::_drawTexture(TextureType texture, vf2d pos, const vf2d& size, Color color) {
 
     SDL_FRect dstRect = _doCamera(pos, size);
 
@@ -60,11 +60,11 @@ void Render2D::_drawTexture(Texture texture, vf2d pos, const vf2d& size, Color c
 
     };
 
-    Window::AddToRenderQueue(_targetRenderPass, tex);
+    Renderer::AddToRenderQueue(_targetRenderPass, tex);
 
 }
 
-void Render2D::_drawTexturePart(Texture texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color) {
+void Draw::_drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color) {
     SDL_FRect dstRect = _doCamera(pos, size);
     SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
@@ -106,22 +106,22 @@ void Render2D::_drawTexturePart(Texture texture, const vf2d& pos, const vf2d& si
         .tintColor = color,
     };
 
-    Window::AddToRenderQueue("2dsprites", renderable);
+    Renderer::AddToRenderQueue("2dsprites", renderable);
 
 }
 
-void Render2D::_beginScissorMode(rectf area) {
+void Draw::_beginScissorMode(rectf area) {
     //TODO: fix with sdl_GPU
     const SDL_Rect cliprect = area;
     SDL_SetRenderClipRect(renderer, &cliprect);
 }
 
-void Render2D::_endScissorMode() {
+void Draw::_endScissorMode() {
     //TODO: fix with sdl_GPU
     SDL_SetRenderClipRect(renderer, nullptr);
 }
 
-void Render2D::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {
+void Draw::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {
     //TODO: fix with sdl_GPU
     SDL_FRect dstRect = _doCamera(pos, size);
 
@@ -129,7 +129,7 @@ void Render2D::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {
     SDL_RenderFillRect(renderer, &dstRect);
 }
 
-void Render2D::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
+void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         pos = Camera::ToScreenSpace(pos);
@@ -139,27 +139,27 @@ void Render2D::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Co
 
 }
 
-void Render2D::_drawCircleFilled(vf2d pos, float radius, Color color) {
+void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         pos = Camera::ToScreenSpace(pos);
     }
 }
 
-void Render2D::_drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
+void Draw::_drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
     //TODO: create this function
 }
 
-void Render2D::_beginMode2D() {
+void Draw::_beginMode2D() {
     // Clear the screen
     Camera::Activate();
 }
 
-void Render2D::_endMode2D() {
+void Draw::_endMode2D() {
     Camera::Deactivate();
 }
 
-rectf Render2D::_doCamera(const vf2d& pos, const vf2d& size) {
+rectf Draw::_doCamera(const vf2d& pos, const vf2d& size) {
 
     rectf dstRect;
 
@@ -177,7 +177,7 @@ rectf Render2D::_doCamera(const vf2d& pos, const vf2d& size) {
     return dstRect;
 }
 
-void Render2D::_drawThickLine(vf2d start, vf2d end, Color color, float width) {
+void Draw::_drawThickLine(vf2d start, vf2d end, Color color, float width) {
 
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
@@ -189,7 +189,7 @@ void Render2D::_drawThickLine(vf2d start, vf2d end, Color color, float width) {
     }
 }
 
-void Render2D::_drawTriangle(vf2d v1, vf2d v2, vf2d v3, Color color) {
+void Draw::_drawTriangle(vf2d v1, vf2d v2, vf2d v3, Color color) {
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         v1 = Camera::ToScreenSpace(v1);
@@ -198,7 +198,7 @@ void Render2D::_drawTriangle(vf2d v1, vf2d v2, vf2d v3, Color color) {
     }
 }
 
-void Render2D::_drawEllipse(vf2d center, float radiusX, float radiusY, Color color) {
+void Draw::_drawEllipse(vf2d center, float radiusX, float radiusY, Color color) {
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         center = Camera::ToScreenSpace(center);
@@ -207,7 +207,7 @@ void Render2D::_drawEllipse(vf2d center, float radiusX, float radiusY, Color col
     }
 }
 
-void Render2D::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
+void Draw::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         v1 = Camera::ToScreenSpace(v1);
@@ -217,7 +217,7 @@ void Render2D::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
 
 }
 
-void Render2D::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
+void Draw::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         center = Camera::ToScreenSpace(center);
@@ -228,14 +228,12 @@ void Render2D::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Col
 
 }
 
-void Render2D::_drawPixel(vi2d pos, Color color) {
+void Draw::_drawPixel(vi2d pos, Color color) {
     //TODO: fix with sdl_GPU
 
-    SDL_SetRenderDrawColor(Window::GetRenderer(), color.r, color.g, color.b, color.a);
-    SDL_RenderPoint(Window::GetRenderer(), pos.x, pos.y);
 }
 
-void Render2D::_drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color) {
+void Draw::_drawTextureMode7(TextureType texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color) {
 
     float scaledA = std::abs(m7p.a) / static_cast<float>(m7p.snesScreenWidth);
     float scaledD = std::abs(m7p.d) / static_cast<float>(m7p.snesScreenHeight);
@@ -246,57 +244,5 @@ void Render2D::_drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Para
     srcRect.w = m7p.snesScreenWidth * scaledA;
     srcRect.h = m7p.snesScreenHeight * scaledD;
 
-    //    ImGui::SetNextWindowSize({350,350});
-    //    ImGui::Begin("Mode7 Debug values");
-    //
-    //    ImGui::Text("scaledA : %f", scaledA);
-    //    ImGui::Text("scaledD : %f", scaledD);
-    //
-    //    ImGui::Text("srcRect.x : %f", srcRect.x);
-    //    ImGui::Text("srcRect.y : %f", srcRect.y);
-    //    ImGui::Text("srcRect.w : %f", srcRect.w);
-    //    ImGui::Text("srcRect.h : %f", srcRect.h);
-
-    SDL_FRect destRect = {pos.x, pos.y, size.x, size.y};
-
-    bool shouldDrawBackground = false;
-
-    if (srcRect.x + srcRect.w > texture.width) {
-        float diffX = ((srcRect.x + srcRect.w) - (float) texture.width);
-        destRect.w -= diffX * 2.f;
-        srcRect.w -= diffX * 2.f;
-
-        if (destRect.w < 0) destRect.w = 0;
-        shouldDrawBackground = true;
-    }
-
-    if (srcRect.y + srcRect.h > texture.height) {
-        float diffX = ((srcRect.y + srcRect.h) - (float) texture.height);
-        destRect.h -= diffX * 2.f;
-        srcRect.h -= diffX * 2.f;
-
-        if (destRect.h < 0) destRect.h = 0;
-        shouldDrawBackground = true;
-    }
-
-    //    ImGui::Text("destRect.x : %f", destRect.x);
-    //    ImGui::Text("destRect.y : %f", destRect.y);
-    //    ImGui::Text("destRect.w : %f", destRect.w);
-    //    ImGui::Text("destRect.h : %f", destRect.h);
-
-    SDL_SetTextureColorMod(texture.texture, color.r, color.g, color.b);
-    SDL_SetTextureAlphaMod(texture.texture, color.a);
-
-    int flipFlags = SDL_FLIP_NONE;
-    if (m7p.a < 0) { flipFlags |= SDL_FLIP_HORIZONTAL; }
-    if (m7p.d < 0) { flipFlags |= SDL_FLIP_VERTICAL; }
-
-    SDL_FPoint center = {(float) m7p.x0, (float) m7p.y0};
-
-    if (shouldDrawBackground) {
-        DrawRectangleFilled(pos, size, BLACK);
-    }
-
-    SDL_RenderTextureRotated(Window::GetRenderer(), texture.texture, &srcRect, &destRect, 0.0, &center,
-                             (SDL_FlipMode) flipFlags);
+    //TODO: fix with sdl_GPU
 }

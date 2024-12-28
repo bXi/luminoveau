@@ -29,8 +29,8 @@ add_library("luminoveau" STATIC
     input/inputhandler.cpp
     input/inputhandler.h
 
-    render2d/render2dhandler.cpp
-    render2d/render2dhandler.h
+    draw/drawhandler.cpp
+    draw/drawhandler.h
 
     settings/mini.h
     settings/settingshandler.cpp
@@ -45,6 +45,15 @@ add_library("luminoveau" STATIC
     assethandler/DroidSansMono.cpp
     assethandler/spritefrag.cpp
     assethandler/spritevert.cpp
+
+
+    renderer/rendererhandler.cpp
+    renderer/rendererhandler.h
+    renderer/renderpass.h
+    renderer/spriterenderpass.cpp
+    renderer/spriterenderpass.h
+    renderer/shaderrenderpass.cpp
+    renderer/shaderrenderpass.h
 
     utils/camera.h
     utils/colors.h
@@ -62,18 +71,6 @@ add_library("luminoveau" STATIC
 
     window/windowhandler.cpp
     window/windowhandler.h
-
-    window/renderpass.h
-
-    window/spriterenderpass.cpp
-    window/spriterenderpass.h
-
-    window/shaderrenderpass.cpp
-    window/shaderrenderpass.h
-
-    window/textrenderpass.cpp
-    window/textrenderpass.h
-
 
 )
 target_sources("luminoveau" PRIVATE

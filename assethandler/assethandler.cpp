@@ -1,6 +1,7 @@
 #include "assethandler.h"
 #include "window/windowhandler.h"
 #include "spirv_cross.hpp"
+#include "renderer/spriterenderpass.h"
 
 #include <filesystem>
 #include <utility>
@@ -57,7 +58,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
         .sample_count = SDL_GPU_SAMPLECOUNT_1,
         .props = 0,
     };
-    SDL_GPUTexture *gpuTexture = SDL_CreateGPUTexture(Window::GetDevice(), &texture_create_info);
+    SDL_GPUTexture *gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &texture_create_info);
     if (!gpuTexture)
     {
         SDL_Log("GPUTexture::from_file: failed to create texture: %s (%s)", fileName.c_str(), SDL_GetError());
@@ -65,7 +66,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     }
 
     if (!_copy_to_texture(
-            Window::GetDevice(),
+            Renderer::GetDevice(),
             surface->pixels,
             texture.width * texture.height * 4,
             gpuTexture,
@@ -73,7 +74,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
             texture.height
         ))
     {
-        SDL_ReleaseGPUTexture(Window::GetDevice(), gpuTexture);
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), gpuTexture);
         throw std::runtime_error("failed to copy image data to texture");
     }
 
@@ -96,10 +97,10 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
         .props = 0,
     };
 
-    SDL_GPUSampler *sampler = SDL_CreateGPUSampler(Window::GetDevice(), &sampler_create_info);
+    SDL_GPUSampler *sampler = SDL_CreateGPUSampler(Renderer::GetDevice(), &sampler_create_info);
     if (!sampler)
     {
-        SDL_ReleaseGPUTexture(Window::GetDevice(), gpuTexture);
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), gpuTexture);
         throw std::runtime_error("failed to create sampler");
     }
 
@@ -107,7 +108,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     texture.gpuTexture = gpuTexture;
 
     if (!texture.filename.empty()) {
-        SDL_SetGPUTextureName(Window::GetDevice(), gpuTexture, texture.filename.c_str());
+        SDL_SetGPUTextureName(Renderer::GetDevice(), gpuTexture, texture.filename.c_str());
     }
 
 
@@ -124,17 +125,19 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
     texture.width  = size.x;
     texture.height = size.y;
 
-    texture.surface = nullptr;
+    SDL_GPUTextureFormat swapchainFormat = SDL_GetGPUSwapchainTextureFormat(Renderer::GetDevice(), Window::GetWindow());
 
-    texture.texture = SDL_CreateTexture(Window::GetRenderer(), SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888,
-                                        SDL_TEXTUREACCESS_TARGET, (int) size.x, (int) size.y);
+    SDL_GPUTextureCreateInfo sdlGpuTextureCreateInfo = {
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = swapchainFormat,
+        .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .width = static_cast<Uint32>(size.x),
+        .height = static_cast<Uint32>(size.y),
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+    };
 
-    //TODO: fix for other renderers
-
-    get()._createTextureId++;
-    texture.id = get()._createTextureId;
-
-    SDL_SetTextureScaleMode(texture.texture, (SDL_ScaleMode) defaultMode);
+    texture.gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &sdlGpuTextureCreateInfo);
 
     return texture;
 }
@@ -144,17 +147,7 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
     SDL_Surface *surface = texture.surface;
 
     if (!surface) {
-        float texWidth, texHeight;
 
-        SDL_PropertiesID props = SDL_GetTextureProperties(texture.texture);
-        SDL_GetTextureSize(texture.texture, &texWidth, &texHeight);
-        surface = SDL_CreateSurface((int) texWidth, (int) texHeight, SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888);
-
-        if (!surface) {
-            SDL_Log("%s", SDL_GetError());
-        }
-
-        SDL_RenderReadPixels(Window::GetRenderer(), nullptr);
     }
 
     SDL_Surface *rgbaSurface = surface;
@@ -235,7 +228,7 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
 
         FontAsset _font;
 
-        _font.textEngine = TTF_CreateGPUTextEngine(Window::GetDevice());
+        _font.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
         _font.ttfFont = TTF_OpenFont(fileName.c_str(), fontSize);
 
         if (!_font.ttfFont) {
@@ -317,7 +310,7 @@ Shader AssetHandler::_getShader(const std::string &fileName) {
         _shader.storageBufferCount = storageBufferCount;
         _shader.storageTextureCount = storageTextureCount;
 
-        _shader.shader = SDL_CreateGPUShader(Window::GetDevice(), &shaderInfo);
+        _shader.shader = SDL_CreateGPUShader(Renderer::GetDevice(), &shaderInfo);
         if (_shader.shader == nullptr) {
             throw std::runtime_error("Failed to create shader!");
         }
@@ -422,8 +415,8 @@ TextureAsset AssetHandler::_createDepthTarget(SDL_GPUDevice *device, uint32_t wi
 }
 
 TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData, std::string fileName) {
-
         TextureAsset texture;
+#if 0
 
     texture.width  = (int)size.x;
     texture.height = (int)size.y;
@@ -441,7 +434,7 @@ TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData,
         .sample_count = SDL_GPU_SAMPLECOUNT_1,
         .props = 0,
     };
-    SDL_GPUTexture *gpuTexture = SDL_CreateGPUTexture(Window::GetDevice(), &texture_create_info);
+    SDL_GPUTexture *gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &texture_create_info);
     if (!gpuTexture)
     {
         SDL_Log("GPUTexture::from_file: failed to create texture: (%s)", SDL_GetError());
@@ -449,7 +442,7 @@ TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData,
     }
 
     if (!_copy_to_texture(
-            Window::GetDevice(),
+            Renderer::GetDevice(),
             pixelData,
             (uint32_t)size.x * (uint32_t)size.y * 4,
             gpuTexture,
@@ -457,11 +450,10 @@ TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData,
             (uint32_t)size.y
         ))
     {
-        SDL_ReleaseGPUTexture(Window::GetDevice(), gpuTexture);
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), gpuTexture);
         throw std::runtime_error("failed to copy image data to texture");
     }
 
-    //TODO: SDL_GPU_FILTER_NEAREST replace with configured one. (scalemode)
     SDL_GPUSamplerCreateInfo sampler_create_info{
         .min_filter = SDL_GPU_FILTER_NEAREST,
         .mag_filter = SDL_GPU_FILTER_NEAREST,
@@ -481,11 +473,11 @@ TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData,
         .props = 0,
     };
 
-    SDL_GPUSampler *sampler = SDL_CreateGPUSampler(Window::GetDevice(), &sampler_create_info);
+    SDL_GPUSampler *sampler = SDL_CreateGPUSampler(Renderer::GetDevice(), &sampler_create_info);
     if (!sampler)
     {
 //        spdlog::error("GPUTexture::from_file: failed to create sampler: {}", SDL_GetError());
-        SDL_ReleaseGPUTexture(Window::GetDevice(), gpuTexture);
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), gpuTexture);
         throw std::runtime_error("failed to create sampler");
     }
 
@@ -493,11 +485,12 @@ TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData,
     texture.gpuTexture = gpuTexture;
 
     if (!texture.filename.empty()) {
-        SDL_SetGPUTextureName(Window::GetDevice(), gpuTexture, texture.filename.c_str());
+        SDL_SetGPUTextureName(Renderer::GetDevice(), gpuTexture, texture.filename.c_str());
     }
 
 
     //_textures[std::string(fileName)] = texture;
+#endif
 
     return texture;
 }

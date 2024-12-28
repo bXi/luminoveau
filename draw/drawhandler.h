@@ -8,6 +8,7 @@
 
 #include "assethandler/assethandler.h"
 #include "window/windowhandler.h"
+#include "renderer/rendererhandler.h"
 
 #include "utils/vectors.h"
 #include "utils/colors.h"
@@ -29,7 +30,8 @@ struct Mode7Parameters {
 /**
  * @brief Provides functionality for 2D rendering operations.
  */
-class Render2D {
+class Draw {
+    using TextureType = Texture;
 public:
     /**
      * @brief Draws a pixel at the specified position with the given color.
@@ -37,7 +39,7 @@ public:
      * @param pos The position of the pixel.
      * @param color The color of the pixel.
      */
-    static void DrawPixel(vi2d pos, Color color) { get()._drawPixel(pos, color); };
+    static void Pixel(vi2d pos, Color color) { get()._drawPixel(pos, color); };
 
     /**
      * @brief Draws a line from the start to the end position with the given color.
@@ -46,7 +48,7 @@ public:
      * @param end The end position of the line.
      * @param color The color of the line.
      */
-    static void DrawLine(vf2d start, vf2d end, Color color) { get()._drawLine(start, end, color); };
+    static void Line(vf2d start, vf2d end, Color color) { get()._drawLine(start, end, color); };
 
     /**
      * @brief Draws a thick line from the start to the end position with the given color and width.
@@ -56,7 +58,7 @@ public:
      * @param color The color of the line.
      * @param width The width of the line.
      */
-    static void DrawThickLine(vf2d start, vf2d end, Color color, float width) { get()._drawThickLine(start, end, color, width); };
+    static void ThickLine(vf2d start, vf2d end, Color color, float width) { get()._drawThickLine(start, end, color, width); };
 
     /**
      * @brief Draws a triangle with vertices v1, v2, and v3, filled with the given color.
@@ -66,7 +68,7 @@ public:
      * @param v3 The third vertex of the triangle.
      * @param color The color of the triangle.
      */
-    static void DrawTriangle(vf2d v1, vf2d v2, vf2d v3, Color color) { get()._drawTriangle(v1, v2, v3, color); };
+    static void Triangle(vf2d v1, vf2d v2, vf2d v3, Color color) { get()._drawTriangle(v1, v2, v3, color); };
 
     /**
      * @brief Draws a rectangle at the specified position with the given size and color.
@@ -75,7 +77,7 @@ public:
      * @param size The size of the rectangle.
      * @param color The color of the rectangle.
      */
-    static void DrawRectangle(vf2d pos, vf2d size, Color color) { get()._drawRectangle(pos, size, color); };
+    static void Rectangle(vf2d pos, vf2d size, Color color) { get()._drawRectangle(pos, size, color); };
 
     /**
      * @brief Draws a rounded rectangle at the specified position with the given size, radius, and color.
@@ -85,7 +87,7 @@ public:
      * @param radius The radius of the rounded corners.
      * @param color The color of the rectangle.
      */
-    static void DrawRectangleRounded(vf2d pos, vf2d size, float radius, Color color) {
+    static void RectangleRounded(vf2d pos, vf2d size, float radius, Color color) {
         get()._drawRectangleRounded(pos, size, radius, color);
     };
 
@@ -96,7 +98,7 @@ public:
      * @param radius The radius of the circle.
      * @param color The color of the circle.
      */
-    static void DrawCircle(vf2d pos, float radius, Color color) { get()._drawCircle(pos, radius, color); };
+    static void Circle(vf2d pos, float radius, Color color) { get()._drawCircle(pos, radius, color); };
 
     /**
      * @brief Draws an ellipse at the specified center position with the given radii and color.
@@ -106,7 +108,7 @@ public:
      * @param radiusY The radius of the ellipse along the Y-axis.
      * @param color The color of the ellipse.
      */
-    static void DrawEllipse(vf2d center, float radiusX, float radiusY, Color color) {
+    static void Ellipse(vf2d center, float radiusX, float radiusY, Color color) {
         get()._drawEllipse(center, radiusX, radiusY, color);
     };
 
@@ -120,7 +122,7 @@ public:
      * @param segments The number of segments to approximate the arc.
      * @param color The color of the arc.
      */
-    static void DrawArc(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
+    static void Arc(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
         get()._drawArc(center, radius, startAngle, endAngle, segments, color);
     };
 
@@ -132,7 +134,7 @@ public:
      * @param v3 The third vertex of the triangle.
      * @param color The color of the triangle.
      */
-    static void DrawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) { get()._drawTriangleFilled(v1, v2, v3, color); };
+    static void TriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) { get()._drawTriangleFilled(v1, v2, v3, color); };
 
     /**
      * @brief Draws a filled rectangle at the specified position with the given size and color.
@@ -141,7 +143,7 @@ public:
      * @param size The size of the rectangle.
      * @param color The color of the rectangle.
      */
-    static void DrawRectangleFilled(vf2d pos, vf2d size, Color color) { get()._drawRectangleFilled(pos, size, color); };
+    static void RectangleFilled(vf2d pos, vf2d size, Color color) { get()._drawRectangleFilled(pos, size, color); };
 
     /**
      * @brief Draws a filled rounded rectangle at the specified position with the given size, radius, and color.
@@ -151,7 +153,7 @@ public:
      * @param radius The radius of the rounded corners.
      * @param color The color of the rectangle.
      */
-    static void DrawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
+    static void RectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
         get()._drawRectangleRoundedFilled(pos, size, radius, color);
     };
 
@@ -162,7 +164,7 @@ public:
      * @param radius The radius of the circle.
      * @param color The color of the circle.
      */
-    static void DrawCircleFilled(vf2d pos, float radius, Color color) { get()._drawCircleFilled(pos, radius, color); };
+    static void CircleFilled(vf2d pos, float radius, Color color) { get()._drawCircleFilled(pos, radius, color); };
 
     /**
      * @brief Draws a filled ellipse at the specified center position with the given radii and color.
@@ -172,7 +174,7 @@ public:
      * @param radiusY The radius of the ellipse along the Y-axis.
      * @param color The color of the ellipse.
      */
-    static void DrawEllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
+    static void EllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
         get()._drawEllipseFilled(center, radiusX, radiusY, color);
     };
 
@@ -186,7 +188,7 @@ public:
      * @param segments The number of segments to approximate the arc.
      * @param color The color of the arc.
      */
-    static void DrawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
+    static void ArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
         get()._drawArcFilled(center, radius, startAngle, endAngle, segments, color);
     };
 
@@ -198,7 +200,7 @@ public:
      * @param size The size of the drawn texture.
      * @param color The color of the drawn texture.
      */
-    static void DrawTexture(Texture texture, vf2d pos, vf2d size, Color color = WHITE) {
+    static void Texture(Texture texture, vf2d pos, vf2d size, Color color = WHITE) {
         get()._drawTexture(texture, pos, size, color);
     };
 
@@ -211,7 +213,7 @@ public:
      * @param src The source rectangle defining which part of the texture to draw.
      * @param color The color of the drawn texture.
      */
-    static void DrawTexturePart(Texture texture, vf2d pos, vf2d size, rectf src, Color color = WHITE) {
+    static void TexturePart(TextureType texture, vf2d pos, vf2d size, rectf src, Color color = WHITE) {
         get()._drawTexturePart(texture, pos, size, src, color);
     };
 
@@ -224,7 +226,7 @@ public:
      * @param m7p The Mode7 transformation parameters.
      * @param color The color of the drawn texture.
      */
-    static void DrawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE) {
+    static void TextureMode7(TextureType texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE) {
         get()._drawTextureMode7(texture, pos, size, m7p, color);
     };
 
@@ -286,11 +288,11 @@ private:
 
     void _drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color);
 
-    void _drawTexture(Texture texture, vf2d pos, const vf2d& size, Color color = WHITE);
+    void _drawTexture(TextureType texture, vf2d pos, const vf2d& size, Color color = WHITE);
 
-    void _drawTexturePart(Texture texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color = WHITE);
+    void _drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color = WHITE);
 
-    void _drawTextureMode7(Texture texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE);
+    void _drawTextureMode7(TextureType texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE);
 
     void _beginScissorMode(rectf area);
 
@@ -312,15 +314,15 @@ private:
 
 //Singleton part
 public:
-    Render2D(const Render2D &) = delete;
+    Draw(const Draw &) = delete;
 
-    static Render2D &get() {
-        static Render2D instance;
+    static Draw &get() {
+        static Draw instance;
         return instance;
     }
 
 private:
-    Render2D() {
-        renderer = Window::GetRenderer();
+    Draw() {
+
     }
 };

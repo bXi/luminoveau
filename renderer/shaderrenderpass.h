@@ -6,6 +6,8 @@
 
 #include "assettypes/texture.h"
 
+#include "renderer/rendererhandler.h"
+
 #include "assethandler/assethandler.h"
 #include "renderable.h"
 

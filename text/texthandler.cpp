@@ -69,7 +69,7 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
             };
 
             // Add to the render queue
-            Window::AddToRenderQueue("2dsprites", ren);
+            Renderer::AddToRenderQueue("2dsprites", ren);
         }
 
         sequence = sequence->next;

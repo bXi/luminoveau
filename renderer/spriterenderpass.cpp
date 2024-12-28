@@ -5,12 +5,12 @@
 #include "SDL3/SDL_gpu.h"
 
 void SpriteRenderPass::release() {
-    m_depth_texture.release(Window::GetDevice());
-    SDL_ReleaseGPUGraphicsPipeline(Window::GetDevice(), m_pipeline);
+    m_depth_texture.release(Renderer::GetDevice());
+    SDL_ReleaseGPUGraphicsPipeline(Renderer::GetDevice(), m_pipeline);
     SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
 
-//    SDL_ReleaseGPUShader(Window::GetDevice(), vertex_shader);
-//    SDL_ReleaseGPUShader(Window::GetDevice(), fragment_shader);
+//    SDL_ReleaseGPUShader(Renderer::GetDevice(), vertex_shader);
+//    SDL_ReleaseGPUShader(Renderer::GetDevice(), fragment_shader);
 
 }
 
@@ -19,7 +19,7 @@ bool SpriteRenderPass::init(
 ) {
     passname = std::move(name);
 
-    m_depth_texture = AssetHandler::CreateDepthTarget(Window::GetDevice(), surface_width, surface_height);
+    m_depth_texture = AssetHandler::CreateDepthTarget(Renderer::GetDevice(), surface_width, surface_height);
 
     createShaders();
 
@@ -88,7 +88,7 @@ bool SpriteRenderPass::init(
             },
         .props = 0,
     };
-    m_pipeline = SDL_CreateGPUGraphicsPipeline(Window::GetDevice(), &pipeline_create_info);
+    m_pipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &pipeline_create_info);
 
     if (!m_pipeline) {
         throw std::runtime_error(Helpers::TextFormat("%s: failed to create graphics pipeline: %s", CURRENT_METHOD(), SDL_GetError()));
@@ -134,7 +134,7 @@ void SpriteRenderPass::render(
             glm::mat4 z_index_matrix = glm::translate(
                 glm::mat4(1.0f),
                 //TODO: fix Zindex
-                glm::vec3(0.0f, 0.0f, (float) Window::GetZIndex() / (float) INT32_MAX)// + (renderable.z_index * 10000)))
+                glm::vec3(0.0f, 0.0f, (float) Renderer::GetZIndex() / (float) INT32_MAX)// + (renderable.z_index * 10000)))
             );
             glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(renderable.size, 1.0f));
 
@@ -185,7 +185,7 @@ void SpriteRenderPass::createShaders() {
         .num_uniform_buffers = 2,
     };
 
-    vertex_shader = SDL_CreateGPUShader(Window::GetDevice(), &vertexShaderInfo);
+    vertex_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &vertexShaderInfo);
 
     if (!vertex_shader) {
         throw std::runtime_error(
@@ -204,7 +204,7 @@ void SpriteRenderPass::createShaders() {
         .num_uniform_buffers = 1,
     };
 
-    fragment_shader = SDL_CreateGPUShader(Window::GetDevice(), &fragmentShaderInfo);
+    fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &fragmentShaderInfo);
 
     if (!fragment_shader) {
         throw std::runtime_error(

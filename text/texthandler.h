@@ -2,7 +2,7 @@
 
 #include <unordered_map>
 #include "configuration/configuration.h"
-#include "window/windowhandler.h"
+#include "renderer/rendererhandler.h"
 
 #include "utils/helpers.h"
 #include "utils/colors.h"
@@ -10,10 +10,6 @@
 #include "assettypes/font.h"
 
 #include <SDL3_ttf/SDL_ttf.h>
-
-
-#define MAX_VERTEX_COUNT 4000
-#define MAX_INDEX_COUNT 6000
 
 typedef struct Vertex {
     glm::vec3  pos;
@@ -130,6 +126,6 @@ private:
             .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
             .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
         };
-        textSampler = SDL_CreateGPUSampler(Window::GetDevice(), &sampler_info);
+        textSampler = SDL_CreateGPUSampler(Renderer::GetDevice(), &sampler_info);
     };
 };

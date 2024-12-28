@@ -15,8 +15,8 @@ void Settings::_toggleFullscreen()
 	fullscreen = !fullscreen;
 	saveSettings();
 	Window::ToggleFullscreen();
+    //TODO: fix vsync
 
-    SDL_SetRenderVSync(Window::GetRenderer(), vsync);
 
 
 }
@@ -25,8 +25,8 @@ void Settings::_toggleVsync()
 {
 	vsync = !vsync;
 	saveSettings();
+    //TODO: fix vsync
 
-    SDL_SetRenderVSync(Window::GetRenderer(), vsync);
 
 }
 
@@ -121,8 +121,8 @@ void Settings::_init()
 		//ClearBackground(BLACK);
 		//EndDrawing();
 	}
+    //TODO: fix vsync
 
-    SDL_SetRenderVSync(Window::GetRenderer(), vsync);
 
 
 

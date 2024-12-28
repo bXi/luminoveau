@@ -7,8 +7,8 @@ if (ADD_IMGUI)
 #    )
     CPMAddPackage(
         NAME Imgui
-        GIT_TAG 59c15cb
-        GITHUB_REPOSITORY lasagnaphil/imgui
+        GIT_TAG d5edda1
+        GITHUB_REPOSITORY bXi/imgui-sdlgpu
     )
 
 

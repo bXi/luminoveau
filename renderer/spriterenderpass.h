@@ -4,6 +4,8 @@
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
 
+#include "renderer/rendererhandler.h"
+
 #include "assettypes/texture.h"
 
 #include "assethandler/assethandler.h"
@@ -11,7 +13,7 @@
 
 #include "renderpass.h"
 
-class TextRenderPass : public RenderPass {
+class SpriteRenderPass : public RenderPass {
     struct Uniforms {
         glm::mat4 camera;
         glm::mat4 model;
@@ -31,31 +33,28 @@ class TextRenderPass : public RenderPass {
         float tintColorA = 1.0f;
     };
 
-
-
-    SDL_GPUBuffer *vertex_buffer{};
-    SDL_GPUBuffer *index_buffer{};
-
     TextureAsset            m_depth_texture;
     SDL_GPUGraphicsPipeline *m_pipeline{nullptr};
-    SDL_GPUTransferBuffer *m_transbuf{};
 
     std::string passname;
+
+    SDL_GPUShader *vertex_shader   = nullptr;
+    SDL_GPUShader *fragment_shader = nullptr;
 
 public:
 
     std::vector<Renderable> renderQueue;
 
 public:
-    TextRenderPass(const TextRenderPass &) = delete;
+    SpriteRenderPass(const SpriteRenderPass &) = delete;
 
-    TextRenderPass &operator=(const TextRenderPass &) = delete;
+    SpriteRenderPass &operator=(const SpriteRenderPass &) = delete;
 
-    TextRenderPass(TextRenderPass &&) = delete;
+    SpriteRenderPass(SpriteRenderPass &&) = delete;
 
-    TextRenderPass &operator=(TextRenderPass &&) = delete;
+    SpriteRenderPass &operator=(SpriteRenderPass &&) = delete;
 
-    explicit TextRenderPass(SDL_GPUDevice *m_gpu_device) : RenderPass(m_gpu_device) {
+    explicit SpriteRenderPass(SDL_GPUDevice *m_gpu_device) : RenderPass(m_gpu_device) {
     }
 
     [[nodiscard]] bool init(
@@ -76,4 +75,19 @@ public:
     void resetRenderQueue() override {
         renderQueue.clear();
     }
+
+    UniformBuffer& getUniformBuffer() override {
+
+        return uniformBuffer;
+    }
+
+    UniformBuffer uniformBuffer;
+
+    static const uint8_t sprite_frag_bin[];
+    static const size_t  sprite_frag_bin_len = 1000;
+
+    static const uint8_t sprite_vert_bin[];
+    static const size_t  sprite_vert_bin_len = 3212;
+
+    void createShaders();
 };
