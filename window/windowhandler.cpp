@@ -142,10 +142,11 @@ void Window::_handleInput() {
 
     Input::UpdateInputs(newKeysDown, true);
     Input::UpdateInputs(newKeysUp, false);
-
+    #ifdef ADD_IMGUI
     if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) { // && SDL_GetModState() & SDL_KMOD_SHIFT) {
         ToggleDebugMenu();
     }
+    #endif
 }
 
 bool Window::_isFullscreen() {
