@@ -192,4 +192,9 @@ UniformBuffer &Renderer::_getUniformBuffer(const std::string &passname) {
     if (it != renderpasses.end()) {
         return it->second->getUniformBuffer();
     }
+
+    //this section of code should never be hit because every renderpass has
+    assert(false && "UniformBuffer not found");
+    static UniformBuffer dummyBuffer;
+    return dummyBuffer;
 }
