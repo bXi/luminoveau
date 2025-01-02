@@ -312,7 +312,7 @@ SDL_GPUTexture *ShaderRenderPass::renderCurrentContentsToTexture(SDL_GPUCommandB
         .texture = currentSwapchainContent,
         .mip_level = 0,
         .layer_or_depth_plane = 0,
-        .clear_color = (SDL_FColor) {0.0f, 0.0f, 0.0f, 0.0f},
+        .clear_color = SDL_FColor(0.0f, 0.0f, 0.0f, 0.0f),
         .load_op = SDL_GPU_LOADOP_CLEAR,
         .store_op = SDL_GPU_STOREOP_STORE,
     };
