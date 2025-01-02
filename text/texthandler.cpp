@@ -24,20 +24,11 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
 
         for (int i = 0; i + 5 < sequence->num_indices; i += 6) {
 
-            auto xy = (Uint8 *) sequence->xy;
-            auto uv = (Uint8 *) sequence->uv;
-
-            auto v1 = glm::vec2(((float *) (xy + sequence->indices[i + 1] * sequence->xy_stride))[0],
-                                ((float *) (xy + sequence->indices[i + 1] * sequence->xy_stride))[1]);
-
-            auto v5 = glm::vec2(((float *) (xy + sequence->indices[i + 5] * sequence->xy_stride))[0],
-                                ((float *) (xy + sequence->indices[i + 5] * sequence->xy_stride))[1]);
-
-            auto uv2 = glm::vec2(((float *) (uv + sequence->indices[i + 2] * sequence->uv_stride))[0],
-                                 ((float *) (uv + sequence->indices[i + 2] * sequence->uv_stride))[1]);
-
-            auto uv3 = glm::vec2(((float *) (uv + sequence->indices[i + 3] * sequence->uv_stride))[0],
-                                 ((float *) (uv + sequence->indices[i + 3] * sequence->uv_stride))[1]);
+            auto v1 = sequence->xy[sequence->indices[i + 1]];
+            auto v5 = sequence->xy[sequence->indices[i + 5]];
+//
+            auto uv2 = sequence->uv[sequence->indices[i + 2]];
+            auto uv3 = sequence->uv[sequence->indices[i + 3]];
 
             float minX = v5.x;
             float minY = v5.y;
@@ -48,7 +39,6 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
             float uvMinY = uv3.y;
             float uvMaxX = uv2.x;
             float uvMaxY = uv2.y;
-
 
             // Set up the Renderable object with UVs
             Renderable ren = {
