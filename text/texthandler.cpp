@@ -5,6 +5,7 @@
 void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color) {
 
     if (textToDraw.empty()) return;
+    if (std::all_of(textToDraw.begin(), textToDraw.end(), isspace)) return;
 
     TTF_Text *text = TTF_CreateText(font.textEngine, font.ttfFont, textToDraw.c_str(), textToDraw.length());
 
@@ -85,7 +86,7 @@ vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw) {
     return {width, height};
 }
 
-TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color color) {
+Texture Text::_drawTextToTexture(Font font, std::string textToDraw, Color color) {
     if (textToDraw.empty()) {
         // In this case we return space so we still render something for when the user uses
         // the height of the returned texture to position multiple lines of text.
@@ -109,7 +110,7 @@ void Text::_drawWrappedText(Font font, vf2d pos, std::string textToDraw, float m
     std::string       currentLine;
 
     while (ss >> word) {
-        std::string testLine      = currentLine.empty() ? word : currentLine + " " + word;
+        std::string testLine      = currentLine.empty() ? word : currentLine.append(" ").append(word);
         float       testLineWidth = MeasureText(font, testLine);
 
         if (testLineWidth <= maxWidth) {
