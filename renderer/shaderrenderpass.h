@@ -21,7 +21,7 @@ class ShaderRenderPass : public RenderPass {
     glm::vec2 lastMousePos = {0, 0};
 
     SDL_GPUGraphicsPipeline *m_pipeline{nullptr};
-    SDL_GPUGraphicsPipeline *m_rendertotexturepipeline{nullptr};
+
 
     std::string passname;
 
@@ -77,5 +77,4 @@ public:
         renderQueue.clear();
     }
 
-    SDL_GPUTexture *renderCurrentContentsToTexture(SDL_GPUCommandBuffer *cmd_buffer);
 };

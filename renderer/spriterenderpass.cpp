@@ -114,6 +114,7 @@ void SpriteRenderPass::render(
         .clear_color = color_target_info_clear_color,
         .load_op = color_target_info_loadop,
         .store_op = SDL_GPU_STOREOP_STORE,
+        .cycle = true
     };
 
     SDL_GPUDepthStencilTargetInfo depth_stencil_info{

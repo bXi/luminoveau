@@ -135,6 +135,7 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
         .height = static_cast<Uint32>(size.y),
         .layer_count_or_depth = 1,
         .num_levels = 1,
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
     };
 
     texture.gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &sdlGpuTextureCreateInfo);
