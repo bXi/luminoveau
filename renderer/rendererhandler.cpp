@@ -14,8 +14,6 @@
 
 void Renderer::_initRendering() {
 
-    SDL_Init(SDL_INIT_VIDEO);
-
     m_device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, nullptr);
     if (!m_device) {
         SDL_Log("%s: failed to create gpu device: %s", CURRENT_METHOD(), SDL_GetError());
