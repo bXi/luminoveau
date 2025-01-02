@@ -7,7 +7,7 @@
 #include "colors.h"
 #include "rectangles.h"
 
-#include "render2d/render2dhandler.h"
+#include "draw/drawhandler.h"
 
 class QuadTree {
 public:
