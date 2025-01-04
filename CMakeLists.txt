@@ -15,7 +15,7 @@ add_library("luminoveau" STATIC
     audio/audiohandler.cpp
     audio/audiohandler.h
 
-    configuration/configuration.h
+    enginestate/enginestate.h
 
     text/texthandler.cpp
     text/texthandler.h

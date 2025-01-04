@@ -1,6 +1,6 @@
 #pragma once
 
-#include <configuration/configuration.h>
+#include "enginestate/enginestate.h"
 #include <utils/vectors.h>
 #include <utils/rectangles.h>
 

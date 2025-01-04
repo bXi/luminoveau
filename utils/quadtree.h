@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-#include "configuration/configuration.h"
+#include "enginestate/enginestate.h"
 
 #include "colors.h"
 #include "rectangles.h"

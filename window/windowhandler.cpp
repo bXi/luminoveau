@@ -73,12 +73,12 @@ void Window::_toggleFullscreen() {
 int Window::_getFPS(float milliseconds) {
     auto seconds = milliseconds / 1000.f;
 
-    if (_fpsAccumulator > seconds) {
-        _fpsAccumulator -= seconds;
+    if (EngineState::_fpsAccumulator > seconds) {
+        EngineState::_fpsAccumulator -= seconds;
 
-        _fps = (int) (1. / _lastFrameTime);
+        EngineState::_fps = (int) (1. / EngineState::_lastFrameTime);
     }
-    return _fps;
+    return EngineState::_fps;
 }
 
 void Window::_handleInput() {
@@ -96,7 +96,7 @@ void Window::_handleInput() {
 
         switch (event.type) {
             case SDL_EventType::SDL_EVENT_QUIT:
-                _shouldQuit = true;
+                EngineState::_shouldQuit = true;
                 break;
             case SDL_EventType::SDL_EVENT_KEY_DOWN:
                 newKeysDown.push_back(event.key.scancode);
@@ -144,7 +144,7 @@ void Window::_handleInput() {
     Input::UpdateInputs(newKeysUp, false);
     #ifdef ADD_IMGUI
     if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) { // && SDL_GetModState() & SDL_KMOD_SHIFT) {
-        ToggleDebugMenu();
+        EngineState::_debugMenuVisible = !EngineState::_debugMenuVisible;
     }
     #endif
 }
@@ -180,9 +180,9 @@ vf2d Window::_getSize(bool getRealSize) {
         SDL_GetWindowSize(m_window, &w, &h);
     }
 
-    if (!getRealSize && _scaleFactor > 1) {
-        w /= _scaleFactor;
-        h /= _scaleFactor;
+    if (!getRealSize && EngineState::_scaleFactor > 1) {
+        w /= EngineState::_scaleFactor;
+        h /= EngineState::_scaleFactor;
     }
 
     return {(float) w, (float) h};
@@ -200,7 +200,7 @@ void Window::_startFrame() const {
 
     Window::HandleInput();
 
-    if (_scaleFactor > 1) {
+    if (EngineState::_scaleFactor > 1) {
         //TODO: fix scaling
     }
 
@@ -209,17 +209,18 @@ void Window::_startFrame() const {
 
 void Window::_endFrame() {
 
-    if (_scaleFactor > 1) {
+    if (EngineState::_scaleFactor > 1) {
         //TODO: fix scaling
     }
 
-    Renderer::EndFrame();
-
 #ifdef ADD_IMGUI
-    if (_debugMenuVisible) {
+    if (EngineState::_debugMenuVisible) {
         Helpers::DrawMainMenu();
     }
 #endif
+
+    Renderer::EndFrame();
+
 
     if (_sizeDirty) {
         Renderer::Reset();
@@ -227,13 +228,13 @@ void Window::_endFrame() {
         _sizeDirty = false;
     }
 
-    _frameCount++;
-    _previousTime = _currentTime;
-    _currentTime  = std::chrono::high_resolution_clock::now();
-    _lastFrameTime =
-        (double) std::chrono::duration_cast<std::chrono::nanoseconds>(_currentTime - _previousTime).count() /
+    EngineState::_frameCount++;
+    EngineState::_previousTime = EngineState::_currentTime;
+    EngineState::_currentTime  = std::chrono::high_resolution_clock::now();
+    EngineState::_lastFrameTime =
+        (double) std::chrono::duration_cast<std::chrono::nanoseconds>(EngineState::_currentTime - EngineState::_previousTime).count() /
         1000000000.;
-    _fpsAccumulator += _lastFrameTime;
+    EngineState::_fpsAccumulator += EngineState::_lastFrameTime;
 }
 
 SDL_Window *Window::_getWindow() {
@@ -242,12 +243,12 @@ SDL_Window *Window::_getWindow() {
 
 void Window::_toggleDebugMenu() {
 #ifdef ADD_IMGUI
-    get()._debugMenuVisible = !get()._debugMenuVisible;
+    EngineState::_debugMenuVisible = !EngineState::_debugMenuVisible;
 #endif
 }
 
 void Window::_setScale(int scalefactor) {
-    _scaleFactor = scalefactor;
+    EngineState::_scaleFactor = scalefactor;
 
     if (scalefactor > 1) {
         //TODO: fix scaling
@@ -264,11 +265,11 @@ void Window::_setScaledSize(int widthInScaledPixels, int heightInScaledPixels, i
         SetScale(scale);
     }
 
-    _setSize(_scaleFactor * widthInScaledPixels, _scaleFactor * heightInScaledPixels);
+    _setSize(EngineState::_scaleFactor * widthInScaledPixels, EngineState::_scaleFactor * heightInScaledPixels);
 }
 
 float Window::_getScale() {
-    return (float) _scaleFactor;
+    return (float) EngineState::_scaleFactor;
 }
 
 #ifdef ADD_IMGUI

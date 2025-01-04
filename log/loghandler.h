@@ -1,8 +1,9 @@
 #pragma once
 
 #include <unordered_map>
+#include <iostream>
 
-#include "configuration/configuration.h"
+#include "enginestate/enginestate.h"
 
 class Log {
 public:

@@ -3,19 +3,21 @@
 #include <memory>
 #include <string>
 #include <optional>
+#include <chrono>
 
 #include "SDL3/SDL.h"
 
-#include "utils/vectors.h"
-#include "utils/lerp.h"
-#include "input/inputhandler.h"
-#include "eventbus/eventbushandler.h"
+#include "enginestate/enginestate.h"
 
-#include <chrono>
-#include "utils/colors.h"
 #include "assettypes/shader.h"
 #include "assettypes/texture.h"
 
+#include "input/inputhandler.h"
+#include "eventbus/eventbushandler.h"
+
+#include "utils/colors.h"
+#include "utils/lerp.h"
+#include "utils/vectors.h"
 #include "utils/uniformobject.h"
 
 #include <glm/glm.hpp>
@@ -35,7 +37,6 @@
 // SDL Forward Declarations
 struct SDL_Window;
 union SDL_Event;
-
 
 /**
  * @brief Provides functionality for managing the application window.
@@ -160,7 +161,7 @@ public:
      * @return The total runtime of the application in seconds.
      */
     static double GetRunTime() {
-        return (double) std::chrono::duration_cast<std::chrono::milliseconds>(get()._currentTime - get()._startTime).count() / 1000.;
+        return (double) std::chrono::duration_cast<std::chrono::milliseconds>(EngineState::_currentTime - EngineState::_startTime).count() / 1000.;
     }
 
     /**
@@ -168,14 +169,14 @@ public:
      *
      * @return True if the application should quit, false otherwise.
      */
-    static bool ShouldQuit() { return get()._shouldQuit; }
+    static bool ShouldQuit() { return EngineState::_shouldQuit; }
 
     /**
      * @brief Gets the time taken to render the last frame.
      *
      * @return The time taken to render the last frame in seconds.
      */
-    static double GetFrameTime() { return get()._lastFrameTime; }
+    static double GetFrameTime() { return EngineState::_lastFrameTime; }
 
     /**
      * @brief Gets the frames per second (FPS) of the application.
@@ -228,37 +229,22 @@ private:
 
     void _startFrame() const;
 
-    void _clearBackground(Color color);
-
     void _endFrame();
 
     void _toggleDebugMenu();
+
+    SDL_Window *m_window = nullptr;
 
     int  _lastWindowWidth  = 0;
     int  _lastWindowHeight = 0;
     bool _maximized        = false;
 
-    SDL_Window *m_window = nullptr;
-
     bool _sizeDirty = false;
-
-    int _scaleFactor = 1;
-
-    bool _shouldQuit = false;
-
-    int    _frameCount     = 0;
-    int    _fps            = 0;
-    double _lastFrameTime  = 0.0;
-    double _fpsAccumulator = 0.0;
-
-    std::chrono::high_resolution_clock::time_point _startTime;
-    std::chrono::high_resolution_clock::time_point _currentTime;
-    std::chrono::high_resolution_clock::time_point _previousTime;
 #ifdef ADD_IMGUI
     void SetupImGuiStyle();
-
-    bool _debugMenuVisible = false;
 #endif
+
+
 public:
     Window(const Window &) = delete;
 
@@ -269,6 +255,6 @@ public:
 
 private:
     Window() {
-        _startTime = std::chrono::high_resolution_clock::now();
+        EngineState::_startTime = std::chrono::high_resolution_clock::now();
     };
 };
