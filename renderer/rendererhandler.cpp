@@ -14,8 +14,6 @@
 
 void Renderer::_initRendering() {
 
-    SDL_Init(SDL_INIT_VIDEO);
-
     m_device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, nullptr);
     if (!m_device) {
         SDL_Log("%s: failed to create gpu device: %s", CURRENT_METHOD(), SDL_GetError());
@@ -236,6 +234,11 @@ UniformBuffer &Renderer::_getUniformBuffer(const std::string &passname) {
             return it->second->getUniformBuffer();
         }
     }
+
+    //this section of code should never be hit because every renderpass has
+    assert(false && "UniformBuffer not found");
+    static UniformBuffer dummyBuffer;
+    return dummyBuffer;
 }
 
 void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *swapchain_texture) {
