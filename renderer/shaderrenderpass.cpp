@@ -26,7 +26,7 @@ void ShaderRenderPass::loadUniformsFromShader(const std::vector<uint8_t> &spirvB
                 const auto        &memberType = compiler.get_type(bufferType.member_types[i]);
                 const std::string &memberName = compiler.get_member_name(uniform.base_type_id, i);
 
-                size_t      memberSize = compiler.get_declared_struct_member_size(bufferType, i);
+                size_t memberSize = compiler.get_declared_struct_member_size(bufferType, i);
 
                 uniformBuffer.addVariable(memberName, memberSize, compiler.type_struct_member_offset(bufferType, i));
             }
@@ -39,19 +39,16 @@ void ShaderRenderPass::loadUniformsFromShader(const std::vector<uint8_t> &spirvB
 bool ShaderRenderPass::init(
     SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name
 ) {
-    passname        = std::move(name);
+    passname = std::move(name);
 
-    if (!vertShader.shader) {
-        vertShader = AssetHandler::GetShader("assets/shaders/crtshader.vert");
-    }
-
-    if (!fragShader.shader) {
-        fragShader = AssetHandler::GetShader("assets/shaders/crtshader.frag");
-    }
     vertex_shader   = vertShader.shader;
     fragment_shader = fragShader.shader;
 
     loadUniformsFromShader(vertShader.fileData);
+
+    resultTexture = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
+
+    SDL_SetGPUTextureName(Renderer::GetDevice(), resultTexture, Helpers::TextFormat("ShaderRenderPass: %s resultTexture", passname.c_str()));
 
     fs.texture   = AssetHandler::GetTexture("assets/transparent_pixel.png");
     fs.transform = {
@@ -59,9 +56,7 @@ bool ShaderRenderPass::init(
     };
     fs.tintColor = WHITE;
 
-    Uint32 color_target_description_amount = fragShader.samplerCount;
-
-    std::vector<SDL_GPUColorTargetDescription> color_target_descriptions(color_target_description_amount, SDL_GPUColorTargetDescription{
+    std::vector<SDL_GPUColorTargetDescription> color_target_descriptions(fragShader.samplerCount, SDL_GPUColorTargetDescription{
         .format = swapchain_texture_format,
         .blend_state =
             {
@@ -105,14 +100,14 @@ bool ShaderRenderPass::init(
                 .front_stencil_state = {},
                 .compare_mask = 0,
                 .write_mask = 0,
-                .enable_depth_test = true,
+                .enable_depth_test = false,
                 .enable_depth_write = false,
                 .enable_stencil_test = false,
             },
         .target_info =
             {
                 .color_target_descriptions = color_target_descriptions.data(),
-                .num_color_targets = color_target_description_amount,
+                .num_color_targets = fragShader.samplerCount,
                 .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
                 .has_depth_stencil_target = false,
             },
@@ -136,7 +131,7 @@ void ShaderRenderPass::render(
     SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
 
     std::vector<SDL_GPUColorTargetInfo> color_target_info(fragShader.samplerCount, SDL_GPUColorTargetInfo{
-        .texture = target_texture,
+        .texture = resultTexture,
         .mip_level = 0,
         .layer_or_depth_plane = 0,
         .clear_color = color_target_info_clear_color,
@@ -145,6 +140,8 @@ void ShaderRenderPass::render(
     });
 
     fs.size = {Window::GetWidth(), Window::GetHeight()};
+
+    auto framebuffer = Renderer::GetFramebuffer("primaryFramebuffer");
 
     SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(cmd_buffer, color_target_info.data(), fragShader.samplerCount, nullptr);
     assert(render_pass);
@@ -190,16 +187,14 @@ void ShaderRenderPass::render(
             .sampler = fs.texture.gpuSampler,
         });
 
-        auto framebuffer = Renderer::GetFramebuffer("primaryFramebuffer");
-
         texture_sampler_bindings[0].texture = framebuffer->fbContent;
         SDL_BindGPUFragmentSamplers(render_pass, 0, texture_sampler_bindings.data(), fragShader.samplerCount);
         SDL_DrawGPUPrimitives(render_pass, 6, 1, 0, 0);
     }
 
-    _frameCounter++;
-
     SDL_EndGPURenderPass(render_pass);
+
+    _renderShaderOutputToFramebuffer(cmd_buffer, camera, framebuffer->fbContent, resultTexture);
 
     SDL_PopGPUDebugGroup(cmd_buffer);
 }
@@ -207,3 +202,49 @@ void ShaderRenderPass::render(
 UniformBuffer &ShaderRenderPass::getUniformBuffer() {
     return uniformBuffer;
 }
+
+void ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buffer, const glm::mat4 &camera, SDL_GPUTexture *target_texture, SDL_GPUTexture *result_texture) {
+
+
+    std::vector<SDL_GPUColorTargetInfo> color_target_info(1, SDL_GPUColorTargetInfo{
+        .texture = target_texture,
+        .mip_level = 0,
+        .layer_or_depth_plane = 0,
+        .clear_color = color_target_info_clear_color,
+        .load_op = SDL_GPU_LOADOP_LOAD,
+        .store_op = SDL_GPU_STOREOP_STORE,
+    });
+
+    fs.size = {Window::GetWidth(), Window::GetHeight()};
+
+    SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(cmd_buffer, color_target_info.data(), 1, nullptr);
+    assert(render_pass);
+    {
+        SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
+
+        glm::mat4 z_index_matrix = glm::translate(
+            glm::mat4(1.0f),
+            glm::vec3(0.0f, 0.0f, (float) Renderer::GetZIndex() / (float) INT32_MAX)
+        );
+        glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(Window::GetWidth(), Window::GetHeight(), 1.0f));
+
+        if (Input::MouseButtonDown(SDL_BUTTON_LEFT)) {
+            lastMousePos = Input::GetMousePosition();
+        }
+
+        SDL_PushGPUVertexUniformData(cmd_buffer, 0, uniformBuffer.getBufferPointer(), uniformBuffer.getBufferSize());
+
+        std::vector<SDL_GPUTextureSamplerBinding> texture_sampler_bindings(1, SDL_GPUTextureSamplerBinding{
+            .texture = result_texture,
+            .sampler = fs.texture.gpuSampler,
+        });
+
+        SDL_BindGPUFragmentSamplers(render_pass, 0, texture_sampler_bindings.data(), 1);
+        SDL_DrawGPUPrimitives(render_pass, 6, 1, 0, 0);
+    }
+
+    SDL_EndGPURenderPass(render_pass);
+}
+
+
+

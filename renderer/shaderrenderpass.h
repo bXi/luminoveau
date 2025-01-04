@@ -21,7 +21,9 @@ class ShaderRenderPass : public RenderPass {
     glm::vec2 lastMousePos = {0, 0};
 
     SDL_GPUGraphicsPipeline *m_pipeline{nullptr};
+    TextureAsset m_depth_texture;
 
+    SDL_GPUTexture* resultTexture;
 
     std::string passname;
 
@@ -41,7 +43,7 @@ public:
     ShaderAsset             fragShader;
 
     void loadUniformsFromShader(const std::vector<uint8_t> &spirvBinary);
-
+    void _renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buffer, const glm::mat4 &camera, SDL_GPUTexture *target_texture, SDL_GPUTexture *result_texture);
     std::vector<Renderable> renderQueue;
 
 public:
