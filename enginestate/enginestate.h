@@ -8,7 +8,7 @@ namespace EngineState {
     inline int  _scaleFactor      = 1;
     inline bool _shouldQuit       = false;
     inline int  _frameCount       = 0;
-    inline bool _debugMenuVisible = true;
+    inline bool _debugMenuVisible = false;
 
     //from Window:: for fps calculations
     inline int                                            _fps            = 0;
