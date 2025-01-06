@@ -8,10 +8,6 @@ void SpriteRenderPass::release() {
     m_depth_texture.release(Renderer::GetDevice());
     SDL_ReleaseGPUGraphicsPipeline(Renderer::GetDevice(), m_pipeline);
     SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
-
-//    SDL_ReleaseGPUShader(Renderer::GetDevice(), vertex_shader);
-//    SDL_ReleaseGPUShader(Renderer::GetDevice(), fragment_shader);
-
 }
 
 bool SpriteRenderPass::init(
@@ -25,16 +21,7 @@ bool SpriteRenderPass::init(
 
     SDL_GPUColorTargetDescription color_target_description{
         .format = swapchain_texture_format,
-        .blend_state =
-            {
-                .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
-                .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                .color_blend_op = SDL_GPU_BLENDOP_ADD,
-                .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
-                .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
-                .enable_blend = true,
-            },
+        .blend_state = GPUstructs::defaultBlendState,
     };
 
     SDL_GPUGraphicsPipelineCreateInfo pipeline_create_info{
@@ -48,19 +35,7 @@ bool SpriteRenderPass::init(
                 .num_vertex_attributes = 0,
             },
         .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
-        .rasterizer_state =
-            {
-                .fill_mode = SDL_GPU_FILLMODE_FILL,
-                .cull_mode = SDL_GPU_CULLMODE_NONE,
-                .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
-                .depth_bias_constant_factor = 0.0,
-                .depth_bias_clamp = 0.0,
-                .depth_bias_slope_factor = 0.0,
-                .enable_depth_bias = false,
-                .enable_depth_clip = false,
-                .padding1 = 0,
-                .padding2 = 0,
-            },
+        .rasterizer_state = GPUstructs::defaultRasterizerState,
         .multisample_state = {},
         .depth_stencil_state =
             {
@@ -114,7 +89,7 @@ void SpriteRenderPass::render(
         .clear_color = color_target_info_clear_color,
         .load_op = color_target_info_loadop,
         .store_op = SDL_GPU_STOREOP_STORE,
-        .cycle = true
+        .cycle = false
     };
 
     SDL_GPUDepthStencilTargetInfo depth_stencil_info{
