@@ -19,6 +19,7 @@
 #include "renderpass.h"
 #include "renderable.h"
 #include "utils/uniformobject.h"
+#include "sdl_gpu_structs.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -81,6 +82,8 @@ public:
 
     static FrameBuffer *GetFramebuffer(std::string fbname) { return get()._getFramebuffer(std::move(fbname)); };
 
+    static SDL_GPUSampler* GetSampler(ScaleMode scalemode) { return get()._getSampler(scalemode); };
+
 private:
     SDL_GPUDevice        *m_device = nullptr;
     SDL_GPUCommandBuffer *m_cmdbuf = nullptr;
@@ -135,11 +138,14 @@ private:
         float tintColorA = 1.0f;
     };
 
+
+    SDL_GPUSampler* _getSampler(ScaleMode scaleMode);
+    std::unordered_map<ScaleMode, SDL_GPUSampler*> _samplers;
+
     SDL_GPUGraphicsPipeline *m_rendertotexturepipeline{nullptr};
 
     SDL_GPUTexture *swapchain_texture;
     glm::mat4x4    m_camera;
-    SDL_GPUSampler *m_fbsampler;
 
 public:
     Renderer(const Renderer &) = delete;

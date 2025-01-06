@@ -102,9 +102,6 @@ private:
 
     TextureAsset _drawTextToTexture(Font font, std::string textToDraw, Color color);
 
-    SDL_GPUSampler *textSampler;
-
-
 public:
     Text(const Text &) = delete;
 
@@ -116,15 +113,5 @@ public:
 private:
     Text() {
         TTF_Init();
-
-        SDL_GPUSamplerCreateInfo sampler_info = {
-            .min_filter = SDL_GPU_FILTER_LINEAR,
-            .mag_filter = SDL_GPU_FILTER_LINEAR,
-            .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-            .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-            .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-            .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
-        };
-        textSampler = SDL_CreateGPUSampler(Renderer::GetDevice(), &sampler_info);
     };
 };

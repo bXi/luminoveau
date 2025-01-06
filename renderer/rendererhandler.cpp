@@ -29,17 +29,12 @@ void Renderer::_initRendering() {
     }
     SDL_Log("%s: claimed window for gpu device", CURRENT_METHOD());
 
-    m_camera = glm::ortho(0.0f, (float) Window::GetWidth(), float(Window::GetHeight()), 0.0f);
-    SDL_GPUSamplerCreateInfo sampler_info = {
-        .min_filter = SDL_GPU_FILTER_LINEAR,
-        .mag_filter = SDL_GPU_FILTER_LINEAR,
-        .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-        .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-        .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-        .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
-    };
+    _samplers[ScaleMode::NEAREST] = SDL_CreateGPUSampler(m_device, &GPUstructs::nearestSamplerCreateInfo);
+    _samplers[ScaleMode::LINEAR] = SDL_CreateGPUSampler(m_device, &GPUstructs::linearSamplerCreateInfo);
 
-    m_fbsampler = SDL_CreateGPUSampler(Renderer::GetDevice(), &sampler_info);
+
+    m_camera = glm::ortho(0.0f, (float) Window::GetWidth(), float(Window::GetHeight()), 0.0f);
+
 
     auto *fb = new FrameBuffer;
 
@@ -372,7 +367,7 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTextur
     SDL_PushGPUVertexUniformData(cmd_buffer, 0, &rtt_uniforms, sizeof(rtt_uniforms));
     auto rtt_texture_sampler_binding = SDL_GPUTextureSamplerBinding{
         .texture = framebuffer,
-        .sampler = m_fbsampler,
+        .sampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode()),
     };
     SDL_BindGPUFragmentSamplers(renderPass, 0, &rtt_texture_sampler_binding, 1);
     SDL_DrawGPUPrimitives(renderPass, 6, 1, 0, 0);

@@ -16,6 +16,7 @@
 #include "utils/uniformobject.h"
 
 #include "spirv_cross.hpp"
+#include "sdl_gpu_structs.h"
 
 class ShaderRenderPass : public RenderPass {
     glm::vec2 lastMousePos = {0, 0};

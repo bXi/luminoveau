@@ -25,7 +25,6 @@
 enum class ScaleMode {
     NEAREST,
     LINEAR,
-    BEST,
 };
 
 /**

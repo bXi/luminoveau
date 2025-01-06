@@ -20,7 +20,7 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
     do {
         TextureAsset tex = {
             .gpuTexture = sequence->atlas_texture,
-            .gpuSampler = textSampler,
+            .gpuSampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode()),
         };
 
         for (int i = 0; i + 5 < sequence->num_indices; i += 6) {

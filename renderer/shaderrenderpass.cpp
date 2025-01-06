@@ -184,7 +184,7 @@ void ShaderRenderPass::render(
 
         std::vector<SDL_GPUTextureSamplerBinding> texture_sampler_bindings(fragShader.samplerCount, SDL_GPUTextureSamplerBinding{
             .texture = fs.texture.gpuTexture,
-            .sampler = fs.texture.gpuSampler,
+            .sampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode()),
         });
 
         texture_sampler_bindings[0].texture = framebuffer->fbContent;

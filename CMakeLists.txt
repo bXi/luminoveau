@@ -46,7 +46,8 @@ add_library("luminoveau" STATIC
     assethandler/spritefrag.cpp
     assethandler/spritevert.cpp
 
-
+    renderer/sdl_gpu_structs.cpp
+    renderer/sdl_gpu_structs.h
     renderer/rendererhandler.cpp
     renderer/rendererhandler.h
     renderer/renderpass.h

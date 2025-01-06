@@ -78,33 +78,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
         throw std::runtime_error("failed to copy image data to texture");
     }
 
-    SDL_GPUSamplerCreateInfo sampler_create_info{
-        .min_filter = SDL_GPU_FILTER_NEAREST,
-        .mag_filter = SDL_GPU_FILTER_NEAREST,
-        .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
-        .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-        .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-        .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-        .mip_lod_bias = 0,
-        .max_anisotropy = 0,
-        .compare_op = SDL_GPU_COMPAREOP_NEVER,
-        .min_lod = 0,
-        .max_lod = 0,
-        .enable_anisotropy = false,
-        .enable_compare = false,
-        .padding1 = 0,
-        .padding2 = 0,
-        .props = 0,
-    };
-
-    SDL_GPUSampler *sampler = SDL_CreateGPUSampler(Renderer::GetDevice(), &sampler_create_info);
-    if (!sampler)
-    {
-        SDL_ReleaseGPUTexture(Renderer::GetDevice(), gpuTexture);
-        throw std::runtime_error("failed to create sampler");
-    }
-
-    texture.gpuSampler = sampler;
+    texture.gpuSampler = Renderer::GetSampler(defaultMode);
     texture.gpuTexture = gpuTexture;
 
     if (!texture.filename.empty()) {
@@ -138,6 +112,7 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
         .sample_count = SDL_GPU_SAMPLECOUNT_1,
     };
 
+    texture.gpuSampler = Renderer::GetSampler(defaultMode);
     texture.gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &sdlGpuTextureCreateInfo);
 
     return texture;
@@ -408,7 +383,7 @@ TextureAsset AssetHandler::_createDepthTarget(SDL_GPUDevice *device, uint32_t wi
 
     TextureAsset tex;
 
-    tex.gpuSampler = nullptr;
+    tex.gpuSampler = Renderer::GetSampler(defaultMode);
     tex.gpuTexture = texture;
 
 

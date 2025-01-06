@@ -26,9 +26,6 @@ struct TextureAsset {
     }
 
     void release(SDL_GPUDevice *device) {
-        if (this->gpuSampler != nullptr) {
-            SDL_ReleaseGPUSampler(device, this->gpuSampler);
-        }
         if (this->gpuTexture != nullptr) {
             SDL_ReleaseGPUTexture(device, this->gpuTexture);
         }
