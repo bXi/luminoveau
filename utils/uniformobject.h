@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 #include <tuple>
-
+#include <cstring>
 #include <type_traits>
 
 template<typename T>
