@@ -79,9 +79,9 @@ bool SpriteRenderPass::init(
 void SpriteRenderPass::render(
     SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *target_texture, const glm::mat4 &camera
 ) {
-
+    #ifdef LUMIDEBUG
     SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
-
+    #endif
     SDL_GPUColorTargetInfo color_target_info{
         .texture = target_texture,
         .mip_level = 0,
@@ -144,8 +144,9 @@ void SpriteRenderPass::render(
         }
     }
     SDL_EndGPURenderPass(render_pass);
-
+    #ifdef LUMIDEBUG
     SDL_PopGPUDebugGroup(cmd_buffer);
+    #endif
 }
 
 void SpriteRenderPass::createShaders() {

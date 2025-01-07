@@ -108,8 +108,9 @@ bool ShaderRenderPass::init(
 void ShaderRenderPass::render(
     SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *target_texture, const glm::mat4 &camera
 ) {
-
+    #ifdef LUMIDEBUG
     SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
+    #endif
 
     std::vector<SDL_GPUColorTargetInfo> color_target_info(fragShader.samplerCount, SDL_GPUColorTargetInfo{
         .texture = resultTexture,
@@ -177,7 +178,9 @@ void ShaderRenderPass::render(
 
     _renderShaderOutputToFramebuffer(cmd_buffer, camera, framebuffer->fbContent, resultTexture);
 
+    #ifdef LUMIDEBUG
     SDL_PopGPUDebugGroup(cmd_buffer);
+    #endif
 }
 
 UniformBuffer &ShaderRenderPass::getUniformBuffer() {

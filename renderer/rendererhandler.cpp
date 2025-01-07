@@ -14,7 +14,12 @@
 
 void Renderer::_initRendering() {
 
-    m_device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, nullptr);
+    bool enableGPUDebug = false;
+    #ifdef LUMIDEBUG
+    enableGPUDebug = true;
+    #endif
+
+    m_device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, enableGPUDebug, nullptr);
     if (!m_device) {
         SDL_Log("%s: failed to create gpu device: %s", CURRENT_METHOD(), SDL_GetError());
         SDL_DestroyWindow(Window::GetWindow());
