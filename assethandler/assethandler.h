@@ -49,7 +49,7 @@ public:
 
 
 
-    static TextureAsset LoadFromPixelData(vf2d size, void *pixelData, std::string fileName) { return get()._loadFromPixelData(size, pixelData, std::move(fileName)); }
+    static TextureAsset LoadFromPixelData(const vf2d& size, void *pixelData, std::string fileName) { return get()._loadFromPixelData(size, pixelData, std::move(fileName)); }
 
     /**
      * @brief Sets a scaling mode for all textures loaded after this call.
@@ -142,10 +142,6 @@ public:
         return get()._createDepthTarget(device, width, height);
     }
 
-
-
-
-
     template<typename T>
     static void Delete(T &asset) {
         get()._delete(asset);
@@ -162,9 +158,10 @@ private:
 
     TextureAsset _loadTexture(const std::string &fileName);
 
-    TextureAsset _loadFromPixelData(const vf2d& size, void *pixelData, std::string fileName);
+    TextureAsset _loadFromPixelData(const vf2d &size, void *pixelData, std::string fileName);
 
-    bool _copy_to_texture(SDL_GPUDevice *device, void *src_data, uint32_t src_data_len, SDL_GPUTexture *dst_texture, uint32_t dst_texture_width, uint32_t dst_texture_height);
+    bool _copy_to_texture(SDL_GPUDevice *device, void *src_data, uint32_t src_data_len, SDL_GPUTexture *dst_texture, uint32_t dst_texture_width,
+                          uint32_t dst_texture_height);
 
     void _setDefaultTextureScaleMode(ScaleMode mode);
 
@@ -255,7 +252,7 @@ private:
 
             if (it != _textures.end()) {
                 if (static_cast<TextureAsset>(asset).gpuTexture) {
-//                    static_cast<Texture>(asset).release(Window::GetDevice());
+                    //                    static_cast<Texture>(asset).release(Window::GetDevice());
                 }
 
                 _textures.erase(it);
@@ -281,7 +278,7 @@ private:
             TTF_Init();
         }
 
-        SDL_IOStream * ttfFontData =  SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
+        SDL_IOStream *ttfFontData = SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
         auto font = TTF_OpenFontIO(ttfFontData, true, 16.0);
         if (!font) {
             throw std::runtime_error(Helpers::TextFormat("%s: failed to create default font: %s", CURRENT_METHOD(), SDL_GetError()));

@@ -24,30 +24,28 @@ class ShaderRenderPass : public RenderPass {
     SDL_GPUGraphicsPipeline *m_pipeline{nullptr};
     TextureAsset m_depth_texture;
 
-    SDL_GPUTexture* resultTexture;
-
-    std::string passname;
-
-    int _frameCounter = 0;
+    SDL_GPUTexture* resultTexture = nullptr;
 
     Renderable   fs;
     TextureAsset transparentPixel;
 
     UniformBuffer uniformBuffer;
 
-public:
-
     SDL_GPUShader *vertex_shader   = nullptr;
     SDL_GPUShader *fragment_shader = nullptr;
 
-    ShaderAsset             vertShader;
-    ShaderAsset             fragShader;
+    std::vector<std::string> foundSamplers;
 
-    void loadUniformsFromShader(const std::vector<uint8_t> &spirvBinary);
-    void _renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buffer, const glm::mat4 &camera, SDL_GPUTexture *target_texture, SDL_GPUTexture *result_texture);
+    void _loadSamplerNamesFromShader(const std::vector<uint8_t> &spirvBinary);
+    void _loadUniformsFromShader(const std::vector<uint8_t> &spirvBinary);
+    void _renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *target_texture, SDL_GPUTexture *result_texture, const glm::mat4 &camera);
     std::vector<Renderable> renderQueue;
 
 public:
+    ShaderAsset             vertShader;
+    ShaderAsset             fragShader;
+
+
     ShaderRenderPass(const ShaderRenderPass &) = delete;
 
     ShaderRenderPass &operator=(const ShaderRenderPass &) = delete;

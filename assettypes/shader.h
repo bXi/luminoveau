@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 #include "SDL3/SDL.h"
 #include "utils/vectors.h"
@@ -21,6 +22,8 @@ struct ShaderAsset {
     Uint32 storageTextureCount;
 
     std::vector<uint8_t> fileData;
+
+    std::unordered_map<std::string, std::string> frameBufferToSamplerMapping;
 
 };
 

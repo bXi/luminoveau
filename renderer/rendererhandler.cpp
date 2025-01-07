@@ -35,23 +35,23 @@ void Renderer::_initRendering() {
     SDL_Log("%s: claimed window for gpu device", CURRENT_METHOD());
 
     _samplers[ScaleMode::NEAREST] = SDL_CreateGPUSampler(m_device, &GPUstructs::nearestSamplerCreateInfo);
-    _samplers[ScaleMode::LINEAR] = SDL_CreateGPUSampler(m_device, &GPUstructs::linearSamplerCreateInfo);
-
+    _samplers[ScaleMode::LINEAR]  = SDL_CreateGPUSampler(m_device, &GPUstructs::linearSamplerCreateInfo);
 
     m_camera = glm::ortho(0.0f, (float) Window::GetWidth(), float(Window::GetHeight()), 0.0f);
 
+    auto *framebuffer = new FrameBuffer;
 
-    auto *fb = new FrameBuffer;
+    framebuffer->renderpasses.emplace_back("2dsprites", new SpriteRenderPass(m_device));
+    framebuffer->renderpasses.begin()->second->color_target_info_loadop      = SDL_GPU_LOADOP_CLEAR;
+    framebuffer->renderpasses.begin()->second->color_target_info_clear_color = SDL_FColor(BLACK);
 
-    fb->renderpasses.emplace_back("2dsprites", new SpriteRenderPass(m_device));
-    fb->renderpasses.begin()->second->color_target_info_loadop      = SDL_GPU_LOADOP_CLEAR;
-    fb->renderpasses.begin()->second->color_target_info_clear_color = SDL_FColor(BLACK);
+    framebuffer->fbContent = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
+    frameBuffers.emplace_back("primaryFramebuffer", framebuffer);
 
-    fb->fbContent = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
-    frameBuffers.emplace_back("primaryFramebuffer", fb);
+    for (auto &[_fbName, _framebuffer]: frameBuffers) {
 
-    for (auto &[fbName, framebuffer]: frameBuffers) {
-        for (auto &[passname, renderpass]: framebuffer->renderpasses) {
+        SDL_SetGPUTextureName(Renderer::GetDevice(), _framebuffer->fbContent, Helpers::TextFormat("Renderer: framebuffer %s", _fbName.c_str()));
+        for (auto &[passname, renderpass]: _framebuffer->renderpasses) {
             if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), Window::GetWidth(), Window::GetHeight(),
                                   passname)) {
                 SDL_Log("%s: renderpass (%s) failed to init()", CURRENT_METHOD(), passname.c_str());
@@ -117,40 +117,54 @@ void Renderer::_endFrame() {
         return;
     }
 
-    for (auto &[fbName, framebuffer]: frameBuffers) {
-        for (auto &[passname, renderpass]: framebuffer->renderpasses) {
-            renderpass->render(m_cmdbuf, framebuffer->fbContent, m_camera);
-        }
-    }
+    if (swapchain_texture) {
 
-    renderFrameBuffer(m_cmdbuf, swapchain_texture);
+        SDL_SetGPUTextureName(Renderer::GetDevice(), swapchain_texture, "Renderer: swapchain_texture");
+
+        for (auto &[fbName, framebuffer]: frameBuffers) {
+            for (auto &[passname, renderpass]: framebuffer->renderpasses) {
+                renderpass->render(m_cmdbuf, framebuffer->fbContent, m_camera);
+            }
+        }
+
+        renderFrameBuffer(m_cmdbuf);
 
 #ifdef ADD_IMGUI
-    ImGui::Render();
-    {
-        auto copy_pass = SDL_BeginGPUCopyPass(m_cmdbuf);
-        ImGui_ImplSDLGPU3_UploadDrawData(ImGui::GetDrawData(), copy_pass);
-        SDL_EndGPUCopyPass(copy_pass);
-    }
-    {
-        SDL_GPUColorTargetInfo color_target_info = {};
-        color_target_info.texture              = swapchain_texture;
-        color_target_info.mip_level            = 0;
-        color_target_info.layer_or_depth_plane = 0;
-        color_target_info.clear_color          = {0.25f, 0.25f, 0.25f, 0.0f};
-        color_target_info.load_op              = SDL_GPU_LOADOP_LOAD;
-        color_target_info.store_op             = SDL_GPU_STOREOP_STORE;
 
-        auto render_pass = SDL_BeginGPURenderPass(m_cmdbuf, &color_target_info, 1, nullptr);
+        #ifdef LUMIDEBUG
+        SDL_PushGPUDebugGroup(m_cmdbuf, "[Lumi] ImGuiRenderPass::render");
+        #endif
+        ImGui::Render();
+        {
+            auto copy_pass = SDL_BeginGPUCopyPass(m_cmdbuf);
+            ImGui_ImplSDLGPU3_UploadDrawData(ImGui::GetDrawData(), copy_pass);
+            SDL_EndGPUCopyPass(copy_pass);
+        }
+        {
+            SDL_GPUColorTargetInfo color_target_info = {};
+            color_target_info.texture              = swapchain_texture;
+            color_target_info.mip_level            = 0;
+            color_target_info.layer_or_depth_plane = 0;
+            color_target_info.clear_color          = {0.25f, 0.25f, 0.25f, 0.0f};
+            color_target_info.load_op              = SDL_GPU_LOADOP_LOAD;
+            color_target_info.store_op             = SDL_GPU_STOREOP_STORE;
 
-        ImGui_ImplSDLGPU3_RenderDrawData(ImGui::GetDrawData(), m_cmdbuf, render_pass);
+            auto render_pass = SDL_BeginGPURenderPass(m_cmdbuf, &color_target_info, 1, nullptr);
 
-        SDL_EndGPURenderPass(render_pass);
-    }
+            ImGui_ImplSDLGPU3_RenderDrawData(ImGui::GetDrawData(), m_cmdbuf, render_pass);
+
+            SDL_EndGPURenderPass(render_pass);
+        }
+        #ifdef LUMIDEBUG
+        SDL_PopGPUDebugGroup(m_cmdbuf);
+        #endif
 #endif
 
-    SDL_SubmitGPUCommandBuffer(m_cmdbuf);
-
+        SDL_SubmitGPUCommandBuffer(m_cmdbuf);
+    } else {
+        // don't have a swapchain. just end imgui
+        ImGui::EndFrame();
+    }
     for (auto &[fbName, framebuffer]: frameBuffers) {
         for (auto &[passname, renderpass]: framebuffer->renderpasses) {
             renderpass->resetRenderQueue();
@@ -222,6 +236,9 @@ void Renderer::_addShaderPass(const std::string &passname, const ShaderAsset &ve
     }
 }
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "UnreachableCode"
+
 UniformBuffer &Renderer::_getUniformBuffer(const std::string &passname) {
     for (auto &[fbName, framebuffer]: frameBuffers) {
 
@@ -235,13 +252,15 @@ UniformBuffer &Renderer::_getUniformBuffer(const std::string &passname) {
         }
     }
 
-    //this section of code should never be hit because every renderpass has
+    //this section of code should never be hit because every renderpass has a buffer attached to it
     assert(false && "UniformBuffer not found");
     static UniformBuffer dummyBuffer;
     return dummyBuffer;
 }
 
-void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *swapchain_texture) {
+#pragma clang diagnostic pop
+
+void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
 
     SDL_GPUShader *rtt_vertex_shader;
     SDL_GPUShader *rtt_fragment_shader;
@@ -374,4 +393,34 @@ FrameBuffer *Renderer::_getFramebuffer(std::string fbname) {
     }
 
     return framebuffer;
+}
+
+void Renderer::_createFrameBuffer(const std::string &fbname) {
+    auto it = std::find_if(frameBuffers.begin(), frameBuffers.end(), [&fbname](const auto &pair) {
+        return pair.first == fbname;
+    });
+
+    if (it == frameBuffers.end()) {
+        auto *framebuffer = new FrameBuffer;
+        framebuffer->fbContent = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
+        frameBuffers.emplace_back(fbname, framebuffer);
+
+        SDL_Log("%s: created framebuffer: %s", CURRENT_METHOD(), fbname.c_str());
+    }
+}
+
+void Renderer::_attachRenderPassToFrameBuffer(RenderPass *renderPass, const std::string &passname, const std::string &fbName) {
+    auto it = std::find_if(frameBuffers.begin(), frameBuffers.end(), [&fbName](const auto &pair) {
+        return pair.first == fbName;
+    });
+
+    if (it != frameBuffers.end()) {
+        it->second->renderpasses.emplace_back(passname, renderPass);
+
+        SDL_Log("%s: attached renderpass %s to framebuffer: %s", CURRENT_METHOD(), passname.c_str(), fbName.c_str());
+    }
+}
+
+SDL_GPUSampler *Renderer::_getSampler(ScaleMode scaleMode) {
+    return _samplers[scaleMode];
 }

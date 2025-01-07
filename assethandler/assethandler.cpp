@@ -132,7 +132,7 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
         rgbaSurface = SDL_ConvertSurface(surface, SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888);
     }
 
-    unsigned char *pixels = new unsigned char[rgbaSurface->w * rgbaSurface->h * 4];
+    auto *pixels = new unsigned char[rgbaSurface->w * rgbaSurface->h * 4];
 
     SDL_LockSurface(rgbaSurface);
     memcpy(pixels, rgbaSurface->pixels, rgbaSurface->w * rgbaSurface->h * 4);
@@ -394,78 +394,6 @@ TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData,
         TextureAsset texture;
 #if 0
 
-    texture.width  = (int)size.x;
-    texture.height = (int)size.y;
-    texture.filename = std::move(fileName);
-
-    //SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM
-    SDL_GPUTextureCreateInfo texture_create_info{
-        .type =  SDL_GPU_TEXTURETYPE_2D, //SDL_GPU_TEXTURETYPE_2D_ARRAY
-        .format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM,
-        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER, //SDL_GPU_TEXTUREUSAGE_SAMPLER
-        .width = (uint32_t)texture.width,
-        .height = (uint32_t)texture.height,
-        .layer_count_or_depth = 1,
-        .num_levels = 1,
-        .sample_count = SDL_GPU_SAMPLECOUNT_1,
-        .props = 0,
-    };
-    SDL_GPUTexture *gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &texture_create_info);
-    if (!gpuTexture)
-    {
-        SDL_Log("GPUTexture::from_file: failed to create texture: (%s)", SDL_GetError());
-        throw std::runtime_error("failed to create texture");
-    }
-
-    if (!_copy_to_texture(
-            Renderer::GetDevice(),
-            pixelData,
-            (uint32_t)size.x * (uint32_t)size.y * 4,
-            gpuTexture,
-            (uint32_t)size.x,
-            (uint32_t)size.y
-        ))
-    {
-        SDL_ReleaseGPUTexture(Renderer::GetDevice(), gpuTexture);
-        throw std::runtime_error("failed to copy image data to texture");
-    }
-
-    SDL_GPUSamplerCreateInfo sampler_create_info{
-        .min_filter = SDL_GPU_FILTER_NEAREST,
-        .mag_filter = SDL_GPU_FILTER_NEAREST,
-        .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
-        .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-        .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-        .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-        .mip_lod_bias = 0,
-        .max_anisotropy = 0,
-        .compare_op = SDL_GPU_COMPAREOP_NEVER,
-        .min_lod = 0,
-        .max_lod = 0,
-        .enable_anisotropy = false,
-        .enable_compare = false,
-        .padding1 = 0,
-        .padding2 = 0,
-        .props = 0,
-    };
-
-    SDL_GPUSampler *sampler = SDL_CreateGPUSampler(Renderer::GetDevice(), &sampler_create_info);
-    if (!sampler)
-    {
-//        spdlog::error("GPUTexture::from_file: failed to create sampler: {}", SDL_GetError());
-        SDL_ReleaseGPUTexture(Renderer::GetDevice(), gpuTexture);
-        throw std::runtime_error("failed to create sampler");
-    }
-
-    texture.gpuSampler = sampler;
-    texture.gpuTexture = gpuTexture;
-
-    if (!texture.filename.empty()) {
-        SDL_SetGPUTextureName(Renderer::GetDevice(), gpuTexture, texture.filename.c_str());
-    }
-
-
-    //_textures[std::string(fileName)] = texture;
 #endif
 
     return texture;

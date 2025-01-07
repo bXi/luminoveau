@@ -1,30 +1,31 @@
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <optional>
+#include <utility>
 
 #include "SDL3/SDL.h"
 
-#include "utils/vectors.h"
 #include "utils/lerp.h"
+#include "utils/uniformobject.h"
+#include "utils/vectors.h"
+
 #include "input/inputhandler.h"
 #include "eventbus/eventbushandler.h"
 
-#include <chrono>
 #include "utils/colors.h"
 #include "assettypes/shader.h"
 #include "assettypes/texture.h"
 
 #include "renderpass.h"
 #include "renderable.h"
-#include "utils/uniformobject.h"
 #include "sdl_gpu_structs.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <utility>
 
 #ifdef ADD_IMGUI
 #include "imgui.h"
@@ -69,14 +70,19 @@ public:
 
     static void ClearBackground(Color color) { get()._clearBackground(color); }
 
-    static void AddToRenderQueue(const std::string &passname, const Renderable &renderable) { get()._addToRenderQueue(passname, renderable); };
+    static void AddToRenderQueue(const std::string &passname, const Renderable &renderable) { get()._addToRenderQueue(passname, renderable); }
 
     static void AddShaderPass(const std::string &passname, const ShaderAsset &vertShader, const ShaderAsset &fragShader,
                               std::vector<std::string> targetBuffers = std::vector<std::string>()) {
         get()._addShaderPass(passname, vertShader, fragShader, std::move(targetBuffers));
     }
 
+    static void AttachRenderPassToFrameBuffer(RenderPass* renderPass, const std::string &passname, const std::string &fbName) { get()._attachRenderPassToFrameBuffer(renderPass, passname, fbName); }
+
     static UniformBuffer &GetUniformBuffer(const std::string &passname) { return get()._getUniformBuffer(passname); }
+
+    static void CreateFrameBuffer(const std::string& fbname) { return get()._createFrameBuffer(fbname); }
+
 
     static uint32_t GetZIndex() { return get()._zIndex--; }
 
@@ -95,6 +101,8 @@ private:
     void
     _addShaderPass(const std::string &passname, const ShaderAsset &vertShader, const ShaderAsset &fragShader, std::vector<std::string> targetBuffers);
 
+    void _attachRenderPassToFrameBuffer(RenderPass* renderPass, const std::string &passname, const std::string &fbName);
+
     void _addToRenderQueue(const std::string &passname, const Renderable &renderable);
 
     void _initRendering();
@@ -111,11 +119,13 @@ private:
 
     void _reset();
 
+    void _createFrameBuffer(const std::string& fbname);
+
     UniformBuffer &_getUniformBuffer(const std::string &passname);
 
     TextureAsset _screenBuffer;
 
-    void renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *swapchain_texture);
+    void renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer);
 
     FrameBuffer *_getFramebuffer(std::string fbname);
 
@@ -144,8 +154,8 @@ private:
 
     SDL_GPUGraphicsPipeline *m_rendertotexturepipeline{nullptr};
 
-    SDL_GPUTexture *swapchain_texture;
-    glm::mat4x4    m_camera;
+    SDL_GPUTexture *swapchain_texture = nullptr;
+    glm::mat4x4    m_camera = {};
 
 public:
     Renderer(const Renderer &) = delete;
