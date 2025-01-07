@@ -68,7 +68,7 @@ bool ShaderRenderPass::init(
 
     SDL_SetGPUTextureName(Renderer::GetDevice(), resultTexture, Helpers::TextFormat("ShaderRenderPass: %s resultTexture", passname.c_str()));
 
-    fs.texture   = AssetHandler::GetTexture("assets/transparent_pixel.png");
+    fs.texture   = AssetHandler::CreateEmptyTexture({1,1});
     fs.transform = {
         .position = {0.f, 0.f}
     };

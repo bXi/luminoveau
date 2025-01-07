@@ -347,7 +347,7 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
     SDL_GPURenderPass *renderPass = SDL_BeginGPURenderPass(cmd_buffer, &sdlGpuColorTargetInfo, 1, nullptr);
     SDL_BindGPUGraphicsPipeline(renderPass, m_rendertotexturepipeline);
 
-    TextureAsset fs = AssetHandler::GetTexture("assets/transparent_pixel.png");
+    TextureAsset fs = AssetHandler::CreateEmptyTexture({1,1});
 
     Renderable renderable = {
         .texture = fs,
