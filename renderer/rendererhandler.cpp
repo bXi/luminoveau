@@ -39,6 +39,35 @@ void Renderer::_initRendering() {
 
     m_camera = glm::ortho(0.0f, (float) Window::GetWidth(), float(Window::GetHeight()), 0.0f);
 
+    fs = AssetHandler::CreateEmptyTexture({ 1,1 });
+
+    SDL_GPUShaderCreateInfo rttVertexShaderInfo = {
+        .code_size = SpriteRenderPass::sprite_vert_bin_len,
+        .code = SpriteRenderPass::sprite_vert_bin,
+        .entrypoint = "main",
+        .format = SDL_GPU_SHADERFORMAT_SPIRV,
+        .stage = SDL_GPU_SHADERSTAGE_VERTEX,
+        .num_samplers = 0,
+        .num_storage_textures = 0,
+        .num_storage_buffers = 0,
+        .num_uniform_buffers = 2,
+    };
+
+    SDL_GPUShaderCreateInfo rttFragmentShaderInfo = {
+        .code_size = SpriteRenderPass::sprite_frag_bin_len,
+        .code = SpriteRenderPass::sprite_frag_bin,
+        .entrypoint = "main",
+        .format = SDL_GPU_SHADERFORMAT_SPIRV,
+        .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
+        .num_samplers = 1,
+        .num_storage_textures = 0,
+        .num_storage_buffers = 0,
+        .num_uniform_buffers = 1,
+    };
+
+    rtt_vertex_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &rttVertexShaderInfo);
+    rtt_fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &rttFragmentShaderInfo);
+
     auto *framebuffer = new FrameBuffer;
 
     framebuffer->renderpasses.emplace_back("2dsprites", new SpriteRenderPass(m_device));
@@ -262,8 +291,7 @@ UniformBuffer &Renderer::_getUniformBuffer(const std::string &passname) {
 
 void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
 
-    SDL_GPUShader *rtt_vertex_shader;
-    SDL_GPUShader *rtt_fragment_shader;
+
 
     auto swapchain_texture_format = SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow());
 
@@ -271,33 +299,6 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
         .format = swapchain_texture_format,
         .blend_state = GPUstructs::defaultBlendState,
     };
-
-    SDL_GPUShaderCreateInfo rttVertexShaderInfo = {
-        .code_size = SpriteRenderPass::sprite_vert_bin_len,
-        .code = SpriteRenderPass::sprite_vert_bin,
-        .entrypoint = "main",
-        .format = SDL_GPU_SHADERFORMAT_SPIRV,
-        .stage = SDL_GPU_SHADERSTAGE_VERTEX,
-        .num_samplers = 0,
-        .num_storage_textures = 0,
-        .num_storage_buffers = 0,
-        .num_uniform_buffers = 2,
-    };
-
-    SDL_GPUShaderCreateInfo rttFragmentShaderInfo = {
-        .code_size = SpriteRenderPass::sprite_frag_bin_len,
-        .code = SpriteRenderPass::sprite_frag_bin,
-        .entrypoint = "main",
-        .format = SDL_GPU_SHADERFORMAT_SPIRV,
-        .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-        .num_samplers = 1,
-        .num_storage_textures = 0,
-        .num_storage_buffers = 0,
-        .num_uniform_buffers = 1,
-    };
-
-    rtt_vertex_shader   = SDL_CreateGPUShader(Renderer::GetDevice(), &rttVertexShaderInfo);
-    rtt_fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &rttFragmentShaderInfo);
 
     SDL_GPUGraphicsPipelineCreateInfo rtt_pipeline_create_info{
         .vertex_shader = rtt_vertex_shader,
@@ -339,15 +340,13 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
 
     SDL_GPUColorTargetInfo sdlGpuColorTargetInfo = {
         .texture = swapchain_texture,
-        .clear_color = (SDL_FColor) {0.0f, 0.0f, 0.0f, 1.0f},
+        .clear_color = SDL_FColor{0.0f, 0.0f, 0.0f, 1.0f},
         .load_op = SDL_GPU_LOADOP_CLEAR,
         .store_op = SDL_GPU_STOREOP_STORE,
     };
 
     SDL_GPURenderPass *renderPass = SDL_BeginGPURenderPass(cmd_buffer, &sdlGpuColorTargetInfo, 1, nullptr);
     SDL_BindGPUGraphicsPipeline(renderPass, m_rendertotexturepipeline);
-
-    TextureAsset fs = AssetHandler::CreateEmptyTexture({1,1});
 
     Renderable renderable = {
         .texture = fs,
@@ -377,8 +376,8 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
     SDL_BindGPUFragmentSamplers(renderPass, 0, &rtt_texture_sampler_binding, 1);
     SDL_DrawGPUPrimitives(renderPass, 6, 1, 0, 0);
     SDL_EndGPURenderPass(renderPass);
+    SDL_ReleaseGPUGraphicsPipeline(m_device, m_rendertotexturepipeline);
 
-    //SDL_ReleaseGPUTexture(m_device, framebuffer);
 }
 
 FrameBuffer *Renderer::_getFramebuffer(std::string fbname) {

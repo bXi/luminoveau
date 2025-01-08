@@ -124,7 +124,9 @@ private:
     UniformBuffer &_getUniformBuffer(const std::string &passname);
 
     TextureAsset _screenBuffer;
-
+    TextureAsset fs;
+    SDL_GPUShader* rtt_vertex_shader;
+    SDL_GPUShader* rtt_fragment_shader;
     void renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer);
 
     FrameBuffer *_getFramebuffer(std::string fbname);
