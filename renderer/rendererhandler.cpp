@@ -122,9 +122,6 @@ void Renderer::_clearBackground(Color color) {
 }
 
 void Renderer::_startFrame() const {
-    Lerp::updateLerps();
-
-    Window::HandleInput();
 
 #ifdef ADD_IMGUI
     ImGui_ImplSDL3_NewFrame();
