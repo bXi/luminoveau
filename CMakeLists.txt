@@ -108,8 +108,10 @@ endif()
 
 
 target_compile_features("luminoveau" PRIVATE cxx_std_20)
-target_compile_options("luminoveau" PUBLIC -static-libstdc++ -static-libgcc)
-target_link_options("luminoveau" INTERFACE -static-libstdc++ -static-libgcc)
+if (UNIX)
+    target_compile_options("luminoveau" PUBLIC -static-libstdc++ -static-libgcc)
+    target_link_options("luminoveau" INTERFACE -static-libstdc++ -static-libgcc)
+endif()
 
 target_include_directories("luminoveau" PUBLIC
     "${PROJECT_SOURCE_DIR}"
