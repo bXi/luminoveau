@@ -188,14 +188,15 @@ void Renderer::_endFrame() {
         SDL_PopGPUDebugGroup(m_cmdbuf);
         #endif
 #endif
-
-        SDL_SubmitGPUCommandBuffer(m_cmdbuf);
     } else {
         // don't have a swapchain. just end imgui
         #ifdef ADD_IMGUI
         ImGui::EndFrame();
         #endif
     }
+
+    SDL_SubmitGPUCommandBuffer(m_cmdbuf);
+
     for (auto &[fbName, framebuffer]: frameBuffers) {
         for (auto &[passname, renderpass]: framebuffer->renderpasses) {
             renderpass->resetRenderQueue();
