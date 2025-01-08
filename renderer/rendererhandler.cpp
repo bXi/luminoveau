@@ -192,7 +192,9 @@ void Renderer::_endFrame() {
         SDL_SubmitGPUCommandBuffer(m_cmdbuf);
     } else {
         // don't have a swapchain. just end imgui
+        #ifdef ADD_IMGUI
         ImGui::EndFrame();
+        #endif
     }
     for (auto &[fbName, framebuffer]: frameBuffers) {
         for (auto &[passname, renderpass]: framebuffer->renderpasses) {
