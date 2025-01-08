@@ -126,3 +126,4 @@ include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 
 include(cmake/getlibraries.cmake)
 include(cmake/checkforimgui.cmake)
+include(cmake/assetpacker.cmake)
