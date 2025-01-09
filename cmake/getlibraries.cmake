@@ -70,7 +70,7 @@ endif ()
 
 CPMAddPackage(
         NAME SDL3_ttf
-        GIT_TAG 767a91c
+        GIT_TAG 962a7c4
         GITHUB_REPOSITORY libsdl-org/SDL_ttf
 )
 

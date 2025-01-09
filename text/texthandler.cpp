@@ -65,6 +65,8 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
 
         sequence = sequence->next;
     } while (sequence);
+
+    TTF_DestroyText(text);
 }
 
 int Text::_measureText(Font font, std::string textToDraw) {
