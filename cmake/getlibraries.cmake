@@ -30,6 +30,10 @@ if (glm_ADDED)
     target_include_directories("luminoveau" PUBLIC ${glm_SOURCE_DIR})
 endif ()
 
+set(SPIRV_CROSS_STATIC ON)
+set(SPIRV_CROSS_CLI OFF)
+set(SPIRV_CROSS_ENABLE_TESTS OFF)
+
 CPMAddPackage(
         NAME SPIRV-Cross
         GIT_TAG 6173e24
