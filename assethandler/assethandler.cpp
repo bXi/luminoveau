@@ -10,6 +10,24 @@
 #include <fstream>
 #include <vector>
 
+#include "renderer/rendererhandler.h"
+
+AssetHandler::AssetHandler() {
+    {
+        if (!TTF_WasInit()) {
+            TTF_Init();
+        }
+
+        SDL_IOStream* ttfFontData = SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
+        auto font = TTF_OpenFontIO(ttfFontData, true, 16.0);
+        if (!font) {
+            throw std::runtime_error(Helpers::TextFormat("%s: failed to create default font: %s", CURRENT_METHOD(), SDL_GetError()));
+        }
+        defaultFont.ttfFont = font;
+        defaultFont.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
+    };
+}
+
 Texture AssetHandler::_getTexture(const std::string &fileName) {
     if (_textures.find(fileName) == _textures.end()) {
         _loadTexture(fileName);

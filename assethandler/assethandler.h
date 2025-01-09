@@ -273,18 +273,7 @@ public:
     }
 
 private:
-    AssetHandler() {
-        if (!TTF_WasInit()) {
-            TTF_Init();
-        }
-
-        SDL_IOStream *ttfFontData = SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
-        auto font = TTF_OpenFontIO(ttfFontData, true, 16.0);
-        if (!font) {
-            throw std::runtime_error(Helpers::TextFormat("%s: failed to create default font: %s", CURRENT_METHOD(), SDL_GetError()));
-        }
-        defaultFont.ttfFont = font;
-    };
+    AssetHandler();
 };
 
 //*/
