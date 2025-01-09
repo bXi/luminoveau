@@ -90,6 +90,8 @@ public:
 
     static SDL_GPUSampler* GetSampler(ScaleMode scalemode) { return get()._getSampler(scalemode); };
 
+    static void OnResize() { get()._onResize(); }
+
 private:
     SDL_GPUDevice        *m_device = nullptr;
     SDL_GPUCommandBuffer *m_cmdbuf = nullptr;
@@ -118,6 +120,8 @@ private:
     void _endFrame();
 
     void _reset();
+
+    void _onResize();
 
     void _createFrameBuffer(const std::string& fbname);
 

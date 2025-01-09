@@ -97,6 +97,16 @@ void Renderer::_initRendering() {
 void Renderer::_close() {
 }
 
+void Renderer::_onResize() {
+    m_camera = glm::ortho(0.0f, (float) Window::GetWidth(), float(Window::GetHeight()), 0.0f);
+
+    for (auto &[_fbName, _framebuffer]: frameBuffers) {
+        SDL_ReleaseGPUTexture(m_device, _framebuffer->fbContent);
+        _framebuffer->fbContent = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
+        SDL_SetGPUTextureName(Renderer::GetDevice(), _framebuffer->fbContent, Helpers::TextFormat("Renderer: framebuffer %s", _fbName.c_str()));
+    }
+}
+
 void Renderer::_clearBackground(Color color) {
     //    m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
     //
