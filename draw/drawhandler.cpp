@@ -42,11 +42,6 @@ void Draw::_drawTexture(TextureType texture, vf2d pos, const vf2d& size, Color c
 
     SDL_FRect dstRect = _doCamera(pos, size);
 
-    SDL_SetTextureColorMod(texture.texture, color.r, color.g, color.b);
-    SDL_SetTextureAlphaMod(texture.texture, color.a);
-
-    SDL_RenderTextureRotated(renderer, texture.texture, nullptr, &dstRect, 0.0, nullptr, SDL_FLIP_NONE);
-
     vf2d scale = size / texture.getSize();
 
     Renderable tex = {
@@ -68,16 +63,10 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& si
     SDL_FRect dstRect = _doCamera(pos, size);
     SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
-    SDL_SetTextureColorMod(texture.texture, color.r, color.g, color.b);
-    SDL_SetTextureAlphaMod(texture.texture, color.a);
-
     // Set the flip flags
     int flipFlags = SDL_FLIP_NONE;
     if (src.width < 0.f) { flipFlags |= SDL_FLIP_HORIZONTAL; }
     if (src.height < 0.f) { flipFlags |= SDL_FLIP_VERTICAL; }
-
-    SDL_RenderTextureRotated(renderer, texture.texture, &srcRect, &dstRect, 0.0, nullptr, (SDL_FlipMode) flipFlags);
-
 
     vf2d scale = size / texture.getSize();
 
