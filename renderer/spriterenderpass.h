@@ -73,7 +73,9 @@ public:
     }
 
     void resetRenderQueue() override {
-        renderQueue.clear();
+
+        std::vector<Renderable>().swap(renderQueue);
+        //renderQueue.clear();
     }
 
     UniformBuffer& getUniformBuffer() override {
