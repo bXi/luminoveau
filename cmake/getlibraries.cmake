@@ -82,6 +82,65 @@ if (SDL3_ttf_ADDED)
     target_include_directories("luminoveau" PUBLIC ${SDL3_ttf_SOURCE_DIR}/include)
 endif ()
 
+set(PHYSFS_BUILD_SHARED OFF)
+set(PHYSFS_BUILD_TEST OFF)
+set(PHYSFS_DISABLE_INSTALL ON)
+set(PHYSFS_BUILD_DOCS OFF)
+
+CPMAddPackage(
+        NAME physfs
+        GIT_TAG 7726d18
+        GITHUB_REPOSITORY icculus/physfs
+        DOWNLOAD_ONLY
+)
+
+if (physfs_ADDED)
+
+    target_sources("luminoveau" PRIVATE
+            ${physfs_SOURCE_DIR}/src/physfs.c
+            ${physfs_SOURCE_DIR}/src/physfs_byteorder.c
+            ${physfs_SOURCE_DIR}/src/physfs_unicode.c
+            ${physfs_SOURCE_DIR}/src/physfs_platform_posix.c
+            ${physfs_SOURCE_DIR}/src/physfs_platform_unix.c
+            ${physfs_SOURCE_DIR}/src/physfs_platform_windows.c
+            ${physfs_SOURCE_DIR}/src/physfs_platform_ogc.c
+            ${physfs_SOURCE_DIR}/src/physfs_platform_os2.c
+            ${physfs_SOURCE_DIR}/src/physfs_platform_qnx.c
+            ${physfs_SOURCE_DIR}/src/physfs_platform_android.c
+            ${physfs_SOURCE_DIR}/src/physfs_platform_playdate.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_dir.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_unpacked.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_grp.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_hog.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_7z.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_mvl.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_qpak.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_wad.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_csm.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_zip.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_slb.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_iso9660.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_vdf.c
+            ${physfs_SOURCE_DIR}/src/physfs_archiver_lec3d.c
+    )
+
+    if (WINRT)
+        target_sources("luminoveau" PRIVATE
+                ${physfs_SOURCE_DIR}/src/physfs_platform_winrt.cpp
+        )
+
+    endif ()
+
+    if (APPLE)
+        set(OTHER_LDFLAGS ${OTHER_LDFLAGS} "-framework IOKit -framework Foundation")
+        target_sources("luminoveau" PRIVATE
+                ${physfs_SOURCE_DIR}/src/physfs_platform_apple.m
+        )
+    endif ()
+
+    target_include_directories("luminoveau" PUBLIC ${physfs_SOURCE_DIR}/src)
+endif ()
+
 if (ANDROID)
     target_link_libraries("luminoveau" PUBLIC
             SDL3::SDL3

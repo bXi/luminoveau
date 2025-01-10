@@ -81,6 +81,8 @@ target_sources("luminoveau" PRIVATE
     extern/stb_image_write.cpp
 )
 
+include(cmake/assetpacker.cmake)
+
 include(cmake/checkforsteam.cmake)
 
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/log/loghandler.cpp")
@@ -128,4 +130,3 @@ include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 
 include(cmake/getlibraries.cmake)
 include(cmake/checkforimgui.cmake)
-include(cmake/assetpacker.cmake)

@@ -11,6 +11,7 @@ struct FontAsset {
 
     TTF_TextEngine *textEngine = nullptr;
 
+    void *fontData = nullptr;
 };
 
-using Font = FontAsset&;
+using Font = FontAsset &;

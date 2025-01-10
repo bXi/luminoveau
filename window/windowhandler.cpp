@@ -15,6 +15,10 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
         //TODO: fix scaling
     }
 
+    if (!AssetHandler::InitPhysFS()) {
+        throw std::runtime_error(Helpers::TextFormat("%s AssetHandler::InitPhysFS failed. %s", CURRENT_METHOD()));
+    }
+
     _lastWindowWidth = width;
     _lastWindowHeight = height;
 

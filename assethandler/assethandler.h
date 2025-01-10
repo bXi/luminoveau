@@ -22,6 +22,8 @@
 #include "assettypes/sound.h"
 #include "assettypes/texture.h"
 
+#include "physfs.h"
+
 enum class ScaleMode {
     NEAREST,
     LINEAR,
@@ -142,6 +144,8 @@ public:
         return get()._createDepthTarget(device, width, height);
     }
 
+    static bool InitPhysFS() { return get()._initPhysFS(); }
+
     template<typename T>
     static void Delete(T &asset) {
         get()._delete(asset);
@@ -199,6 +203,16 @@ private:
 
     ScaleMode defaultMode = ScaleMode::NEAREST;
 
+    struct PhysFSFileData {
+        void* data;
+        int fileSize;
+    };
+
+    bool _initPhysFS();
+
+    PhysFSFileData _resolveFile(const std::string& filename);
+
+
     // default font asset Droid Sans Mono.ttf
     static const unsigned char DroidSansMono_ttf[];
     unsigned int               DroidSansMono_ttf_len = 119380;
@@ -216,6 +230,7 @@ private:
 
             if (it != _fonts.end()) {
                 TTF_CloseFont(static_cast<FontAsset>(asset).ttfFont);
+                free(static_cast<FontAsset>(asset).fontData);
                 _fonts.erase(it);
             } else {
                 throw std::runtime_error("Font not found in the map");

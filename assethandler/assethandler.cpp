@@ -13,20 +13,18 @@
 #include "renderer/rendererhandler.h"
 
 AssetHandler::AssetHandler() {
-    {
-        if (!TTF_WasInit()) {
-            TTF_Init();
-        }
+    if (!TTF_WasInit()) {
+        TTF_Init();
+    }
 
-        SDL_IOStream* ttfFontData = SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
-        auto font = TTF_OpenFontIO(ttfFontData, true, 16.0);
-        if (!font) {
-            throw std::runtime_error(Helpers::TextFormat("%s: failed to create default font: %s", CURRENT_METHOD(), SDL_GetError()));
-        }
-        defaultFont.ttfFont = font;
-        defaultFont.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
-    };
-}
+    SDL_IOStream* ttfFontData = SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
+    auto font = TTF_OpenFontIO(ttfFontData, true, 16.0);
+    if (!font) {
+        throw std::runtime_error(Helpers::TextFormat("%s: failed to create default font: %s", CURRENT_METHOD(), SDL_GetError()));
+    }
+    defaultFont.ttfFont = font;
+    defaultFont.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
+};
 
 Texture AssetHandler::_getTexture(const std::string &fileName) {
     if (_textures.find(fileName) == _textures.end()) {
@@ -42,7 +40,8 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
 
     TextureAsset texture;
 
-    auto surface = STBIMG_Load(fileName.c_str());
+    auto filedata = _resolveFile(fileName);
+    auto surface = STBIMG_LoadFromMemory((const unsigned char*)filedata.data, filedata.fileSize);
 
     if (!surface) {
         std::string error = Helpers::TextFormat("IMG_Load failed: %s", SDL_GetError());
@@ -103,6 +102,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     }
 
     SDL_DestroySurface(surface);
+    free(filedata.data);
 
     SDL_Log("%s: loaded texture %s (%i x %i)", CURRENT_METHOD(), fileName.c_str(), texture.width, texture.height);
 
@@ -170,6 +170,10 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
         SoundAsset _sound;
         _sound.sound    = new ma_sound();
         _sound.fileName = fileName;
+
+        auto filedata = _resolveFile(fileName);
+        ma_resource_manager_register_encoded_data(Audio::GetAudioEngine()->pResourceManager, fileName.c_str(), filedata.data, filedata.fileSize);
+
         ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
                                                    MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr,
                                                    _sound.sound);
@@ -180,6 +184,8 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
             SDL_Log("%s", error.c_str());
             throw std::runtime_error(error.c_str());
         }
+
+        free(filedata.data);
 
         _sounds[fileName] = _sound;
 
@@ -194,6 +200,10 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
         MusicAsset _music;
 
         _music.music = new ma_sound();
+
+        auto filedata = _resolveFile(fileName);
+        ma_resource_manager_register_encoded_data(Audio::GetAudioEngine()->pResourceManager, fileName.c_str(), filedata.data, filedata.fileSize);
+
         ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
                                                    MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr,
                                                    _music.music);
@@ -204,6 +214,8 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
             SDL_Log("%s", error.c_str());
             throw std::runtime_error(error.c_str());
         }
+
+        free(filedata.data);
 
         _musics[fileName] = _music;
 
@@ -222,14 +234,21 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
 
         FontAsset _font;
 
+        auto filedata = _resolveFile(fileName);
+        SDL_IOStream* ttfFontData = SDL_IOFromConstMem(filedata.data, filedata.fileSize);
+
         _font.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
-        _font.ttfFont = TTF_OpenFont(fileName.c_str(), fontSize);
+        _font.ttfFont = TTF_OpenFontIO(ttfFontData, true, fontSize);
 
         if (!_font.ttfFont) {
-            throw std::runtime_error("Can't load font.");
+            throw std::runtime_error(Helpers::TextFormat("%s: failed to load font: %s", CURRENT_METHOD(), fileName.c_str()));
         }
 
+        SDL_Log("%s: loaded font %s (size: %i)", CURRENT_METHOD(), fileName.c_str(), fontSize);
+
         _fonts[index] = _font;
+
+        _font.fontData = std::move(filedata.data);
 
         return _fonts[index];
     } else {
@@ -415,4 +434,75 @@ TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData,
 #endif
 
     return texture;
+}
+
+bool AssetHandler::_initPhysFS() {
+    if (PHYSFS_init(nullptr) == 0) {
+        std::cerr << "Failed to initialize PhysFS: "
+                  << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
+        return false;
+    }
+
+    if (!PHYSFS_mount("./", nullptr, 1)) {
+        std::cerr << "Failed to mount current working directory: "
+                  << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
+        PHYSFS_deinit();
+        return false;
+    }
+
+    #ifdef PACKED_ASSET_FILE
+        SDL_Log("%s: found packed asset file: %s", CURRENT_METHOD(), PACKED_ASSET_FILE);
+        if (!PHYSFS_mount(PACKED_ASSET_FILE, nullptr, 0)) {
+            std::cerr << "Failed to mount archive (" << PACKED_ASSET_FILE << "): "
+                      << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
+            PHYSFS_deinit();
+            return false;
+        }
+    #endif
+
+    return true;
+}
+
+AssetHandler::PhysFSFileData AssetHandler::_resolveFile(const std::string& filename) {
+        PhysFSFileData result = {nullptr, 0};
+    if (!PHYSFS_exists(filename.c_str())) {
+        std::cerr << "File does not exist: " << filename << std::endl;
+        return result;
+    }
+
+    PHYSFS_File* file = PHYSFS_openRead(filename.c_str());
+    if (!file) {
+        std::cerr << "Failed to open file: " << filename
+                  << " - " << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
+        return result;
+    }
+
+    PHYSFS_sint64 fileSize = PHYSFS_fileLength(file);
+    if (fileSize <= 0) {
+        std::cerr << "Invalid file size: " << fileSize << std::endl;
+        PHYSFS_close(file);
+        return result;
+    }
+
+    void* buffer = malloc(fileSize);
+    if (!buffer) {
+        std::cerr << "Failed to allocate memory for file: " << filename << std::endl;
+        PHYSFS_close(file);
+        return result;
+    }
+
+    PHYSFS_sint64 bytesRead = PHYSFS_readBytes(file, buffer, fileSize);
+    if (bytesRead != fileSize) {
+        std::cerr << "Failed to read file: " << filename
+                  << " - " << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
+        free(buffer);
+        PHYSFS_close(file);
+        return result;
+    }
+
+    PHYSFS_close(file);
+
+    result.data = buffer;
+    result.fileSize = static_cast<int>(fileSize);
+    return result;
 }
