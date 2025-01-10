@@ -85,6 +85,8 @@ vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw) {
     auto width  = (float)tw;
     auto height = (float)th;
 
+    TTF_DestroyText(text);
+
     return {width, height};
 }
 
