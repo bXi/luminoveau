@@ -63,11 +63,6 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& si
     SDL_FRect dstRect = _doCamera(pos, size);
     SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
-    // Set the flip flags
-    int flipFlags = SDL_FLIP_NONE;
-    if (src.width < 0.f) { flipFlags |= SDL_FLIP_HORIZONTAL; }
-    if (src.height < 0.f) { flipFlags |= SDL_FLIP_VERTICAL; }
-
     vf2d scale = size / texture.getSize();
 
     float u0 = srcRect.x / (float)texture.getSize().x;
