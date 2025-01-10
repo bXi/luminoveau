@@ -95,7 +95,7 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& si
         .tintColor = color,
     };
 
-    Renderer::AddToRenderQueue("2dsprites", renderable);
+    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
 
 }
 
