@@ -61,8 +61,13 @@ public:
      *
      * @param icon The new icon to set as window icon.
      */
-    static void SetIcon(Texture icon) { get()._setIcon(icon); }
+    static void SetIcon(const std::string &filename) { get()._setIcon(filename); }
 
+    /**
+     * @brief Sets the window title.
+     *
+     * @param title The new title to set as the window title.
+     */
     static void SetTitle(const std::string &title) { get()._setTitle(title); }
 
     /**
@@ -201,7 +206,7 @@ private:
 
     void _initWindow(const std::string &title, int width, int height, int scale = 0, unsigned int flags = 0);
 
-    void _setIcon(Texture icon);
+    void _setIcon(const std::string &filename);
 
     void _setTitle(const std::string &title);
 

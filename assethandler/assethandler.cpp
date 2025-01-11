@@ -138,31 +138,6 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
 
 void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
-    SDL_Surface *surface = texture.surface;
-
-    if (!surface) {
-
-    }
-
-    SDL_Surface *rgbaSurface = surface;
-
-    if (surface->format != SDL_PIXELFORMAT_ARGB8888) {
-        rgbaSurface = SDL_ConvertSurface(surface, SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888);
-    }
-
-    auto *pixels = new unsigned char[rgbaSurface->w * rgbaSurface->h * 4];
-
-    SDL_LockSurface(rgbaSurface);
-    memcpy(pixels, rgbaSurface->pixels, rgbaSurface->w * rgbaSurface->h * 4);
-    SDL_UnlockSurface(rgbaSurface);
-
-    stbi_write_png(fileName, rgbaSurface->w, rgbaSurface->h, 4, pixels, rgbaSurface->w * 4);
-
-    delete[] pixels;
-
-    if (surface->format != SDL_PixelFormat::SDL_PIXELFORMAT_ARGB8888) {
-        SDL_DestroySurface(rgbaSurface);
-    }
 }
 
 Sound AssetHandler::_getSound(const std::string &fileName) {

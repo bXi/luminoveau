@@ -45,9 +45,6 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
             Renderable ren = {
                 .texture = tex,
                 .size = glm::vec2(maxX - minX, maxY - minY),
-                .transform = {
-                    .position = glm::vec2(minX + pos.x, pos.y + (0 - maxY)),
-                },
                 .uv = {
                     glm::vec2(uvMaxX, uvMaxY),  // Top-right
                     glm::vec2(uvMinX, uvMaxY),  // Top-left
@@ -57,6 +54,9 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
                     glm::vec2(uvMaxX, uvMinY)   // Bottom-right
                 },
                 .tintColor = color,
+                .transform = {
+                    .position = glm::vec2(minX + pos.x, pos.y + (0 - maxY)),
+                },
             };
 
             // Add to the render queue

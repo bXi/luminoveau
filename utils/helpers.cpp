@@ -224,21 +224,22 @@ void Helpers::DrawMainMenu() {
         ImGui::BeginChild("Loaded textures");
 
         for (auto &texture: AssetHandler::GetTextures()) {
+            //TODO: fix with sdl_gpu
 
             ImGui::Text("%s", texture.first.c_str());
 
-            SDL_Texture *my_texture = texture.second.texture;
-            int my_image_width = texture.second.width;
-            int my_image_height = texture.second.height;
-
-            ImGui::Text("size = %d x %d", my_image_width, my_image_height);
-
-
-            const char *surfacePixelFormatName = SDL_GetPixelFormatName(texture.second.surface->format);
-
-            ImGui::Text("pixel format = %s", surfacePixelFormatName);
-
-            ImGui::Image((void *) my_texture, ImVec2(my_image_width, my_image_height));
+//            SDL_Texture *my_texture = texture.second.texture;
+//            int my_image_width = texture.second.width;
+//            int my_image_height = texture.second.height;
+//
+//            ImGui::Text("size = %d x %d", my_image_width, my_image_height);
+//
+//
+//            const char *surfacePixelFormatName = SDL_GetPixelFormatName(texture.second.surface->format);
+//
+//            ImGui::Text("pixel format = %s", surfacePixelFormatName);
+//
+//            ImGui::Image((void *) my_texture, ImVec2(my_image_width, my_image_height));
 
 
         }

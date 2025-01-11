@@ -47,9 +47,6 @@ bool SpriteRenderPass::init(
                 .enable_depth_test = true,
                 .enable_depth_write = false,
                 .enable_stencil_test = false,
-                .padding1 = 0,
-                .padding2 = 0,
-                .padding3 = 0,
             },
         .target_info =
             {
@@ -57,9 +54,6 @@ bool SpriteRenderPass::init(
                 .num_color_targets = 1,
                 .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
                 .has_depth_stencil_target = true,
-                .padding1 = 0,
-                .padding2 = 0,
-                .padding3 = 0,
             },
         .props = 0,
     };
@@ -70,8 +64,6 @@ bool SpriteRenderPass::init(
     }
 
     SDL_Log("%s: created graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
-
-
 
     return true;
 }
@@ -107,20 +99,27 @@ void SpriteRenderPass::render(
         SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
 
         for (const auto &renderable: renderQueue) {
+            // Precompute the common matrices outside the loop if possible
             glm::mat4 z_index_matrix = glm::translate(
                 glm::mat4(1.0f),
-                //TODO: fix Zindex
-                glm::vec3(0.0f, 0.0f, (float) Renderer::GetZIndex() / (float) INT32_MAX)// + (renderable.z_index * 10000)))
+                glm::vec3(0.0f, 0.0f, static_cast<float>(Renderer::GetZIndex()) / static_cast<float>(INT32_MAX))
             );
-            glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(renderable.size, 1.0f));
+
+            glm::mat4 size_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(renderable.size, 1.0f));
+
+            // Combine the transformation matrices once
+            glm::mat4 model_matrix = renderable.transform.to_matrix() * z_index_matrix * size_matrix;
+
+            // Precompute flipped vectors
+            glm::vec2 flipped{
+                renderable.flipped_horizontally ? -1.0f : 1.0f,
+                renderable.flipped_vertically ? -1.0f : 1.0f
+            };
 
             Uniforms uniforms{
                 .camera = camera,
-                .model = renderable.transform.to_matrix() * z_index_matrix * size_matrix,
-                .flipped = glm::vec2(
-                    renderable.flipped_horizontally ? -1.0 : 1.0,
-                    renderable.flipped_vertically ? -1.0 : 1.0
-                ),
+                .model = model_matrix,
+                .flipped = flipped,
                 .uv0 = renderable.uv[0],
                 .uv1 = renderable.uv[1],
                 .uv2 = renderable.uv[2],
@@ -134,6 +133,7 @@ void SpriteRenderPass::render(
             };
 
             SDL_PushGPUVertexUniformData(cmd_buffer, 0, &uniforms, sizeof(uniforms));
+
             auto texture_sampler_binding = SDL_GPUTextureSamplerBinding{
                 .texture = renderable.texture.gpuTexture,
                 .sampler = renderable.texture.gpuSampler,

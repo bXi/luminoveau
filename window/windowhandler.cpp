@@ -371,9 +371,14 @@ void Window::SetupImGuiStyle() {
 
 #endif
 
-void Window::_setIcon(Texture icon) {
-    if (icon.surface)
-        SDL_SetWindowIcon(_getWindow(), icon.surface);
+void Window::_setIcon(const std::string &filename) {
+
+    auto* iconSurface = STBIMG_Load(filename.c_str());
+
+    if (iconSurface) {
+        SDL_SetWindowIcon(_getWindow(), iconSurface);
+        SDL_DestroySurface(iconSurface);
+    }
 }
 
 void Window::_setTitle(const std::string &title) {

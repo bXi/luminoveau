@@ -47,11 +47,11 @@ void Draw::_drawTexture(TextureType texture, vf2d pos, const vf2d& size, Color c
     Renderable tex = {
         .texture = texture,
         .size = {texture.width, texture.height},
+        .tintColor = color,
         .transform = {
             .position = { pos.x, pos.y},
             .scale = {scale.x, scale.y }
         },
-        .tintColor = color,
 
     };
 
@@ -73,12 +73,6 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& si
     Renderable renderable = {
         .texture = texture,
         .size = {texture.width, texture.height},
-        .flipped_horizontally = (src.width >= 0.f),
-        .flipped_vertically = (src.height < 0.f),
-        .transform = {
-            .position = { dstRect.x, dstRect.y},
-            .scale = {scale.x, scale.y }
-        },
         .uv = {
             glm::vec2(u1, v1),  // Top-right
             glm::vec2(u0, v1),  // Top-left
@@ -88,6 +82,12 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& si
             glm::vec2(u1, v0)   // Bottom-right
         },
         .tintColor = color,
+        .flipped_horizontally = (src.width >= 0.f),
+        .flipped_vertically = (src.height < 0.f),
+        .transform = {
+            .position = { dstRect.x, dstRect.y},
+            .scale = {scale.x, scale.y }
+        },
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
