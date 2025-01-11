@@ -160,8 +160,6 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
             throw std::runtime_error(error.c_str());
         }
 
-        free(filedata.data);
-
         _sounds[fileName] = _sound;
 
         return _sounds[fileName];
@@ -189,8 +187,6 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
             SDL_Log("%s", error.c_str());
             throw std::runtime_error(error.c_str());
         }
-
-        free(filedata.data);
 
         _musics[fileName] = _music;
 
