@@ -29,6 +29,12 @@ enum class ScaleMode {
     LINEAR,
 };
 
+struct PhysFSFileData {
+    void* data;
+    int fileSize;
+};
+
+
 /**
  * @brief Manages assets and provides utility functions for working with assets.
  */
@@ -155,6 +161,9 @@ public:
         return get()._musics;
     }
 
+    static PhysFSFileData GetFileFromPhysFS(const std::string &filename) { return get()._resolveFile(filename); }
+
+
 private:
     // Textures
 
@@ -203,10 +212,6 @@ private:
 
     ScaleMode defaultMode = ScaleMode::NEAREST;
 
-    struct PhysFSFileData {
-        void* data;
-        int fileSize;
-    };
 
     bool _initPhysFS();
 

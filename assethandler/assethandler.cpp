@@ -434,7 +434,7 @@ bool AssetHandler::_initPhysFS() {
     return true;
 }
 
-AssetHandler::PhysFSFileData AssetHandler::_resolveFile(const std::string& filename) {
+PhysFSFileData AssetHandler::_resolveFile(const std::string& filename) {
         PhysFSFileData result = {nullptr, 0};
     if (!PHYSFS_exists(filename.c_str())) {
         std::cerr << "File does not exist: " << filename << std::endl;

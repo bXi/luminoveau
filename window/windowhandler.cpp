@@ -373,12 +373,15 @@ void Window::SetupImGuiStyle() {
 
 void Window::_setIcon(const std::string &filename) {
 
-    auto* iconSurface = STBIMG_Load(filename.c_str());
+    auto icon = AssetHandler::GetFileFromPhysFS(filename);
+    auto* iconSurface = STBIMG_LoadFromMemory((const unsigned char*)icon.data, icon.fileSize);
 
     if (iconSurface) {
         SDL_SetWindowIcon(_getWindow(), iconSurface);
         SDL_DestroySurface(iconSurface);
     }
+
+    free(icon.data);
 }
 
 void Window::_setTitle(const std::string &title) {
