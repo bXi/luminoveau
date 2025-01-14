@@ -44,6 +44,19 @@ if (SPIRV-Cross_ADDED)
     target_include_directories("luminoveau" PUBLIC ${SPIRV-Cross_SOURCE_DIR})
 endif ()
 
+set(ENABLE_OPT OFF)
+
+CPMAddPackage(
+        NAME glslang
+        GIT_TAG e435148
+        GITHUB_REPOSITORY KhronosGroup/glslang
+)
+
+if (glslang_ADDED)
+    target_include_directories("luminoveau" PUBLIC ${glslang_SOURCE_DIR})
+endif ()
+
+
 CPMAddPackage(
         NAME SDL3
         GIT_TAG c030e6f
@@ -146,11 +159,13 @@ if (ANDROID)
             SDL3::SDL3
             SDL3_ttf::SDL3_ttf
             spirv-cross-c
+            glslang
     )
 else ()
     target_link_libraries("luminoveau" PUBLIC
             SDL3::SDL3-static
             SDL3_ttf::SDL3_ttf
             spirv-cross-c
+            glslang
     )
 endif ()

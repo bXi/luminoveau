@@ -10,9 +10,11 @@
 //Engine components
 #include <assethandler/assethandler.h>
 #include <audio/audiohandler.h>
+#include <draw/drawhandler.h>
 #include <eventbus/eventbushandler.h>
 #include <input/inputhandler.h>
-#include <draw/drawhandler.h>
+#include <renderer/rendererhandler.h>
+#include <renderer/shaderhandler.h>
 #include <text/texthandler.h>
 #include <window/windowhandler.h>
 

@@ -32,6 +32,7 @@ enum class ScaleMode {
 struct PhysFSFileData {
     void* data;
     int fileSize;
+    std::vector<uint8_t> fileDataVector;
 };
 
 

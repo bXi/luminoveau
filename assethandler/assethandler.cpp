@@ -11,6 +11,8 @@
 #include <vector>
 
 #include "renderer/rendererhandler.h"
+#include "renderer/shaderhandler.h"
+
 
 AssetHandler::AssetHandler() {
     if (!TTF_WasInit()) {
@@ -251,22 +253,9 @@ Shader AssetHandler::_getShader(const std::string &fileName) {
 
         ShaderAsset _shader;
 
-        std::string binFileName = fileName + ".bin";
+        auto shaderData = Shaders::GetShader(fileName);
 
-        if (!std::filesystem::exists(binFileName)) {
-            //do compile
-        }
-
-        size_t fileSize = 0;
-        void* fileData = SDL_LoadFile(binFileName.c_str(), &fileSize);
-
-        _shader.fileData = std::vector<uint8_t>(static_cast<uint8_t*>(fileData),
-                                        static_cast<uint8_t*>(fileData) + fileSize);
-
-        if (_shader.fileData.empty()) {
-            throw std::runtime_error(Helpers::TextFormat("Failed to load shader from disk! %s", fileName.c_str()));
-        }
-
+        _shader.fileData = shaderData.fileDataVector;
         spirv_cross::Compiler compiler(reinterpret_cast<const uint32_t*>(_shader.fileData.data()), _shader.fileData.size() / sizeof(uint32_t));
         const auto resources = compiler.get_shader_resources();
 
