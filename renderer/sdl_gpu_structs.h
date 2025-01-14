@@ -6,6 +6,8 @@ namespace GPUstructs {
 
     extern SDL_GPUColorTargetBlendState defaultBlendState;
 
+    extern SDL_GPUColorTargetBlendState srcAlphaBlendState;
+
     extern SDL_GPURasterizerState defaultRasterizerState;
 
     extern SDL_GPUSamplerCreateInfo linearSamplerCreateInfo;

@@ -11,6 +11,16 @@ namespace GPUstructs {
         .enable_blend = true,
     };
 
+    SDL_GPUColorTargetBlendState srcAlphaBlendState = {
+        .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+        .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+        .color_blend_op = SDL_GPU_BLENDOP_ADD,
+        .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+        .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+        .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
+        .enable_blend = true,
+    };
+
     SDL_GPURasterizerState defaultRasterizerState = {
         .fill_mode = SDL_GPU_FILLMODE_FILL,
         .cull_mode = SDL_GPU_CULLMODE_NONE,

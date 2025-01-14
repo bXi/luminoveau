@@ -76,7 +76,7 @@ bool ShaderRenderPass::init(
 
     std::vector<SDL_GPUColorTargetDescription> color_target_descriptions(fragShader.samplerCount, SDL_GPUColorTargetDescription{
         .format = swapchain_texture_format,
-        .blend_state = GPUstructs::defaultBlendState,
+        .blend_state = GPUstructs::srcAlphaBlendState,
     });
 
     SDL_GPUGraphicsPipelineCreateInfo pipeline_create_info{
