@@ -11,6 +11,7 @@
 #include "renderpass.h"
 #include "spriterenderpass.h"
 #include "shaderrenderpass.h"
+#include "shaderhandler.h"
 
 void Renderer::_initRendering() {
 
@@ -33,6 +34,8 @@ void Renderer::_initRendering() {
         return;
     }
     SDL_Log("%s: claimed window for gpu device", CURRENT_METHOD());
+
+    Shaders::Init();
 
     _samplers[ScaleMode::NEAREST] = SDL_CreateGPUSampler(m_device, &GPUstructs::nearestSamplerCreateInfo);
     _samplers[ScaleMode::LINEAR]  = SDL_CreateGPUSampler(m_device, &GPUstructs::linearSamplerCreateInfo);
