@@ -22,7 +22,7 @@ inline constexpr bool is_std_array_v = is_std_array<T>::value;
 class UniformBuffer {
 public:
     UniformBuffer() : alignment(16), currentOffset(0) {
-        buffer.reserve(1024);
+        buffer.resize(1024, 0);
     }
 
     // Proxy class for assignment through []
@@ -53,7 +53,7 @@ public:
         size_t requiredCapacity = offset + typeSize;
         if (requiredCapacity > buffer.capacity()) {
             size_t newCapacity = ((requiredCapacity + 1023) / 1024) * 1024; // Round up to the nearest multiple of 1024
-            buffer.resize(newCapacity);
+            buffer.resize(newCapacity, 0);
         }
 
         currentOffset = std::max(currentOffset, requiredCapacity);
