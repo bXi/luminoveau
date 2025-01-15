@@ -118,39 +118,37 @@ bool ShaderRenderPass::init(
         throw std::runtime_error(Helpers::TextFormat("%s: failed to create graphics pipeline: %s", CURRENT_METHOD(), SDL_GetError()));
     }
 
-    SDL_GPUShaderCreateInfo vertexShaderInfo = {
-        .code_size            = SpriteRenderPass::sprite_vert_bin_len,
-        .code                 = SpriteRenderPass::sprite_vert_bin,
-        .entrypoint           = "main",
-        .format               = SDL_GPU_SHADERFORMAT_SPIRV,
-        .stage                = SDL_GPU_SHADERSTAGE_VERTEX,
-        .num_samplers         = 0,
-        .num_storage_textures = 0,
-        .num_storage_buffers  = 0,
-        .num_uniform_buffers  = 2,
-    };
+    if (!finalrender_vertex_shader) {
+        SDL_GPUShaderCreateInfo vertexShaderInfo = {
+            .code_size            = SpriteRenderPass::sprite_vert_bin_len,
+            .code                 = SpriteRenderPass::sprite_vert_bin,
+            .entrypoint           = "main",
+            .format               = SDL_GPU_SHADERFORMAT_SPIRV,
+            .stage                = SDL_GPU_SHADERSTAGE_VERTEX,
+            .num_samplers         = 0,
+            .num_storage_textures = 0,
+            .num_storage_buffers  = 0,
+            .num_uniform_buffers  = 2,
+        };
 
-    finalrender_vertex_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &vertexShaderInfo);
-
-    if (!vertex_shader) {
-        throw std::runtime_error(
-            Helpers::TextFormat("%s: failed to create vertex shader for: %s (%s)", CURRENT_METHOD(), passname.c_str(), SDL_GetError()));
+        finalrender_vertex_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &vertexShaderInfo);
     }
 
-    SDL_GPUShaderCreateInfo fragmentShaderInfo = {
-        .code_size            = SpriteRenderPass::sprite_frag_bin_len,
-        .code                 = SpriteRenderPass::sprite_frag_bin,
-        .entrypoint           = "main",
-        .format               = SDL_GPU_SHADERFORMAT_SPIRV,
-        .stage                = SDL_GPU_SHADERSTAGE_FRAGMENT,
-        .num_samplers         = 1,
-        .num_storage_textures = 0,
-        .num_storage_buffers  = 0,
-        .num_uniform_buffers  = 1,
-    };
+    if (!finalrender_fragment_shader) {
+        SDL_GPUShaderCreateInfo fragmentShaderInfo = {
+            .code_size            = SpriteRenderPass::sprite_frag_bin_len,
+            .code                 = SpriteRenderPass::sprite_frag_bin,
+            .entrypoint           = "main",
+            .format               = SDL_GPU_SHADERFORMAT_SPIRV,
+            .stage                = SDL_GPU_SHADERSTAGE_FRAGMENT,
+            .num_samplers         = 1,
+            .num_storage_textures = 0,
+            .num_storage_buffers  = 0,
+            .num_uniform_buffers  = 1,
+        };
 
-    finalrender_fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &fragmentShaderInfo);
-
+        finalrender_fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &fragmentShaderInfo);
+    }
     SDL_Log("%s: created graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
 
     return true;
