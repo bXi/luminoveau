@@ -34,6 +34,10 @@ class ShaderRenderPass : public RenderPass {
     SDL_GPUShader *vertex_shader   = nullptr;
     SDL_GPUShader *fragment_shader = nullptr;
 
+    SDL_GPUShader *finalrender_fragment_shader = nullptr;
+    SDL_GPUShader *finalrender_vertex_shader   = nullptr;
+
+
     std::vector<std::string> foundSamplers;
 
     void _loadSamplerNamesFromShader(const std::vector<uint8_t> &spirvBinary);
