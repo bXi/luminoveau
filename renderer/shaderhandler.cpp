@@ -31,7 +31,6 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
         auto spirvBlob = _compileGLSLtoSPIRV(shaderString, shaderStage);
 
         if (spirvBlob.empty()) {
-            std::cerr << shaderString << std::endl;
             throw std::runtime_error(Helpers::TextFormat("%s: failed to compile shader: %s", CURRENT_METHOD(), filename.c_str()));
         }
 
