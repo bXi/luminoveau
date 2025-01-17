@@ -177,6 +177,12 @@ public:
     static bool ShouldQuit() { return EngineState::_shouldQuit; }
 
     /**
+     * @brief Sets flag to acknowledging the application should quit.
+     *
+     */
+    static void SignalEndLoop() { EngineState::_shouldQuit = true; }
+
+    /**
      * @brief Gets the time taken to render the last frame.
      *
      * @return The time taken to render the last frame in seconds.
