@@ -30,14 +30,15 @@ if (glm_ADDED)
     target_include_directories("luminoveau" PUBLIC ${glm_SOURCE_DIR})
 endif ()
 
-set(SPIRV_CROSS_STATIC ON)
-set(SPIRV_CROSS_CLI OFF)
-set(SPIRV_CROSS_ENABLE_TESTS OFF)
+# SPIRV-Cross
+set(SPIRV_CROSS_CLI          OFF CACHE BOOL "" FORCE)
+set(SPIRV_CROSS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 
 CPMAddPackage(
         NAME SPIRV-Cross
         GIT_TAG 6173e24
         GITHUB_REPOSITORY KhronosGroup/SPIRV-Cross
+
 )
 
 if (SPIRV-Cross_ADDED)
@@ -158,14 +159,20 @@ if (ANDROID)
     target_link_libraries("luminoveau" PUBLIC
             SDL3::SDL3
             SDL3_ttf::SDL3_ttf
-            spirv-cross-c
+            spirv-cross-core
+            spirv-cross-msl
+            spirv-cross-glsl
+            spirv-cross-hlsl
             glslang
     )
 else ()
     target_link_libraries("luminoveau" PUBLIC
             SDL3::SDL3-static
             SDL3_ttf::SDL3_ttf
-            spirv-cross-c
+            spirv-cross-core
+            spirv-cross-msl
+            spirv-cross-glsl
+            spirv-cross-hlsl
             glslang
     )
 endif ()
