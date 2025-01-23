@@ -65,10 +65,10 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& si
 
     vf2d scale = size / texture.getSize();
 
-    float u0 = srcRect.x / (float)texture.getSize().x;
-    float v0 = srcRect.y / (float)texture.getSize().y;
-    float u1 = (srcRect.x + srcRect.w) / (float)texture.getSize().x;
-    float v1 = (srcRect.y + srcRect.h) / (float)texture.getSize().y;
+    float u0 = 1.0f - (srcRect.x / (float)texture.getSize().x);
+    float v0 = (srcRect.y / (float)texture.getSize().y);
+    float u1 = 1.0f - ((srcRect.x + srcRect.w) / (float)texture.getSize().x);
+    float v1 = ((srcRect.y + srcRect.h) / (float)texture.getSize().y);
 
     Renderable renderable = {
         .texture = texture,
