@@ -99,6 +99,9 @@ void SpriteRenderPass::render(
         SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
 
         for (const auto &renderable: renderQueue) {
+            if (renderable.transform.position.x > (float)Window::GetWidth() || renderable.transform.position.y > (float)Window::GetHeight() ||
+            renderable.transform.position.x + (float)renderable.size.x < 0.f || renderable.transform.position.y + (float)renderable.size.y < 0.f) continue;
+
             // Precompute the common matrices outside the loop if possible
             glm::mat4 z_index_matrix = glm::translate(
                 glm::mat4(1.0f),
