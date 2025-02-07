@@ -36,7 +36,7 @@ set(SPIRV_CROSS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 
 CPMAddPackage(
         NAME SPIRV-Cross
-        GIT_TAG 6173e24
+        GIT_TAG 1a7b7ef
         GITHUB_REPOSITORY KhronosGroup/SPIRV-Cross
 
 )
@@ -78,7 +78,7 @@ if (NOT MSVC AND NOT ANDROID)
     CPMAddPackage(
             NAME freetype
             GIT_REPOSITORY https://github.com/freetype/freetype.git
-            GIT_TAG 59320b2
+            GIT_TAG b1f4785
     )
 
     if (freetype_ADDED)
