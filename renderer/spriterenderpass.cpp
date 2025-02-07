@@ -102,33 +102,10 @@ void SpriteRenderPass::render(
             if (renderable.transform.position.x > (float)Window::GetWidth() || renderable.transform.position.y > (float)Window::GetHeight() ||
             renderable.transform.position.x + (float)renderable.size.x < 0.f || renderable.transform.position.y + (float)renderable.size.y < 0.f) continue;
 
-            // Given parameters
-            glm::vec2 position = renderable.transform.position;       // World position
-            glm::vec2 size     = renderable.size;                     // Original texture size in pixels
-            glm::vec2 scale    = renderable.transform.scale;          // Scale factors (can be non-uniform)
-            float     angle    = renderable.transform.rotation;       // Rotation angle in degrees
-            glm::vec2 pivot    = renderable.transform.rotationOrigin; // Normalized pivot (center)
-            float     z_index  = (float)Renderer::GetZIndex() / (float)INT32_MAX;
-
-            glm::vec2 pivot_offset = (size * scale) * pivot;
-            glm::mat4 scale_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(size * scale, 1.0f));
-            glm::mat4 pivot_translate_back = glm::translate(glm::mat4(1.0f), glm::vec3(-pivot_offset, 0.0f));
-            glm::mat4 rotation_matrix = glm::rotate(glm::mat4(1.0f), glm::radians(angle), glm::vec3(0.0f, 0.0f, 1.0f));
-            glm::mat4 pivot_translate = glm::translate(glm::mat4(1.0f), glm::vec3(pivot_offset, 0.0f));
-            glm::mat4 translation_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(position, z_index));
-
-            glm::mat4 model_matrix = translation_matrix * pivot_translate * rotation_matrix * pivot_translate_back * scale_matrix;
-
-            // Precompute flipped vectors
-            glm::vec2 flipped{
-                renderable.flipped_horizontally ? -1.0f : 1.0f,
-                renderable.flipped_vertically ? -1.0f : 1.0f
-            };
-
             Uniforms uniforms{
                 .camera = camera,
-                .model = model_matrix,
-                .flipped = flipped,
+                .model = renderable.model,
+                .flipped = renderable.flipped,
                 .uv0 = renderable.uv[0],
                 .uv1 = renderable.uv[1],
                 .uv2 = renderable.uv[2],

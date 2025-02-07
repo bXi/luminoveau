@@ -17,10 +17,10 @@ struct Renderable {
         glm::vec2(0.0, 0.0), // bottom-left
         glm::vec2(1.0, 0.0)   // bottom-right
     };
+    glm::mat4 model;
+    glm::vec2 flipped;
+
     Color tintColor = 0xFFFFFFFF;
-    bool flipped_horizontally{false};
-    bool flipped_vertically{false};
-    int  z_index{0};
 
     struct Transform {
         glm::vec2 position{0.0f};

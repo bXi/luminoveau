@@ -14,15 +14,13 @@ void Draw::_drawCircle(vf2d pos, float radius, Color color) {
         // Convert world space coordinates to screen space
         pos = Camera::ToScreenSpace(pos);
     }
-
 }
 
-void Draw::_drawRectangleRounded(vf2d pos, const vf2d& size, float radius, Color color) {
+void Draw::_drawRectangleRounded(vf2d pos, const vf2d &size, float radius, Color color) {
     if (Camera::IsActive()) {
         pos = Camera::ToScreenSpace(pos);
         radius *= Camera::GetScale();
     }
-
 }
 
 void Draw::_drawLine(vf2d start, vf2d end, Color color) {
@@ -31,44 +29,70 @@ void Draw::_drawLine(vf2d start, vf2d end, Color color) {
         start = Camera::ToScreenSpace(start);
         end   = Camera::ToScreenSpace(end);
     }
-
-
 }
 
 void Draw::_drawArc(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
 }
 
-void Draw::_drawTexture(TextureType texture, vf2d pos, const vf2d& size, Color color) {
-
-    SDL_FRect dstRect = _doCamera(pos, size);
+void Draw::_drawTexture(TextureType texture, vf2d pos, const vf2d &size, Color color) {
 
     vf2d scale = size / texture.getSize();
 
-    Renderable tex = {
+    // Precompute flipped vectors
+    glm::vec2 flipped{1.0f, 1.0f};
+
+    // Given parameters
+    glm::vec2 rPosition = {pos.x, pos.y};    // World position
+    glm::vec2 rSize     = texture.getSize(); // Original texture size in pixels
+    glm::vec2 rScale    = scale;             // Scale factors (can be non-uniform)
+    float     rZ_index  = (float) Renderer::GetZIndex() / (float) INT32_MAX;
+
+    glm::mat4 scale_matrix       = glm::scale(glm::mat4(1.0f), glm::vec3(rSize * rScale, 1.0f));
+    glm::mat4 translation_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(rPosition, rZ_index));
+
+    glm::mat4 model_matrix = translation_matrix * scale_matrix;
+
+    Renderable renderable = {
         .texture = texture,
         .size = {texture.width, texture.height},
+        .model = model_matrix,
+        .flipped = flipped,
         .tintColor = color,
         .transform = {
-            .position = { pos.x, pos.y},
-            .scale = {scale.x, scale.y }
+            .position = {pos.x, pos.y},
+            .scale = {scale.x, scale.y}
         },
-
     };
 
-    Renderer::AddToRenderQueue(_targetRenderPass, tex);
-
+    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
 }
 
-void Draw::_drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color) {
+void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &size, const rectf &src, Color color) {
     SDL_FRect dstRect = _doCamera(pos, size);
     SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
     vf2d scale = size / texture.getSize();
 
-    float u0 = 1.0f - (srcRect.x / (float)texture.getSize().x);
-    float v0 = (srcRect.y / (float)texture.getSize().y);
-    float u1 = 1.0f - ((srcRect.x + srcRect.w) / (float)texture.getSize().x);
-    float v1 = ((srcRect.y + srcRect.h) / (float)texture.getSize().y);
+    float u0 = 1.0f - (srcRect.x / (float) texture.getSize().x);
+    float v0 = (srcRect.y / (float) texture.getSize().y);
+    float u1 = 1.0f - ((srcRect.x + srcRect.w) / (float) texture.getSize().x);
+    float v1 = ((srcRect.y + srcRect.h) / (float) texture.getSize().y);
+
+    // Precompute flipped vectors
+    glm::vec2 flipped{
+        (src.width >= 0.f) ? -1.0f : 1.0f,
+        (src.height < 0.f) ? -1.0f : 1.0f
+    };
+
+    // Given parameters
+    glm::vec2 rPosition          = {dstRect.x, dstRect.y}; // World position
+    glm::vec2 rSize              = texture.getSize();      // Original texture size in pixels
+    glm::vec2 rScale             = scale;                  // Scale factors (can be non-uniform)
+    float     rZ_index           = (float) Renderer::GetZIndex() / (float) INT32_MAX;
+    glm::mat4 scale_matrix       = glm::scale(glm::mat4(1.0f), glm::vec3(rSize * rScale, 1.0f));
+    glm::mat4 translation_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(rPosition, rZ_index));
+
+    glm::mat4 model_matrix = translation_matrix * scale_matrix;
 
     Renderable renderable = {
         .texture = texture,
@@ -81,54 +105,87 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& si
             glm::vec2(u0, v0),  // Bottom-left
             glm::vec2(u1, v0)   // Bottom-right
         },
+        .model = model_matrix,
+        .flipped = flipped,
         .tintColor = color,
-        .flipped_horizontally = (src.width >= 0.f),
-        .flipped_vertically = (src.height < 0.f),
         .transform = {
-            .position = { dstRect.x, dstRect.y},
-            .scale = {scale.x, scale.y }
+            .position = {dstRect.x, dstRect.y},
+            .scale = {scale.x, scale.y}
         },
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
-
 }
-
 
 void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, const vf2d &size, float angle, vf2d pivot, Color color) {
 
-    SDL_FRect dstRect = _doCamera(pos, size);
-
     vf2d scale = size / texture.getSize();
 
-    Renderable tex = {
+    // Precompute flipped vectors
+    glm::vec2 flipped{1.0f, 1.0f};
+
+    // Given parameters
+    glm::vec2 rPosition = {pos.x, pos.y};     // World position
+    glm::vec2 rSize     = texture.getSize();  // Original texture size in pixels
+    glm::vec2 rScale    = scale;              // Scale factors (can be non-uniform)
+    float     rAngle    = fmod(angle, 360.f); // Rotation angle in degrees
+    glm::vec2 rPivot    = pivot;              // Normalized pivot (center)
+    float     rZ_index  = (float) Renderer::GetZIndex() / (float) INT32_MAX;
+
+    glm::vec2 pivot_offset         = (size * scale) * rPivot;
+    glm::mat4 scale_matrix         = glm::scale(glm::mat4(1.0f), glm::vec3(rSize * rScale, 1.0f));
+    glm::mat4 pivot_translate_back = glm::translate(glm::mat4(1.0f), glm::vec3(-pivot_offset, 0.0f));
+    glm::mat4 rotation_matrix      = glm::rotate(glm::mat4(1.0f), glm::radians(rAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 pivot_translate      = glm::translate(glm::mat4(1.0f), glm::vec3(pivot_offset, 0.0f));
+    glm::mat4 translation_matrix   = glm::translate(glm::mat4(1.0f), glm::vec3(rPosition, rZ_index));
+
+    glm::mat4 model_matrix = translation_matrix * pivot_translate * rotation_matrix * pivot_translate_back * scale_matrix;
+
+    Renderable renderable = {
         .texture = texture,
         .size = {texture.width, texture.height},
+        .model = model_matrix,
+        .flipped = flipped,
         .tintColor = color,
         .transform = {
-            .position = { pos.x, pos.y},
-            .scale = {scale.x, scale.y },
-            .rotationOrigin = pivot,
-            .rotation = angle,
+            .position = {pos.x, pos.y},
+            .scale = {scale.x, scale.y}
         },
-
     };
 
-    Renderer::AddToRenderQueue(_targetRenderPass, tex);
-
+    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
 }
 
 void Draw::_drawRotatedTexturePart(Draw::TextureType texture, const vf2d &pos, const vf2d &size, const rectf &src, float angle, vf2d pivot,
                                    Color color) {
-    SDL_FRect dstRect = _doCamera(pos, size);
     SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
     vf2d scale = size / texture.getSize();
 
-    float u0 = 1.0f - (srcRect.x / (float)texture.getSize().x);
-    float v0 = (srcRect.y / (float)texture.getSize().y);
-    float u1 = 1.0f - ((srcRect.x + srcRect.w) / (float)texture.getSize().x);
-    float v1 = ((srcRect.y + srcRect.h) / (float)texture.getSize().y);
+    float u0 = 1.0f - (srcRect.x / (float) texture.getSize().x);
+    float v0 = (srcRect.y / (float) texture.getSize().y);
+    float u1 = 1.0f - ((srcRect.x + srcRect.w) / (float) texture.getSize().x);
+    float v1 = ((srcRect.y + srcRect.h) / (float) texture.getSize().y);
+
+    // Precompute flipped vectors
+    glm::vec2 flipped{1.0f, 1.0f};
+
+    // Given parameters
+    glm::vec2 rPosition = {pos.x, pos.y};     // World position
+    glm::vec2 rSize     = texture.getSize();  // Original texture size in pixels
+    glm::vec2 rScale    = scale;              // Scale factors (can be non-uniform)
+    float     rAngle    = fmod(angle, 360.f); // Rotation angle in degrees
+    glm::vec2 rPivot    = pivot;              // Normalized pivot (center)
+    float     rZ_index  = (float) Renderer::GetZIndex() / (float) INT32_MAX;
+
+    glm::vec2 pivot_offset         = (size * scale) * rPivot;
+    glm::mat4 scale_matrix         = glm::scale(glm::mat4(1.0f), glm::vec3(rSize * rScale, 1.0f));
+    glm::mat4 pivot_translate_back = glm::translate(glm::mat4(1.0f), glm::vec3(-pivot_offset, 0.0f));
+    glm::mat4 rotation_matrix      = glm::rotate(glm::mat4(1.0f), glm::radians(rAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 pivot_translate      = glm::translate(glm::mat4(1.0f), glm::vec3(pivot_offset, 0.0f));
+    glm::mat4 translation_matrix   = glm::translate(glm::mat4(1.0f), glm::vec3(rPosition, rZ_index));
+
+    glm::mat4 model_matrix = translation_matrix * pivot_translate * rotation_matrix * pivot_translate_back * scale_matrix;
 
     Renderable renderable = {
         .texture = texture,
@@ -141,21 +198,17 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, const vf2d &pos, c
             glm::vec2(u0, v0),  // Bottom-left
             glm::vec2(u1, v0)   // Bottom-right
         },
+        .model = model_matrix,
+        .flipped = flipped,
         .tintColor = color,
-        .flipped_horizontally = (src.width >= 0.f),
-        .flipped_vertically = (src.height < 0.f),
         .transform = {
-            .position = { dstRect.x, dstRect.y},
-            .scale = {scale.x, scale.y },
-            .rotationOrigin = pivot,
-            .rotation = angle,
+            .position = {pos.x, pos.y},
+            .scale = {scale.x, scale.y}
         },
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
-
 }
-
 
 void Draw::_beginScissorMode(rectf area) {
     //TODO: fix with sdl_GPU
@@ -183,7 +236,6 @@ void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color 
         radius *= Camera::GetScale();  // Scale the radius with the camera's zoom
         size *= Camera::GetScale();    // Scale the size with the camera's zoom
     }
-
 }
 
 void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
@@ -206,7 +258,7 @@ void Draw::_endMode2D() {
     Camera::Deactivate();
 }
 
-rectf Draw::_doCamera(const vf2d& pos, const vf2d& size) {
+rectf Draw::_doCamera(const vf2d &pos, const vf2d &size) {
 
     rectf dstRect;
 
@@ -261,7 +313,6 @@ void Draw::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
         v2 = Camera::ToScreenSpace(v2);
         v3 = Camera::ToScreenSpace(v3);
     }
-
 }
 
 void Draw::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
@@ -271,8 +322,6 @@ void Draw::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color c
         radiusX *= Camera::GetScale();  // Scale radiusX with camera zoom
         radiusY *= Camera::GetScale();  // Scale radiusY with camera zoom
     }
-
-
 }
 
 void Draw::_drawPixel(vi2d pos, Color color) {
