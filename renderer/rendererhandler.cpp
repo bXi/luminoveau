@@ -375,9 +375,16 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
     );
     glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(renderable.size, 1.0f));
 
+    glm::mat4 scale_matrix = glm::mat4(
+        renderable.transform.scale.x, 0.0f, 0.0f, 0.0f,
+        0.0f, renderable.transform.scale.y, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        renderable.transform.position.x, renderable.transform.position.y, 0.0f, 1.0f
+    );
+
     Uniforms rtt_uniforms{
         .camera = m_camera,
-        .model = renderable.transform.to_matrix() * z_index_matrix * size_matrix,
+        .model = scale_matrix * z_index_matrix * size_matrix,
         .flipped = glm::vec2(1.0, 1.0),
     };
 

@@ -94,6 +94,69 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& si
 
 }
 
+
+void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, const vf2d &size, float angle, vf2d pivot, Color color) {
+
+    SDL_FRect dstRect = _doCamera(pos, size);
+
+    vf2d scale = size / texture.getSize();
+
+    Renderable tex = {
+        .texture = texture,
+        .size = {texture.width, texture.height},
+        .tintColor = color,
+        .transform = {
+            .position = { pos.x, pos.y},
+            .scale = {scale.x, scale.y },
+            .rotationOrigin = pivot,
+            .rotation = angle,
+        },
+
+    };
+
+    Renderer::AddToRenderQueue(_targetRenderPass, tex);
+
+}
+
+void Draw::_drawRotatedTexturePart(Draw::TextureType texture, const vf2d &pos, const vf2d &size, const rectf &src, float angle, vf2d pivot,
+                                   Color color) {
+    SDL_FRect dstRect = _doCamera(pos, size);
+    SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
+
+    vf2d scale = size / texture.getSize();
+
+    float u0 = 1.0f - (srcRect.x / (float)texture.getSize().x);
+    float v0 = (srcRect.y / (float)texture.getSize().y);
+    float u1 = 1.0f - ((srcRect.x + srcRect.w) / (float)texture.getSize().x);
+    float v1 = ((srcRect.y + srcRect.h) / (float)texture.getSize().y);
+
+    Renderable renderable = {
+        .texture = texture,
+        .size = {texture.width, texture.height},
+        .uv = {
+            glm::vec2(u1, v1),  // Top-right
+            glm::vec2(u0, v1),  // Top-left
+            glm::vec2(u1, v0),  // Bottom-right
+            glm::vec2(u0, v1),  // Top-left (repeated for triangle)
+            glm::vec2(u0, v0),  // Bottom-left
+            glm::vec2(u1, v0)   // Bottom-right
+        },
+        .tintColor = color,
+        .flipped_horizontally = (src.width >= 0.f),
+        .flipped_vertically = (src.height < 0.f),
+        .transform = {
+            .position = { dstRect.x, dstRect.y},
+            .scale = {scale.x, scale.y },
+            .rotationOrigin = pivot,
+            .rotation = angle,
+        },
+    };
+
+    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+
+}
+
+
 void Draw::_beginScissorMode(rectf area) {
     //TODO: fix with sdl_GPU
     const SDL_Rect cliprect = area;
@@ -215,18 +278,4 @@ void Draw::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color c
 void Draw::_drawPixel(vi2d pos, Color color) {
     //TODO: fix with sdl_GPU
 
-}
-
-void Draw::_drawTextureMode7(TextureType texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color) {
-
-    float scaledA = std::abs(m7p.a) / static_cast<float>(m7p.snesScreenWidth);
-    float scaledD = std::abs(m7p.d) / static_cast<float>(m7p.snesScreenHeight);
-
-    SDL_FRect srcRect;
-    srcRect.x = m7p.h;
-    srcRect.y = m7p.v;
-    srcRect.w = m7p.snesScreenWidth * scaledA;
-    srcRect.h = m7p.snesScreenHeight * scaledD;
-
-    //TODO: fix with sdl_GPU
 }

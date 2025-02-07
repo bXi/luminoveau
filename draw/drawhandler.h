@@ -218,16 +218,32 @@ public:
     };
 
     /**
-     * @brief Draws a texture using Mode7 transformation at the specified position with the given size, transformation parameters, and color.
+     * @brief Draws a texture at the specified position with the given size and color.
      *
      * @param texture The texture to draw.
      * @param pos The position at which to draw the texture.
      * @param size The size of the drawn texture.
-     * @param m7p The Mode7 transformation parameters.
      * @param color The color of the drawn texture.
+     * @param angle The angle of rotation.
+     * @param pivot Where on the texture to rotate in normalized space.
      */
-    static void TextureMode7(TextureType texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE) {
-        get()._drawTextureMode7(texture, pos, size, m7p, color);
+    static void RotatedTexture(TextureType texture, vf2d pos, vf2d size, float angle, vf2d pivot = {0.5f, 0.5f}, Color color = WHITE) {
+        get()._drawRotatedTexture(texture, pos, size, angle, pivot, color);
+    };
+
+    /**
+     * @brief Draws a part of a texture at the specified position with the given size, source rectangle, and color.
+     *
+     * @param texture The texture to draw.
+     * @param pos The position at which to draw the texture.
+     * @param size The size of the drawn texture.
+     * @param src The source rectangle defining which part of the texture to draw.
+     * @param color The color of the drawn texture.
+     * @param angle The angle of rotation.
+     * @param pivot Where on the texture to rotate in normalized space.
+     */
+    static void RotatedTexturePart(TextureType texture, vf2d pos, vf2d size, rectf src, float angle, vf2d pivot, Color color = WHITE) {
+        get()._drawRotatedTexturePart(texture, pos, size, src, angle, pivot, color);
     };
 
     /**
@@ -292,7 +308,9 @@ private:
 
     void _drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color = WHITE);
 
-    void _drawTextureMode7(TextureType texture, vf2d pos, vf2d size, Mode7Parameters m7p, Color color = WHITE);
+    void _drawRotatedTexture(TextureType texture, vf2d pos, const vf2d& size, float angle, vf2d pivot,Color color = WHITE);
+
+    void _drawRotatedTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, float angle, vf2d pivot,Color color = WHITE);
 
     void _beginScissorMode(rectf area);
 

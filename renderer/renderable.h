@@ -8,7 +8,7 @@
 
 struct Renderable {
     TextureAsset texture;
-    glm::ivec2   size;
+    glm::vec2   size;
     glm::vec2 uv[6] = {
         glm::vec2(1.0, 1.0),   // top-right
         glm::vec2(0.0, 1.0),  // top-left
@@ -25,15 +25,8 @@ struct Renderable {
     struct Transform {
         glm::vec2 position{0.0f};
         glm::vec2 scale{1.0f};
-
-        [[nodiscard]] glm::mat4 to_matrix() const {
-            return glm::mat4(
-                this->scale.x, 0.0f, 0.0f, 0.0f,
-                0.0f, this->scale.y, 0.0f, 0.0f,
-                0.0f, 0.0f, 1.0f, 0.0f,
-                this->position.x, this->position.y, 0.0f, 1.0f
-            );
-        }
+        glm::vec2 rotationOrigin{0.5f};
+        float rotation = 0.f;
     } transform;
 
 

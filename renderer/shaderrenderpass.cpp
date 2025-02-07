@@ -185,13 +185,20 @@ void ShaderRenderPass::render(
         );
         glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(Window::GetWidth(), Window::GetHeight(), 1.0f));
 
+        glm::mat4 scale_matrix = glm::mat4(
+            fs.transform.scale.x, 0.0f, 0.0f, 0.0f,
+            0.0f, fs.transform.scale.y, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            fs.transform.position.x, fs.transform.position.y, 0.0f, 1.0f
+        );
+
         if (Input::MouseButtonDown(SDL_BUTTON_LEFT)) {
             lastMousePos = Input::GetMousePosition();
         }
 
         uniformBuffer["camera"] = camera;
 
-        uniformBuffer["model"]   = fs.transform.to_matrix() * z_index_matrix * size_matrix;
+        uniformBuffer["model"]   = scale_matrix * z_index_matrix * size_matrix;
         uniformBuffer["flipped"] = glm::vec2(1.0, 1.0);
         uniformBuffer["uv"]      = std::array<glm::vec2, 6>{
             glm::vec2(1.0, 1.0),
@@ -247,8 +254,6 @@ UniformBuffer &ShaderRenderPass::getUniformBuffer() {
 void
 ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *target_texture, SDL_GPUTexture *result_texture,
                                                    const glm::mat4 &camera) {
-
-
 
     if (!fragment_shader) {
         throw std::runtime_error(
@@ -321,9 +326,16 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
         );
         glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(fs.size, 1.0f));
 
+        glm::mat4 scale_matrix = glm::mat4(
+            fs.transform.scale.x, 0.0f, 0.0f, 0.0f,
+            0.0f, fs.transform.scale.y, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            fs.transform.position.x, fs.transform.position.y, 0.0f, 1.0f
+        );
+
         Uniforms uniforms{
             .camera = camera,
-            .model = fs.transform.to_matrix() * z_index_matrix * size_matrix,
+            .model = scale_matrix * z_index_matrix * size_matrix,
             .flipped = glm::vec2(
                 1.0, 1.0
             ),

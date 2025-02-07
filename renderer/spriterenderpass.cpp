@@ -102,16 +102,22 @@ void SpriteRenderPass::render(
             if (renderable.transform.position.x > (float)Window::GetWidth() || renderable.transform.position.y > (float)Window::GetHeight() ||
             renderable.transform.position.x + (float)renderable.size.x < 0.f || renderable.transform.position.y + (float)renderable.size.y < 0.f) continue;
 
-            // Precompute the common matrices outside the loop if possible
-            glm::mat4 z_index_matrix = glm::translate(
-                glm::mat4(1.0f),
-                glm::vec3(0.0f, 0.0f, static_cast<float>(Renderer::GetZIndex()) / static_cast<float>(INT32_MAX))
-            );
+            // Given parameters
+            glm::vec2 position = renderable.transform.position;       // World position
+            glm::vec2 size     = renderable.size;                     // Original texture size in pixels
+            glm::vec2 scale    = renderable.transform.scale;          // Scale factors (can be non-uniform)
+            float     angle    = renderable.transform.rotation;       // Rotation angle in degrees
+            glm::vec2 pivot    = renderable.transform.rotationOrigin; // Normalized pivot (center)
+            float     z_index  = (float)Renderer::GetZIndex() / (float)INT32_MAX;
 
-            glm::mat4 size_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(renderable.size, 1.0f));
+            glm::vec2 pivot_offset = (size * scale) * pivot;
+            glm::mat4 scale_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(size * scale, 1.0f));
+            glm::mat4 pivot_translate_back = glm::translate(glm::mat4(1.0f), glm::vec3(-pivot_offset, 0.0f));
+            glm::mat4 rotation_matrix = glm::rotate(glm::mat4(1.0f), glm::radians(angle), glm::vec3(0.0f, 0.0f, 1.0f));
+            glm::mat4 pivot_translate = glm::translate(glm::mat4(1.0f), glm::vec3(pivot_offset, 0.0f));
+            glm::mat4 translation_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(position, z_index));
 
-            // Combine the transformation matrices once
-            glm::mat4 model_matrix = renderable.transform.to_matrix() * z_index_matrix * size_matrix;
+            glm::mat4 model_matrix = translation_matrix * pivot_translate * rotation_matrix * pivot_translate_back * scale_matrix;
 
             // Precompute flipped vectors
             glm::vec2 flipped{
