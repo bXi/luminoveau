@@ -22,12 +22,15 @@ endif ()
 
 CPMAddPackage(
         NAME glm
-        GIT_TAG 33b4a62
+        GIT_TAG 69b130c
         GITHUB_REPOSITORY g-truc/glm
+        OPTIONS
+            "GLM_ENABLE_FAST_MATH"
 )
 
 if (glm_ADDED)
     target_include_directories("luminoveau" PUBLIC ${glm_SOURCE_DIR})
+    target_compile_definitions("luminoveau" PUBLIC GLM_FORCE_INTRINSICS GLM_FORCE_INLINE GLM_FORCE_EXPLICIT_CTOR GLM_FORCE_SIZE_T_LENGTH)
 endif ()
 
 # SPIRV-Cross
