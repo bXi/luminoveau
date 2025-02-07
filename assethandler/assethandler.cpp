@@ -138,6 +138,33 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
     return texture;
 }
 
+
+TextureAsset AssetHandler::_createEmptyTextureArray(const vf2d &size) {
+    TextureAsset texture;
+
+    texture.width  = size.x;
+    texture.height = size.y;
+
+    SDL_GPUTextureFormat swapchainFormat = SDL_GetGPUSwapchainTextureFormat(Renderer::GetDevice(), Window::GetWindow());
+
+    SDL_GPUTextureCreateInfo sdlGpuTextureCreateInfo = {
+        .type = SDL_GPU_TEXTURETYPE_2D_ARRAY,
+        .format = swapchainFormat,
+        .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .width = static_cast<Uint32>(size.x),
+        .height = static_cast<Uint32>(size.y),
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
+    };
+
+    texture.gpuSampler = Renderer::GetSampler(defaultMode);
+    texture.gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &sdlGpuTextureCreateInfo);
+
+    return texture;
+}
+
+
 void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 
 }

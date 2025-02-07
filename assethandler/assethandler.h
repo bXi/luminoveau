@@ -90,6 +90,8 @@ public:
      */
     static TextureAsset CreateEmptyTexture(const vf2d &size) { return get()._createEmptyTexture(size); }
 
+    static TextureAsset CreateEmptyTextureArray(const vf2d &size) { return get()._createEmptyTextureArray(size); }
+
     /**
      * @brief Retrieves a map of all loaded textures.
      *
@@ -182,6 +184,8 @@ private:
     ScaleMode _getDefaultTextureScaleMode();
 
     TextureAsset _createEmptyTexture(const vf2d &size);
+
+    TextureAsset _createEmptyTextureArray(const vf2d &size);
 
     void _saveTextureAsPNG(Texture texture, const char *fileName);
 

@@ -51,6 +51,8 @@ add_library("luminoveau" STATIC
     renderer/rendererhandler.cpp
     renderer/rendererhandler.h
     renderer/renderpass.h
+    renderer/arrayrenderpass.cpp
+    renderer/arrayrenderpass.h
     renderer/spriterenderpass.cpp
     renderer/spriterenderpass.h
     renderer/shaderrenderpass.cpp
