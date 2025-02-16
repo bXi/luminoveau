@@ -35,6 +35,7 @@ void Draw::_drawArc(vf2d center, float radius, float startAngle, float endAngle,
 }
 
 void Draw::_drawTexture(TextureType texture, vf2d pos, const vf2d &size, Color color) {
+    SDL_FRect dstRect = _doCamera(pos, size);
 
     vf2d scale = size / texture.getSize();
 
@@ -42,7 +43,7 @@ void Draw::_drawTexture(TextureType texture, vf2d pos, const vf2d &size, Color c
     glm::vec2 flipped{1.0f, 1.0f};
 
     // Given parameters
-    glm::vec2 rPosition = {pos.x, pos.y};    // World position
+    glm::vec2 rPosition = {dstRect.x, dstRect.y};    // World position
     glm::vec2 rSize     = texture.getSize(); // Original texture size in pixels
     glm::vec2 rScale    = scale;             // Scale factors (can be non-uniform)
     float     rZ_index  = (float) Renderer::GetZIndex() / (float) INT32_MAX;
@@ -59,7 +60,7 @@ void Draw::_drawTexture(TextureType texture, vf2d pos, const vf2d &size, Color c
         .flipped = flipped,
         .tintColor = color,
         .transform = {
-            .position = {pos.x, pos.y},
+            .position = {dstRect.x, dstRect.y},
             .scale = {scale.x, scale.y}
         },
     };
