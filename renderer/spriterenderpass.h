@@ -83,7 +83,13 @@ public:
         return uniformBuffer;
     }
 
+    void UpdateRenderPassBlendState(SDL_GPUColorTargetBlendState newstate) {
+        renderPassBlendState = newstate;
+    }
+
     UniformBuffer uniformBuffer;
+
+    SDL_GPUColorTargetBlendState renderPassBlendState = GPUstructs::defaultBlendState;
 
     static const uint8_t sprite_frag_bin[];
     static const size_t  sprite_frag_bin_len = 1000;

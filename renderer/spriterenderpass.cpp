@@ -21,7 +21,7 @@ bool SpriteRenderPass::init(
 
     SDL_GPUColorTargetDescription color_target_description{
         .format = swapchain_texture_format,
-        .blend_state = GPUstructs::defaultBlendState,
+        .blend_state = renderPassBlendState,
     };
 
     SDL_GPUGraphicsPipelineCreateInfo pipeline_create_info{
