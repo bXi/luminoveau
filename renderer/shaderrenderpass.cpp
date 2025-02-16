@@ -178,6 +178,9 @@ void ShaderRenderPass::render(
     assert(render_pass);
     {
         SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
+        if (Input::MouseButtonDown(SDL_BUTTON_LEFT)) {
+            lastMousePos = Input::GetMousePosition();
+        }
 
         glm::mat4 z_index_matrix = glm::translate(
             glm::mat4(1.0f),
@@ -185,20 +188,10 @@ void ShaderRenderPass::render(
         );
         glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(Window::GetWidth(), Window::GetHeight(), 1.0f));
 
-        glm::mat4 scale_matrix = glm::mat4(
-            fs.transform.scale.x, 0.0f, 0.0f, 0.0f,
-            0.0f, fs.transform.scale.y, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            fs.transform.position.x, fs.transform.position.y, 0.0f, 1.0f
-        );
+        uniformBuffer["model"] = size_matrix * z_index_matrix;
 
-        if (Input::MouseButtonDown(SDL_BUTTON_LEFT)) {
-            lastMousePos = Input::GetMousePosition();
-        }
 
         uniformBuffer["camera"] = camera;
-
-        uniformBuffer["model"]   = scale_matrix * z_index_matrix * size_matrix;
         uniformBuffer["flipped"] = glm::vec2(1.0, 1.0);
         uniformBuffer["uv"]      = std::array<glm::vec2, 6>{
             glm::vec2(1.0, 1.0),
