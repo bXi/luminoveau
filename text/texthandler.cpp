@@ -41,6 +41,23 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
             float uvMaxX = uv2.x;
             float uvMaxY = uv2.y;
 
+
+
+            vf2d scale = {1.0f, 1.0f};
+            glm::vec2 flipped{1.0f, 1.0f};
+
+            // Given parameters
+            glm::vec2 rPosition = glm::vec2(minX + pos.x, pos.y + (0 - maxY));    // World position
+            glm::vec2 rSize     = {maxX - minX, maxY - minY}; // Original texture size in pixels
+            glm::vec2 rScale    = scale;             // Scale factors (can be non-uniform)
+            float     rZ_index  = (float) Renderer::GetZIndex() / (float) INT32_MAX;
+
+            glm::mat4 scale_matrix       = glm::scale(glm::mat4(1.0f), glm::vec3(rSize * rScale, 1.0f));
+            glm::mat4 translation_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(rPosition, rZ_index));
+
+            glm::mat4 model_matrix = translation_matrix * scale_matrix;
+
+
             // Set up the Renderable object with UVs
             Renderable ren = {
                 .texture = tex,
@@ -53,6 +70,8 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
                     glm::vec2(uvMinX, uvMinY),  // Bottom-left
                     glm::vec2(uvMaxX, uvMinY)   // Bottom-right
                 },
+                .model = model_matrix,
+                .flipped = flipped,
                 .tintColor = color,
                 .transform = {
                     .position = glm::vec2(minX + pos.x, pos.y + (0 - maxY)),
