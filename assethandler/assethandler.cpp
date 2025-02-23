@@ -466,3 +466,32 @@ PhysFSFileData AssetHandler::_resolveFile(const std::string& filename) {
     result.fileSize = static_cast<int>(fileSize);
     return result;
 }
+
+Model AssetHandler::_getModel(const std::string& fileName) {
+    auto it = _models.find(fileName);
+    if (it == _models.end()) {
+        return _loadModel(fileName);
+    }
+    return it->second;
+}
+
+Model AssetHandler::_loadModel(const std::string& fileName) {
+    // Extract file extension (case-insensitive)
+    std::string ext;
+    size_t dotPos = fileName.find_last_of('.');
+    if (dotPos != std::string::npos && dotPos < fileName.length() - 1) {
+        ext = fileName.substr(dotPos + 1);
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    }
+
+    // Dispatch to specific loader based on extension
+    if (ext == "obj") {
+        return _loadOBJModel(fileName);
+    } else if (ext == "map") {
+        return _loadQuakeMapModel(fileName); // Quake 1 .map
+    } else if (ext == "bsp") {
+        return _loadHalfLifeBSPModel(fileName); // Half-Life 1 .bsp (GoldSrc)
+    } else {
+        throw std::runtime_error("Unsupported model format for file: " + fileName);
+    }
+}

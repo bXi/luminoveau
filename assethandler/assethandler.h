@@ -17,6 +17,7 @@
 #include "audio/audiohandler.h"
 
 #include "assettypes/font.h"
+#include "assettypes/model.h"
 #include "assettypes/music.h"
 #include "assettypes/shader.h"
 #include "assettypes/sound.h"
@@ -56,7 +57,20 @@ public:
      */
     static void LoadTexture(const char *fileName) { get()._loadTexture(fileName); }
 
+    /**
+     * @brief Retrieves a model by its file name.
+     *
+     * @param fileName The name of the model file.
+     * @return The model corresponding to the file name.
+     */
+    static Model GetModel(const char* fileName) { return get()._getModel(fileName); }
 
+    /**
+     * @brief Loads a model from the specified file.
+     *
+     * @param fileName The name of the model file to load.
+     */
+    static void LoadModel(const char* fileName) { get()._loadModel(fileName); }
 
     static TextureAsset LoadFromPixelData(const vf2d& size, void *pixelData, std::string fileName) { return get()._loadFromPixelData(size, pixelData, std::move(fileName)); }
 
@@ -201,10 +215,21 @@ private:
 
     Shader _getShader(const std::string &fileName);
 
+    // Models
+
+    Model _getModel(const std::string& fileName);
+
+    Model _loadModel(const std::string& fileName);
+
+    // Specific loaders
+    Model _loadOBJModel(const std::string& fileName); // For .obj
+    Model _loadQuakeMapModel(const std::string& fileName); // For Quake 1 .map
+    Model _loadHalfLifeBSPModel(const std::string& fileName); // For Half-Life 1 .bsp
 
     //Containers
 
     std::unordered_map<std::string, FontAsset>    _fonts;
+    std::unordered_map<std::string, ModelAsset>   _models;
     std::unordered_map<std::string, MusicAsset>   _musics;
     std::unordered_map<std::string, ShaderAsset>  _shaders;
     std::unordered_map<std::string, SoundAsset>   _sounds;
