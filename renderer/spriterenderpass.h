@@ -75,6 +75,7 @@ public:
     void resetRenderQueue() override {
 
         std::vector<Renderable>().swap(renderQueue);
+        renderQueue.reserve(150000);
         //renderQueue.clear();
     }
 
