@@ -98,6 +98,7 @@ void SpriteRenderPass::render(
     {
         SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
 
+        SDL_GPUTexture *last_texture = nullptr;
         for (const auto &renderable: renderQueue) {
             if (renderable.transform.position.x > (float)Window::GetWidth() || renderable.transform.position.y > (float)Window::GetHeight() ||
             renderable.transform.position.x + (float)renderable.size.x < 0.f || renderable.transform.position.y + (float)renderable.size.y < 0.f) continue;
@@ -120,12 +121,17 @@ void SpriteRenderPass::render(
 
             SDL_PushGPUVertexUniformData(cmd_buffer, 0, &uniforms, sizeof(uniforms));
 
-            auto texture_sampler_binding = SDL_GPUTextureSamplerBinding{
-                .texture = renderable.texture.gpuTexture,
-                .sampler = renderable.texture.gpuSampler,
-            };
 
-            SDL_BindGPUFragmentSamplers(render_pass, 0, &texture_sampler_binding, 1);
+            if (renderable.texture.gpuTexture != last_texture) {
+                auto texture_sampler_binding = SDL_GPUTextureSamplerBinding{
+                    .texture = renderable.texture.gpuTexture,
+                    .sampler = renderable.texture.gpuSampler,
+                };
+
+                SDL_BindGPUFragmentSamplers(render_pass, 0, &texture_sampler_binding, 1);
+                last_texture = renderable.texture.gpuTexture;
+            }
+
             SDL_DrawGPUPrimitives(render_pass, 6, 1, 0, 0);
         }
     }
