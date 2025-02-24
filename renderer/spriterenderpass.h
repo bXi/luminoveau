@@ -1,5 +1,7 @@
 #pragma once
 
+#include <thread>
+
 #include <SDL3/SDL_gpu.h>
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -14,6 +16,13 @@
 #include "renderpass.h"
 
 class SpriteRenderPass : public RenderPass {
+
+    struct PreppedSprite {
+        Uniforms uniforms;
+        SDL_GPUTexture* texture;
+        SDL_GPUSampler* sampler;
+    };
+
     struct Uniforms {
         glm::mat4 camera;
         glm::mat4 model;
@@ -56,6 +65,9 @@ public:
 
     explicit SpriteRenderPass(SDL_GPUDevice *m_gpu_device) : RenderPass(m_gpu_device) {
     }
+
+    static void PrepSprites(const std::vector<Renderable>& _renderQueue, size_t start, size_t end,
+                 std::vector<PreppedSprite>& prepped, float w, float h, const glm::mat4& camera);
 
     [[nodiscard]] bool init(
         SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width,

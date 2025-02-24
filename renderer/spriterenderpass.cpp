@@ -98,40 +98,39 @@ void SpriteRenderPass::render(
     {
         SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
 
+        // Multi-threaded prep
+        const int thread_count = (int)std::max(1u, std::thread::hardware_concurrency());
+        std::vector<std::vector<PreppedSprite>> thread_prepped(thread_count);
+        std::vector<std::thread> threads;
+        auto w = (float)Window::GetWidth(), h = (float)Window::GetHeight();
+        size_t chunk_size = renderQueue.size() / thread_count;
+
+        for (int i = 0; i < thread_count; ++i) {
+            size_t start = i * chunk_size;
+            size_t end = (i == thread_count - 1) ? renderQueue.size() : start + chunk_size;
+            threads.emplace_back(SpriteRenderPass::PrepSprites, std::ref(renderQueue), start, end,
+                                 std::ref(thread_prepped[i]), w, h, std::ref(camera));
+        }
+        for (auto& t : threads) t.join();
+
+        // Merge prepped sprites
+        std::vector<PreppedSprite> final_prepped;
+        size_t total_size = 0;
+        for (const auto& tp : thread_prepped) total_size += tp.size();
+        final_prepped.reserve(total_size);
+        for (const auto& tp : thread_prepped) {
+            final_prepped.insert(final_prepped.end(), tp.begin(), tp.end());
+        }
+
+        // Tight submit loop
         SDL_GPUTexture *last_texture = nullptr;
-        for (const auto &renderable: renderQueue) {
-            if (renderable.transform.position.x > (float)Window::GetWidth() || renderable.transform.position.y > (float)Window::GetHeight() ||
-            renderable.transform.position.x + (float)renderable.size.x < 0.f || renderable.transform.position.y + (float)renderable.size.y < 0.f) continue;
-
-            Uniforms uniforms{
-                .camera = camera,
-                .model = renderable.model,
-                .flipped = renderable.flipped,
-                .uv0 = renderable.uv[0],
-                .uv1 = renderable.uv[1],
-                .uv2 = renderable.uv[2],
-                .uv3 = renderable.uv[3],
-                .uv4 = renderable.uv[4],
-                .uv5 = renderable.uv[5],
-                .tintColorR = renderable.tintColor.getRFloat(),
-                .tintColorG = renderable.tintColor.getGFloat(),
-                .tintColorB = renderable.tintColor.getBFloat(),
-                .tintColorA = renderable.tintColor.getAFloat(),
-            };
-
-            SDL_PushGPUVertexUniformData(cmd_buffer, 0, &uniforms, sizeof(uniforms));
-
-
-            if (renderable.texture.gpuTexture != last_texture) {
-                auto texture_sampler_binding = SDL_GPUTextureSamplerBinding{
-                    .texture = renderable.texture.gpuTexture,
-                    .sampler = renderable.texture.gpuSampler,
-                };
-
-                SDL_BindGPUFragmentSamplers(render_pass, 0, &texture_sampler_binding, 1);
-                last_texture = renderable.texture.gpuTexture;
+        for (const auto& p : final_prepped) {
+            SDL_PushGPUVertexUniformData(cmd_buffer, 0, &p.uniforms, sizeof(Uniforms));
+            if (p.texture != last_texture) {
+                SDL_GPUTextureSamplerBinding binding = { p.texture, p.sampler };
+                SDL_BindGPUFragmentSamplers(render_pass, 0, &binding, 1);
+                last_texture = p.texture;
             }
-
             SDL_DrawGPUPrimitives(render_pass, 6, 1, 0, 0);
         }
     }
@@ -139,6 +138,39 @@ void SpriteRenderPass::render(
     #ifdef LUMIDEBUG
     SDL_PopGPUDebugGroup(cmd_buffer);
     #endif
+}
+
+
+
+
+void SpriteRenderPass::PrepSprites(const std::vector<Renderable>& _renderQueue, size_t start, size_t end,
+                 std::vector<PreppedSprite>& prepped, float w, float h, const glm::mat4& camera) {
+    prepped.resize(end - start); // Pre-size to avoid push_back overhead
+    size_t idx = 0;
+    for (size_t i = start; i < end; ++i) {
+        const auto& r = _renderQueue[i];
+        bool visible = !(r.transform.position.x > w || r.transform.position.y > h ||
+                         r.transform.position.x + r.size.x < 0.f || r.transform.position.y + r.size.y < 0.f);
+        if (!visible) continue;
+
+        prepped[idx] = {
+            .uniforms = {
+                .camera = camera,
+                .model = r.model,
+                .flipped = r.flipped,
+                .uv0 = r.uv[0], .uv1 = r.uv[1], .uv2 = r.uv[2],
+                .uv3 = r.uv[3], .uv4 = r.uv[4], .uv5 = r.uv[5],
+                .tintColorR = static_cast<float>(r.tintColor.r) / 255.0f,
+                .tintColorG = static_cast<float>(r.tintColor.g) / 255.0f,
+                .tintColorB = static_cast<float>(r.tintColor.b) / 255.0f,
+                .tintColorA = static_cast<float>(r.tintColor.a) / 255.0f
+            },
+            .texture = r.texture.gpuTexture,
+            .sampler = r.texture.gpuSampler
+        };
+        idx++;
+    }
+    prepped.resize(idx); // Shrink to actual visible count
 }
 
 void SpriteRenderPass::createShaders() {
