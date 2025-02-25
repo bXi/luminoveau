@@ -39,7 +39,7 @@ protected:
 
 public:
     SDL_GPULoadOp color_target_info_loadop = SDL_GPU_LOADOP_LOAD;
-    SDL_FColor color_target_info_clear_color = {.r = 0.0, .g = 0.0, .b = 0.0, .a = 0.0};
+    SDL_FColor color_target_info_clear_color = {0.0, 0.0, 0.0, 0.0};
     RenderPass(const RenderPass&) = delete;
     RenderPass& operator=(const RenderPass&) = delete;
     RenderPass(RenderPass&&) = delete;

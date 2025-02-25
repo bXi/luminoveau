@@ -75,7 +75,7 @@ void Renderer::_initRendering() {
 
     framebuffer->renderpasses.emplace_back("2dsprites", new SpriteRenderPass(m_device));
     framebuffer->renderpasses.begin()->second->color_target_info_loadop      = SDL_GPU_LOADOP_CLEAR;
-    framebuffer->renderpasses.begin()->second->color_target_info_clear_color = SDL_FColor(BLACK);
+    framebuffer->renderpasses.begin()->second->color_target_info_clear_color = SDL_FColor(0.f, 0.f, 0.f, 1.f);
 
     framebuffer->fbContent = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
     frameBuffers.emplace_back("primaryFramebuffer", framebuffer);
