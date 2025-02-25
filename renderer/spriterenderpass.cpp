@@ -98,30 +98,26 @@ void SpriteRenderPass::render(
     {
         SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
 
-        // Multi-threaded prep
-        const int thread_count = (int)std::max(1u, std::thread::hardware_concurrency());
+        const int thread_count = thread_pool.workers.size();
         std::vector<std::vector<PreppedSprite>> thread_prepped(thread_count);
-        std::vector<std::thread> threads;
-        auto w = (float)Window::GetWidth(), h = (float)Window::GetHeight();
-        size_t chunk_size = renderQueue.size() / thread_count;
+        float w = (float)Window::GetWidth(), h = (float)Window::GetHeight();
+        size_t chunk_size = (renderQueue.size() + thread_count - 1) / thread_count;
 
         for (int i = 0; i < thread_count; ++i) {
             size_t start = i * chunk_size;
-            size_t end = (i == thread_count - 1) ? renderQueue.size() : start + chunk_size;
-            threads.emplace_back(SpriteRenderPass::PrepSprites, std::ref(renderQueue), start, end,
-                                 std::ref(thread_prepped[i]), w, h, std::ref(camera));
+            size_t end = std::min(start + chunk_size, renderQueue.size());
+            thread_pool.enqueue([this, start, end, &thread_prepped, i, w, h, &camera]() {
+                PrepSprites(this->renderQueue, start, end, thread_prepped[i], w, h, camera);
+            });
         }
-        for (auto& t : threads) t.join();
 
-        // Merge prepped sprites
+        thread_pool.wait_all(); // Wait for all tasks
+
         std::vector<PreppedSprite> final_prepped;
-        size_t total_size = 0;
-        for (const auto& tp : thread_prepped) total_size += tp.size();
-        final_prepped.reserve(total_size);
-        for (const auto& tp : thread_prepped) {
+        final_prepped.reserve(renderQueue.size());
+        for (auto& tp : thread_prepped) {
             final_prepped.insert(final_prepped.end(), tp.begin(), tp.end());
         }
-
         // Tight submit loop
         SDL_GPUTexture *last_texture = nullptr;
         for (const auto& p : final_prepped) {

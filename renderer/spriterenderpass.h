@@ -1,6 +1,13 @@
 #pragma once
 
+#include <algorithm>
+#include <condition_variable>
+#include <future>
+#include <memory>
+#include <mutex>
+#include <queue>
 #include <thread>
+#include <vector>
 
 #include <SDL3/SDL_gpu.h>
 #include <glm/glm.hpp>
@@ -15,12 +22,78 @@
 
 #include "renderpass.h"
 
+struct TaskBase {
+    virtual ~TaskBase() = default;
+    virtual void operator()() = 0;
+};
+
+template<typename F>
+struct TaskImpl : TaskBase {
+    F f;
+    TaskImpl(F&& func) : f(std::move(func)) {}
+    void operator()() override { f(); }
+};
+
+class ThreadPool {
+public:
+    using Task = std::unique_ptr<TaskBase>;
+
+    ThreadPool(size_t num_threads) : tasks_running(0) {
+        for (size_t i = 0; i < num_threads; ++i) {
+            workers.emplace_back([this] {
+                while (true) {
+                    Task task;
+                    {
+                        std::unique_lock<std::mutex> lock(queue_mutex);
+                        condition.wait(lock, [this] { return !tasks.empty() || stop; });
+                        if (stop && tasks.empty()) return;
+                        task = std::move(tasks.front());
+                        tasks.pop();
+                    }
+                    tasks_running++;
+                    (*task)();
+                    tasks_running--;
+                }
+            });
+        }
+    }
+
+    ~ThreadPool() {
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        stop = true;
+        lock.unlock();
+        condition.notify_all();
+        for (auto& worker : workers) worker.join();
+    }
+
+    template<typename F>
+    void enqueue(F&& task) {
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            tasks.push(std::make_unique<TaskImpl<F>>(std::forward<F>(task)));
+        }
+        condition.notify_one();
+    }
+
+    void wait_all() {
+        while (tasks_running > 0 || !tasks.empty()) std::this_thread::yield();
+    }
+
+    std::vector<std::thread> workers;
+private:
+    std::queue<Task> tasks;
+    std::mutex queue_mutex;
+    std::condition_variable condition;
+    std::atomic<size_t> tasks_running;
+    bool stop = false;
+};
+
 class SpriteRenderPass : public RenderPass {
 
     struct PreppedSprite {
         Uniforms uniforms;
-        SDL_GPUTexture* texture;
-        SDL_GPUSampler* sampler;
+        SDL_GPUTexture *texture;
+        SDL_GPUSampler *sampler;
     };
 
     struct Uniforms {
@@ -41,6 +114,8 @@ class SpriteRenderPass : public RenderPass {
         float tintColorB = 1.0f;
         float tintColorA = 1.0f;
     };
+
+    ThreadPool thread_pool = ThreadPool(std::max(1u, std::thread::hardware_concurrency()));
 
     TextureAsset            m_depth_texture;
     SDL_GPUGraphicsPipeline *m_pipeline{nullptr};
@@ -66,8 +141,8 @@ public:
     explicit SpriteRenderPass(SDL_GPUDevice *m_gpu_device) : RenderPass(m_gpu_device) {
     }
 
-    static void PrepSprites(const std::vector<Renderable>& _renderQueue, size_t start, size_t end,
-                 std::vector<PreppedSprite>& prepped, float w, float h, const glm::mat4& camera);
+    static void PrepSprites(const std::vector<Renderable> &_renderQueue, size_t start, size_t end,
+                            std::vector<PreppedSprite> &prepped, float w, float h, const glm::mat4 &camera);
 
     [[nodiscard]] bool init(
         SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width,
@@ -91,7 +166,7 @@ public:
         //renderQueue.clear();
     }
 
-    UniformBuffer& getUniformBuffer() override {
+    UniformBuffer &getUniformBuffer() override {
 
         return uniformBuffer;
     }
