@@ -34,35 +34,31 @@ void Draw::_drawLine(vf2d start, vf2d end, Color color) {
 void Draw::_drawArc(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
 }
 
-void Draw::_drawTexture(TextureType texture, vf2d pos, const vf2d &size, Color color) {
+void Draw::_drawTexture(TextureType texture, const vf2d& pos, const vf2d &size, Color color) {
     SDL_FRect dstRect = _doCamera(pos, size);
-
-    vf2d scale = size / texture.getSize();
-
-    // Precompute flipped vectors
-    glm::vec2 flipped{1.0f, 1.0f};
-
-    // Given parameters
-    glm::vec2 rPosition = {dstRect.x, dstRect.y};    // World position
-    glm::vec2 rSize     = texture.getSize(); // Original texture size in pixels
-    glm::vec2 rScale    = scale;             // Scale factors (can be non-uniform)
-    float     rZ_index  = (float) Renderer::GetZIndex() / (float) INT32_MAX;
-
-    glm::mat4 scale_matrix       = glm::scale(glm::mat4(1.0f), glm::vec3(rSize * rScale, 1.0f));
-    glm::mat4 translation_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(rPosition, rZ_index));
-
-    glm::mat4 model_matrix = translation_matrix * scale_matrix;
 
     Renderable renderable = {
         .texture = texture,
-        .size = {texture.width, texture.height},
-        .model = model_matrix,
-        .flipped = flipped,
-        .tintColor = color,
-        .transform = {
-            .position = {dstRect.x, dstRect.y},
-            .scale = {scale.x, scale.y}
-        },
+
+        .x = pos.x,
+        .y = pos.y,
+        .z = (float)Renderer::GetZIndex(),
+
+        .rotation = 0.f,
+
+
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = size.x,
+        .h = size.y,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -72,86 +68,60 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &si
     SDL_FRect dstRect = _doCamera(pos, size);
     SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
-    vf2d scale = size / texture.getSize();
-
-    float u0 = 1.0f - (srcRect.x / (float) texture.getSize().x);
+    float u0 = (srcRect.x / (float) texture.getSize().x);
     float v0 = (srcRect.y / (float) texture.getSize().y);
-    float u1 = 1.0f - ((srcRect.x + srcRect.w) / (float) texture.getSize().x);
+    float u1 = ((srcRect.x + srcRect.w) / (float) texture.getSize().x);
     float v1 = ((srcRect.y + srcRect.h) / (float) texture.getSize().y);
-
-    // Precompute flipped vectors
-    glm::vec2 flipped{
-        (src.width >= 0.f) ? -1.0f : 1.0f,
-        (src.height < 0.f) ? -1.0f : 1.0f
-    };
-
-    // Given parameters
-    glm::vec2 rPosition          = {dstRect.x, dstRect.y}; // World position
-    glm::vec2 rSize              = texture.getSize();      // Original texture size in pixels
-    glm::vec2 rScale             = scale;                  // Scale factors (can be non-uniform)
-    float     rZ_index           = (float) Renderer::GetZIndex() / (float) INT32_MAX;
-    glm::mat4 scale_matrix       = glm::scale(glm::mat4(1.0f), glm::vec3(rSize * rScale, 1.0f));
-    glm::mat4 translation_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(rPosition, rZ_index));
-
-    glm::mat4 model_matrix = translation_matrix * scale_matrix;
 
     Renderable renderable = {
         .texture = texture,
-        .size = {texture.width, texture.height},
-        .uv = {
-            glm::vec2(u1, v1),  // Top-right
-            glm::vec2(u0, v1),  // Top-left
-            glm::vec2(u1, v0),  // Bottom-right
-            glm::vec2(u0, v1),  // Top-left (repeated for triangle)
-            glm::vec2(u0, v0),  // Bottom-left
-            glm::vec2(u1, v0)   // Bottom-right
-        },
-        .model = model_matrix,
-        .flipped = flipped,
-        .tintColor = color,
-        .transform = {
-            .position = {dstRect.x, dstRect.y},
-            .scale = {scale.x, scale.y}
-        },
+
+        .x = dstRect.x,
+        .y = dstRect.y,
+        .z = (float)Renderer::GetZIndex() / INT_MAX,
+
+        .rotation = 0.f,
+
+        .tex_u = u0,
+        .tex_v = v0,
+        .tex_w = u1 - u0,
+        .tex_h = v1 - v0,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = dstRect.w,
+        .h = dstRect.h,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
 }
 
-void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, const vf2d &size, float angle, vf2d pivot, Color color) {
-
-    vf2d scale = size / texture.getSize();
-
-    // Precompute flipped vectors
-    glm::vec2 flipped{1.0f, 1.0f};
-
-    // Given parameters
-    glm::vec2 rPosition = {pos.x, pos.y};     // World position
-    glm::vec2 rSize     = texture.getSize();  // Original texture size in pixels
-    glm::vec2 rScale    = scale;              // Scale factors (can be non-uniform)
-    float     rAngle    = fmod(angle, 360.f); // Rotation angle in degrees
-    glm::vec2 rPivot    = pivot;              // Normalized pivot (center)
-    float     rZ_index  = (float) Renderer::GetZIndex() / (float) INT32_MAX;
-
-    glm::vec2 pivot_offset         = (size * scale) * rPivot;
-    glm::mat4 scale_matrix         = glm::scale(glm::mat4(1.0f), glm::vec3(rSize * rScale, 1.0f));
-    glm::mat4 pivot_translate_back = glm::translate(glm::mat4(1.0f), glm::vec3(-pivot_offset, 0.0f));
-    glm::mat4 rotation_matrix      = glm::rotate(glm::mat4(1.0f), glm::radians(rAngle), glm::vec3(0.0f, 0.0f, 1.0f));
-    glm::mat4 pivot_translate      = glm::translate(glm::mat4(1.0f), glm::vec3(pivot_offset, 0.0f));
-    glm::mat4 translation_matrix   = glm::translate(glm::mat4(1.0f), glm::vec3(rPosition, rZ_index));
-
-    glm::mat4 model_matrix = translation_matrix * pivot_translate * rotation_matrix * pivot_translate_back * scale_matrix;
+void Draw::_drawRotatedTexture(Draw::TextureType texture, const vf2d& pos, const vf2d &size, float angle, vf2d pivot, Color color) {
 
     Renderable renderable = {
         .texture = texture,
-        .size = {texture.width, texture.height},
-        .model = model_matrix,
-        .flipped = flipped,
-        .tintColor = color,
-        .transform = {
-            .position = {pos.x, pos.y},
-            .scale = {scale.x, scale.y}
-        },
+
+        .x = pos.x,
+        .y = pos.y,
+        .z = (float)Renderer::GetZIndex(),
+
+        .rotation = glm::radians(fmod(angle, 360.f)),
+
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = size.x,
+        .h = size.y,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -161,51 +131,32 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, const vf2d &pos, c
                                    Color color) {
     SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
-    vf2d scale = size / texture.getSize();
-
-    float u0 = 1.0f - (srcRect.x / (float) texture.getSize().x);
+    float u0 = (srcRect.x / (float) texture.getSize().x);
     float v0 = (srcRect.y / (float) texture.getSize().y);
-    float u1 = 1.0f - ((srcRect.x + srcRect.w) / (float) texture.getSize().x);
+    float u1 = ((srcRect.x + srcRect.w) / (float) texture.getSize().x);
     float v1 = ((srcRect.y + srcRect.h) / (float) texture.getSize().y);
-
-    // Precompute flipped vectors
-    glm::vec2 flipped{1.0f, 1.0f};
-
-    // Given parameters
-    glm::vec2 rPosition = {pos.x, pos.y};     // World position
-    glm::vec2 rSize     = texture.getSize();  // Original texture size in pixels
-    glm::vec2 rScale    = scale;              // Scale factors (can be non-uniform)
-    float     rAngle    = fmod(angle, 360.f); // Rotation angle in degrees
-    glm::vec2 rPivot    = pivot;              // Normalized pivot (center)
-    float     rZ_index  = (float) Renderer::GetZIndex() / (float) INT32_MAX;
-
-    glm::vec2 pivot_offset         = (size * scale) * rPivot;
-    glm::mat4 scale_matrix         = glm::scale(glm::mat4(1.0f), glm::vec3(rSize * rScale, 1.0f));
-    glm::mat4 pivot_translate_back = glm::translate(glm::mat4(1.0f), glm::vec3(-pivot_offset, 0.0f));
-    glm::mat4 rotation_matrix      = glm::rotate(glm::mat4(1.0f), glm::radians(rAngle), glm::vec3(0.0f, 0.0f, 1.0f));
-    glm::mat4 pivot_translate      = glm::translate(glm::mat4(1.0f), glm::vec3(pivot_offset, 0.0f));
-    glm::mat4 translation_matrix   = glm::translate(glm::mat4(1.0f), glm::vec3(rPosition, rZ_index));
-
-    glm::mat4 model_matrix = translation_matrix * pivot_translate * rotation_matrix * pivot_translate_back * scale_matrix;
 
     Renderable renderable = {
         .texture = texture,
-        .size = {texture.width, texture.height},
-        .uv = {
-            glm::vec2(u1, v1),  // Top-right
-            glm::vec2(u0, v1),  // Top-left
-            glm::vec2(u1, v0),  // Bottom-right
-            glm::vec2(u0, v1),  // Top-left (repeated for triangle)
-            glm::vec2(u0, v0),  // Bottom-left
-            glm::vec2(u1, v0)   // Bottom-right
-        },
-        .model = model_matrix,
-        .flipped = flipped,
-        .tintColor = color,
-        .transform = {
-            .position = {pos.x, pos.y},
-            .scale = {scale.x, scale.y}
-        },
+
+        .x = pos.x,
+        .y = pos.y,
+        .z = (float)Renderer::GetZIndex(),
+
+        .rotation = glm::radians(fmod(angle, 360.f)),
+
+        .tex_u = u0,
+        .tex_v = v0,
+        .tex_w = u1,
+        .tex_h = v1,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = size.x,
+        .h = size.y,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -325,7 +276,7 @@ void Draw::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color c
     }
 }
 
-void Draw::_drawPixel(vi2d pos, Color color) {
+void Draw::_drawPixel(const vi2d& pos, Color color) {
     //TODO: fix with sdl_GPU
 
 }

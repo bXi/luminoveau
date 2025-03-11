@@ -84,7 +84,7 @@ public:
     static void CreateFrameBuffer(const std::string& fbname) { return get()._createFrameBuffer(fbname); }
 
 
-    static uint32_t GetZIndex() { return get()._zIndex--; }
+    static uint32_t GetZIndex() { return get()._zIndex++; }
 
     static FrameBuffer *GetFramebuffer(std::string fbname) { return get()._getFramebuffer(std::move(fbname)); };
 
@@ -96,7 +96,7 @@ private:
     SDL_GPUDevice        *m_device = nullptr;
     SDL_GPUCommandBuffer *m_cmdbuf = nullptr;
 
-    uint32_t _zIndex = INT_MAX;
+    uint32_t _zIndex = 0;
 
     std::vector<std::pair<std::string, FrameBuffer *>> frameBuffers;
 
@@ -162,6 +162,9 @@ private:
 
     SDL_GPUTexture *swapchain_texture = nullptr;
     glm::mat4x4    m_camera = {};
+
+    SDL_GPUColorTargetDescription color_target_descriptions;
+    SDL_GPUGraphicsPipelineCreateInfo rtt_pipeline_create_info;
 
 public:
     Renderer(const Renderer &) = delete;

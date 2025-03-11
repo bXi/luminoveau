@@ -79,6 +79,10 @@ public:
         while (tasks_running > 0 || !tasks.empty()) std::this_thread::yield();
     }
 
+    int get_thread_count() {
+        return workers.size();
+    }
+
     std::vector<std::thread> workers;
 private:
     std::queue<Task> tasks;
@@ -90,32 +94,8 @@ private:
 
 class SpriteRenderPass : public RenderPass {
 
-    struct PreppedSprite {
-        Uniforms uniforms;
-        SDL_GPUTexture *texture;
-        SDL_GPUSampler *sampler;
-    };
-
-    struct Uniforms {
-        glm::mat4 camera;
-        glm::mat4 model;
-        glm::vec2 flipped;
-
-        //TODO: fix this ugly mess
-        glm::vec2 uv0;
-        glm::vec2 uv1;
-        glm::vec2 uv2;
-        glm::vec2 uv3;
-        glm::vec2 uv4;
-        glm::vec2 uv5;
-
-        float tintColorR = 1.0f;
-        float tintColorG = 1.0f;
-        float tintColorB = 1.0f;
-        float tintColorA = 1.0f;
-    };
-
     ThreadPool thread_pool = ThreadPool(std::max(1u, std::thread::hardware_concurrency()));
+
 
     TextureAsset            m_depth_texture;
     SDL_GPUGraphicsPipeline *m_pipeline{nullptr};
@@ -125,9 +105,33 @@ class SpriteRenderPass : public RenderPass {
     SDL_GPUShader *vertex_shader   = nullptr;
     SDL_GPUShader *fragment_shader = nullptr;
 
+    SDL_GPUTransferBuffer* SpriteDataTransferBuffer;
+    SDL_GPUBuffer* SpriteDataBuffer;
+
+    struct SpriteInstance {
+        float x, y, z;
+        float rotation;
+        float tex_u, tex_v, tex_w, tex_h;
+        float r, g, b, a;
+        float w, h;
+        float padding1, padding2;
+    };
+
+    struct Batch {
+        SDL_GPUTexture* texture = nullptr;
+        SDL_GPUSampler* sampler = nullptr;
+
+        size_t offset = 0; // Offset in sprite_buffer (in instances)
+        size_t count = 0;  // Number of sprites
+    };
+
+    std::vector<SpriteInstance> sprite_data;
+
+    static constexpr Uint32 MAX_SPRITES = 4'000'000;
 public:
 
     std::vector<Renderable> renderQueue;
+    size_t renderQueueCount = 0;
 
 public:
     SpriteRenderPass(const SpriteRenderPass &) = delete;
@@ -141,9 +145,6 @@ public:
     explicit SpriteRenderPass(SDL_GPUDevice *m_gpu_device) : RenderPass(m_gpu_device) {
     }
 
-    static void PrepSprites(const std::vector<Renderable> &_renderQueue, size_t start, size_t end,
-                            std::vector<PreppedSprite> &prepped, float w, float h, const glm::mat4 &camera);
-
     [[nodiscard]] bool init(
         SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width,
         uint32_t surface_height, std::string name
@@ -156,14 +157,15 @@ public:
     ) override;
 
     void addToRenderQueue(const Renderable &renderable) override {
-        renderQueue.push_back(renderable);
+        renderQueue[renderQueueCount] = renderable;
+        renderQueueCount++;
     }
 
     void resetRenderQueue() override {
 
-        std::vector<Renderable>().swap(renderQueue);
-        renderQueue.reserve(150000);
-        //renderQueue.clear();
+        //std::vector<Renderable>().swap(renderQueue);
+        renderQueue.reserve(MAX_SPRITES);
+        renderQueueCount = 0;
     }
 
     UniformBuffer &getUniformBuffer() override {
@@ -184,6 +186,13 @@ public:
 
     static const uint8_t sprite_vert_bin[];
     static const size_t  sprite_vert_bin_len = 3212;
+
+    static const uint8_t sprite_batch_frag_bin[];
+    static const size_t  sprite_batch_frag_bin_len = 1020;
+
+    static const uint8_t sprite_batch_vert_bin[];
+    static const size_t  sprite_batch_vert_bin_len = 3076;
+
 
     void createShaders();
 };

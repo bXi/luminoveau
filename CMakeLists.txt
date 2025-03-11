@@ -45,6 +45,8 @@ add_library("luminoveau" STATIC
     assethandler/DroidSansMono.cpp
     assethandler/spritefrag.cpp
     assethandler/spritevert.cpp
+    assethandler/spritebatchfrag.cpp
+    assethandler/spritebatchvert.cpp
 
     renderer/sdl_gpu_structs.cpp
     renderer/sdl_gpu_structs.h

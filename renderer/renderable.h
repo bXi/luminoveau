@@ -5,29 +5,17 @@
 
 #include "assettypes/texture.h"
 #include "utils/colors.h"
+struct SpriteInstance {
+
+};
 
 struct Renderable {
     TextureAsset texture;
-    glm::vec2   size;
-    glm::vec2 uv[6] = {
-        glm::vec2(1.0, 1.0),   // top-right
-        glm::vec2(0.0, 1.0),  // top-left
-        glm::vec2(1.0, 0.0),  // bottom-right
-        glm::vec2(0.0, 1.0),  // top-left
-        glm::vec2(0.0, 0.0), // bottom-left
-        glm::vec2(1.0, 0.0)   // bottom-right
-    };
-    glm::mat4 model;
-    glm::vec2 flipped;
 
-    Color tintColor = 0xFFFFFFFF;
-
-    struct Transform {
-        glm::vec2 position{0.0f};
-        glm::vec2 scale{1.0f};
-        glm::vec2 rotationOrigin{0.5f};
-        float rotation = 0.f;
-    } transform;
-
+    float x, y, z;
+    float rotation;
+    float tex_u, tex_v, tex_w, tex_h;
+    float r, g, b, a;
+    float w, h;
 
 };

@@ -54,8 +54,7 @@ void ShaderRenderPass::_loadSamplerNamesFromShader(const std::vector<uint8_t> &s
 }
 
 bool ShaderRenderPass::init(
-    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name
-) {
+    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name) {
     passname = std::move(name);
 
     vertex_shader   = vertShader.shader;
@@ -68,11 +67,14 @@ bool ShaderRenderPass::init(
 
     SDL_SetGPUTextureName(Renderer::GetDevice(), resultTexture, Helpers::TextFormat("ShaderRenderPass: %s resultTexture", passname.c_str()));
 
-    fs.texture   = AssetHandler::CreateEmptyTexture({1,1});
-    fs.transform = {
-        .position = {0.f, 0.f}
-    };
-    fs.tintColor = WHITE;
+    fs.texture = AssetHandler::CreateEmptyTexture({1, 1});
+    fs.x       = 0.f;
+    fs.y       = 0.f;
+
+    fs.r = 255;
+    fs.g = 255;
+    fs.b = 255;
+    fs.a = 255;
 
     std::vector<SDL_GPUColorTargetDescription> color_target_descriptions(fragShader.samplerCount, SDL_GPUColorTargetDescription{
         .format = swapchain_texture_format,
@@ -170,8 +172,6 @@ void ShaderRenderPass::render(
         .store_op = SDL_GPU_STOREOP_STORE,
     });
 
-    fs.size = {Window::GetWidth(), Window::GetHeight()};
-
     auto framebuffer = Renderer::GetFramebuffer("primaryFramebuffer");
 
     SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(cmd_buffer, color_target_info.data(), color_target_info.size(), nullptr);
@@ -182,13 +182,15 @@ void ShaderRenderPass::render(
             lastMousePos = Input::GetMousePosition();
         }
 
-        glm::mat4 z_index_matrix = glm::translate(
-            glm::mat4(1.0f),
-            glm::vec3(0.0f, 0.0f, (float) Renderer::GetZIndex() / (float) INT32_MAX)// + (renderable.z_index * 10000)))
+                glm::mat4 model = glm::mat4(
+            (float)Window::GetWidth(), 0.0f, 0.0f, 0.0f,  // X scale to window width
+            0.0f, (float)Window::GetHeight(), 0.0f, 0.0f, // Y scale to window height
+            0.0f, 0.0f, 1.0f, 0.0f,                      // Z unchanged (depth)
+            0.0f, 0.0f, 0.1f, 1.0f                       // Slight Z offset, W = 1
         );
-        glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(Window::GetWidth(), Window::GetHeight(), 1.0f));
 
-        uniformBuffer["model"] = size_matrix * z_index_matrix;
+
+        uniformBuffer["model"] = model;
 
 
         uniformBuffer["camera"] = camera;
@@ -202,7 +204,7 @@ void ShaderRenderPass::render(
             glm::vec2(1.0, 0.0),
         };
 
-        uniformBuffer["tintColor"] = fs.tintColor.asVec4();
+        uniformBuffer["tintColor"] = Color(WHITE).asVec4();
 
         uniformBuffer["iResolution"] = glm::vec3{(float) Window::GetWidth(), (float) Window::GetHeight(), 0.0f};
         uniformBuffer["iTime"]       = (float) Window::GetRunTime();
@@ -306,29 +308,21 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
         .store_op = SDL_GPU_STOREOP_STORE,
     });
 
-    fs.size = {Window::GetWidth(), Window::GetHeight()};
-
     SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(cmd_buffer, color_target_info.data(), 1, nullptr);
     assert(render_pass);
     {
         SDL_BindGPUGraphicsPipeline(render_pass, finalrender_m_pipeline);
 
-        glm::mat4 z_index_matrix = glm::translate(
-            glm::mat4(1.0f),
-            glm::vec3(0.0f, 0.0f, (float) Renderer::GetZIndex() / (float) INT32_MAX)// + (renderable.z_index * 10000)))
-        );
-        glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(fs.size, 1.0f));
-
-        glm::mat4 scale_matrix = glm::mat4(
-            fs.transform.scale.x, 0.0f, 0.0f, 0.0f,
-            0.0f, fs.transform.scale.y, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            fs.transform.position.x, fs.transform.position.y, 0.0f, 1.0f
+        glm::mat4 model = glm::mat4(
+            (float)Window::GetWidth(), 0.0f, 0.0f, 0.0f,  // X scale to window width
+            0.0f, (float)Window::GetHeight(), 0.0f, 0.0f, // Y scale to window height
+            0.0f, 0.0f, 1.0f, 0.0f,                      // Z unchanged (depth)
+            0.0f, 0.0f, 0.1f, 1.0f                       // Slight Z offset, W = 1
         );
 
         Uniforms uniforms{
             .camera = camera,
-            .model = scale_matrix * z_index_matrix * size_matrix,
+            .model = model,
             .flipped = glm::vec2(
                 1.0, 1.0
             ),
@@ -338,17 +332,17 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
             .uv3 = glm::vec2(0.0, 1.0),
             .uv4 = glm::vec2(0.0, 0.0),
             .uv5 = glm::vec2(1.0, 0.0),
-            .tintColorR = fs.tintColor.getRFloat(),
-            .tintColorG = fs.tintColor.getGFloat(),
-            .tintColorB = fs.tintColor.getBFloat(),
-            .tintColorA = fs.tintColor.getAFloat(),
+            .tintColorR = fs.r,
+            .tintColorG = fs.g,
+            .tintColorB = fs.b,
+            .tintColorA = fs.a,
         };
 
         SDL_PushGPUVertexUniformData(cmd_buffer, 0, &uniforms, sizeof(uniforms));
 
         std::vector<SDL_GPUTextureSamplerBinding> texture_sampler_bindings(1, SDL_GPUTextureSamplerBinding{
             .texture = result_texture,
-            .sampler = fs.texture.gpuSampler,
+            .sampler = Renderer::GetSampler(ScaleMode::LINEAR),
         });
 
         SDL_BindGPUFragmentSamplers(render_pass, 0, texture_sampler_bindings.data(), texture_sampler_bindings.size());

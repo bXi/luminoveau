@@ -274,7 +274,7 @@ public:
 
 private:
 
-    void _drawPixel(vi2d pos, Color color);
+    void _drawPixel(const vi2d& pos, Color color);
 
     void _drawLine(vf2d start, vf2d end, Color color);
 
@@ -304,11 +304,11 @@ private:
 
     void _drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color);
 
-    void _drawTexture(TextureType texture, vf2d pos, const vf2d& size, Color color = WHITE);
+    void _drawTexture(TextureType texture, const vf2d& pos, const vf2d& size, Color color = WHITE);
 
     void _drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color = WHITE);
 
-    void _drawRotatedTexture(TextureType texture, vf2d pos, const vf2d& size, float angle, vf2d pivot,Color color = WHITE);
+    void _drawRotatedTexture(TextureType texture, const vf2d& pos, const vf2d& size, float angle, vf2d pivot,Color color = WHITE);
 
     void _drawRotatedTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, float angle, vf2d pivot,Color color = WHITE);
 

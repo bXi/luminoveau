@@ -15,7 +15,7 @@
 
 void Renderer::_initRendering() {
 
-    bool enableGPUDebug = false;
+    bool enableGPUDebug = true;
     #ifdef LUMIDEBUG
     enableGPUDebug = true;
     #endif
@@ -90,6 +90,49 @@ void Renderer::_initRendering() {
             }
         }
     }
+
+        auto swapchain_texture_format = SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow());
+
+     color_target_descriptions = {
+        .format      = swapchain_texture_format,
+        .blend_state = GPUstructs::defaultBlendState,
+    };
+
+     rtt_pipeline_create_info = {
+        .vertex_shader   = rtt_vertex_shader,
+        .fragment_shader = rtt_fragment_shader,
+        .vertex_input_state =
+            {
+                .vertex_buffer_descriptions = nullptr,
+                .num_vertex_buffers         = 0,
+                .vertex_attributes          = nullptr,
+                .num_vertex_attributes      = 0,
+            },
+        .primitive_type    = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+        .rasterizer_state  = GPUstructs::defaultRasterizerState,
+        .multisample_state = {},
+        .depth_stencil_state =
+            {
+                .compare_op          = SDL_GPU_COMPAREOP_LESS,
+                .back_stencil_state  = {},
+                .front_stencil_state = {},
+                .compare_mask        = 0,
+                .write_mask          = 0,
+                .enable_depth_test   = true,
+                .enable_depth_write  = false,
+                .enable_stencil_test = false,
+            },
+        .target_info =
+            {
+                .color_target_descriptions = &color_target_descriptions,
+                .num_color_targets         = 1,
+                .depth_stencil_format      = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
+                .has_depth_stencil_target  = false,
+            },
+        .props = 0,
+    };
+
+    m_rendertotexturepipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &rtt_pipeline_create_info);
 
     #ifdef ADD_IMGUI
     ImGui_ImplSDL3_InitForOther(Window::GetWindow());
@@ -304,82 +347,30 @@ UniformBuffer &Renderer::_getUniformBuffer(const std::string &passname) {
 
 void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
 
-
-
-    auto swapchain_texture_format = SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow());
-
-    SDL_GPUColorTargetDescription color_target_descriptions = {
-        .format = swapchain_texture_format,
-        .blend_state = GPUstructs::defaultBlendState,
-    };
-
-    SDL_GPUGraphicsPipelineCreateInfo rtt_pipeline_create_info{
-        .vertex_shader = rtt_vertex_shader,
-        .fragment_shader = rtt_fragment_shader,
-        .vertex_input_state =
-            {
-                .vertex_buffer_descriptions = nullptr,
-                .num_vertex_buffers = 0,
-                .vertex_attributes = nullptr,
-                .num_vertex_attributes = 0,
-            },
-        .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
-        .rasterizer_state = GPUstructs::defaultRasterizerState,
-        .multisample_state = {},
-        .depth_stencil_state =
-            {
-                .compare_op = SDL_GPU_COMPAREOP_LESS,
-                .back_stencil_state = {},
-                .front_stencil_state = {},
-                .compare_mask = 0,
-                .write_mask = 0,
-                .enable_depth_test = true,
-                .enable_depth_write = false,
-                .enable_stencil_test = false,
-            },
-        .target_info =
-            {
-                .color_target_descriptions = &color_target_descriptions,
-                .num_color_targets = 1,
-                .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
-                .has_depth_stencil_target = false,
-            },
-        .props = 0,
-    };
-
-    m_rendertotexturepipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &rtt_pipeline_create_info);
-
     auto *framebuffer = Renderer::GetFramebuffer("primaryFramebuffer")->fbContent;
 
     SDL_GPUColorTargetInfo sdlGpuColorTargetInfo = {
         .texture = swapchain_texture,
         .clear_color = SDL_FColor{0.0f, 0.0f, 0.0f, 1.0f},
         .load_op = SDL_GPU_LOADOP_CLEAR,
-        .store_op = SDL_GPU_STOREOP_STORE,
+        .store_op    = SDL_GPU_STOREOP_STORE,// was SDL_GPU_STOREOP_STORE
     };
 
     SDL_GPURenderPass *renderPass = SDL_BeginGPURenderPass(cmd_buffer, &sdlGpuColorTargetInfo, 1, nullptr);
     SDL_BindGPUGraphicsPipeline(renderPass, m_rendertotexturepipeline);
 
-    Renderable renderable = {
-        .texture = fs,
-        .size = glm::vec2(Window::GetWidth(), Window::GetHeight()),
-        .transform = {
-            .position = glm::vec2(0.0, 0.0),
-        },
-    };
 
     glm::mat4 z_index_matrix = glm::translate(
         glm::mat4(1.0f),
         glm::vec3(0.0f, 0.0f, 0.0f)// + (renderable.z_index * 10000)))
     );
-    glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(renderable.size, 1.0f));
+    glm::mat4 size_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(Window::GetWidth(), Window::GetHeight(), 1.0f));
 
     glm::mat4 scale_matrix = glm::mat4(
-        renderable.transform.scale.x, 0.0f, 0.0f, 0.0f,
-        0.0f, renderable.transform.scale.y, 0.0f, 0.0f,
+        1.f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.f, 0.0f, 0.0f,
         0.0f, 0.0f, 1.0f, 0.0f,
-        renderable.transform.position.x, renderable.transform.position.y, 0.0f, 1.0f
+        0.f, 0.f, 0.0f, 1.0f
     );
 
     Uniforms rtt_uniforms{
@@ -396,7 +387,7 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
     SDL_BindGPUFragmentSamplers(renderPass, 0, &rtt_texture_sampler_binding, 1);
     SDL_DrawGPUPrimitives(renderPass, 6, 1, 0, 0);
     SDL_EndGPURenderPass(renderPass);
-    SDL_ReleaseGPUGraphicsPipeline(m_device, m_rendertotexturepipeline);
+
 
 }
 

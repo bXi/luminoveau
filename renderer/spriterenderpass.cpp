@@ -17,6 +17,8 @@ bool SpriteRenderPass::init(
 
     m_depth_texture = AssetHandler::CreateDepthTarget(Renderer::GetDevice(), surface_width, surface_height);
 
+    renderQueue.reserve(MAX_SPRITES);
+
     createShaders();
 
     SDL_GPUColorTargetDescription color_target_description{
@@ -59,6 +61,26 @@ bool SpriteRenderPass::init(
     };
     m_pipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &pipeline_create_info);
 
+    SDL_GPUTransferBufferCreateInfo transferBufferCreateInfo = {
+        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+        .size = MAX_SPRITES * sizeof(SpriteInstance)
+    };
+
+    SpriteDataTransferBuffer = SDL_CreateGPUTransferBuffer(
+        m_gpu_device,
+        &transferBufferCreateInfo
+    );
+
+    SDL_GPUBufferCreateInfo bufferCreateInfo = {
+        .usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+        .size = MAX_SPRITES * sizeof(SpriteInstance)
+    };
+
+    SpriteDataBuffer = SDL_CreateGPUBuffer(
+        m_gpu_device,
+        &bufferCreateInfo
+    );
+
     if (!m_pipeline) {
         throw std::runtime_error(Helpers::TextFormat("%s: failed to create graphics pipeline: %s", CURRENT_METHOD(), SDL_GetError()));
     }
@@ -74,7 +96,83 @@ void SpriteRenderPass::render(
     #ifdef LUMIDEBUG
     SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
     #endif
-    SDL_GPUColorTargetInfo color_target_info{
+
+    /*
+    std::sort(renderQueue.begin(), renderQueue.end(),
+              [](const Renderable &a, const Renderable &b) { return a.z > b.z; });
+
+    std::sort(renderQueue.begin(), renderQueue.end(),
+              [](const Renderable &a, const Renderable &b) { return a.texture.gpuTexture < b.texture.gpuTexture; });
+              */
+    //sets up transfer
+    auto *dataPtr = static_cast<SpriteInstance *>(SDL_MapGPUTransferBuffer(
+        m_gpu_device,
+        SpriteDataTransferBuffer,
+        false
+    ));
+
+
+    std::map<SDL_GPUTexture *, Batch> batches;
+    
+    
+    if (sprite_data.capacity() < renderQueueCount) sprite_data.reserve(renderQueueCount);
+    if (sprite_data.size() < renderQueueCount) sprite_data.resize(renderQueueCount); // Still needed for indexing
+
+    size_t thread_count  = thread_pool.get_thread_count();
+    size_t chunk_size    = renderQueueCount / thread_count + 1;
+    for (size_t start = 0; start < renderQueueCount; start += chunk_size) {
+        size_t end = std::min(start + chunk_size, renderQueueCount);
+        thread_pool.enqueue([this, start, end]() {
+            constexpr size_t sprite_size = sizeof(SpriteInstance);
+            for (size_t i = start; i < end; ++i) {
+                std::memcpy(&sprite_data[i], &renderQueue[i].x, sprite_size);
+            }
+        });
+    }
+    thread_pool.wait_all();
+
+    // Build batches from sprite_data
+    std::unordered_map<SDL_GPUTexture *, Batch> final_batches;
+    for (size_t i = 0; i < renderQueueCount; ++i) {
+        const auto &r = renderQueue[i];
+        Batch &batch  = final_batches[r.texture.gpuTexture];
+        if (batch.count == 0) {
+            batch.offset  = i;
+            batch.texture = r.texture.gpuTexture;
+            batch.sampler = r.texture.gpuSampler;
+        }
+        batch.count++;
+    }
+
+    // Transfer to GPU
+    std::memcpy(dataPtr, sprite_data.data(), renderQueueCount * sizeof(SpriteInstance));
+    SDL_UnmapGPUTransferBuffer(m_gpu_device, SpriteDataTransferBuffer);
+
+
+    SDL_GPUCopyPass *copyPass = SDL_BeginGPUCopyPass(cmd_buffer);
+
+    SDL_GPUTransferBufferLocation transferBufferLocation = {
+        .transfer_buffer = SpriteDataTransferBuffer,
+        .offset = 0
+    };
+
+    SDL_GPUBufferRegion bufferRegion = {
+        .buffer = SpriteDataBuffer,
+        .offset = 0,
+        .size = static_cast<Uint32>(renderQueueCount * sizeof(SpriteInstance))
+    };
+
+    SDL_UploadToGPUBuffer(
+        copyPass,
+        &transferBufferLocation,
+        &bufferRegion,
+        false
+    );
+    SDL_EndGPUCopyPass(copyPass);
+
+
+    // Render pass
+    SDL_GPUColorTargetInfo        color_target_info{
         .texture = target_texture,
         .mip_level = 0,
         .layer_or_depth_plane = 0,
@@ -83,7 +181,6 @@ void SpriteRenderPass::render(
         .store_op = SDL_GPU_STOREOP_STORE,
         .cycle = false
     };
-
     SDL_GPUDepthStencilTargetInfo depth_stencil_info{
         .texture = m_depth_texture.gpuTexture,
         .clear_depth = 1.0f,
@@ -97,89 +194,61 @@ void SpriteRenderPass::render(
     assert(render_pass);
     {
         SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
+        SDL_BindGPUVertexStorageBuffers(
+            render_pass,
+            0,
+            &SpriteDataBuffer,
+            1
+        );
 
-        const int thread_count = thread_pool.workers.size();
-        std::vector<std::vector<PreppedSprite>> thread_prepped(thread_count);
-        float w = (float)Window::GetWidth(), h = (float)Window::GetHeight();
-        size_t chunk_size = (renderQueue.size() + thread_count - 1) / thread_count;
+        for (auto &[texture, batch]: final_batches) {
 
-        for (int i = 0; i < thread_count; ++i) {
-            size_t start = i * chunk_size;
-            size_t end = std::min(start + chunk_size, renderQueue.size());
-            thread_pool.enqueue([this, start, end, &thread_prepped, i, w, h, &camera]() {
-                PrepSprites(this->renderQueue, start, end, thread_prepped[i], w, h, camera);
-            });
-        }
+            SDL_GPUTextureSamplerBinding samplerBinding = {
+                .texture = batch.texture,
+                .sampler = batch.sampler
+            };
 
-        thread_pool.wait_all(); // Wait for all tasks
+            SDL_BindGPUFragmentSamplers(
+                render_pass,
+                0,
+                &samplerBinding,
+                1
+            );
+            SDL_PushGPUVertexUniformData(
+                cmd_buffer,
+                0,
+                &camera,
+                sizeof(glm::mat4)
+            );
+            SDL_DrawGPUPrimitives(
+                render_pass,
+                batch.count * 6,
+                1,
+                batch.offset * 6,
+                0
+            );
 
-        std::vector<PreppedSprite> final_prepped;
-        final_prepped.reserve(renderQueue.size());
-        for (auto& tp : thread_prepped) {
-            final_prepped.insert(final_prepped.end(), tp.begin(), tp.end());
-        }
-        // Tight submit loop
-        SDL_GPUTexture *last_texture = nullptr;
-        for (const auto& p : final_prepped) {
-            SDL_PushGPUVertexUniformData(cmd_buffer, 0, &p.uniforms, sizeof(Uniforms));
-            if (p.texture != last_texture) {
-                SDL_GPUTextureSamplerBinding binding = { p.texture, p.sampler };
-                SDL_BindGPUFragmentSamplers(render_pass, 0, &binding, 1);
-                last_texture = p.texture;
-            }
-            SDL_DrawGPUPrimitives(render_pass, 6, 1, 0, 0);
+
         }
     }
+
     SDL_EndGPURenderPass(render_pass);
-    #ifdef LUMIDEBUG
+#ifdef LUMIDEBUG
     SDL_PopGPUDebugGroup(cmd_buffer);
-    #endif
-}
-
-
-
-
-void SpriteRenderPass::PrepSprites(const std::vector<Renderable>& _renderQueue, size_t start, size_t end,
-                 std::vector<PreppedSprite>& prepped, float w, float h, const glm::mat4& camera) {
-    prepped.resize(end - start); // Pre-size to avoid push_back overhead
-    size_t idx = 0;
-    for (size_t i = start; i < end; ++i) {
-        const auto& r = _renderQueue[i];
-        bool visible = !(r.transform.position.x > w || r.transform.position.y > h ||
-                         r.transform.position.x + r.size.x < 0.f || r.transform.position.y + r.size.y < 0.f);
-        if (!visible) continue;
-
-        prepped[idx] = {
-            .uniforms = {
-                .camera = camera,
-                .model = r.model,
-                .flipped = r.flipped,
-                .uv0 = r.uv[0], .uv1 = r.uv[1], .uv2 = r.uv[2],
-                .uv3 = r.uv[3], .uv4 = r.uv[4], .uv5 = r.uv[5],
-                .tintColorR = static_cast<float>(r.tintColor.r) / 255.0f,
-                .tintColorG = static_cast<float>(r.tintColor.g) / 255.0f,
-                .tintColorB = static_cast<float>(r.tintColor.b) / 255.0f,
-                .tintColorA = static_cast<float>(r.tintColor.a) / 255.0f
-            },
-            .texture = r.texture.gpuTexture,
-            .sampler = r.texture.gpuSampler
-        };
-        idx++;
-    }
-    prepped.resize(idx); // Shrink to actual visible count
+#endif
 }
 
 void SpriteRenderPass::createShaders() {
     SDL_GPUShaderCreateInfo vertexShaderInfo = {
-        .code_size = sprite_vert_bin_len,
-        .code = sprite_vert_bin,
+        .code_size = sprite_batch_vert_bin_len,
+        .code = sprite_batch_vert_bin,
         .entrypoint = "main",
         .format = SDL_GPU_SHADERFORMAT_SPIRV,
         .stage = SDL_GPU_SHADERSTAGE_VERTEX,
         .num_samplers = 0,
         .num_storage_textures = 0,
-        .num_storage_buffers = 0,
-        .num_uniform_buffers = 2,
+        .num_storage_buffers = 1,
+        .num_uniform_buffers = 1,
     };
 
     vertex_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &vertexShaderInfo);
@@ -190,15 +259,15 @@ void SpriteRenderPass::createShaders() {
     }
 
     SDL_GPUShaderCreateInfo fragmentShaderInfo = {
-        .code_size = sprite_frag_bin_len,
-        .code = sprite_frag_bin,
+        .code_size = sprite_batch_frag_bin_len,
+        .code = sprite_batch_frag_bin,
         .entrypoint = "main",
         .format = SDL_GPU_SHADERFORMAT_SPIRV,
         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
         .num_samplers = 1,
         .num_storage_textures = 0,
         .num_storage_buffers = 0,
-        .num_uniform_buffers = 1,
+        .num_uniform_buffers = 0,
     };
 
     fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &fragmentShaderInfo);

@@ -25,9 +25,9 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
 
         for (int i = 0; i + 5 < sequence->num_indices; i += 6) {
 
-            auto v1 = sequence->xy[sequence->indices[i + 1]];
-            auto v5 = sequence->xy[sequence->indices[i + 5]];
-//
+            auto v1  = sequence->xy[sequence->indices[i + 1]];
+            auto v5  = sequence->xy[sequence->indices[i + 5]];
+            //
             auto uv2 = sequence->uv[sequence->indices[i + 2]];
             auto uv3 = sequence->uv[sequence->indices[i + 3]];
 
@@ -41,41 +41,28 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
             float uvMaxX = uv2.x;
             float uvMaxY = uv2.y;
 
-
-
-            vf2d scale = {1.0f, 1.0f};
-            glm::vec2 flipped{1.0f, 1.0f};
-
-            // Given parameters
-            glm::vec2 rPosition = glm::vec2(minX + pos.x, pos.y + (0 - maxY));    // World position
-            glm::vec2 rSize     = {maxX - minX, maxY - minY}; // Original texture size in pixels
-            glm::vec2 rScale    = scale;             // Scale factors (can be non-uniform)
-            float     rZ_index  = (float) Renderer::GetZIndex() / (float) INT32_MAX;
-
-            glm::mat4 scale_matrix       = glm::scale(glm::mat4(1.0f), glm::vec3(rSize * rScale, 1.0f));
-            glm::mat4 translation_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(rPosition, rZ_index));
-
-            glm::mat4 model_matrix = translation_matrix * scale_matrix;
-
-
             // Set up the Renderable object with UVs
             Renderable ren = {
                 .texture = tex,
-                .size = glm::vec2(maxX - minX, maxY - minY),
-                .uv = {
-                    glm::vec2(uvMaxX, uvMaxY),  // Top-right
-                    glm::vec2(uvMinX, uvMaxY),  // Top-left
-                    glm::vec2(uvMaxX, uvMinY),  // Bottom-right
-                    glm::vec2(uvMinX, uvMaxY),  // Top-left (repeated for triangle)
-                    glm::vec2(uvMinX, uvMinY),  // Bottom-left
-                    glm::vec2(uvMaxX, uvMinY)   // Bottom-right
-                },
-                .model = model_matrix,
-                .flipped = flipped,
-                .tintColor = color,
-                .transform = {
-                    .position = glm::vec2(minX + pos.x, pos.y + (0 - maxY)),
-                },
+
+                .x = minX + pos.x,
+                .y = pos.y + (0 - maxY),
+                .z = (float) Renderer::GetZIndex(),
+
+                .rotation = 0.f,
+
+                .tex_u = uvMinX,
+                .tex_v = uvMinY,
+                .tex_w = uvMaxX - uvMinX,
+                .tex_h = uvMaxY - uvMinY,
+
+                .r = (float) color.r / 255.f,
+                .g = (float) color.g / 255.f,
+                .b = (float) color.b / 255.f,
+                .a = (float) color.a / 255.f,
+
+                .w        = maxX - minX,
+                .h        = maxY - minY,
             };
 
             // Add to the render queue
@@ -101,8 +88,8 @@ vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw) {
     int tw, th;
     TTF_GetTextSize(text, &tw, &th);
 
-    auto width  = (float)tw;
-    auto height = (float)th;
+    auto width  = (float) tw;
+    auto height = (float) th;
 
     TTF_DestroyText(text);
 
