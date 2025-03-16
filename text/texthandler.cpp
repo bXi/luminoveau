@@ -63,6 +63,9 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
 
                 .w        = maxX - minX,
                 .h        = maxY - minY,
+
+                .pivot_x = 0.5f,
+                .pivot_y = 0.5f,
             };
 
             // Add to the render queue

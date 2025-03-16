@@ -114,7 +114,7 @@ class SpriteRenderPass : public RenderPass {
         float tex_u, tex_v, tex_w, tex_h;
         float r, g, b, a;
         float w, h;
-        float padding1, padding2;
+        float pivot_x, pivot_y;
     };
 
     struct Batch {
@@ -191,7 +191,7 @@ public:
     static const size_t  sprite_batch_frag_bin_len = 1020;
 
     static const uint8_t sprite_batch_vert_bin[];
-    static const size_t  sprite_batch_vert_bin_len = 3076;
+    static const size_t sprite_batch_vert_bin_len = 3204;
 
 
     void createShaders();

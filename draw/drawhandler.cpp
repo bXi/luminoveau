@@ -59,6 +59,9 @@ void Draw::_drawTexture(TextureType texture, const vf2d& pos, const vf2d &size, 
 
         .w = size.x,
         .h = size.y,
+
+        .pivot_x = 0.5f,
+        .pivot_y = 0.5f,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -94,6 +97,9 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &si
 
         .w = dstRect.w,
         .h = dstRect.h,
+
+        .pivot_x = 0.5f,
+        .pivot_y = 0.5f,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -122,6 +128,9 @@ void Draw::_drawRotatedTexture(Draw::TextureType texture, const vf2d& pos, const
 
         .w = size.x,
         .h = size.y,
+
+        .pivot_x = pivot.x,
+        .pivot_y = pivot.x,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -157,6 +166,9 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, const vf2d &pos, c
 
         .w = size.x,
         .h = size.y,
+
+        .pivot_x = pivot.x,
+        .pivot_y = pivot.x,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
