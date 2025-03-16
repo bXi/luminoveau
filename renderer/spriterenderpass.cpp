@@ -97,6 +97,8 @@ void SpriteRenderPass::render(
     SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
     #endif
 
+    if (renderQueueCount == 0) return;
+
     /*
     std::sort(renderQueue.begin(), renderQueue.end(),
               [](const Renderable &a, const Renderable &b) { return a.z > b.z; });
@@ -111,20 +113,18 @@ void SpriteRenderPass::render(
         false
     ));
 
-
     std::map<SDL_GPUTexture *, Batch> batches;
-    
-    
+
     if (sprite_data.capacity() < renderQueueCount) sprite_data.reserve(renderQueueCount);
     if (sprite_data.size() < renderQueueCount) sprite_data.resize(renderQueueCount); // Still needed for indexing
 
-    size_t thread_count  = thread_pool.get_thread_count();
-    size_t chunk_size    = renderQueueCount / thread_count + 1;
-    for (size_t start = 0; start < renderQueueCount; start += chunk_size) {
+    size_t      thread_count = thread_pool.get_thread_count();
+    size_t      chunk_size   = renderQueueCount / thread_count + 1;
+    for (size_t start        = 0; start < renderQueueCount; start += chunk_size) {
         size_t end = std::min(start + chunk_size, renderQueueCount);
         thread_pool.enqueue([this, start, end]() {
             constexpr size_t sprite_size = sizeof(SpriteInstance);
-            for (size_t i = start; i < end; ++i) {
+            for (size_t      i           = start; i < end; ++i) {
                 std::memcpy(&sprite_data[i], &renderQueue[i].x, sprite_size);
             }
         });
@@ -133,9 +133,9 @@ void SpriteRenderPass::render(
 
     // Build batches from sprite_data
     std::unordered_map<SDL_GPUTexture *, Batch> final_batches;
-    for (size_t i = 0; i < renderQueueCount; ++i) {
-        const auto &r = renderQueue[i];
-        Batch &batch  = final_batches[r.texture.gpuTexture];
+    for (size_t                                 i = 0; i < renderQueueCount; ++i) {
+        const auto &r     = renderQueue[i];
+        Batch      &batch = final_batches[r.texture.gpuTexture];
         if (batch.count == 0) {
             batch.offset  = i;
             batch.texture = r.texture.gpuTexture;
@@ -147,7 +147,6 @@ void SpriteRenderPass::render(
     // Transfer to GPU
     std::memcpy(dataPtr, sprite_data.data(), renderQueueCount * sizeof(SpriteInstance));
     SDL_UnmapGPUTransferBuffer(m_gpu_device, SpriteDataTransferBuffer);
-
 
     SDL_GPUCopyPass *copyPass = SDL_BeginGPUCopyPass(cmd_buffer);
 
@@ -227,8 +226,6 @@ void SpriteRenderPass::render(
                 batch.offset * 6,
                 0
             );
-
-
         }
     }
 
