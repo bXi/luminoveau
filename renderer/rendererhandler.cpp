@@ -42,7 +42,7 @@ void Renderer::_initRendering() {
 
     m_camera = glm::ortho(0.0f, (float) Window::GetWidth(), float(Window::GetHeight()), 0.0f);
 
-    fs = AssetHandler::CreateEmptyTexture({ 1,1 });
+    fs = AssetHandler::CreateEmptyTexture({1, 1});
 
     SDL_GPUShaderCreateInfo rttVertexShaderInfo = {
         .code_size = SpriteRenderPass::sprite_vert_bin_len,
@@ -68,7 +68,7 @@ void Renderer::_initRendering() {
         .num_uniform_buffers = 1,
     };
 
-    rtt_vertex_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &rttVertexShaderInfo);
+    rtt_vertex_shader   = SDL_CreateGPUShader(Renderer::GetDevice(), &rttVertexShaderInfo);
     rtt_fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &rttFragmentShaderInfo);
 
     auto *framebuffer = new FrameBuffer;
@@ -91,14 +91,14 @@ void Renderer::_initRendering() {
         }
     }
 
-        auto swapchain_texture_format = SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow());
+    auto swapchain_texture_format = SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow());
 
-     color_target_descriptions = {
+    color_target_descriptions = {
         .format      = swapchain_texture_format,
         .blend_state = GPUstructs::defaultBlendState,
     };
 
-     rtt_pipeline_create_info = {
+    rtt_pipeline_create_info = {
         .vertex_shader   = rtt_vertex_shader,
         .fragment_shader = rtt_fragment_shader,
         .vertex_input_state =
@@ -213,9 +213,9 @@ void Renderer::_endFrame() {
 
 #ifdef ADD_IMGUI
 
-        #ifdef LUMIDEBUG
+#ifdef LUMIDEBUG
         SDL_PushGPUDebugGroup(m_cmdbuf, "[Lumi] ImGuiRenderPass::render");
-        #endif
+#endif
         ImGui::Render();
         {
             auto copy_pass = SDL_BeginGPUCopyPass(m_cmdbuf);
@@ -237,9 +237,9 @@ void Renderer::_endFrame() {
 
             SDL_EndGPURenderPass(render_pass);
         }
-        #ifdef LUMIDEBUG
+#ifdef LUMIDEBUG
         SDL_PopGPUDebugGroup(m_cmdbuf);
-        #endif
+#endif
 #endif
     } else {
         // don't have a swapchain. just end imgui
@@ -359,12 +359,11 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
     SDL_GPURenderPass *renderPass = SDL_BeginGPURenderPass(cmd_buffer, &sdlGpuColorTargetInfo, 1, nullptr);
     SDL_BindGPUGraphicsPipeline(renderPass, m_rendertotexturepipeline);
 
-
     glm::mat4 z_index_matrix = glm::translate(
         glm::mat4(1.0f),
         glm::vec3(0.0f, 0.0f, 0.0f)// + (renderable.z_index * 10000)))
     );
-    glm::mat4 size_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(Window::GetWidth(), Window::GetHeight(), 1.0f));
+    glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(Window::GetWidth(), Window::GetHeight(), 1.0f));
 
     glm::mat4 scale_matrix = glm::mat4(
         1.f, 0.0f, 0.0f, 0.0f,
@@ -387,8 +386,6 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
     SDL_BindGPUFragmentSamplers(renderPass, 0, &rtt_texture_sampler_binding, 1);
     SDL_DrawGPUPrimitives(renderPass, 6, 1, 0, 0);
     SDL_EndGPURenderPass(renderPass);
-
-
 }
 
 FrameBuffer *Renderer::_getFramebuffer(std::string fbname) {
