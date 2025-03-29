@@ -332,10 +332,10 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
             .uv3 = glm::vec2(0.0, 1.0),
             .uv4 = glm::vec2(0.0, 0.0),
             .uv5 = glm::vec2(1.0, 0.0),
-            .tintColorR = fs.r,
-            .tintColorG = fs.g,
-            .tintColorB = fs.b,
-            .tintColorA = fs.a,
+            .tintColorR = fs.r / 255.f,
+            .tintColorG = fs.g / 255.f,
+            .tintColorB = fs.b / 255.f,
+            .tintColorA = fs.a / 255.f,
         };
 
         SDL_PushGPUVertexUniformData(cmd_buffer, 0, &uniforms, sizeof(uniforms));
