@@ -71,11 +71,13 @@ if (SDL3_ADDED)
     target_include_directories("luminoveau" PUBLIC ${SDL3_SOURCE_DIR}/include)
 endif ()
 
-CPMAddPackage(
-        NAME harfbuzz
-        GIT_REPOSITORY https://github.com/harfbuzz/harfbuzz.git
-        GIT_TAG 40ef6c0
-)
+if (NOT MSVC)
+    CPMAddPackage(
+            NAME harfbuzz
+            GIT_REPOSITORY https://github.com/harfbuzz/harfbuzz.git
+            GIT_TAG 40ef6c0
+    )
+endif()
 
 if (NOT MSVC AND NOT ANDROID)
     CPMAddPackage(
