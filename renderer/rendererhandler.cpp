@@ -133,6 +133,9 @@ void Renderer::_initRendering() {
     };
 
     m_rendertotexturepipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &rtt_pipeline_create_info);
+    
+    _whitePixelTexture = AssetHandler::CreateWhitePixel();
+
 
     #ifdef ADD_IMGUI
     ImGui_ImplSDL3_InitForOther(Window::GetWindow());
@@ -430,4 +433,8 @@ void Renderer::_attachRenderPassToFrameBuffer(RenderPass *renderPass, const std:
 
 SDL_GPUSampler *Renderer::_getSampler(ScaleMode scaleMode) {
     return _samplers[scaleMode];
+}
+
+Texture Renderer::_whitePixel() {
+    return _whitePixelTexture;
 }

@@ -151,6 +151,10 @@ public:
         return get()._createDepthTarget(device, width, height);
     }
 
+    static TextureAsset CreateWhitePixel() {
+        return get()._createWhitePixel();
+    }
+
     static bool InitPhysFS() { return get()._initPhysFS(); }
 
     template<typename T>
@@ -186,6 +190,8 @@ private:
     void _saveTextureAsPNG(Texture texture, const char *fileName);
 
     TextureAsset _createDepthTarget(SDL_GPUDevice *device, uint32_t width, uint32_t height);
+
+    TextureAsset _createWhitePixel();
 
     // Fonts
 

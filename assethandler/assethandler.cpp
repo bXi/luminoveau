@@ -387,6 +387,72 @@ TextureAsset AssetHandler::_createDepthTarget(SDL_GPUDevice *device, uint32_t wi
     return tex;
 }
 
+TextureAsset AssetHandler::_createWhitePixel() {
+    // Create a 1x1 white texture
+    TextureAsset whitePixel;
+
+    auto device = Renderer::GetDevice();
+
+    Uint32 white_pixel_data           = 0xFFFFFFFF;// RGBA: 255, 255, 255, 255
+    SDL_GPUTextureCreateInfo tex_info = {
+        .type                 = SDL_GPU_TEXTURETYPE_2D,
+        .format               = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+        .usage                = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .width                = 1,
+        .height               = 1,
+        .layer_count_or_depth = 1,
+        .num_levels           = 1,
+        .sample_count         = SDL_GPU_SAMPLECOUNT_1,
+    };
+    
+    whitePixel.gpuSampler = Renderer::GetSampler(defaultMode);
+    whitePixel.gpuTexture = SDL_CreateGPUTexture(device, &tex_info);
+
+
+    SDL_GPUTransferBufferCreateInfo transfer_buf_create_info{
+        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+        .size  = sizeof(Uint32),
+        .props = 0,
+    };
+    SDL_GPUTransferBuffer *transfer_buf =
+        SDL_CreateGPUTransferBuffer(device, &transfer_buf_create_info);
+
+    void *transfer_buf_ptr = SDL_MapGPUTransferBuffer(device, transfer_buf, false);
+
+    std::memcpy(transfer_buf_ptr, &white_pixel_data, sizeof(Uint32));
+    SDL_UnmapGPUTransferBuffer(device, transfer_buf);
+
+    SDL_GPUCommandBuffer *copy_cmd_buf = SDL_AcquireGPUCommandBuffer(device);
+    SDL_GPUCopyPass *copy_pass = SDL_BeginGPUCopyPass(copy_cmd_buf);
+    {
+        SDL_GPUTextureTransferInfo transfer_info{
+            .transfer_buffer = transfer_buf,
+            .offset          = 0,
+            .pixels_per_row  = 0,
+            .rows_per_layer  = 0,
+        };
+        SDL_GPUTextureRegion destination_info{
+            .texture   = whitePixel.gpuTexture,
+            .mip_level = 0,
+            .layer     = 0,
+            .x         = 0,
+            .y         = 0,
+            .z         = 0,
+            .w         = 1,
+            .h         = 1,
+            .d         = 1,
+        };
+        SDL_UploadToGPUTexture(copy_pass, &transfer_info, &destination_info, false);
+    }
+    SDL_EndGPUCopyPass(copy_pass);
+    SDL_SubmitGPUCommandBuffer(copy_cmd_buf);
+
+    SDL_ReleaseGPUTransferBuffer(device, transfer_buf);
+
+    return whitePixel;
+}
+
+
 TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData, std::string fileName) {
         TextureAsset texture;
 #if 0

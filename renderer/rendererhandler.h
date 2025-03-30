@@ -92,6 +92,10 @@ public:
 
     static void OnResize() { get()._onResize(); }
 
+    static Texture WhitePixel() { return get()._whitePixel(); }
+
+
+
 private:
     SDL_GPUDevice        *m_device = nullptr;
     SDL_GPUCommandBuffer *m_cmdbuf = nullptr;
@@ -124,6 +128,10 @@ private:
     void _onResize();
 
     void _createFrameBuffer(const std::string& fbname);
+
+    TextureAsset _whitePixelTexture;
+
+    Texture _whitePixel();
 
     UniformBuffer &_getUniformBuffer(const std::string &passname);
 
