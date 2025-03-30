@@ -272,6 +272,8 @@ public:
 
     static void SetTargetRenderPass(const std::string& newTargetRenderPass) { get()._setTargetRenderPass(newTargetRenderPass); }
 
+    static std::string GetTargetRenderPass() { return get()._getTargetRenderPass(); }
+
 private:
 
     void _drawPixel(const vi2d& pos, Color color);
@@ -327,6 +329,8 @@ private:
     void _resetTargetRenderPass() { get()._setTargetRenderPass("2dsprites"); }
 
     void _setTargetRenderPass(const std::string& newTargetRenderPass) { get()._targetRenderPass = newTargetRenderPass; }
+
+    std::string _getTargetRenderPass() { return get()._targetRenderPass; }
 
     std::string _targetRenderPass = "2dsprites";
 

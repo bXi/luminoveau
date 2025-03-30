@@ -1,5 +1,5 @@
 #include "texthandler.h"
-
+#include "draw/drawhandler.h"
 #include <algorithm>
 
 void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color) {
@@ -70,7 +70,7 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
             };
 
             // Add to the render queue
-            Renderer::AddToRenderQueue("2dsprites", ren);
+            Renderer::AddToRenderQueue(Draw::GetTargetRenderPass(), ren);
         }
 
         sequence = sequence->next;
