@@ -35,6 +35,8 @@ void Renderer::_initRendering() {
     }
     SDL_Log("%s: claimed window for gpu device", CURRENT_METHOD());
 
+    SDL_SetGPUAllowedFramesInFlight(m_device, 1);
+
     Shaders::Init();
 
     _samplers[ScaleMode::NEAREST] = SDL_CreateGPUSampler(m_device, &GPUstructs::nearestSamplerCreateInfo);
