@@ -20,6 +20,11 @@ union rect_generic {
         T width, height;
     };
 
+    struct {
+        T _x, _y;
+        T w, h;
+    };
+
     rect_generic() {}
 
     rect_generic(const rect_generic &other) : pos(other.pos), size(other.size) {}
