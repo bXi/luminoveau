@@ -407,7 +407,7 @@ TextureAsset AssetHandler::_createWhitePixel() {
     
     whitePixel.gpuSampler = Renderer::GetSampler(defaultMode);
     whitePixel.gpuTexture = SDL_CreateGPUTexture(device, &tex_info);
-
+    whitePixel.filename = "[Lumi]WhitePixel";
 
     SDL_GPUTransferBufferCreateInfo transfer_buf_create_info{
         .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
