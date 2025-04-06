@@ -110,7 +110,6 @@ bool Input::_keyDown(int key) {
 
 
 vf2d Input::_getMousePosition() {
-#ifdef LINUX
     int windowX = 0;
     int windowY = 0;
 
@@ -122,16 +121,9 @@ vf2d Input::_getMousePosition() {
     SDL_GetGlobalMouseState(&absMouseX, &absMouseY);
 
     return {
-        absMouseX - windowX,
-        absMouseY - windowY
+        (absMouseX - (float)windowX) / Window::GetScale(),
+        (absMouseY - (float)windowY) / Window::GetScale()
     };
-#else
-    float xMouse, yMouse;
-
-    SDL_GetMouseState(&xMouse, &yMouse);
-
-    return {xMouse / Window::GetScale(), yMouse / Window::GetScale()};
-#endif
 }
 
 
