@@ -90,6 +90,10 @@ public:
 
     static SDL_GPUSampler* GetSampler(ScaleMode scalemode) { return get()._getSampler(scalemode); };
 
+    static SDL_GPURenderPass* GetRenderPass(const std::string& passname) { return get()._getRenderPass(passname); }
+
+    static void SetScissorMode(std::string passname, rectf cliprect) { get()._setScissorMode(passname, cliprect); };
+
     static void OnResize() { get()._onResize(); }
 
     static Texture WhitePixel() { return get()._whitePixel(); }
@@ -128,6 +132,10 @@ private:
     void _onResize();
 
     void _createFrameBuffer(const std::string& fbname);
+
+    SDL_GPURenderPass* _getRenderPass(const std::string& passname);
+
+    void _setScissorMode(const std::string& passname, const rectf& cliprect);
 
     TextureAsset _whitePixelTexture;
 

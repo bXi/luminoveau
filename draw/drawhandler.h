@@ -251,12 +251,7 @@ public:
      *
      * @param area The area to apply scissor mode.
      */
-    static void BeginScissorMode(rectf area) { get()._beginScissorMode(area); };
-
-    /**
-     * @brief Ends scissor mode.
-     */
-    static void EndScissorMode() { get()._endScissorMode(); };
+    static void SetScissorMode(const rectf& area) { get()._setScissorMode(area); };
 
     /**
      * @brief Begins 2D rendering mode.
@@ -314,9 +309,7 @@ private:
 
     void _drawRotatedTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, float angle, vf2d pivot,Color color = WHITE);
 
-    void _beginScissorMode(rectf area);
-
-    void _endScissorMode();
+    void _setScissorMode(const rectf& area);
 
     void _beginMode2D();
 

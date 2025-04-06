@@ -174,15 +174,8 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, const vf2d &pos, c
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
 }
 
-void Draw::_beginScissorMode(rectf area) {
-    //TODO: fix with sdl_GPU
-    const SDL_Rect cliprect = area;
-    SDL_SetRenderClipRect(renderer, &cliprect);
-}
-
-void Draw::_endScissorMode() {
-    //TODO: fix with sdl_GPU
-    SDL_SetRenderClipRect(renderer, nullptr);
+void Draw::_setScissorMode(const rectf& area) {
+    Renderer::SetScissorMode(_targetRenderPass, area);
 }
 
 void Draw::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {

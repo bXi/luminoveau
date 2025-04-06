@@ -187,9 +187,16 @@ void SpriteRenderPass::render(
         .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
     };
 
-    SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(cmd_buffer, &color_target_info, 1, &depth_stencil_info);
+    render_pass = SDL_BeginGPURenderPass(cmd_buffer, &color_target_info, 1, &depth_stencil_info);
     assert(render_pass);
     {
+
+        if (_scissorEnabled) {
+            SDL_SetGPUScissor(render_pass, _scissorRect);
+            _scissorEnabled = false;
+        }
+
+
         SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
         SDL_BindGPUVertexStorageBuffers(
             render_pass,

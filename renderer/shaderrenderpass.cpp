@@ -174,9 +174,15 @@ void ShaderRenderPass::render(
 
     auto framebuffer = Renderer::GetFramebuffer("primaryFramebuffer");
 
-    SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(cmd_buffer, color_target_info.data(), color_target_info.size(), nullptr);
+    render_pass = SDL_BeginGPURenderPass(cmd_buffer, color_target_info.data(), color_target_info.size(), nullptr);
     assert(render_pass);
     {
+
+        if (_scissorEnabled) {
+            SDL_SetGPUScissor(render_pass, _scissorRect);
+            _scissorEnabled = false;
+        }
+
         SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
         if (Input::MouseButtonDown(SDL_BUTTON_LEFT)) {
             lastMousePos = Input::GetMousePosition();

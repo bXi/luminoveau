@@ -440,3 +440,42 @@ SDL_GPUSampler *Renderer::_getSampler(ScaleMode scaleMode) {
 Texture Renderer::_whitePixel() {
     return _whitePixelTexture;
 }
+
+SDL_GPURenderPass* Renderer::_getRenderPass(const std::string& passname) {
+
+    SDL_GPURenderPass* foundPass = nullptr;
+
+    for (auto &[fbName, framebuffer]: frameBuffers) {
+        auto it = std::find_if(framebuffer->renderpasses.begin(), framebuffer->renderpasses.end(),
+                               [&passname](const std::pair<std::string, RenderPass *> &entry) {
+                                   return entry.first == passname;
+                               });
+
+        if (it != framebuffer->renderpasses.end()) {
+            foundPass = it->second->render_pass;
+        }
+    }
+
+    return foundPass;
+
+}
+
+void Renderer::_setScissorMode(const std::string& passname, const rectf& cliprect) {
+
+        for (auto &[fbName, framebuffer]: frameBuffers) {
+        auto it = std::find_if(framebuffer->renderpasses.begin(), framebuffer->renderpasses.end(),
+                               [&passname](const std::pair<std::string, RenderPass *> &entry) {
+                                   return entry.first == passname;
+                               });
+
+        if (it != framebuffer->renderpasses.end()) {
+                it->second->_scissorEnabled = true;
+                it->second->_scissorRect->x = cliprect.x;
+                it->second->_scissorRect->y = cliprect.y;
+                it->second->_scissorRect->w = cliprect.w;
+                it->second->_scissorRect->h = cliprect.h;
+
+        }
+    }
+
+}

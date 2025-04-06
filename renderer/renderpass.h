@@ -63,4 +63,9 @@ public:
     virtual void resetRenderQueue() = 0;
 
     virtual UniformBuffer &getUniformBuffer() = 0;
+
+    SDL_GPURenderPass *render_pass{nullptr};
+
+    bool           _scissorEnabled = false;
+    SDL_Rect *_scissorRect = new SDL_Rect{0, 0, 0, 0};
 };
