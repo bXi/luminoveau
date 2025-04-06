@@ -97,8 +97,6 @@ void SpriteRenderPass::render(
     SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
     #endif
 
-    if (renderQueueCount == 0) return;
-
     //sets up transfer
     auto *dataPtr = static_cast<SpriteInstance *>(SDL_MapGPUTransferBuffer(
         m_gpu_device,
@@ -146,27 +144,28 @@ void SpriteRenderPass::render(
     std::memcpy(dataPtr, sprite_data.data(), renderQueueCount * sizeof(SpriteInstance));
     SDL_UnmapGPUTransferBuffer(m_gpu_device, SpriteDataTransferBuffer);
 
-    SDL_GPUCopyPass *copyPass = SDL_BeginGPUCopyPass(cmd_buffer);
+    if (renderQueueCount > 0) {
+        SDL_GPUCopyPass *copyPass = SDL_BeginGPUCopyPass(cmd_buffer);
 
-    SDL_GPUTransferBufferLocation transferBufferLocation = {
-        .transfer_buffer = SpriteDataTransferBuffer,
-        .offset = 0
-    };
+        SDL_GPUTransferBufferLocation transferBufferLocation = {
+            .transfer_buffer = SpriteDataTransferBuffer,
+            .offset = 0
+        };
 
-    SDL_GPUBufferRegion bufferRegion = {
-        .buffer = SpriteDataBuffer,
-        .offset = 0,
-        .size = static_cast<Uint32>(renderQueueCount * sizeof(SpriteInstance))
-    };
+        SDL_GPUBufferRegion bufferRegion = {
+            .buffer = SpriteDataBuffer,
+            .offset = 0,
+            .size = static_cast<Uint32>(renderQueueCount * sizeof(SpriteInstance))
+        };
 
-    SDL_UploadToGPUBuffer(
-        copyPass,
-        &transferBufferLocation,
-        &bufferRegion,
-        false
-    );
-    SDL_EndGPUCopyPass(copyPass);
-
+        SDL_UploadToGPUBuffer(
+            copyPass,
+            &transferBufferLocation,
+            &bufferRegion,
+            false
+        );
+        SDL_EndGPUCopyPass(copyPass);
+    }
 
     // Render pass
     SDL_GPUColorTargetInfo        color_target_info{
