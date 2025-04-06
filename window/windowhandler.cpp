@@ -12,11 +12,13 @@
 void Window::_initWindow(const std::string &title, int width, int height, int scale, unsigned int flags) {
 
     if (scale > 1) { //when scaling asume width is virtual pixels instead of real screen pixels
-        //TODO: fix scaling
+        width *= scale;
+        height *= scale;
+
+        _setScale(scale);
     }
 
-
-    _lastWindowWidth = width;
+    _lastWindowWidth  = width;
     _lastWindowHeight = height;
 
     SDL_Init(SDL_INIT_VIDEO);
@@ -37,10 +39,6 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 
     if (!AssetHandler::InitPhysFS()) {
         throw std::runtime_error(Helpers::TextFormat("%s AssetHandler::InitPhysFS failed. %s", CURRENT_METHOD()));
-    }
-
-    if (scale > 1) {
-        //TODO: fix scaling
     }
 }
 
@@ -205,18 +203,10 @@ void Window::_startFrame() const {
 
     Window::HandleInput();
 
-    if (EngineState::_scaleFactor > 1) {
-        //TODO: fix scaling
-    }
-
     Renderer::StartFrame();
 }
 
 void Window::_endFrame() {
-
-    if (EngineState::_scaleFactor > 1) {
-        //TODO: fix scaling
-    }
 
 #ifdef ADD_IMGUI
     if (EngineState::_debugMenuVisible) {
@@ -254,14 +244,6 @@ void Window::_toggleDebugMenu() {
 
 void Window::_setScale(int scalefactor) {
     EngineState::_scaleFactor = scalefactor;
-
-    if (scalefactor > 1) {
-        //TODO: fix scaling
-
-        //        _screenBuffer = AssetHandler::CreateEmptyTexture(Window::GetSize());
-    } else {
-        //        SDL_SetRenderTarget(GetRenderer(), nullptr);
-    }
 }
 
 void Window::_setScaledSize(int widthInScaledPixels, int heightInScaledPixels, int scale) {
