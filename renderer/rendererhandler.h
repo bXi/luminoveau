@@ -48,6 +48,8 @@ struct FrameBuffer {
     uint32_t height = 0;
 
     std::vector<std::pair<std::string, RenderPass *>> renderpasses;
+
+    bool renderToScreen = false;
 };
 
 class RenderPass;
@@ -83,6 +85,7 @@ public:
 
     static void CreateFrameBuffer(const std::string& fbname) { return get()._createFrameBuffer(fbname); }
 
+    static void SetFramebufferRenderToScreen(const std::string& fbName, bool render) { get()._setFramebufferRenderToScreen(fbName, render); }
 
     static uint32_t GetZIndex() { return get()._zIndex++; }
 
@@ -132,6 +135,8 @@ private:
     void _onResize();
 
     void _createFrameBuffer(const std::string& fbname);
+
+    void _setFramebufferRenderToScreen(const std::string& fbName, bool render);
 
     SDL_GPURenderPass* _getRenderPass(const std::string& passname);
 

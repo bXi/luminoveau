@@ -159,27 +159,7 @@ void Renderer::_onResize() {
 }
 
 void Renderer::_clearBackground(Color color) {
-    //    m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
-    //
-    //    SDL_GPUTexture *swapchain_texture = nullptr;
-    //
-    //    if (!SDL_AcquireGPUSwapchainTexture(m_cmdbuf, Window::GetWindow(), &swapchain_texture, nullptr, nullptr)) {
-    //        SDL_Log("Renderer::render: failed to acquire gpu swapchain texture: %s", SDL_GetError());
-    //        return;
-    //    }
-    //
-    //    SDL_GPUColorTargetInfo color_target_info{
-    //        .texture = swapchain_texture,
-    //        .mip_level = 0,
-    //        .layer_or_depth_plane = 0,
-    //        .clear_color = {.r = color.getRFloat(), .g = color.getGFloat(), .b = color.getBFloat(), .a = color.getAFloat()},
-    //        .load_op = SDL_GPU_LOADOP_CLEAR,
-    //        .store_op = SDL_GPU_STOREOP_STORE,
-    //    };
-    //
-    //    SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(m_cmdbuf, &color_target_info, 1, nullptr);
-    //
-    //    SDL_EndGPURenderPass(render_pass);
+    // can ignore this for now
 }
 
 void Renderer::_startFrame() const {
@@ -364,22 +344,16 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
     SDL_GPURenderPass *renderPass = SDL_BeginGPURenderPass(cmd_buffer, &sdlGpuColorTargetInfo, 1, nullptr);
     SDL_BindGPUGraphicsPipeline(renderPass, m_rendertotexturepipeline);
 
-    glm::mat4 z_index_matrix = glm::translate(
-        glm::mat4(1.0f),
-        glm::vec3(0.0f, 0.0f, 0.0f)// + (renderable.z_index * 10000)))
-    );
-    glm::mat4 size_matrix    = glm::scale(glm::mat4(1.0f), glm::vec3(Window::GetWidth(), Window::GetHeight(), 1.0f));
-
-    glm::mat4 scale_matrix = glm::mat4(
-        1.f, 0.0f, 0.0f, 0.0f,
-        0.0f, 1.f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f,
-        0.f, 0.f, 0.0f, 1.0f
+    glm::mat4 model = glm::mat4(
+        Window::GetWidth(),  0.0f,              0.0f,  0.0f,    // Column 0
+        0.0f,               Window::GetHeight(), 0.0f,  0.0f,    // Column 1
+        0.0f,               0.0f,              1.0f,  0.0f,    // Column 2
+        0.0f,               0.0f,              0.0f,  1.0f     // Column 3
     );
 
     Uniforms rtt_uniforms{
         .camera = m_camera,
-        .model = scale_matrix * z_index_matrix * size_matrix,
+        .model = model,
         .flipped = glm::vec2(1.0, 1.0),
     };
 
@@ -390,6 +364,19 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
     };
     SDL_BindGPUFragmentSamplers(renderPass, 0, &rtt_texture_sampler_binding, 1);
     SDL_DrawGPUPrimitives(renderPass, 6, 1, 0, 0);
+
+    for (const auto& [fbName, framebuffer] : frameBuffers) {
+        if (framebuffer->renderToScreen) {
+            SDL_GPUTextureSamplerBinding binding = {
+                .texture = framebuffer->fbContent,
+                .sampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode()),
+            };
+            SDL_BindGPUFragmentSamplers(renderPass, 0, &binding, 1);
+            SDL_DrawGPUPrimitives(renderPass, 6, 1, 0, 0); // Draw full-screen quad
+        }
+    }
+
+
     SDL_EndGPURenderPass(renderPass);
 }
 
@@ -418,6 +405,16 @@ void Renderer::_createFrameBuffer(const std::string &fbname) {
         frameBuffers.emplace_back(fbname, framebuffer);
 
         SDL_Log("%s: created framebuffer: %s", CURRENT_METHOD(), fbname.c_str());
+    }
+}
+
+void Renderer::_setFramebufferRenderToScreen(const std::string& fbName, bool render) {
+    auto* framebuffer = _getFramebuffer(fbName);
+    if (framebuffer) {
+        framebuffer->renderToScreen = render;
+        SDL_Log("%s: Set renderToScreen to %d for framebuffer: %s", CURRENT_METHOD(), render, fbName.c_str());
+    } else {
+        SDL_Log("%s: Framebuffer not found: %s", CURRENT_METHOD(), fbName.c_str());
     }
 }
 
