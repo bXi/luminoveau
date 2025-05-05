@@ -1,0 +1,36 @@
+@PACKAGE_INIT@
+
+# Ensuring required CMake version
+cmake_minimum_required(VERSION 3.20)
+
+# Including the targets file generated during installation
+include("${CMAKE_CURRENT_LIST_DIR}/LuminoveauTargets.cmake")
+
+# Setting package variables
+set_and_check(Luminoveau_INCLUDE_DIR "@PACKAGE_CMAKE_INSTALL_PREFIX@/include/luminoveau")
+set_and_check(Luminoveau_LIBRARY Luminoveau::luminoveau)
+
+# Checking for optional components (ImGui, Steam)
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/LuminoveauTargets.cmake")
+    # Checking if ImGui was included
+    get_target_property(LUMINOVEAU_IMGUI_ENABLED Luminoveau::luminoveau COMPILE_DEFINITIONS)
+    if("LUMINOVEAU_WITH_IMGUI" IN_LIST LUMINOVEAU_IMGUI_ENABLED)
+        message(STATUS "Luminoveau: ImGui support enabled")
+    endif()
+
+    # Checking if Steam was included
+    get_target_property(LUMINOVEAU_STEAM_ENABLED Luminoveau::luminoveau COMPILE_DEFINITIONS)
+    if("LUMINOVEAU_WITH_STEAM" IN_LIST LUMINOVEAU_STEAM_ENABLED)
+        message(STATUS "Luminoveau: Steam SDK support enabled")
+        # Finding threads, required by Steam SDK
+        find_package(Threads REQUIRED)
+    endif()
+else()
+    message(WARNING "LuminoveauTargets.cmake not found. Package may be incomplete")
+endif()
+
+# Verifying required components
+check_required_components(Luminoveau)
+
+# Providing status message
+message(STATUS "Found Luminoveau @PROJECT_VERSION@ at ${CMAKE_CURRENT_LIST_DIR}")
