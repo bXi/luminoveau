@@ -55,6 +55,9 @@ void ShaderRenderPass::_loadSamplerNamesFromShader(const std::vector<uint8_t> &s
 
 bool ShaderRenderPass::init(
     SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name) {
+
+    LUMI_UNUSED(surface_height, surface_width);
+
     passname = std::move(name);
 
     vertex_shader   = vertShader.shader;
@@ -159,6 +162,7 @@ bool ShaderRenderPass::init(
 void ShaderRenderPass::render(
     SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *target_texture, const glm::mat4 &camera
 ) {
+    LUMI_UNUSED(target_texture);
     #ifdef LUMIDEBUG
     SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
     #endif

@@ -59,7 +59,7 @@ if(MSVC)
     )
 else()
     target_compile_options(luminoveau PRIVATE
-        -Wall -Wextra
+        -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-function
     )
 endif()
 

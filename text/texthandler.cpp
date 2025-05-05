@@ -101,6 +101,7 @@ vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw) {
 }
 
 TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color color) {
+    LUMI_UNUSED(color);
     if (textToDraw.empty()) {
         // In this case we return space so we still render something for when the user uses
         // the height of the returned texture to position multiple lines of text.

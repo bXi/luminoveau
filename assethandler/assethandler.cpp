@@ -139,7 +139,7 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
 }
 
 void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
-
+    LUMI_UNUSED(texture, fileName);
 }
 
 Sound AssetHandler::_getSound(const std::string &fileName) {
@@ -454,6 +454,8 @@ TextureAsset AssetHandler::_createWhitePixel() {
 
 
 TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData, std::string fileName) {
+    LUMI_UNUSED(size, pixelData, fileName);
+
         TextureAsset texture;
 #if 0
 
@@ -490,7 +492,7 @@ bool AssetHandler::_initPhysFS() {
 }
 
 PhysFSFileData AssetHandler::_resolveFile(const std::string& filename) {
-        PhysFSFileData result = {nullptr, 0};
+    PhysFSFileData result = {nullptr, 0, {0}};
     if (!PHYSFS_exists(filename.c_str())) {
         std::cerr << "File does not exist: " << filename << std::endl;
         return result;

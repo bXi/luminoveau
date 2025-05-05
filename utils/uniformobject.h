@@ -21,7 +21,7 @@ inline constexpr bool is_std_array_v = is_std_array<T>::value;
 
 class UniformBuffer {
 public:
-    UniformBuffer() : alignment(16), currentOffset(0) {
+    UniformBuffer() : currentOffset(0), alignment(16)  {
         buffer.resize(1024, 0);
     }
 
@@ -129,6 +129,6 @@ private:
     std::vector<std::tuple<std::string, size_t, size_t>> variables;
 
     std::vector<uint8_t> buffer;
-    size_t               currentOffset;
-    size_t               alignment;
+    size_t               currentOffset = 0;
+    size_t               alignment = 0;
 };

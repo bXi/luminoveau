@@ -17,6 +17,8 @@ void Steam::_init(int newAppId) {
         throw std::runtime_error(Helpers::TextFormat("%s failed to init Steam.  %s", CURRENT_METHOD(), errMsg));
 
     isInit = true;
+#else
+    LUMI_UNUSED(newAppId);
 #endif
 }
 
@@ -29,10 +31,13 @@ bool Steam::_isReady() const {
 }
 
 float Steam::_getStat(const std::string &pchName) {
+    LUMI_UNUSED(pchName);
+
     return 0;
 }
 
 void Steam::_setStat(const std::string &pchName, float fData) {
+    LUMI_UNUSED(pchName, fData);
 }
 
 bool Steam::_hasAchievement(const std::string &pchName) {
@@ -44,6 +49,7 @@ bool Steam::_hasAchievement(const std::string &pchName) {
 
     return hasAchievement;
 #else
+    LUMI_UNUSED(pchName);
     return false;
 #endif
 }
@@ -54,6 +60,8 @@ void Steam::_setAchievement(const std::string &pchName) {
 #if __has_include("steam_api.h")
     SteamUserStats()->SetAchievement(pchName.c_str());
     SteamUserStats()->StoreStats();
+#else
+    LUMI_UNUSED(pchName);
 #endif
 }
 
@@ -63,6 +71,8 @@ void Steam::_clearAchievement(const std::string &pchName) {
 #if __has_include("steam_api.h")
     SteamUserStats()->ClearAchievement(pchName.c_str());
     SteamUserStats()->StoreStats();
+#else
+    LUMI_UNUSED(pchName);
 #endif
 }
 

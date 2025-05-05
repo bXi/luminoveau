@@ -279,7 +279,7 @@ private:
 
     void _drawTriangle(vf2d v1, vf2d v2, vf2d v3, Color color);
 
-    void _drawRectangle(vf2d pos, vf2d size, Color color);
+    void _drawRectangle(const vf2d& pos, const vf2d& size, Color color);
 
     void _drawRectangleRounded(vf2d pos, const vf2d& size, float radius, Color color);
 
@@ -287,7 +287,7 @@ private:
 
     void _drawEllipse(vf2d center, float radiusX, float radiusY, Color color);
 
-    void _drawArc(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color);
+    void _drawArc(const vf2d& center, float radius, float startAngle, float endAngle, int segments, Color color);
 
     void _drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color);
 
@@ -305,9 +305,9 @@ private:
 
     void _drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color = WHITE);
 
-    void _drawRotatedTexture(TextureType texture, const vf2d& pos, const vf2d& size, float angle, vf2d pivot,Color color = WHITE);
+    void _drawRotatedTexture(TextureType texture, const vf2d& pos, const vf2d& size, float angle, const vf2d& pivot,Color color = WHITE);
 
-    void _drawRotatedTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, float angle, vf2d pivot,Color color = WHITE);
+    void _drawRotatedTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, float angle, const vf2d& pivot,Color color = WHITE);
 
     void _setScissorMode(const rectf& area);
 

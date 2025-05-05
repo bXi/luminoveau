@@ -17,7 +17,7 @@ void Audio::_playSound(Sound sound) {
 void Audio::_playSound(Sound sound, float volume, float panning) {
     int index = -1;
 
-    for (int i = 0; i < _sounds.size(); i++) {
+    for (unsigned int i = 0; i < _sounds.size(); i++) {
         auto s = _sounds[i];
         if (!s || !ma_sound_is_playing(s)) {
             index = i;
@@ -89,6 +89,7 @@ void Audio::_rewindMusic(Music &music) {
     return;
 }
 void Audio::ma_data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount) {
+    LUMI_UNUSED(pInput);
     ma_engine_read_pcm_frames((ma_engine *) (pDevice->pUserData), pOutput, frameCount, nullptr);
 }
 

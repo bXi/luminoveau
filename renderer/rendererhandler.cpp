@@ -159,6 +159,7 @@ void Renderer::_onResize() {
 }
 
 void Renderer::_clearBackground(Color color) {
+    LUMI_UNUSED(color);
     // can ignore this for now
 }
 
@@ -306,9 +307,6 @@ void Renderer::_addShaderPass(const std::string &passname, const ShaderAsset &ve
     }
 }
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "UnreachableCode"
-
 UniformBuffer &Renderer::_getUniformBuffer(const std::string &passname) {
     for (auto &[fbName, framebuffer]: frameBuffers) {
 
@@ -327,8 +325,6 @@ UniformBuffer &Renderer::_getUniformBuffer(const std::string &passname) {
     static UniformBuffer dummyBuffer;
     return dummyBuffer;
 }
-
-#pragma clang diagnostic pop
 
 void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
 

@@ -35,6 +35,9 @@
 #define CURRENT_METHOD() __FUNCTION__
 #endif
 
+template<typename... T>
+inline void LUMI_UNUSED(T&&...) {}
+
 class Helpers {
 public:
     static int clamp(int input, int min, int max);
