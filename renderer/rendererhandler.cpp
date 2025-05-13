@@ -139,7 +139,7 @@ void Renderer::_initRendering() {
     _whitePixelTexture = AssetHandler::CreateWhitePixel();
 
 
-    #ifdef ADD_IMGUI
+    #ifdef LUMINOVEAU_WITH_IMGUI
     ImGui_ImplSDL3_InitForOther(Window::GetWindow());
     ImGui_ImplSDLGPU3_Init(m_device, SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()));
     #endif
@@ -165,7 +165,7 @@ void Renderer::_clearBackground(Color color) {
 
 void Renderer::_startFrame() const {
 
-#ifdef ADD_IMGUI
+#ifdef LUMINOVEAU_WITH_IMGUI
     ImGui_ImplSDL3_NewFrame();
     ImGui_ImplSDLGPU3_NewFrame();
     ImGui::NewFrame();
@@ -197,7 +197,7 @@ void Renderer::_endFrame() {
 
         renderFrameBuffer(m_cmdbuf);
 
-#ifdef ADD_IMGUI
+#ifdef LUMINOVEAU_WITH_IMGUI
 
 #ifdef LUMIDEBUG
         SDL_PushGPUDebugGroup(m_cmdbuf, "[Lumi] ImGuiRenderPass::render");
@@ -229,7 +229,7 @@ void Renderer::_endFrame() {
 #endif
     } else {
         // don't have a swapchain. just end imgui
-        #ifdef ADD_IMGUI
+        #ifdef LUMINOVEAU_WITH_IMGUI
         ImGui::EndFrame();
         #endif
     }

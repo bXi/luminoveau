@@ -27,7 +27,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#ifdef ADD_IMGUI
+#ifdef LUMINOVEAU_WITH_IMGUI
 #include "imgui.h"
 #include "backends/imgui_impl_sdlgpu3.h"
 #include "backends/imgui_impl_sdl3.h"

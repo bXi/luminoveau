@@ -185,7 +185,7 @@ std::vector<std::pair<vf2d, vf2d>> Helpers::getLinesFromRectangle(rectf rect) {
 
 
 void Helpers::DrawMainMenu() {
-#ifdef ADD_IMGUI
+#ifdef LUMINOVEAU_WITH_IMGUI
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Exit")) {

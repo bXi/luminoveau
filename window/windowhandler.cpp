@@ -30,7 +30,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
         throw std::runtime_error(SDL_GetError());
     }
 
-#ifdef ADD_IMGUI
+#ifdef LUMINOVEAU_WITH_IMGUI
     ImGui::CreateContext();
     SetupImGuiStyle();
 #endif
@@ -92,7 +92,7 @@ void Window::_handleInput() {
     std::vector<Uint8> newKeysUp;
 
     while (SDL_PollEvent(&event)) {
-#ifdef ADD_IMGUI
+#ifdef LUMINOVEAU_WITH_IMGUI
         ImGui_ImplSDL3_ProcessEvent(&event);
 #endif
 
@@ -144,7 +144,7 @@ void Window::_handleInput() {
 
     Input::UpdateInputs(newKeysDown, true);
     Input::UpdateInputs(newKeysUp, false);
-    #ifdef ADD_IMGUI
+    #ifdef LUMINOVEAU_WITH_IMGUI
     if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) { // && SDL_GetModState() & SDL_KMOD_SHIFT) {
         EngineState::_debugMenuVisible = !EngineState::_debugMenuVisible;
     }
@@ -208,7 +208,7 @@ void Window::_startFrame() const {
 
 void Window::_endFrame() {
 
-#ifdef ADD_IMGUI
+#ifdef LUMINOVEAU_WITH_IMGUI
     if (EngineState::_debugMenuVisible) {
         Helpers::DrawMainMenu();
     }
@@ -237,7 +237,7 @@ SDL_Window *Window::_getWindow() {
 }
 
 void Window::_toggleDebugMenu() {
-#ifdef ADD_IMGUI
+#ifdef LUMINOVEAU_WITH_IMGUI
     EngineState::_debugMenuVisible = !EngineState::_debugMenuVisible;
 #endif
 }
@@ -259,7 +259,7 @@ float Window::_getScale() {
     return (float) EngineState::_scaleFactor;
 }
 
-#ifdef ADD_IMGUI
+#ifdef LUMINOVEAU_WITH_IMGUI
 
 void Window::SetupImGuiStyle() {
     // Bootstrap Dark style by Madam-Herta from ImThemes

@@ -15,7 +15,7 @@
 
 #include <sstream>
 
-#ifdef ADD_IMGUI
+#ifdef LUMINOVEAU_WITH_IMGUI
 
 #include "imgui.h"
 
