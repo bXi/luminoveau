@@ -15,7 +15,7 @@
 
 void Renderer::_initRendering() {
 
-    bool enableGPUDebug = true;
+    bool enableGPUDebug = false;
     #ifdef LUMIDEBUG
     enableGPUDebug = true;
     #endif
