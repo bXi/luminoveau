@@ -119,20 +119,22 @@ TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color c
 }
 
 void Text::_drawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color) {
+    if (textToDraw.empty() || maxWidth <= 0) return;
 
     std::stringstream ss(textToDraw);
-    std::string       word;
-    std::string       currentLine;
+    std::string word, currentLine;
 
     while (ss >> word) {
-        std::string testLine      = currentLine.empty() ? word : currentLine.append(" ").append(word);
-        float       testLineWidth = MeasureText(font, testLine);
+        std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
+        float testLineWidth = MeasureText(font, testLine);
 
-        if (testLineWidth <= maxWidth) {
+        if (testLineWidth < maxWidth) { // Strict < for float safety
             currentLine = testLine;
         } else {
-            DrawText(font, pos, currentLine, color);
-            pos.y += GetRenderedTextSize(font, currentLine).y;
+            if (!currentLine.empty()) {
+                DrawText(font, pos, currentLine, color);
+                pos.y += GetRenderedTextSize(font, currentLine).y;
+            }
             currentLine = word;
         }
     }
