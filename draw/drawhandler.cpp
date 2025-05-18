@@ -3,10 +3,9 @@
 #include <utility>
 
 void Draw::_drawRectangle(const vf2d& pos, const vf2d& size, Color color) {
-    SDL_FRect dstRect = _doCamera(pos, size);
+    rectf dstRect = _doCamera(pos, size);
 
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderRect(renderer, &dstRect);
+    Texture(Renderer::WhitePixel(), dstRect.pos, dstRect.size, color);
 }
 
 void Draw::_drawCircle(vf2d pos, float radius, Color color) {
