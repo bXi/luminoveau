@@ -109,7 +109,7 @@ endif()
 CPMAddPackage(
     NAME SDL3
     GITHUB_REPOSITORY libsdl-org/SDL
-    GIT_TAG 210b317
+    GIT_TAG 8d60435
 )
 if(SDL3_ADDED)
     if(NOT EXISTS "${SDL3_SOURCE_DIR}/include")
@@ -181,7 +181,7 @@ endif()
 CPMAddPackage(
     NAME SDL3_ttf
     GITHUB_REPOSITORY libsdl-org/SDL_ttf
-    GIT_TAG d554bee
+    GIT_TAG a1ce367
 )
 if(SDL3_ttf_ADDED)
     if(NOT EXISTS "${SDL3_ttf_SOURCE_DIR}")
