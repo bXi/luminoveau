@@ -138,12 +138,18 @@ public:
      */
     static bool MouseButtonDown(int button) { return get()._mouseButtonDown(button); };
 
+    static Uint32 MouseScrolledUp() { return get()._mouseScrolledUp(); };
+
+    static Uint32 MouseScrolledDown() { return get()._mouseScrolledDown(); };
+
     //For internal use. handle with care
     static void UpdateInputs(std::vector<Uint8> keys, bool held) { get()._updateInputs(keys, held); }
 
     static void AddGamepadDevice(SDL_JoystickID joystickID) { get()._addGamepadDevice(joystickID); }
 
     static void RemoveGamepadDevice(SDL_JoystickID joystickID) { get()._removeGamepadDevice(joystickID); }
+
+    static void UpdateScroll(int scrollDir) { get()._updateScroll(scrollDir); }
 
 private:
     std::vector<InputDevice *> inputs;
@@ -178,11 +184,17 @@ private:
 
     bool _mouseButtonDown(int button);
 
+    Uint32 _mouseScrolledUp() { return get().scrolledUpTicks; };
+
+    Uint32 _mouseScrolledDown() { return get().scrolledDownTicks; };
+
     void _updateInputs(const std::vector<Uint8> &keys, bool held);
 
     void _addGamepadDevice(SDL_JoystickID joystickID);
 
     void _removeGamepadDevice(SDL_JoystickID joystickID);
+
+    void _updateScroll(int scrollDir);
 
     std::vector<Uint8> currentKeyboardState;
     std::vector<Uint8> previousKeyboardState;
@@ -190,6 +202,8 @@ private:
     Uint32 currentMouseButtons = 0;
     Uint32 previousMouseButtons = 0;
 
+    Uint32 scrolledUpTicks = 0;
+    Uint32 scrolledDownTicks = 0;
 
     const SDL_JoystickID *joystickIds = nullptr;
 

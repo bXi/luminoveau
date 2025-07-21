@@ -106,6 +106,9 @@ void Window::_handleInput() {
             case SDL_EventType::SDL_EVENT_KEY_UP:
                 newKeysUp.push_back(event.key.scancode);
                 break;
+            case SDL_EventType::SDL_EVENT_MOUSE_WHEEL:
+                Input::UpdateScroll(event.wheel.integer_y);
+                break;
             case SDL_EventType::SDL_EVENT_GAMEPAD_ADDED:
                 Input::AddGamepadDevice(event.gdevice.which);
                 break;

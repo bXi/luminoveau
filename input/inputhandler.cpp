@@ -38,6 +38,9 @@ void Input::_clear() {
 void Input::_update() {
     UpdateTimings();
 
+    scrolledUpTicks = 0;
+    scrolledDownTicks = 0;
+
     previousKeyboardState = currentKeyboardState;
 
     previousMouseButtons = currentMouseButtons;
@@ -180,4 +183,13 @@ void Input::_removeGamepadDevice(SDL_JoystickID joystickID) {
 
     // Erase the removed gamepads from the vector
     gamepads.erase(newEnd, gamepads.end());
+}
+
+void Input::_updateScroll(int scrollDir) {
+    if (scrollDir < 0) {
+        scrolledDownTicks++;
+    }
+    if (scrollDir > 0) {
+        scrolledUpTicks++;
+    }
 }
