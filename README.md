@@ -65,7 +65,7 @@ Luminoveau provides a set of tools and utilities to help developers build immers
 
 ## Documentation
 
-Documentation and examples are available in the [Wiki](https://docs.luminoveau.tech).
+Documentation and examples are available in the [Wiki](https://docs.luminoveau.net).
 
 ## License
 
@@ -73,7 +73,7 @@ Luminoveau is released under the MIT License. See the [LICENSE](./LICENSE.md) fi
 
 ## Contact
 
-For questions, feedback, or support, feel free to [contact us](mailto:info@luminoveau.tech). Or find us on our [discord server](https://discord.gg/gE5mXdCZrn).
+For questions, feedback, or support, feel free to [contact us](mailto:info@luminoveau.net). Or find us on our [discord server](https://discord.gg/gE5mXdCZrn).
 
 ## Special Thanks
 
