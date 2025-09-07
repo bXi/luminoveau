@@ -17,7 +17,7 @@ bool SpriteRenderPass::init(
 
     m_depth_texture = AssetHandler::CreateDepthTarget(Renderer::GetDevice(), surface_width, surface_height);
 
-    renderQueue.reserve(MAX_SPRITES);
+    renderQueue.resize(MAX_SPRITES);
 
     createShaders();
 
