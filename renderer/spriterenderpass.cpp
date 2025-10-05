@@ -209,6 +209,9 @@ void SpriteRenderPass::render(
                 .texture = batch.texture,
                 .sampler = batch.sampler
             };
+
+            if (batch.texture == nullptr || batch.sampler == nullptr) continue;
+
             SDL_BindGPUFragmentSamplers(render_pass, 0, &samplerBinding, 1);
             SDL_PushGPUVertexUniformData(cmd_buffer, 0, &camera, sizeof(glm::mat4));
             SDL_DrawGPUPrimitives(render_pass, batch.count * 6, 1, batch.offset * 6, 0);
