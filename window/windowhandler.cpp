@@ -265,6 +265,10 @@ float Window::_getScale() {
 #ifdef LUMINOVEAU_WITH_IMGUI
 
 void Window::SetupImGuiStyle() {
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+
     // Bootstrap Dark style by Madam-Herta from ImThemes
     ImGuiStyle &style = ImGui::GetStyle();
 
