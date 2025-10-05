@@ -152,6 +152,8 @@ if(NOT MSVC)
     endif()
 endif()
 
+
+if (NOT MSVC)
 # Fetching freetype (always fetched to support SDL3_ttf)
 CPMAddPackage(
     NAME freetype
@@ -175,6 +177,7 @@ if(freetype_ADDED)
     message(STATUS "Luminoveau: freetype configured")
 else()
     message(WARNING "Failed to fetch freetype. Font rendering may be unavailable")
+endif()
 endif()
 
 # Fetching SDL3_ttf
