@@ -390,6 +390,7 @@ void Window::_setCursor(const std::string &filename) {
     if (cursorSurface) {
         cursor = SDL_CreateColorCursor(cursorSurface, 0, 0);
         SDL_SetCursor(cursor);
+        SDL_DestroySurface(cursorSurface);
     }
     free(icon.data);
 }
