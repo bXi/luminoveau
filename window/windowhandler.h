@@ -63,6 +63,14 @@ public:
      */
     static void SetIcon(const std::string &filename) { get()._setIcon(filename); }
 
+
+    /**
+     * @brief Sets the mouse cursor icon.
+     *
+     * @param icon The new icon to set as window icon.
+     */
+    static void SetCursor(const std::string &filename) { get()._setCursor(filename); }
+
     /**
      * @brief Sets the window title.
      *
@@ -213,6 +221,8 @@ private:
     void _initWindow(const std::string &title, int width, int height, int scale = 0, unsigned int flags = 0);
 
     void _setIcon(const std::string &filename);
+
+    void _setCursor(const std::string &filename);
 
     void _setTitle(const std::string &title);
 

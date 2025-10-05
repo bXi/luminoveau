@@ -377,3 +377,20 @@ void Window::_setTitle(const std::string &title) {
     SDL_SetWindowTitle(_getWindow(), title.c_str());
 }
 
+void Window::_setCursor(const std::string &filename) {
+
+    auto icon = AssetHandler::GetFileFromPhysFS(filename);
+    auto* cursorSurface = STBIMG_LoadFromMemory((const unsigned char*)icon.data, icon.fileSize);
+
+    SDL_Cursor *cursor = nullptr;
+
+    cursor = SDL_GetCursor();
+    SDL_DestroyCursor(cursor);
+
+    if (cursorSurface) {
+        cursor = SDL_CreateColorCursor(cursorSurface, 0, 0);
+        SDL_SetCursor(cursor);
+    }
+    free(icon.data);
+}
+
