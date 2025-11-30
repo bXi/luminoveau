@@ -101,6 +101,10 @@ public:
 
     static Texture WhitePixel() { return get()._whitePixel(); }
 
+    static SDL_GPUSampleCount GetSampleCount() { return get().currentSampleCount; }
+
+    static void SetSampleCount(SDL_GPUSampleCount sampleCount) { get()._setSampleCount(sampleCount); }
+
 
 
 private:
@@ -156,6 +160,8 @@ private:
 
     FrameBuffer *_getFramebuffer(std::string fbname);
 
+    void _setSampleCount(SDL_GPUSampleCount sampleCount);
+
     struct Uniforms {
         glm::mat4 camera;
         glm::mat4 model;
@@ -178,6 +184,8 @@ private:
 
     SDL_GPUSampler* _getSampler(ScaleMode scaleMode);
     std::unordered_map<ScaleMode, SDL_GPUSampler*> _samplers;
+
+    SDL_GPUSampleCount currentSampleCount = SDL_GPU_SAMPLECOUNT_1;
 
     SDL_GPUGraphicsPipeline *m_rendertotexturepipeline{nullptr};
 

@@ -472,3 +472,9 @@ void Renderer::_setScissorMode(const std::string& passname, const rectf& cliprec
     }
 
 }
+
+void Renderer::_setSampleCount(SDL_GPUSampleCount sampleCount) {
+    currentSampleCount = sampleCount;
+
+    _reset();
+}

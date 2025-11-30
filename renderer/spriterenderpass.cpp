@@ -5,6 +5,15 @@
 #include "SDL3/SDL_gpu.h"
 
 void SpriteRenderPass::release() {
+    if (m_msaa_color_texture) {
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), m_msaa_color_texture);
+        m_msaa_color_texture = nullptr;
+    }
+    if (m_msaa_depth_texture) {
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), m_msaa_depth_texture);
+        m_msaa_depth_texture = nullptr;
+    }
+
     m_depth_texture.release(Renderer::GetDevice());
     SDL_ReleaseGPUGraphicsPipeline(Renderer::GetDevice(), m_pipeline);
     SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
@@ -14,6 +23,36 @@ bool SpriteRenderPass::init(
     SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name
 ) {
     passname = std::move(name);
+
+    // Create MSAA color target
+    SDL_GPUTextureCreateInfo msaaColorTargetInfo = {
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = swapchain_texture_format,
+        .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .width = surface_width,
+        .height = surface_height,
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = Renderer::GetSampleCount(),
+    };
+
+    m_msaa_color_texture = SDL_CreateGPUTexture(Renderer::GetDevice(), &msaaColorTargetInfo);
+
+    // Create MSAA depth target
+    SDL_GPUTextureCreateInfo msaaDepthTargetInfo = {
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
+        .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+        .width = surface_width,
+        .height = surface_height,
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = Renderer::GetSampleCount(), // MSAA 4x
+    };
+
+    m_msaa_depth_texture = SDL_CreateGPUTexture(Renderer::GetDevice(), &msaaDepthTargetInfo);
+
+
 
     m_depth_texture = AssetHandler::CreateDepthTarget(Renderer::GetDevice(), surface_width, surface_height);
 
@@ -38,7 +77,11 @@ bool SpriteRenderPass::init(
             },
         .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
         .rasterizer_state = GPUstructs::defaultRasterizerState,
-        .multisample_state = {},
+        .multisample_state = {
+            .sample_count = Renderer::GetSampleCount(), // or SDL_GPU_SAMPLECOUNT_8
+            .sample_mask = 0xFFFFFFFF,
+            .enable_mask = true,
+        },
         .depth_stencil_state =
             {
                 .compare_op = SDL_GPU_COMPAREOP_LESS,
@@ -168,20 +211,24 @@ void SpriteRenderPass::render(
     }
 
     // Render pass
-    SDL_GPUColorTargetInfo        color_target_info{
-        .texture = target_texture,
+    SDL_GPUColorTargetInfo color_target_info{
+        .texture = m_msaa_color_texture, // Render to MSAA texture
         .mip_level = 0,
         .layer_or_depth_plane = 0,
         .clear_color = color_target_info_clear_color,
         .load_op = color_target_info_loadop,
-        .store_op = SDL_GPU_STOREOP_STORE,
+        .store_op = SDL_GPU_STOREOP_RESOLVE, // Resolve MSAA
+        .resolve_texture = target_texture,    // Resolve to this texture
+        .resolve_mip_level = 0,
+        .resolve_layer = 0,
         .cycle = false
     };
+
     SDL_GPUDepthStencilTargetInfo depth_stencil_info{
-        .texture = m_depth_texture.gpuTexture,
+        .texture = m_msaa_depth_texture, // Use MSAA depth
         .clear_depth = 1.0f,
         .load_op = SDL_GPU_LOADOP_CLEAR,
-        .store_op = SDL_GPU_STOREOP_STORE,
+        .store_op = SDL_GPU_STOREOP_DONT_CARE, // Don't need to keep MSAA depth
         .stencil_load_op = SDL_GPU_LOADOP_DONT_CARE,
         .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
     };

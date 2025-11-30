@@ -96,6 +96,8 @@ class SpriteRenderPass : public RenderPass {
 
     ThreadPool thread_pool = ThreadPool(std::max(1u, std::thread::hardware_concurrency()));
 
+    SDL_GPUTexture* m_msaa_color_texture = nullptr;
+    SDL_GPUTexture* m_msaa_depth_texture = nullptr;
 
     TextureAsset            m_depth_texture;
     SDL_GPUGraphicsPipeline *m_pipeline{nullptr};
