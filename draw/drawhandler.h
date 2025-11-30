@@ -97,8 +97,9 @@ public:
      * @param pos The center position of the circle.
      * @param radius The radius of the circle.
      * @param color The color of the circle.
+     * @param segments The amount of segments to use. (Defaults to 32)
      */
-    static void Circle(vf2d pos, float radius, Color color) { get()._drawCircle(pos, radius, color); };
+    static void Circle(vf2d pos, float radius, Color color, int segments = 32) { get()._drawCircle(pos, radius, color, segments); };
 
     /**
      * @brief Draws an ellipse at the specified center position with the given radii and color.
@@ -283,7 +284,7 @@ private:
 
     void _drawRectangleRounded(vf2d pos, const vf2d& size, float radius, Color color);
 
-    void _drawCircle(vf2d pos, float radius, Color color);
+    void _drawCircle(vf2d pos, float radius, Color color, int segments);
 
     void _drawEllipse(vf2d center, float radiusX, float radiusY, Color color);
 
