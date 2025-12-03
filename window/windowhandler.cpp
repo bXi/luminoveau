@@ -142,6 +142,12 @@ void Window::_handleInput() {
                 EventBus::Fire(SystemEvent::WINDOW_RESIZE, restoreEventData);
                 break;
             }
+            case SDL_EventType::SDL_EVENT_TEXT_INPUT:
+                if (_textInputCallback) {
+                    _textInputCallback(event.text.text);
+                }
+                break;
+
         }
     }
 

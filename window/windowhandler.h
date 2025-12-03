@@ -23,6 +23,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <utility>
 
 #ifdef LUMINOVEAU_WITH_IMGUI
 #include "imgui.h"
@@ -215,6 +216,11 @@ public:
      */
     static void ToggleDebugMenu() { get()._toggleDebugMenu(); }
 
+
+    static void SetTextInputCallback(std::function<void(const char*)> callback) {
+        get()._textInputCallback = std::move(callback);
+    }
+
 private:
     double _getRunTime();
 
@@ -259,6 +265,8 @@ private:
     int  _lastWindowWidth  = 0;
     int  _lastWindowHeight = 0;
     bool _maximized        = false;
+
+    std::function<void(const char*)> _textInputCallback = nullptr;
 
     bool _sizeDirty = false;
 #ifdef LUMINOVEAU_WITH_IMGUI
