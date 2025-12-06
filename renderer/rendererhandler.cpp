@@ -149,6 +149,9 @@ void Renderer::_close() {
 }
 
 void Renderer::_onResize() {
+
+    SDL_WaitForGPUIdle(m_device);
+
     m_camera = glm::ortho(0.0f, (float) Window::GetWidth(), float(Window::GetHeight()), 0.0f);
 
     for (auto &[_fbName, _framebuffer]: frameBuffers) {

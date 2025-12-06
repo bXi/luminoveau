@@ -7,7 +7,41 @@
 
 void ShaderRenderPass::release() {
     m_depth_texture.release(Renderer::GetDevice());
-    SDL_ReleaseGPUGraphicsPipeline(Renderer::GetDevice(), m_pipeline);
+
+    if (m_pipeline) {
+        SDL_ReleaseGPUGraphicsPipeline(Renderer::GetDevice(), m_pipeline);
+        m_pipeline = nullptr;
+    }
+
+    // Release result texture
+    if (resultTexture) {
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), resultTexture);
+        resultTexture = nullptr;
+    }
+
+    // Release the temp 1x1 texture
+    if (fs.texture.gpuTexture) {
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), fs.texture.gpuTexture);
+        fs.texture.gpuTexture = nullptr;
+    }
+
+    // Release final render pipeline
+    if (finalrender_pipeline) {
+        SDL_ReleaseGPUGraphicsPipeline(Renderer::GetDevice(), finalrender_pipeline);
+        finalrender_pipeline = nullptr;
+    }
+
+    // Release shared shaders (only if ShaderRenderPass owns them)
+    if (finalrender_vertex_shader) {
+        SDL_ReleaseGPUShader(Renderer::GetDevice(), finalrender_vertex_shader);
+        finalrender_vertex_shader = nullptr;
+    }
+
+    if (finalrender_fragment_shader) {
+        SDL_ReleaseGPUShader(Renderer::GetDevice(), finalrender_fragment_shader);
+        finalrender_fragment_shader = nullptr;
+    }
+
     SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
 }
 
@@ -154,6 +188,55 @@ bool ShaderRenderPass::init(
 
         finalrender_fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &fragmentShaderInfo);
     }
+
+    // Create the final render pipeline once during init
+    if (!finalrender_pipeline) {
+        std::vector<SDL_GPUColorTargetDescription> finalrender_color_target_descriptions(1, SDL_GPUColorTargetDescription{
+            .format = SDL_GetGPUSwapchainTextureFormat(Renderer::GetDevice(), Window::GetWindow()),
+            .blend_state = GPUstructs::defaultBlendState
+        });
+
+        SDL_GPUGraphicsPipelineCreateInfo finalrender_pipeline_create_info{
+            .vertex_shader = finalrender_vertex_shader,
+            .fragment_shader = finalrender_fragment_shader,
+            .vertex_input_state =
+                {
+                    .vertex_buffer_descriptions = nullptr,
+                    .num_vertex_buffers = 0,
+                    .vertex_attributes = nullptr,
+                    .num_vertex_attributes = 0,
+                },
+            .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+            .rasterizer_state = GPUstructs::defaultRasterizerState,
+            .multisample_state = {},
+            .depth_stencil_state =
+                {
+                    .compare_op = SDL_GPU_COMPAREOP_LESS,
+                    .back_stencil_state = {},
+                    .front_stencil_state = {},
+                    .compare_mask = 0,
+                    .write_mask = 0,
+                    .enable_depth_test = false,
+                    .enable_depth_write = false,
+                    .enable_stencil_test = false,
+                },
+            .target_info =
+                {
+                    .color_target_descriptions = finalrender_color_target_descriptions.data(),
+                    .num_color_targets = 1,
+                    .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
+                    .has_depth_stencil_target = false,
+                },
+            .props = 0,
+        };
+
+        finalrender_pipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &finalrender_pipeline_create_info);
+
+        if (!finalrender_pipeline) {
+            throw std::runtime_error(Helpers::TextFormat("%s: failed to create final render graphics pipeline: %s", CURRENT_METHOD(), SDL_GetError()));
+        }
+    }
+
     SDL_Log("%s: created graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
 
     return true;
@@ -192,7 +275,7 @@ void ShaderRenderPass::render(
             lastMousePos = Input::GetMousePosition();
         }
 
-                glm::mat4 model = glm::mat4(
+        glm::mat4 model = glm::mat4(
             (float)Window::GetWidth(), 0.0f, 0.0f, 0.0f,  // X scale to window width
             0.0f, (float)Window::GetHeight(), 0.0f, 0.0f, // Y scale to window height
             0.0f, 0.0f, 1.0f, 0.0f,                      // Z unchanged (depth)
@@ -265,50 +348,6 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
             Helpers::TextFormat("%s: failed to create fragment shader for: %s (%s)", CURRENT_METHOD(), passname.c_str(), SDL_GetError()));
     }
 
-    std::vector<SDL_GPUColorTargetDescription> color_target_descriptions(1, SDL_GPUColorTargetDescription{
-        .format = SDL_GetGPUSwapchainTextureFormat(Renderer::GetDevice(), Window::GetWindow()),
-        .blend_state = GPUstructs::defaultBlendState
-    });
-
-    SDL_GPUGraphicsPipelineCreateInfo pipeline_create_info{
-        .vertex_shader = finalrender_vertex_shader,
-        .fragment_shader = finalrender_fragment_shader,
-        .vertex_input_state =
-            {
-                .vertex_buffer_descriptions = nullptr,
-                .num_vertex_buffers = 0,
-                .vertex_attributes = nullptr,
-                .num_vertex_attributes = 0,
-            },
-        .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
-        .rasterizer_state = GPUstructs::defaultRasterizerState,
-        .multisample_state = {},
-        .depth_stencil_state =
-            {
-                .compare_op = SDL_GPU_COMPAREOP_LESS,
-                .back_stencil_state = {},
-                .front_stencil_state = {},
-                .compare_mask = 0,
-                .write_mask = 0,
-                .enable_depth_test = false,
-                .enable_depth_write = false,
-                .enable_stencil_test = false,
-            },
-        .target_info =
-            {
-                .color_target_descriptions = color_target_descriptions.data(),
-                .num_color_targets = static_cast<Uint32>(color_target_descriptions.size()),
-                .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
-                .has_depth_stencil_target = false,
-            },
-        .props = 0,
-    };
-    SDL_GPUGraphicsPipeline           *finalrender_m_pipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &pipeline_create_info);
-
-    if (!finalrender_m_pipeline) {
-        throw std::runtime_error(Helpers::TextFormat("%s: failed to create graphics pipeline: %s", CURRENT_METHOD(), SDL_GetError()));
-    }
-
     std::vector<SDL_GPUColorTargetInfo> color_target_info(1, SDL_GPUColorTargetInfo{
         .texture = target_texture,
         .mip_level = 0,
@@ -321,7 +360,8 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
     SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(cmd_buffer, color_target_info.data(), 1, nullptr);
     assert(render_pass);
     {
-        SDL_BindGPUGraphicsPipeline(render_pass, finalrender_m_pipeline);
+        // Use the pipeline created during init instead of creating a new one each frame
+        SDL_BindGPUGraphicsPipeline(render_pass, finalrender_pipeline);
 
         glm::mat4 model = glm::mat4(
             (float)Window::GetWidth(), 0.0f, 0.0f, 0.0f,  // X scale to window width
@@ -360,5 +400,5 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
     }
 
     SDL_EndGPURenderPass(render_pass);
-    SDL_ReleaseGPUGraphicsPipeline(m_gpu_device, finalrender_m_pipeline);
+    // No longer creating and releasing pipeline here - it's now managed in init() and release()
 }

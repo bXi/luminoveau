@@ -204,7 +204,6 @@ void Window::_setSize(int width, int height) {
     //SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_SyncWindow(m_window);
     _sizeDirty = true;
-//    Renderer::OnResize();
 }
 
 void Window::_startFrame() const {
@@ -227,8 +226,9 @@ void Window::_endFrame() {
 
 
     if (_sizeDirty) {
-        Renderer::Reset();
         Renderer::OnResize();
+        Renderer::Reset();
+
 
         _sizeDirty = false;
     }

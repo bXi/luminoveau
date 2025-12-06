@@ -15,7 +15,35 @@ void SpriteRenderPass::release() {
     }
 
     m_depth_texture.release(Renderer::GetDevice());
-    SDL_ReleaseGPUGraphicsPipeline(Renderer::GetDevice(), m_pipeline);
+
+    // Release buffers
+    if (SpriteDataTransferBuffer) {
+        SDL_ReleaseGPUTransferBuffer(Renderer::GetDevice(), SpriteDataTransferBuffer);
+        SpriteDataTransferBuffer = nullptr;
+    }
+
+    if (SpriteDataBuffer) {
+        SDL_ReleaseGPUBuffer(Renderer::GetDevice(), SpriteDataBuffer);
+        SpriteDataBuffer = nullptr;
+    }
+
+    // Release shaders
+    if (vertex_shader) {
+        SDL_ReleaseGPUShader(Renderer::GetDevice(), vertex_shader);
+        vertex_shader = nullptr;
+    }
+
+    if (fragment_shader) {
+        SDL_ReleaseGPUShader(Renderer::GetDevice(), fragment_shader);
+        fragment_shader = nullptr;
+    }
+
+    // Release pipeline
+    if (m_pipeline) {
+        SDL_ReleaseGPUGraphicsPipeline(Renderer::GetDevice(), m_pipeline);
+        m_pipeline = nullptr;
+    }
+
     SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
 }
 

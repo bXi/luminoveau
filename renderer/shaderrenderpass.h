@@ -25,6 +25,7 @@ class ShaderRenderPass : public RenderPass {
     TextureAsset m_depth_texture;
 
     SDL_GPUTexture* resultTexture = nullptr;
+    SDL_GPUGraphicsPipeline* finalrender_pipeline = nullptr;
 
     Renderable   fs;
     TextureAsset transparentPixel;
