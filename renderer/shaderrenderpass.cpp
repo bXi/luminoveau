@@ -4,6 +4,7 @@
 
 #include "SDL3/SDL_gpu.h"
 #include "spriterenderpass.h"
+#include "window/windowhandler.h"
 
 void ShaderRenderPass::release(bool logRelease) {
     m_depth_texture.release(Renderer::GetDevice());
@@ -268,6 +269,16 @@ void ShaderRenderPass::render(
     render_pass = SDL_BeginGPURenderPass(cmd_buffer, color_target_info.data(), color_target_info.size(), nullptr);
     assert(render_pass);
     {
+        // Set viewport to window size (render to top-left portion of desktop-sized buffer)
+        SDL_GPUViewport viewport = {
+            .x = 0,
+            .y = 0,
+            .w = (float)Window::GetWidth(),
+            .h = (float)Window::GetHeight(),
+            .min_depth = 0.0f,
+            .max_depth = 1.0f
+        };
+        SDL_SetGPUViewport(render_pass, &viewport);
 
         if (_scissorEnabled) {
             SDL_SetGPUScissor(render_pass, _scissorRect);
@@ -364,6 +375,17 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
     SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(cmd_buffer, color_target_info.data(), 1, nullptr);
     assert(render_pass);
     {
+        // Set viewport to window size (render to top-left portion of desktop-sized buffer)
+        SDL_GPUViewport viewport = {
+            .x = 0,
+            .y = 0,
+            .w = (float)Window::GetWidth(),
+            .h = (float)Window::GetHeight(),
+            .min_depth = 0.0f,
+            .max_depth = 1.0f
+        };
+        SDL_SetGPUViewport(render_pass, &viewport);
+
         // Use the pipeline created during init instead of creating a new one each frame
         SDL_BindGPUGraphicsPipeline(render_pass, finalrender_pipeline);
 

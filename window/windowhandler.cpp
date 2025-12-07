@@ -261,10 +261,9 @@ void Window::_startFrame() {
 
     Window::HandleInput();
 
-    // Resize is now cheap (just updates camera) - do it immediately
+    // Only update camera on resize - render passes stay at desktop size
     if (_sizeDirty) {
         Renderer::OnResize();
-        Renderer::Reset();
         _sizeDirty = false;
     }
 

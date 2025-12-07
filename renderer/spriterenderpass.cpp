@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "SDL3/SDL_gpu.h"
+#include "window/windowhandler.h"
 
 void SpriteRenderPass::release(bool logRelease) {
     if (m_msaa_color_texture) {
@@ -268,6 +269,16 @@ void SpriteRenderPass::render(
     render_pass = SDL_BeginGPURenderPass(cmd_buffer, &color_target_info, 1, &depth_stencil_info);
     assert(render_pass);
     {
+        // Set viewport to window size (render to top-left portion of desktop-sized buffer)
+        SDL_GPUViewport viewport = {
+            .x = 0,
+            .y = 0,
+            .w = (float)Window::GetWidth(),
+            .h = (float)Window::GetHeight(),
+            .min_depth = 0.0f,
+            .max_depth = 1.0f
+        };
+        SDL_SetGPUViewport(render_pass, &viewport);
 
         if (_scissorEnabled) {
             SDL_SetGPUScissor(render_pass, _scissorRect);

@@ -97,7 +97,9 @@ void Renderer::_initRendering() {
 
         SDL_SetGPUTextureName(Renderer::GetDevice(), _framebuffer->fbContent, Helpers::TextFormat("Renderer: framebuffer %s", _fbName.c_str()));
         for (auto &[passname, renderpass]: _framebuffer->renderpasses) {
-            if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), Window::GetWidth(), Window::GetHeight(),
+            // Initialize render passes at desktop size, not window size
+            if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), 
+                                  _framebuffer->width, _framebuffer->height,
                                   passname)) {
                 SDL_Log("%s: renderpass (%s) failed to init()", CURRENT_METHOD(), passname.c_str());
             }
