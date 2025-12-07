@@ -148,12 +148,18 @@ void Renderer::_initRendering() {
 void Renderer::_close() {
 }
 
-void Renderer::_onResize() {
+void Renderer::_updateCameraProjection() {
+    m_camera = glm::ortho(0.0f, (float) Window::GetWidth(),
+                          float(Window::GetHeight()), 0.0f);
+}
 
+void Renderer::_onResize() {
     SDL_WaitForGPUIdle(m_device);
 
-    m_camera = glm::ortho(0.0f, (float) Window::GetWidth(), float(Window::GetHeight()), 0.0f);
+    // Update camera projection
+    _updateCameraProjection();
 
+    // Recreate framebuffer textures at new size
     for (auto &[_fbName, _framebuffer]: frameBuffers) {
         SDL_ReleaseGPUTexture(m_device, _framebuffer->fbContent);
         _framebuffer->fbContent = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;

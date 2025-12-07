@@ -60,15 +60,14 @@ public:
     /**
      * @brief Sets the window icon.
      *
-     * @param icon The new icon to set as window icon.
+     * @param filename Path to the icon file.
      */
     static void SetIcon(const std::string &filename) { get()._setIcon(filename); }
-
 
     /**
      * @brief Sets the mouse cursor icon.
      *
-     * @param icon The new icon to set as window icon.
+     * @param filename Path to the cursor icon file.
      */
     static void SetCursor(const std::string &filename) { get()._setCursor(filename); }
 
@@ -103,7 +102,6 @@ public:
      *
      * @return The currently used scaling factor.
      */
-
     static float GetScale() { return get()._getScale(); }
 
     /**
@@ -117,11 +115,11 @@ public:
     /**
      * @brief Sets the scaled size of the window.
      *
-     * @param width The width of the window.
-     * @param height The height of the window.
-     * @param scale The scale factor of the window.
+     * @param width The width of the window in virtual pixels.
+     * @param height The height of the window in virtual pixels.
+     * @param scale The scale factor of the window (0 to keep current scale).
      */
-    static void SetScaledSize(int width, int height, int scale = 0) { get()._setScaledSize(width, height, scale); };
+    static void SetScaledSize(int width, int height, int scale = 0) { get()._setScaledSize(width, height, scale); }
 
     /**
      * @brief Retrieves the size of the window.
@@ -186,8 +184,7 @@ public:
     static bool ShouldQuit() { return EngineState::_shouldQuit; }
 
     /**
-     * @brief Sets flag to acknowledging the application should quit.
-     *
+     * @brief Signals that the application should quit.
      */
     static void SignalEndLoop() { EngineState::_shouldQuit = true; }
 
@@ -212,14 +209,30 @@ public:
     static void HandleInput() { get()._handleInput(); }
 
     /**
-     * @brief Toggles the debug menu.
+     * @brief Toggles the debug menu visibility.
      */
     static void ToggleDebugMenu() { get()._toggleDebugMenu(); }
 
-
+    /**
+     * @brief Sets a callback function for text input events.
+     *
+     * @param callback Function to call when text input is received.
+     */
     static void SetTextInputCallback(std::function<void(const char*)> callback) {
         get()._textInputCallback = std::move(callback);
     }
+
+#ifdef SDL_MAIN_USE_CALLBACKS
+    /**
+     * @brief Processes a single SDL event (SDL3 callback mode only).
+     *
+     * This method is only available when using SDL3's callback-based main loop.
+     * It handles window events, input events, and integrates with the Input system.
+     *
+     * @param event Pointer to the SDL event to process.
+     */
+    static void ProcessEvent(SDL_Event* event) { get()._processEvent(event); }
+#endif
 
 private:
     double _getRunTime();
@@ -254,11 +267,13 @@ private:
 
     void _setScaledSize(int width, int height, int scale = 0);
 
-    void _startFrame() const;
+    void _startFrame();
 
     void _endFrame();
 
     void _toggleDebugMenu();
+
+    void _processEvent(SDL_Event* event);
 
     SDL_Window *m_window = nullptr;
 
@@ -269,10 +284,11 @@ private:
     std::function<void(const char*)> _textInputCallback = nullptr;
 
     bool _sizeDirty = false;
+    int _resizeDebounceCounter = 0;
+
 #ifdef LUMINOVEAU_WITH_IMGUI
     void SetupImGuiStyle();
 #endif
-
 
 public:
     Window(const Window &) = delete;
@@ -285,5 +301,5 @@ public:
 private:
     Window() {
         EngineState::_startTime = std::chrono::high_resolution_clock::now();
-    };
+    }
 };

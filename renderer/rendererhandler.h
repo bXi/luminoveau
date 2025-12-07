@@ -55,57 +55,208 @@ struct FrameBuffer {
 class RenderPass;
 
 /**
- * @brief Provides functionality for managing the application window.
+ * @brief Provides functionality for GPU rendering and resource management.
  */
 class Renderer {
 public:
-
+    /**
+     * @brief Initializes the rendering system and creates the GPU device.
+     *
+     * Sets up the SDL GPU device, creates samplers, initializes shaders,
+     * and creates the primary framebuffer with default render passes.
+     */
     static void InitRendering() { get()._initRendering(); }
 
-    static SDL_GPUDevice *GetDevice() { return get()._getDevice(); };
+    /**
+     * @brief Retrieves the SDL GPU device.
+     *
+     * @return Pointer to the SDL GPU device.
+     */
+    static SDL_GPUDevice *GetDevice() { return get()._getDevice(); }
 
+    /**
+     * @brief Starts a new rendering frame.
+     *
+     * Initializes ImGui frame if enabled. Call this before any rendering commands.
+     */
     static void StartFrame() { get()._startFrame(); }
 
+    /**
+     * @brief Ends the current rendering frame and submits GPU commands.
+     *
+     * Acquires the swapchain texture, executes all render passes,
+     * renders ImGui if enabled, and submits the command buffer.
+     */
     static void EndFrame() { get()._endFrame(); }
 
+    /**
+     * @brief Resets all render passes and recreates GPU resources.
+     *
+     * Releases existing render pass resources and reinitializes them.
+     * Typically called after window resize or graphics settings change.
+     */
     static void Reset() { get()._reset(); }
 
+    /**
+     * @brief Clears the background with the specified color.
+     *
+     * @param color The color to clear the background with.
+     */
     static void ClearBackground(Color color) { get()._clearBackground(color); }
 
-    static void AddToRenderQueue(const std::string &passname, const Renderable &renderable) { get()._addToRenderQueue(passname, renderable); }
+    /**
+     * @brief Adds a renderable object to the specified render pass queue.
+     *
+     * @param passname Name of the render pass to add to.
+     * @param renderable The renderable object to queue for rendering.
+     */
+    static void AddToRenderQueue(const std::string &passname, const Renderable &renderable) {
+        get()._addToRenderQueue(passname, renderable);
+    }
 
+    /**
+     * @brief Creates and adds a custom shader render pass.
+     *
+     * @param passname Name of the new render pass.
+     * @param vertShader Vertex shader asset.
+     * @param fragShader Fragment shader asset.
+     * @param targetBuffers List of framebuffer names to attach this pass to (defaults to primaryFramebuffer).
+     */
     static void AddShaderPass(const std::string &passname, const ShaderAsset &vertShader, const ShaderAsset &fragShader,
                               std::vector<std::string> targetBuffers = std::vector<std::string>()) {
         get()._addShaderPass(passname, vertShader, fragShader, std::move(targetBuffers));
     }
 
-    static void AttachRenderPassToFrameBuffer(RenderPass* renderPass, const std::string &passname, const std::string &fbName) { get()._attachRenderPassToFrameBuffer(renderPass, passname, fbName); }
+    /**
+     * @brief Attaches an existing render pass to a framebuffer.
+     *
+     * @param renderPass Pointer to the render pass to attach.
+     * @param passname Name to identify the render pass.
+     * @param fbName Name of the framebuffer to attach to.
+     */
+    static void AttachRenderPassToFrameBuffer(RenderPass *renderPass, const std::string &passname, const std::string &fbName) {
+        get()._attachRenderPassToFrameBuffer(renderPass, passname, fbName);
+    }
 
-    static UniformBuffer &GetUniformBuffer(const std::string &passname) { return get()._getUniformBuffer(passname); }
+    /**
+     * @brief Retrieves the uniform buffer for a specific render pass.
+     *
+     * @param passname Name of the render pass.
+     * @return Reference to the render pass's uniform buffer.
+     */
+    static UniformBuffer &GetUniformBuffer(const std::string &passname) {
+        return get()._getUniformBuffer(passname);
+    }
 
-    static void CreateFrameBuffer(const std::string& fbname) { return get()._createFrameBuffer(fbname); }
+    /**
+     * @brief Creates a new framebuffer with the specified name.
+     *
+     * @param fbname Name of the framebuffer to create.
+     */
+    static void CreateFrameBuffer(const std::string &fbname) {
+        return get()._createFrameBuffer(fbname);
+    }
 
-    static void SetFramebufferRenderToScreen(const std::string& fbName, bool render) { get()._setFramebufferRenderToScreen(fbName, render); }
+    /**
+     * @brief Sets whether a framebuffer should render directly to screen.
+     *
+     * @param fbName Name of the framebuffer.
+     * @param render True to render to screen, false otherwise.
+     */
+    static void SetFramebufferRenderToScreen(const std::string &fbName, bool render) {
+        get()._setFramebufferRenderToScreen(fbName, render);
+    }
 
+    /**
+     * @brief Gets and increments the global Z-index counter.
+     *
+     * Used for ordering renderables in depth.
+     *
+     * @return The next available Z-index value.
+     */
     static uint32_t GetZIndex() { return get()._zIndex++; }
 
-    static FrameBuffer *GetFramebuffer(std::string fbname) { return get()._getFramebuffer(std::move(fbname)); };
+    /**
+     * @brief Retrieves a framebuffer by name.
+     *
+     * @param fbname Name of the framebuffer to retrieve.
+     * @return Pointer to the framebuffer, or nullptr if not found.
+     */
+    static FrameBuffer *GetFramebuffer(std::string fbname) {
+        return get()._getFramebuffer(std::move(fbname));
+    }
 
-    static SDL_GPUSampler* GetSampler(ScaleMode scalemode) { return get()._getSampler(scalemode); };
+    /**
+     * @brief Retrieves a texture sampler for the specified scale mode.
+     *
+     * @param scalemode The texture scaling mode (NEAREST or LINEAR).
+     * @return Pointer to the GPU sampler.
+     */
+    static SDL_GPUSampler *GetSampler(ScaleMode scalemode) {
+        return get()._getSampler(scalemode);
+    }
 
-    static SDL_GPURenderPass* GetRenderPass(const std::string& passname) { return get()._getRenderPass(passname); }
+    /**
+     * @brief Gets the active SDL GPU render pass for a specific render pass.
+     *
+     * @param passname Name of the render pass.
+     * @return Pointer to the SDL GPU render pass, or nullptr if not found.
+     */
+    static SDL_GPURenderPass *GetRenderPass(const std::string &passname) {
+        return get()._getRenderPass(passname);
+    }
 
-    static void SetScissorMode(std::string passname, rectf cliprect) { get()._setScissorMode(passname, cliprect); };
+    /**
+     * @brief Enables scissor testing for a render pass with the specified clip rectangle.
+     *
+     * @param passname Name of the render pass.
+     * @param cliprect Rectangle defining the scissor region.
+     */
+    static void SetScissorMode(std::string passname, rectf cliprect) {
+        get()._setScissorMode(passname, cliprect);
+    }
 
+    /**
+     * @brief Handles window resize events by updating camera and recreating framebuffers.
+     *
+     * Waits for GPU idle, updates camera projection, and recreates all framebuffer
+     * textures at the new window size.
+     */
     static void OnResize() { get()._onResize(); }
 
+    /**
+     * @brief Updates the camera projection matrix to match current window size.
+     *
+     * This is called immediately during window resize to prevent visual artifacts.
+     * Does not recreate GPU resources - that happens later in OnResize().
+     */
+    static void UpdateCameraProjection() { get()._updateCameraProjection(); }
+
+    /**
+     * @brief Retrieves a 1x1 white pixel texture for rendering solid colors.
+     *
+     * @return The white pixel texture.
+     */
     static Texture WhitePixel() { return get()._whitePixel(); }
 
+    /**
+     * @brief Gets the current MSAA sample count setting.
+     *
+     * @return The current sample count (e.g., SDL_GPU_SAMPLECOUNT_1, SDL_GPU_SAMPLECOUNT_4).
+     */
     static SDL_GPUSampleCount GetSampleCount() { return get().currentSampleCount; }
 
-    static void SetSampleCount(SDL_GPUSampleCount sampleCount) { get()._setSampleCount(sampleCount); }
-
-
+    /**
+     * @brief Sets the MSAA sample count and recreates render passes.
+     *
+     * Changes the multi-sample anti-aliasing level. Triggers a full reset
+     * of all render passes to apply the new sample count.
+     *
+     * @param sampleCount The new sample count to use.
+     */
+    static void SetSampleCount(SDL_GPUSampleCount sampleCount) {
+        get()._setSampleCount(sampleCount);
+    }
 
 private:
     SDL_GPUDevice        *m_device = nullptr;
@@ -118,7 +269,7 @@ private:
     void
     _addShaderPass(const std::string &passname, const ShaderAsset &vertShader, const ShaderAsset &fragShader, std::vector<std::string> targetBuffers);
 
-    void _attachRenderPassToFrameBuffer(RenderPass* renderPass, const std::string &passname, const std::string &fbName);
+    void _attachRenderPassToFrameBuffer(RenderPass *renderPass, const std::string &passname, const std::string &fbName);
 
     void _addToRenderQueue(const std::string &passname, const Renderable &renderable);
 
@@ -138,13 +289,15 @@ private:
 
     void _onResize();
 
-    void _createFrameBuffer(const std::string& fbname);
+    void _updateCameraProjection();
 
-    void _setFramebufferRenderToScreen(const std::string& fbName, bool render);
+    void _createFrameBuffer(const std::string &fbname);
 
-    SDL_GPURenderPass* _getRenderPass(const std::string& passname);
+    void _setFramebufferRenderToScreen(const std::string &fbName, bool render);
 
-    void _setScissorMode(const std::string& passname, const rectf& cliprect);
+    SDL_GPURenderPass *_getRenderPass(const std::string &passname);
+
+    void _setScissorMode(const std::string &passname, const rectf &cliprect);
 
     TextureAsset _whitePixelTexture;
 
@@ -154,8 +307,9 @@ private:
 
     TextureAsset _screenBuffer;
     TextureAsset fs;
-    SDL_GPUShader* rtt_vertex_shader;
-    SDL_GPUShader* rtt_fragment_shader;
+    SDL_GPUShader *rtt_vertex_shader;
+    SDL_GPUShader *rtt_fragment_shader;
+
     void renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer);
 
     FrameBuffer *_getFramebuffer(std::string fbname);
@@ -181,18 +335,18 @@ private:
         float tintColorA = 1.0f;
     };
 
+    SDL_GPUSampler *_getSampler(ScaleMode scaleMode);
 
-    SDL_GPUSampler* _getSampler(ScaleMode scaleMode);
-    std::unordered_map<ScaleMode, SDL_GPUSampler*> _samplers;
+    std::unordered_map<ScaleMode, SDL_GPUSampler *> _samplers;
 
     SDL_GPUSampleCount currentSampleCount = SDL_GPU_SAMPLECOUNT_1;
 
     SDL_GPUGraphicsPipeline *m_rendertotexturepipeline{nullptr};
 
     SDL_GPUTexture *swapchain_texture = nullptr;
-    glm::mat4x4    m_camera = {};
+    glm::mat4x4    m_camera           = {};
 
-    SDL_GPUColorTargetDescription color_target_descriptions;
+    SDL_GPUColorTargetDescription     color_target_descriptions;
     SDL_GPUGraphicsPipelineCreateInfo rtt_pipeline_create_info;
 
 public:

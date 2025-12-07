@@ -83,6 +83,78 @@ int Window::_getFPS(float milliseconds) {
     return EngineState::_fps;
 }
 
+// Helper function to process a single event - used by both modes
+void Window::_processEvent(SDL_Event* event) {
+#ifdef LUMINOVEAU_WITH_IMGUI
+    ImGui_ImplSDL3_ProcessEvent(event);
+#endif
+
+    switch (event->type) {
+        case SDL_EventType::SDL_EVENT_QUIT:
+            EngineState::_shouldQuit = true;
+            break;
+        case SDL_EventType::SDL_EVENT_KEY_DOWN:
+#ifdef SDL_MAIN_USE_CALLBACKS
+            // In callback mode, directly update the keyboard state
+            Input::get().currentKeyboardState[event->key.scancode] = 1;
+#else
+            // In traditional mode, accumulate in vectors (handled by caller)
+#endif
+            break;
+        case SDL_EventType::SDL_EVENT_KEY_UP:
+#ifdef SDL_MAIN_USE_CALLBACKS
+            // In callback mode, directly update the keyboard state
+            Input::get().currentKeyboardState[event->key.scancode] = 0;
+#else
+            // In traditional mode, accumulate in vectors (handled by caller)
+#endif
+            break;
+        case SDL_EventType::SDL_EVENT_MOUSE_WHEEL:
+            Input::UpdateScroll(event->wheel.integer_y);
+            break;
+        case SDL_EventType::SDL_EVENT_GAMEPAD_ADDED:
+            Input::AddGamepadDevice(event->gdevice.which);
+            break;
+        case SDL_EventType::SDL_EVENT_GAMEPAD_REMOVED:
+            Input::RemoveGamepadDevice(event->gdevice.which);
+            break;
+        case SDL_EventType::SDL_EVENT_WINDOW_RESIZED: {
+            EventData resizeEventData;
+            resizeEventData.emplace("width", event->window.data1);
+            resizeEventData.emplace("height", event->window.data2);
+            EventBus::Fire(SystemEvent::WINDOW_RESIZE, resizeEventData);
+            _setSize(event->window.data1, event->window.data2);
+
+            if (!_maximized) {
+                _lastWindowWidth = event->window.data1;
+                _lastWindowHeight = event->window.data2;
+            }
+
+            break;
+        }
+        case SDL_EventType::SDL_EVENT_WINDOW_MAXIMIZED: {
+            _maximized = true;
+            break;
+        }
+        case SDL_EventType::SDL_EVENT_WINDOW_RESTORED: {
+            _maximized = false;
+            EventData restoreEventData;
+            restoreEventData.emplace("width", _lastWindowWidth);
+            restoreEventData.emplace("height", _lastWindowHeight);
+            _setSize(_lastWindowWidth, _lastWindowHeight);
+            EventBus::Fire(SystemEvent::WINDOW_RESIZE, restoreEventData);
+            break;
+        }
+        case SDL_EventType::SDL_EVENT_TEXT_INPUT:
+            if (_textInputCallback) {
+                _textInputCallback(event->text.text);
+            }
+            break;
+    }
+}
+
+#ifndef SDL_MAIN_USE_CALLBACKS
+// Traditional main() loop mode - polls events in batch
 void Window::_handleInput() {
     Input::Update();
 
@@ -92,73 +164,45 @@ void Window::_handleInput() {
     std::vector<Uint8> newKeysUp;
 
     while (SDL_PollEvent(&event)) {
-#ifdef LUMINOVEAU_WITH_IMGUI
-        ImGui_ImplSDL3_ProcessEvent(&event);
-#endif
-
-        switch (event.type) {
-            case SDL_EventType::SDL_EVENT_QUIT:
-                EngineState::_shouldQuit = true;
-                break;
-            case SDL_EventType::SDL_EVENT_KEY_DOWN:
-                newKeysDown.push_back(event.key.scancode);
-                break;
-            case SDL_EventType::SDL_EVENT_KEY_UP:
-                newKeysUp.push_back(event.key.scancode);
-                break;
-            case SDL_EventType::SDL_EVENT_MOUSE_WHEEL:
-                Input::UpdateScroll(event.wheel.integer_y);
-                break;
-            case SDL_EventType::SDL_EVENT_GAMEPAD_ADDED:
-                Input::AddGamepadDevice(event.gdevice.which);
-                break;
-            case SDL_EventType::SDL_EVENT_GAMEPAD_REMOVED:
-                Input::RemoveGamepadDevice(event.gdevice.which);
-                break;
-            case SDL_EventType::SDL_EVENT_WINDOW_RESIZED: {
-                EventData resizeEventData;
-                resizeEventData.emplace("width", event.window.data1);
-                resizeEventData.emplace("height", event.window.data2);
-                EventBus::Fire(SystemEvent::WINDOW_RESIZE, resizeEventData);
-                _setSize(event.window.data1, event.window.data2);
-
-                if (!_maximized) {
-                    _lastWindowWidth = event.window.data1;
-                    _lastWindowHeight = event.window.data2;
-                }
-
-                break;
-            }
-            case SDL_EventType::SDL_EVENT_WINDOW_MAXIMIZED: {
-                _maximized = true;
-                break;
-            }
-            case SDL_EventType::SDL_EVENT_WINDOW_RESTORED: {
-                _maximized = false;
-                EventData restoreEventData;
-                restoreEventData.emplace("width", _lastWindowWidth);
-                restoreEventData.emplace("height", _lastWindowHeight);
-                _setSize(_lastWindowWidth, _lastWindowHeight);
-                EventBus::Fire(SystemEvent::WINDOW_RESIZE, restoreEventData);
-                break;
-            }
-            case SDL_EventType::SDL_EVENT_TEXT_INPUT:
-                if (_textInputCallback) {
-                    _textInputCallback(event.text.text);
-                }
-                break;
-
+        // Handle key events separately for batch processing
+        if (event.type == SDL_EVENT_KEY_DOWN) {
+            newKeysDown.push_back(event.key.scancode);
+        } else if (event.type == SDL_EVENT_KEY_UP) {
+            newKeysUp.push_back(event.key.scancode);
         }
+
+        _processEvent(&event);
     }
 
+    // Batch update keyboard state
     Input::UpdateInputs(newKeysDown, true);
     Input::UpdateInputs(newKeysUp, false);
-    #ifdef LUMINOVEAU_WITH_IMGUI
-    if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) { // && SDL_GetModState() & SDL_KMOD_SHIFT) {
+
+#ifdef LUMINOVEAU_WITH_IMGUI
+    if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) {
         EngineState::_debugMenuVisible = !EngineState::_debugMenuVisible;
     }
-    #endif
+#endif
 }
+#else
+// SDL3 callback mode - handles events one at a time
+void Window::_handleInput() {
+    // In callback mode, events are handled individually via ProcessEvent()
+    // This function only needs to update Input state
+    Input::Update();
+
+#ifdef LUMINOVEAU_WITH_IMGUI
+    if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) {
+        EngineState::_debugMenuVisible = !EngineState::_debugMenuVisible;
+    }
+#endif
+}
+
+// Public wrapper for event processing in callback mode
+void Window::ProcessEvent(SDL_Event* event) {
+    _processEvent(event);
+}
+#endif
 
 bool Window::_isFullscreen() {
     auto flag          = SDL_GetWindowFlags(m_window);
@@ -201,15 +245,37 @@ vf2d Window::_getSize(bool getRealSize) {
 
 void Window::_setSize(int width, int height) {
     SDL_SetWindowSize(m_window, width, height);
-    //SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_SyncWindow(m_window);
+
+    // Update camera immediately so rendering adapts to new size
+    Renderer::UpdateCameraProjection();
+
     _sizeDirty = true;
+    _resizeDebounceCounter = 5; // Wait 5 frames before expensive GPU resource recreation
 }
 
-void Window::_startFrame() const {
+void Window::_startFrame() {
     Lerp::updateLerps();
 
     Window::HandleInput();
+
+    if (_sizeDirty && _resizeDebounceCounter > 0) {
+        _resizeDebounceCounter--;
+    }
+
+    if (_sizeDirty && _resizeDebounceCounter == 0) {
+        Renderer::OnResize();
+        Renderer::Reset();
+        _sizeDirty = false;
+    }
+
+    EngineState::_frameCount++;
+    EngineState::_previousTime = EngineState::_currentTime;
+    EngineState::_currentTime  = std::chrono::high_resolution_clock::now();
+    EngineState::_lastFrameTime =
+        (double) std::chrono::duration_cast<std::chrono::nanoseconds>(EngineState::_currentTime - EngineState::_previousTime).count() /
+        1000000000.;
+    EngineState::_fpsAccumulator += EngineState::_lastFrameTime;
 
     Renderer::StartFrame();
 }
@@ -225,21 +291,6 @@ void Window::_endFrame() {
     Renderer::EndFrame();
 
 
-    if (_sizeDirty) {
-        Renderer::OnResize();
-        Renderer::Reset();
-
-
-        _sizeDirty = false;
-    }
-
-    EngineState::_frameCount++;
-    EngineState::_previousTime = EngineState::_currentTime;
-    EngineState::_currentTime  = std::chrono::high_resolution_clock::now();
-    EngineState::_lastFrameTime =
-        (double) std::chrono::duration_cast<std::chrono::nanoseconds>(EngineState::_currentTime - EngineState::_previousTime).count() /
-        1000000000.;
-    EngineState::_fpsAccumulator += EngineState::_lastFrameTime;
 }
 
 SDL_Window *Window::_getWindow() {
@@ -401,4 +452,3 @@ void Window::_setCursor(const std::string &filename) {
     }
     free(icon.data);
 }
-
