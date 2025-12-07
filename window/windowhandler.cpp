@@ -123,6 +123,7 @@ void Window::_processEvent(SDL_Event* event) {
             resizeEventData.emplace("width", event->window.data1);
             resizeEventData.emplace("height", event->window.data2);
             EventBus::Fire(SystemEvent::WINDOW_RESIZE, resizeEventData);
+            
             _setSize(event->window.data1, event->window.data2);
 
             if (!_maximized) {
@@ -141,7 +142,9 @@ void Window::_processEvent(SDL_Event* event) {
             EventData restoreEventData;
             restoreEventData.emplace("width", _lastWindowWidth);
             restoreEventData.emplace("height", _lastWindowHeight);
+            
             _setSize(_lastWindowWidth, _lastWindowHeight);
+            
             EventBus::Fire(SystemEvent::WINDOW_RESIZE, restoreEventData);
             break;
         }
@@ -251,7 +254,6 @@ void Window::_setSize(int width, int height) {
     Renderer::UpdateCameraProjection();
 
     _sizeDirty = true;
-    _resizeDebounceCounter = 5; // Wait 5 frames before expensive GPU resource recreation
 }
 
 void Window::_startFrame() {
@@ -259,11 +261,8 @@ void Window::_startFrame() {
 
     Window::HandleInput();
 
-    if (_sizeDirty && _resizeDebounceCounter > 0) {
-        _resizeDebounceCounter--;
-    }
-
-    if (_sizeDirty && _resizeDebounceCounter == 0) {
+    // Resize is now cheap (just updates camera) - do it immediately
+    if (_sizeDirty) {
         Renderer::OnResize();
         Renderer::Reset();
         _sizeDirty = false;

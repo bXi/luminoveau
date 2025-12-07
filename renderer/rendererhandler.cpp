@@ -75,11 +75,22 @@ void Renderer::_initRendering() {
 
     auto *framebuffer = new FrameBuffer;
 
+    // Get the primary display's size for creating desktop-sized framebuffers
+    SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode* displayMode = SDL_GetCurrentDisplayMode(primaryDisplay);
+    int desktopWidth = displayMode ? displayMode->w : 3840;  // Fallback to 4K if can't get display
+    int desktopHeight = displayMode ? displayMode->h : 2160;
+    
+    SDL_Log("%s: Creating framebuffers at desktop size: %dx%d", CURRENT_METHOD(), desktopWidth, desktopHeight);
+
     framebuffer->renderpasses.emplace_back("2dsprites", new SpriteRenderPass(m_device));
     framebuffer->renderpasses.begin()->second->color_target_info_loadop      = SDL_GPU_LOADOP_CLEAR;
     framebuffer->renderpasses.begin()->second->color_target_info_clear_color = SDL_FColor(0.f, 0.f, 0.f, 1.f);
 
-    framebuffer->fbContent = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
+    // Create framebuffer at desktop size, not window size
+    framebuffer->fbContent = AssetHandler::CreateEmptyTexture({(float)desktopWidth, (float)desktopHeight}).gpuTexture;
+    framebuffer->width = desktopWidth;
+    framebuffer->height = desktopHeight;
     frameBuffers.emplace_back("primaryFramebuffer", framebuffer);
 
     for (auto &[_fbName, _framebuffer]: frameBuffers) {
@@ -154,17 +165,8 @@ void Renderer::_updateCameraProjection() {
 }
 
 void Renderer::_onResize() {
-    SDL_WaitForGPUIdle(m_device);
-
-    // Update camera projection
+    // Only update camera projection - framebuffers stay at desktop size
     _updateCameraProjection();
-
-    // Recreate framebuffer textures at new size
-    for (auto &[_fbName, _framebuffer]: frameBuffers) {
-        SDL_ReleaseGPUTexture(m_device, _framebuffer->fbContent);
-        _framebuffer->fbContent = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
-        SDL_SetGPUTextureName(Renderer::GetDevice(), _framebuffer->fbContent, Helpers::TextFormat("Renderer: framebuffer %s", _fbName.c_str()));
-    }
 }
 
 void Renderer::_clearBackground(Color color) {
@@ -257,12 +259,13 @@ void Renderer::_reset() {
     for (auto &[fbName, framebuffer]: frameBuffers) {
         for (auto &[passname, renderpass]: framebuffer->renderpasses) {
 
-            renderpass->release();
+            // Don't log during reset (this is called during window resize)
+            renderpass->release(false);
 
             SDL_WaitForGPUIdle(m_device);
 
             if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), Window::GetWidth(), Window::GetHeight(),
-                                  passname)) {
+                                  passname, false)) {
                 SDL_Log("%s: renderpass (%s) failed to init()", CURRENT_METHOD(), passname.c_str());
             }
         }
@@ -337,7 +340,8 @@ UniformBuffer &Renderer::_getUniformBuffer(const std::string &passname) {
 
 void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
 
-    auto *framebuffer = Renderer::GetFramebuffer("primaryFramebuffer")->fbContent;
+    auto *framebufferObj = Renderer::GetFramebuffer("primaryFramebuffer");
+    auto *framebuffer = framebufferObj->fbContent;
 
     SDL_GPUColorTargetInfo sdlGpuColorTargetInfo = {
         .texture = swapchain_texture,
@@ -356,10 +360,20 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
         0.0f,               0.0f,              0.0f,  1.0f     // Column 3
     );
 
+    // Calculate UV coordinates to sample only the window-sized portion of the desktop-sized texture
+    float uMax = (float)Window::GetWidth() / (float)framebufferObj->width;
+    float vMax = (float)Window::GetHeight() / (float)framebufferObj->height;
+
     Uniforms rtt_uniforms{
         .camera = m_camera,
         .model = model,
         .flipped = glm::vec2(1.0, 1.0),
+        .uv0 = glm::vec2(uMax, vMax),
+        .uv1 = glm::vec2(0.0, vMax),
+        .uv2 = glm::vec2(uMax, 0.0),
+        .uv3 = glm::vec2(0.0, vMax),
+        .uv4 = glm::vec2(0.0, 0.0),
+        .uv5 = glm::vec2(uMax, 0.0),
     };
 
     SDL_PushGPUVertexUniformData(cmd_buffer, 0, &rtt_uniforms, sizeof(rtt_uniforms));

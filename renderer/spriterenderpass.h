@@ -149,10 +149,10 @@ public:
 
     [[nodiscard]] bool init(
         SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width,
-        uint32_t surface_height, std::string name
+        uint32_t surface_height, std::string name, bool logInit = true
     ) override;
 
-    void release() override;
+    void release(bool logRelease = true) override;
 
     void render(
         SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *target_texture, const glm::mat4 &camera

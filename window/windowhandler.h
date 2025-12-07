@@ -284,7 +284,6 @@ private:
     std::function<void(const char*)> _textInputCallback = nullptr;
 
     bool _sizeDirty = false;
-    int _resizeDebounceCounter = 0;
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     void SetupImGuiStyle();

@@ -50,10 +50,10 @@ public:
 
     [[nodiscard]] virtual bool init(
         SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width,
-        uint32_t surface_height, std::string name
+        uint32_t surface_height, std::string name, bool logInit = true
     ) = 0;
 
-    virtual void release() = 0;
+    virtual void release(bool logRelease = true) = 0;
 
     virtual void render(
         SDL_GPUCommandBuffer* cmd_buffer, SDL_GPUTexture* target_texture, const glm::mat4& camera

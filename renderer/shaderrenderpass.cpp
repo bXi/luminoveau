@@ -5,7 +5,7 @@
 #include "SDL3/SDL_gpu.h"
 #include "spriterenderpass.h"
 
-void ShaderRenderPass::release() {
+void ShaderRenderPass::release(bool logRelease) {
     m_depth_texture.release(Renderer::GetDevice());
 
     if (m_pipeline) {
@@ -42,7 +42,9 @@ void ShaderRenderPass::release() {
         finalrender_fragment_shader = nullptr;
     }
 
-    SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+    if (logRelease) {
+        SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+    }
 }
 
 void ShaderRenderPass::_loadUniformsFromShader(const std::vector<uint8_t> &spirvBinary) {
@@ -88,7 +90,7 @@ void ShaderRenderPass::_loadSamplerNamesFromShader(const std::vector<uint8_t> &s
 }
 
 bool ShaderRenderPass::init(
-    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name) {
+    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit) {
 
     LUMI_UNUSED(surface_height, surface_width);
 
@@ -237,7 +239,9 @@ bool ShaderRenderPass::init(
         }
     }
 
-    SDL_Log("%s: created graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+    if (logInit) {
+        SDL_Log("%s: created graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+    }
 
     return true;
 }

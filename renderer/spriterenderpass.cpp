@@ -4,7 +4,7 @@
 
 #include "SDL3/SDL_gpu.h"
 
-void SpriteRenderPass::release() {
+void SpriteRenderPass::release(bool logRelease) {
     if (m_msaa_color_texture) {
         SDL_ReleaseGPUTexture(Renderer::GetDevice(), m_msaa_color_texture);
         m_msaa_color_texture = nullptr;
@@ -44,11 +44,13 @@ void SpriteRenderPass::release() {
         m_pipeline = nullptr;
     }
 
-    SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+    if (logRelease) {
+        SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+    }
 }
 
 bool SpriteRenderPass::init(
-    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name
+    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit
 ) {
     passname = std::move(name);
 
@@ -156,7 +158,9 @@ bool SpriteRenderPass::init(
         throw std::runtime_error(Helpers::TextFormat("%s: failed to create graphics pipeline: %s", CURRENT_METHOD(), SDL_GetError()));
     }
 
-    SDL_Log("%s: created graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+    if (logInit) {
+        SDL_Log("%s: created graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+    }
 
     return true;
 }
