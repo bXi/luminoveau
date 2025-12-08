@@ -2,13 +2,140 @@
 
 #include <utility>
 
+void Draw::_initPixelBuffer() {
+    // Get desktop size to match framebuffer dimensions
+    SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode* displayMode = SDL_GetCurrentDisplayMode(primaryDisplay);
+    _pixelBufferWidth = displayMode ? displayMode->w : 3840;  // Fallback to 4K if can't get display
+    _pixelBufferHeight = displayMode ? displayMode->h : 2160;
+    
+    SDL_Log("%s: initializing pixel buffer at desktop size: %dx%d", CURRENT_METHOD(), _pixelBufferWidth, _pixelBufferHeight);
+    
+    // Pre-allocate buffer for pixel data
+    _pixelBufferData.resize(_pixelBufferWidth * _pixelBufferHeight, 0x00000000); // Transparent
+    
+    // Create GPU texture for pixel buffer
+    SDL_GPUTextureCreateInfo texInfo = {
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .width = _pixelBufferWidth,
+        .height = _pixelBufferHeight,
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
+        .props = 0,
+    };
+    
+    _pixelTexture.gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &texInfo);
+    _pixelTexture.gpuSampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode());
+    _pixelTexture.width = _pixelBufferWidth;
+    _pixelTexture.height = _pixelBufferHeight;
+    _pixelTexture.filename = "[Lumi]PixelBuffer";
+    
+    if (!_pixelTexture.gpuTexture) {
+        SDL_Log("Failed to create pixel buffer texture: %s", SDL_GetError());
+        return;
+    }
+    
+    SDL_SetGPUTextureName(Renderer::GetDevice(), _pixelTexture.gpuTexture, "[Lumi]PixelBuffer");
+    
+    // Create transfer buffer
+    SDL_GPUTransferBufferCreateInfo transferInfo = {
+        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+        .size = (Uint32)(_pixelBufferWidth * _pixelBufferHeight * sizeof(uint32_t)),
+        .props = 0,
+    };
+    
+    _pixelTransferBuffer = SDL_CreateGPUTransferBuffer(Renderer::GetDevice(), &transferInfo);
+    
+    if (!_pixelTransferBuffer) {
+        SDL_Log("Failed to create pixel transfer buffer: %s", SDL_GetError());
+    }
+}
+
+void Draw::_flushPixels() {
+    if (!_pixelsDirty) return;
+    if (!_pixelTransferBuffer || !_pixelTexture.gpuTexture) return;
+    
+    // Map transfer buffer and copy pixel data
+    void* mappedData = SDL_MapGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer, false);
+    if (mappedData) {
+        std::memcpy(mappedData, _pixelBufferData.data(), _pixelBufferWidth * _pixelBufferHeight * sizeof(uint32_t));
+        SDL_UnmapGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer);
+        
+        // Upload to GPU texture
+        SDL_GPUCommandBuffer* cmdBuf = SDL_AcquireGPUCommandBuffer(Renderer::GetDevice());
+        if (!cmdBuf) {
+            SDL_Log("Failed to acquire GPU command buffer: %s", SDL_GetError());
+            return;
+        }
+        
+        SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmdBuf);
+        if (!copyPass) {
+            SDL_Log("Failed to begin GPU copy pass: %s", SDL_GetError());
+            return;
+        }
+        
+        SDL_GPUTextureTransferInfo transferInfo = {
+            .transfer_buffer = _pixelTransferBuffer,
+            .offset = 0,
+            .pixels_per_row = 0,
+            .rows_per_layer = 0,
+        };
+        
+        SDL_GPUTextureRegion destInfo = {
+            .texture = _pixelTexture.gpuTexture,
+            .mip_level = 0,
+            .layer = 0,
+            .x = 0,
+            .y = 0,
+            .z = 0,
+            .w = _pixelBufferWidth,
+            .h = _pixelBufferHeight,
+            .d = 1,
+        };
+        
+        SDL_UploadToGPUTexture(copyPass, &transferInfo, &destInfo, false);
+        SDL_EndGPUCopyPass(copyPass);
+        SDL_SubmitGPUCommandBuffer(cmdBuf);
+    } else {
+        SDL_Log("Failed to map transfer buffer: %s", SDL_GetError());
+        return;
+    }
+    
+    // Clear buffer and dirty flag BEFORE drawing to avoid recursion issues
+    std::fill(_pixelBufferData.begin(), _pixelBufferData.end(), 0x00000000);
+    _pixelsDirty = false;
+    
+    // Draw the pixel buffer as a texture
+    _drawTexture(_pixelTexture, {0, 0}, {(float)_pixelBufferWidth, (float)_pixelBufferHeight}, WHITE);
+}
+
+void Draw::_cleanupPixelBuffer() {
+    if (_pixelTransferBuffer) {
+        SDL_ReleaseGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer);
+        _pixelTransferBuffer = nullptr;
+    }
+    
+    if (_pixelTexture.gpuTexture) {
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), _pixelTexture.gpuTexture);
+        _pixelTexture.gpuTexture = nullptr;
+    }
+    
+    _pixelBufferData.clear();
+}
+
 void Draw::_drawRectangle(const vf2d& pos, const vf2d& size, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
     rectf dstRect = _doCamera(pos, size);
 
     Texture(Renderer::WhitePixel(), dstRect.pos, dstRect.size, color);
 }
 
 void Draw::_drawCircle(vf2d pos, float radius, Color color, int segments = 32) {
+    _flushPixels();  // Auto-flush before drawing
 
     float angleStep = 2.0f * PI / segments;
 
@@ -45,6 +172,8 @@ void Draw::_drawRectangleRounded(vf2d pos, const vf2d &size, float radius, Color
 }
 
 void Draw::_drawLine(vf2d start, vf2d end, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
     if (Camera::IsActive()) {
         start = Camera::ToScreenSpace(start);
         end   = Camera::ToScreenSpace(end);
@@ -69,6 +198,8 @@ void Draw::_drawArc(const vf2d& center, float radius, float startAngle, float en
 }
 
 void Draw::_drawTexture(TextureType texture, const vf2d& pos, const vf2d &size, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
     SDL_FRect dstRect = _doCamera(pos, size);
 
     Renderable renderable = {
@@ -213,6 +344,8 @@ void Draw::_setScissorMode(const rectf& area) {
 }
 
 void Draw::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
     //TODO: fix with sdl_GPU
     SDL_FRect dstRect = _doCamera(pos, size);
 
@@ -273,6 +406,8 @@ rectf Draw::_doCamera(const vf2d &pos, const vf2d &size) {
 }
 
 void Draw::_drawThickLine(vf2d start, vf2d end, Color color, float width) {
+    _flushPixels();  // Auto-flush before drawing
+    
     if (Camera::IsActive()) {
         start = Camera::ToScreenSpace(start);
         end   = Camera::ToScreenSpace(end);
@@ -340,8 +475,24 @@ void Draw::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color c
 }
 
 void Draw::_drawPixel(const vi2d& pos, Color color) {
-    LUMI_UNUSED(pos, color);
-
-    //TODO: fix with sdl_GPU
-
+    // Lazy initialize pixel buffer on first use
+    if (!_pixelTransferBuffer) {
+        _initPixelBuffer();
+    }
+    
+    // Apply camera transform if active
+    vi2d finalPos = pos;
+    if (Camera::IsActive()) {
+        vf2d transformed = Camera::ToScreenSpace({(float)pos.x, (float)pos.y});
+        finalPos = {(int)transformed.x, (int)transformed.y};
+    }
+    
+    // Write directly to pixel buffer
+    if (finalPos.x >= 0 && finalPos.x < (int)_pixelBufferWidth && 
+        finalPos.y >= 0 && finalPos.y < (int)_pixelBufferHeight) {
+        uint32_t index = finalPos.y * _pixelBufferWidth + finalPos.x;
+        // Pack RGBA into uint32 (R8G8B8A8)
+        _pixelBufferData[index] = color.r | (color.g << 8) | (color.b << 16) | (color.a << 24);
+        _pixelsDirty = true;
+    }
 }

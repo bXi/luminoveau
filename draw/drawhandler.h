@@ -42,6 +42,13 @@ public:
     static void Pixel(vi2d pos, Color color) { get()._drawPixel(pos, color); };
 
     /**
+     * @brief Flushes queued pixels to the screen. Called automatically before other draw operations.
+     * Should be called at the end of the frame to ensure all pixels are rendered.
+     * Can also be called manually for explicit control over layering.
+     */
+    static void FlushPixels() { get()._flushPixels(); };
+
+    /**
      * @brief Draws a line from the start to the end position with the given color.
      *
      * @param start The start position of the line.
@@ -328,6 +335,18 @@ private:
 
     std::string _targetRenderPass = "2dsprites";
 
+    // Pixel buffer system
+    TextureAsset _pixelTexture;
+    SDL_GPUTransferBuffer* _pixelTransferBuffer = nullptr;
+    bool _pixelsDirty = false;
+    uint32_t _pixelBufferWidth = 0;
+    uint32_t _pixelBufferHeight = 0;
+    std::vector<uint32_t> _pixelBufferData;  // RGBA8888 format
+    
+    void _initPixelBuffer();
+    void _flushPixels();
+    void _cleanupPixelBuffer();
+
 //Singleton part
 public:
     Draw(const Draw &) = delete;
@@ -340,5 +359,9 @@ public:
 private:
     Draw() {
 
+    }
+    
+    ~Draw() {
+        _cleanupPixelBuffer();
     }
 };

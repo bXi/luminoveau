@@ -186,7 +186,7 @@ void Renderer::_startFrame() const {
 }
 
 void Renderer::_endFrame() {
-
+    Draw::FlushPixels();
     m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
     if (!m_cmdbuf) {
         SDL_Log("Renderer::StartFrame: failed to acquire gpu command buffer: %s", SDL_GetError());
