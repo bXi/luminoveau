@@ -164,9 +164,7 @@ public:
     }
 
     void resetRenderQueue() override {
-
-        //std::vector<Renderable>().swap(renderQueue);
-        renderQueue.reserve(MAX_SPRITES);
+        // Just reset counter - keep allocated memory
         renderQueueCount = 0;
     }
 
