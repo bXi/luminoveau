@@ -151,6 +151,7 @@ public:
 
     static void UpdateScroll(int scrollDir) { get()._updateScroll(scrollDir); }
 
+    std::vector<Uint8> currentKeyboardState;
 private:
     std::vector<InputDevice *> inputs;
 
@@ -196,7 +197,6 @@ private:
 
     void _updateScroll(int scrollDir);
 
-    std::vector<Uint8> currentKeyboardState;
     std::vector<Uint8> previousKeyboardState;
 
     Uint32 currentMouseButtons = 0;

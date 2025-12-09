@@ -94,20 +94,10 @@ void Window::_processEvent(SDL_Event* event) {
             EngineState::_shouldQuit = true;
             break;
         case SDL_EventType::SDL_EVENT_KEY_DOWN:
-#ifdef SDL_MAIN_USE_CALLBACKS
-            // In callback mode, directly update the keyboard state
             Input::get().currentKeyboardState[event->key.scancode] = 1;
-#else
-            // In traditional mode, accumulate in vectors (handled by caller)
-#endif
             break;
         case SDL_EventType::SDL_EVENT_KEY_UP:
-#ifdef SDL_MAIN_USE_CALLBACKS
-            // In callback mode, directly update the keyboard state
             Input::get().currentKeyboardState[event->key.scancode] = 0;
-#else
-            // In traditional mode, accumulate in vectors (handled by caller)
-#endif
             break;
         case SDL_EventType::SDL_EVENT_MOUSE_WHEEL:
             Input::UpdateScroll(event->wheel.integer_y);
