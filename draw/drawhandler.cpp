@@ -131,7 +131,20 @@ void Draw::_drawRectangle(const vf2d& pos, const vf2d& size, Color color) {
     
     rectf dstRect = _doCamera(pos, size);
 
-    Texture(Renderer::WhitePixel(), dstRect.pos, dstRect.size, color);
+    // Draw the four sides of the rectangle using lines
+    vf2d topLeft = dstRect.pos;
+    vf2d topRight = {dstRect.pos.x + dstRect.size.x, dstRect.pos.y};
+    vf2d bottomRight = {dstRect.pos.x + dstRect.size.x, dstRect.pos.y + dstRect.size.y};
+    vf2d bottomLeft = {dstRect.pos.x, dstRect.pos.y + dstRect.size.y};
+
+    // Top edge
+    _drawLine(topLeft, topRight, color);
+    // Right edge
+    _drawLine(topRight, bottomRight, color);
+    // Bottom edge
+    _drawLine(bottomRight, bottomLeft, color);
+    // Left edge
+    _drawLine(bottomLeft, topLeft, color);
 }
 
 void Draw::_drawCircle(vf2d pos, float radius, Color color, int segments = 32) {
@@ -160,8 +173,6 @@ vf2d first = {
     // Explicitly close the circle
     _drawLine(prev, first, color);
 }
-
-
 
 void Draw::_drawRectangleRounded(vf2d pos, const vf2d &size, float radius, Color color) {
     LUMI_UNUSED(size, radius, color);
@@ -345,12 +356,10 @@ void Draw::_setScissorMode(const rectf& area) {
 
 void Draw::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {
     _flushPixels();  // Auto-flush before drawing
-    
-    //TODO: fix with sdl_GPU
-    SDL_FRect dstRect = _doCamera(pos, size);
 
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderFillRect(renderer, &dstRect);
+    rectf dstRect = _doCamera(pos, size);
+
+    Texture(Renderer::WhitePixel(), dstRect.pos, dstRect.size, color);
 }
 
 void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
