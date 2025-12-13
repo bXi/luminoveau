@@ -19,6 +19,12 @@ void ShaderRenderPass::release(bool logRelease) {
         SDL_ReleaseGPUTexture(Renderer::GetDevice(), resultTexture);
         resultTexture = nullptr;
     }
+    
+    // Release input texture
+    if (inputTexture) {
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), inputTexture);
+        inputTexture = nullptr;
+    }
 
     // Release the temp 1x1 texture
     if (fs.texture.gpuTexture) {
@@ -93,9 +99,11 @@ void ShaderRenderPass::_loadSamplerNamesFromShader(const std::vector<uint8_t> &s
 bool ShaderRenderPass::init(
     SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit) {
 
-    LUMI_UNUSED(surface_height, surface_width);
-
     passname = std::move(name);
+
+    // Store desktop dimensions for UV scaling when sampling FROM desktop-sized framebuffers
+    m_desktop_width = surface_width;
+    m_desktop_height = surface_height;
 
     vertex_shader   = vertShader.shader;
     fragment_shader = fragShader.shader;
@@ -103,7 +111,10 @@ bool ShaderRenderPass::init(
     _loadUniformsFromShader(vertShader.fileData);
     _loadSamplerNamesFromShader(fragShader.fileData);
 
+    // resultTexture is WINDOW-SIZED for shader output
+    // User shaders expect to sample and output at window resolution
     resultTexture = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
+    inputTexture = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture; 
 
     SDL_SetGPUTextureName(Renderer::GetDevice(), resultTexture, Helpers::TextFormat("ShaderRenderPass: %s resultTexture", passname.c_str()));
 
@@ -255,6 +266,67 @@ void ShaderRenderPass::render(
     SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
     #endif
 
+    auto framebuffer = Renderer::GetFramebuffer("primaryFramebuffer");
+    
+    // STEP 1: Copy window region from desktop-sized framebuffer to window-sized inputTexture
+    {
+        std::vector<SDL_GPUColorTargetInfo> copy_target_info(1, SDL_GPUColorTargetInfo{
+            .texture = inputTexture,
+            .mip_level = 0,
+            .layer_or_depth_plane = 0,
+            .clear_color = {0.0, 0.0, 0.0, 1.0},
+            .load_op = SDL_GPU_LOADOP_CLEAR,
+            .store_op = SDL_GPU_STOREOP_STORE,
+        });
+        
+        SDL_GPURenderPass *copy_pass = SDL_BeginGPURenderPass(cmd_buffer, copy_target_info.data(), 1, nullptr);
+        SDL_GPUViewport viewport = {
+            .x = 0, .y = 0,
+            .w = (float)Window::GetWidth(),
+            .h = (float)Window::GetHeight(),
+            .min_depth = 0.0f,
+            .max_depth = 1.0f
+        };
+        SDL_SetGPUViewport(copy_pass, &viewport);
+        SDL_BindGPUGraphicsPipeline(copy_pass, finalrender_pipeline);
+        
+        glm::mat4 model = glm::mat4(
+            (float)Window::GetWidth(), 0.0f, 0.0f, 0.0f,
+            0.0f, (float)Window::GetHeight(), 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 0.1f, 1.0f
+        );
+        
+        // Sample window region from desktop framebuffer, write to full inputTexture
+        float uv_max_x = (float)Window::GetWidth() / (float)m_desktop_width;
+        float uv_max_y = (float)Window::GetHeight() / (float)m_desktop_height;
+        Uniforms copy_uniforms{
+            .camera = camera,
+            .model = model,
+            .flipped = glm::vec2(1.0, 1.0),
+            .uv0 = glm::vec2(uv_max_x, uv_max_y),
+            .uv1 = glm::vec2(0.0, uv_max_y),
+            .uv2 = glm::vec2(uv_max_x, 0.0),
+            .uv3 = glm::vec2(0.0, uv_max_y),
+            .uv4 = glm::vec2(0.0, 0.0),
+            .uv5 = glm::vec2(uv_max_x, 0.0),
+            .tintColorR = 1.0f,
+            .tintColorG = 1.0f,
+            .tintColorB = 1.0f,
+            .tintColorA = 1.0f,
+        };
+        
+        SDL_PushGPUVertexUniformData(cmd_buffer, 0, &copy_uniforms, sizeof(copy_uniforms));
+        SDL_GPUTextureSamplerBinding binding{
+            .texture = framebuffer->fbContent,
+            .sampler = Renderer::GetSampler(ScaleMode::LINEAR),
+        };
+        SDL_BindGPUFragmentSamplers(copy_pass, 0, &binding, 1);
+        SDL_DrawGPUPrimitives(copy_pass, 6, 1, 0, 0);
+        SDL_EndGPURenderPass(copy_pass);
+    }
+    
+    // STEP 2: Run user shader with inputTexture (window-sized) → resultTexture (window-sized)
     std::vector<SDL_GPUColorTargetInfo> color_target_info(fragShader.samplerCount, SDL_GPUColorTargetInfo{
         .texture = resultTexture,
         .mip_level = 0,
@@ -263,8 +335,6 @@ void ShaderRenderPass::render(
         .load_op = SDL_GPU_LOADOP_LOAD,
         .store_op = SDL_GPU_STOREOP_STORE,
     });
-
-    auto framebuffer = Renderer::GetFramebuffer("primaryFramebuffer");
 
     render_pass = SDL_BeginGPURenderPass(cmd_buffer, color_target_info.data(), color_target_info.size(), nullptr);
     assert(render_pass);
@@ -303,13 +373,18 @@ void ShaderRenderPass::render(
 
         uniformBuffer["camera"] = camera;
         uniformBuffer["flipped"] = glm::vec2(1.0, 1.0);
+        
+        // UVs at 1.0 since we're now sampling from window-sized inputTexture
+        float uv_max_x = 1.0;
+        float uv_max_y = 1.0;
+        
         uniformBuffer["uv"]      = std::array<glm::vec2, 6>{
-            glm::vec2(1.0, 1.0),
-            glm::vec2(0.0, 1.0),
-            glm::vec2(1.0, 0.0),
-            glm::vec2(0.0, 1.0),
+            glm::vec2(uv_max_x, uv_max_y),
+            glm::vec2(0.0, uv_max_y),
+            glm::vec2(uv_max_x, 0.0),
+            glm::vec2(0.0, uv_max_y),
             glm::vec2(0.0, 0.0),
-            glm::vec2(1.0, 0.0),
+            glm::vec2(uv_max_x, 0.0),
         };
 
         uniformBuffer["tintColor"] = Color(WHITE).asVec4();
@@ -323,8 +398,9 @@ void ShaderRenderPass::render(
 
         SDL_PushGPUVertexUniformData(cmd_buffer, 0, uniformBuffer.getBufferPointer(), uniformBuffer.getBufferSize());
 
+        // Bind window-sized inputTexture (not desktop framebuffer)
         std::vector<SDL_GPUTextureSamplerBinding> texture_sampler_bindings(fragShader.samplerCount, SDL_GPUTextureSamplerBinding{
-            .texture = framebuffer->fbContent,
+            .texture = inputTexture,
             .sampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode()),
         });
 
@@ -396,6 +472,7 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
             0.0f, 0.0f, 0.1f, 1.0f                       // Slight Z offset, W = 1
         );
 
+        // resultTexture is window-sized, sample it fully with UVs at 1.0
         Uniforms uniforms{
             .camera = camera,
             .model = model,

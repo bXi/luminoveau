@@ -24,7 +24,8 @@ class ShaderRenderPass : public RenderPass {
     SDL_GPUGraphicsPipeline *m_pipeline{nullptr};
     TextureAsset m_depth_texture;
 
-    SDL_GPUTexture* resultTexture = nullptr;
+    SDL_GPUTexture* resultTexture = nullptr;  // Window-sized output
+    SDL_GPUTexture* inputTexture = nullptr;   // Window-sized input (copy of framebuffer window region)
     SDL_GPUGraphicsPipeline* finalrender_pipeline = nullptr;
 
     Renderable   fs;
@@ -38,11 +39,15 @@ class ShaderRenderPass : public RenderPass {
     SDL_GPUShader *finalrender_fragment_shader = nullptr;
     SDL_GPUShader *finalrender_vertex_shader   = nullptr;
 
+    // Desktop-sized texture dimensions for UV scaling
+    uint32_t m_desktop_width = 0;
+    uint32_t m_desktop_height = 0;
 
     std::vector<std::string> foundSamplers;
 
     void _loadSamplerNamesFromShader(const std::vector<uint8_t> &spirvBinary);
     void _loadUniformsFromShader(const std::vector<uint8_t> &spirvBinary);
+    void _copyFramebufferToInput(SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *framebuffer_texture, const glm::mat4 &camera);
     void _renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *target_texture, SDL_GPUTexture *result_texture, const glm::mat4 &camera);
     std::vector<Renderable> renderQueue;
 

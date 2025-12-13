@@ -77,7 +77,7 @@ void Renderer::_initRendering() {
 
     // Get the primary display's size for creating desktop-sized framebuffers
     SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
-    const SDL_DisplayMode* displayMode = SDL_GetCurrentDisplayMode(primaryDisplay);
+    const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
     int desktopWidth = displayMode ? displayMode->w : 3840;  // Fallback to 4K if can't get display
     int desktopHeight = displayMode ? displayMode->h : 2160;
     
@@ -167,8 +167,11 @@ void Renderer::_updateCameraProjection() {
 }
 
 void Renderer::_onResize() {
-    // Only update camera projection - framebuffers stay at desktop size
+    // Update camera projection
     _updateCameraProjection();
+    
+    // Reset render passes to recreate window-sized textures
+    _reset();
 }
 
 void Renderer::_clearBackground(Color color) {
@@ -258,6 +261,12 @@ void Renderer::_endFrame() {
 }
 
 void Renderer::_reset() {
+    // Get desktop size for render pass re-initialization
+    SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
+    int desktopWidth = displayMode ? displayMode->w : 3840;
+    int desktopHeight = displayMode ? displayMode->h : 2160;
+
     for (auto &[fbName, framebuffer]: frameBuffers) {
         for (auto &[passname, renderpass]: framebuffer->renderpasses) {
 
@@ -266,7 +275,8 @@ void Renderer::_reset() {
 
             SDL_WaitForGPUIdle(m_device);
 
-            if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), Window::GetWidth(), Window::GetHeight(),
+            if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), 
+                                  desktopWidth, desktopHeight,
                                   passname, false)) {
                 SDL_Log("%s: renderpass (%s) failed to init()", CURRENT_METHOD(), passname.c_str());
             }
@@ -299,7 +309,14 @@ void Renderer::_addShaderPass(const std::string &passname, const ShaderAsset &ve
     shaderPass->vertShader = vertShader;
     shaderPass->fragShader = fragShader;
 
-    bool succes = shaderPass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), Window::GetWidth(), Window::GetHeight(),
+    // Get desktop size for shader pass initialization
+    SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
+    int desktopWidth = displayMode ? displayMode->w : 3840;
+    int desktopHeight = displayMode ? displayMode->h : 2160;
+
+    bool succes = shaderPass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), 
+                                   desktopWidth, desktopHeight,
                                    passname);
     if (succes) {
         if (targetBuffers.empty()) {

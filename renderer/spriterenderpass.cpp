@@ -51,39 +51,42 @@ void SpriteRenderPass::release(bool logRelease) {
 }
 
 bool SpriteRenderPass::init(
-    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit
-) {
+    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit) {
     passname = std::move(name);
 
-    // Create MSAA color target
-    SDL_GPUTextureCreateInfo msaaColorTargetInfo = {
-        .type = SDL_GPU_TEXTURETYPE_2D,
-        .format = swapchain_texture_format,
-        .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
-        .width = surface_width,
-        .height = surface_height,
-        .layer_count_or_depth = 1,
-        .num_levels = 1,
-        .sample_count = Renderer::GetSampleCount(),
-    };
+    SDL_GPUSampleCount sampleCount = Renderer::GetSampleCount();
+    bool useMSAA                   = (sampleCount > SDL_GPU_SAMPLECOUNT_1);
 
-    m_msaa_color_texture = SDL_CreateGPUTexture(Renderer::GetDevice(), &msaaColorTargetInfo);
+    // Only create MSAA textures if MSAA is enabled
+    if (useMSAA) {
+        // Create MSAA color target
+        SDL_GPUTextureCreateInfo msaaColorTargetInfo = {
+            .type                 = SDL_GPU_TEXTURETYPE_2D,
+            .format               = swapchain_texture_format,
+            .usage                = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
+            .width                = surface_width,
+            .height               = surface_height,
+            .layer_count_or_depth = 1,
+            .num_levels           = 1,
+            .sample_count         = sampleCount,
+        };
 
-    // Create MSAA depth target
-    SDL_GPUTextureCreateInfo msaaDepthTargetInfo = {
-        .type = SDL_GPU_TEXTURETYPE_2D,
-        .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
-        .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
-        .width = surface_width,
-        .height = surface_height,
-        .layer_count_or_depth = 1,
-        .num_levels = 1,
-        .sample_count = Renderer::GetSampleCount(), // MSAA 4x
-    };
+        m_msaa_color_texture = SDL_CreateGPUTexture(Renderer::GetDevice(), &msaaColorTargetInfo);
 
-    m_msaa_depth_texture = SDL_CreateGPUTexture(Renderer::GetDevice(), &msaaDepthTargetInfo);
+        // Create MSAA depth target
+        SDL_GPUTextureCreateInfo msaaDepthTargetInfo = {
+            .type                 = SDL_GPU_TEXTURETYPE_2D,
+            .format               = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
+            .usage                = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+            .width                = surface_width,
+            .height               = surface_height,
+            .layer_count_or_depth = 1,
+            .num_levels           = 1,
+            .sample_count         = sampleCount,
+        };
 
-
+        m_msaa_depth_texture = SDL_CreateGPUTexture(Renderer::GetDevice(), &msaaDepthTargetInfo);
+    }
 
     m_depth_texture = AssetHandler::CreateDepthTarget(Renderer::GetDevice(), surface_width, surface_height);
 
@@ -109,28 +112,26 @@ bool SpriteRenderPass::init(
         .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
         .rasterizer_state = GPUstructs::defaultRasterizerState,
         .multisample_state = {
-            .sample_count = Renderer::GetSampleCount(), // or SDL_GPU_SAMPLECOUNT_8
-            .sample_mask = 0xFFFFFFFF,
-            .enable_mask = true,
+            .sample_count = sampleCount,
+            .sample_mask  = 0,
+            .enable_mask  = false,// Must be false when using multisampling
         },
-        .depth_stencil_state =
-            {
-                .compare_op = SDL_GPU_COMPAREOP_LESS,
-                .back_stencil_state = {},
-                .front_stencil_state = {},
-                .compare_mask = 0,
-                .write_mask = 0,
-                .enable_depth_test = true,
-                .enable_depth_write = false,
-                .enable_stencil_test = false,
-            },
-        .target_info =
-            {
-                .color_target_descriptions = &color_target_description,
-                .num_color_targets = 1,
-                .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
-                .has_depth_stencil_target = true,
-            },
+        .depth_stencil_state = {
+            .compare_op          = SDL_GPU_COMPAREOP_LESS,
+            .back_stencil_state  = {},
+            .front_stencil_state = {},
+            .compare_mask        = 0,
+            .write_mask          = 0,
+            .enable_depth_test   = true,
+            .enable_depth_write  = false,
+            .enable_stencil_test = false,
+        },
+        .target_info = {
+            .color_target_descriptions = &color_target_description,
+            .num_color_targets         = 1,
+            .depth_stencil_format      = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
+            .has_depth_stencil_target  = true,
+        },
         .props = 0,
     };
     m_pipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &pipeline_create_info);
@@ -243,26 +244,29 @@ void SpriteRenderPass::render(
         SDL_EndGPUCopyPass(copyPass);
     }
 
-    // Render pass
+    // Determine if we're using MSAA
+    SDL_GPUSampleCount sampleCount = Renderer::GetSampleCount();
+    bool useMSAA                   = (sampleCount > SDL_GPU_SAMPLECOUNT_1);
+
+    // Render pass - configure based on MSAA status
     SDL_GPUColorTargetInfo color_target_info{
-        .texture = m_msaa_color_texture, // Render to MSAA texture
-        .mip_level = 0,
+        .texture              = useMSAA ? m_msaa_color_texture : target_texture,
+        .mip_level            = 0,
         .layer_or_depth_plane = 0,
-        .clear_color = color_target_info_clear_color,
-        .load_op = color_target_info_loadop,
-        .store_op = SDL_GPU_STOREOP_RESOLVE, // Resolve MSAA
-        .resolve_texture = target_texture,    // Resolve to this texture
-        .resolve_mip_level = 0,
-        .resolve_layer = 0,
-        .cycle = false
-    };
+        .clear_color          = color_target_info_clear_color,
+        .load_op              = color_target_info_loadop,
+        .store_op             = useMSAA ? SDL_GPU_STOREOP_RESOLVE : SDL_GPU_STOREOP_STORE,
+        .resolve_texture      = useMSAA ? target_texture : nullptr,
+        .resolve_mip_level    = 0,
+        .resolve_layer        = 0,
+        .cycle                = false};
 
     SDL_GPUDepthStencilTargetInfo depth_stencil_info{
-        .texture = m_msaa_depth_texture, // Use MSAA depth
-        .clear_depth = 1.0f,
-        .load_op = SDL_GPU_LOADOP_CLEAR,
-        .store_op = SDL_GPU_STOREOP_DONT_CARE, // Don't need to keep MSAA depth
-        .stencil_load_op = SDL_GPU_LOADOP_DONT_CARE,
+        .texture          = useMSAA ? m_msaa_depth_texture : m_depth_texture.gpuTexture,
+        .clear_depth      = 1.0f,
+        .load_op          = SDL_GPU_LOADOP_CLEAR,
+        .store_op         = SDL_GPU_STOREOP_DONT_CARE,
+        .stencil_load_op  = SDL_GPU_LOADOP_DONT_CARE,
         .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
     };
 
