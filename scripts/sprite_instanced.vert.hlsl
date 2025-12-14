@@ -1,11 +1,13 @@
 struct SpriteData
 {
-    float3 Position;
-    float Rotation;
-    float TexU, TexV, TexW, TexH;
-    float4 Color;
-    float2 Scale;
-    float2 Pivot;
+    uint pos_xy;      // x in low 16 bits, y in high 16 bits
+    uint pos_z_rot;   // z in low 16 bits, rotation in high 16 bits
+    uint tex_uv;      // u in low 16 bits, v in high 16 bits
+    uint tex_wh;      // w in low 16 bits, h in high 16 bits
+    uint color_rg;    // r in low 16 bits, g in high 16 bits
+    uint color_ba;    // b in low 16 bits, a in high 16 bits
+    uint size_wh;     // w in low 16 bits, h in high 16 bits
+    uint pivot_xy;    // pivot_x in low 16 bits, pivot_y in high 16 bits
 };
 
 struct Output
@@ -31,46 +33,116 @@ static const float2 quadVertices[4] = {
     {1.0f, 1.0f}   // top-right
 };
 
+// Float16 to Float32 conversion
+float unpackHalf(uint h16)
+{
+    uint sign = (h16 >> 15) & 0x1;
+    uint exponent = (h16 >> 10) & 0x1F;
+    uint mantissa = h16 & 0x3FF;
+    
+    // Handle zero
+    if (exponent == 0 && mantissa == 0)
+    {
+        return sign ? -0.0 : 0.0;
+    }
+    
+    // Handle denormalized numbers
+    if (exponent == 0)
+    {
+        // Denormalized: use exponent -14 and normalize mantissa
+        float f = (float)mantissa / 1024.0;
+        f = ldexp(f, -14);
+        return sign ? -f : f;
+    }
+    
+    // Handle infinity and NaN
+    if (exponent == 31)
+    {
+        if (mantissa == 0)
+        {
+            // Infinity
+            return sign ? -1.0 / 0.0 : 1.0 / 0.0;
+        }
+        else
+        {
+            // NaN - return 0 to avoid rendering issues
+            return 0.0;
+        }
+    }
+    
+    // Normalized number: exponent bias is 15
+    int realExponent = (int)exponent - 15;
+    float f = 1.0 + ((float)mantissa / 1024.0);
+    f = ldexp(f, realExponent);
+    return sign ? -f : f;
+}
+
+float2 unpackHalf2(uint packed)
+{
+    uint h0 = packed & 0xFFFF;
+    uint h1 = (packed >> 16) & 0xFFFF;
+    return float2(unpackHalf(h0), unpackHalf(h1));
+}
+
 Output main(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
 {
     // Get sprite data for this instance
     SpriteData sprite = SpriteInstances[instanceID];
+    
+    // Unpack half-precision floats from packed uint32 values
+    float3 position = float3(
+        unpackHalf(sprite.pos_xy & 0xFFFF),
+        unpackHalf((sprite.pos_xy >> 16) & 0xFFFF),
+        unpackHalf(sprite.pos_z_rot & 0xFFFF)
+    );
+    
+    float rotation = unpackHalf((sprite.pos_z_rot >> 16) & 0xFFFF);
+    float2 texUV = unpackHalf2(sprite.tex_uv);
+    float2 texWH = unpackHalf2(sprite.tex_wh);
+    float4 color = float4(
+        unpackHalf(sprite.color_rg & 0xFFFF),
+        unpackHalf((sprite.color_rg >> 16) & 0xFFFF),
+        unpackHalf(sprite.color_ba & 0xFFFF),
+        unpackHalf((sprite.color_ba >> 16) & 0xFFFF)
+    );
+    float2 scale = unpackHalf2(sprite.size_wh);
+    float2 pivot = unpackHalf2(sprite.pivot_xy);
     
     // Get vertex position for this corner of the quad
     float2 coord = quadVertices[vertexID];
     
     // Calculate texture coordinates
     float2 texcoord = float2(
-        sprite.TexU + coord.x * sprite.TexW,
-        sprite.TexV + coord.y * sprite.TexH
+        texUV.x + coord.x * texWH.x,
+        texUV.y + coord.y * texWH.y
     );
     
     // Apply pivot offset before rotation
-    if (sprite.Rotation != 0.0)
+    if (rotation != 0.0)
     {
-        coord -= sprite.Pivot;
+        coord -= pivot;
     }
     
     // Apply scale
-    coord *= sprite.Scale;
+    coord *= scale;
     
     // Apply rotation
-    if (sprite.Rotation != 0.0)
+    if (rotation != 0.0)
     {
-        float c = cos(sprite.Rotation);
-        float s = sin(sprite.Rotation);
-        float2x2 rotation = float2x2(c, s, -s, c);
-        coord = mul(coord, rotation);
-        coord += (sprite.Pivot * sprite.Scale);
+        float c = cos(rotation);
+        float s = sin(rotation);
+        float2x2 rotMatrix = float2x2(c, s, -s, c);
+        coord = mul(coord, rotMatrix);
+        coord += (pivot * scale);
     }
     
     // Add sprite position and create 3D coordinate with depth
-    float3 worldPos = float3(coord + sprite.Position.xy, sprite.Position.z);
+    float3 worldPos = float3(coord + position.xy, position.z);
     
     Output output;
     output.Position = mul(ViewProjectionMatrix, float4(worldPos, 1.0f));
     output.Texcoord = texcoord;
-    output.Color = sprite.Color;
+    output.Color = color;
     
     return output;
 }

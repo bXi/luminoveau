@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <condition_variable>
 #include <future>
 #include <memory>
@@ -114,6 +115,7 @@ class SpriteRenderPass : public RenderPass {
     SDL_GPUBuffer* IndexBuffer;
     SDL_GPUTransferBuffer* IndexTransferBuffer;
 
+    // Original full-precision struct (64 bytes)
     struct SpriteInstance {
         float x, y, z;
         float rotation;
@@ -122,6 +124,73 @@ class SpriteRenderPass : public RenderPass {
         float w, h;
         float pivot_x, pivot_y;
     };
+
+    // Compact half-precision struct (32 bytes)
+    // Packed to match shader layout where each uint contains 2× uint16_t values
+    struct CompactSpriteInstance {
+        uint32_t pos_xy;      // x in low 16 bits, y in high 16 bits
+        uint32_t pos_z_rot;   // z in low 16 bits, rotation in high 16 bits
+        uint32_t tex_uv;      // tex_u in low 16 bits, tex_v in high 16 bits
+        uint32_t tex_wh;      // tex_w in low 16 bits, tex_h in high 16 bits
+        uint32_t color_rg;    // r in low 16 bits, g in high 16 bits
+        uint32_t color_ba;    // b in low 16 bits, a in high 16 bits
+        uint32_t size_wh;     // w in low 16 bits, h in high 16 bits
+        uint32_t pivot_xy;    // pivot_x in low 16 bits, pivot_y in high 16 bits
+    };
+
+    // Fast inline clamp - compiles to conditional moves (branchless)
+    static inline float fast_clamp(float v, float min, float max) {
+        return (v < min) ? min : (v > max ? max : v);
+    }
+
+    // Fast inline max
+    static inline float fast_max(float v, float min) {
+        return (v < min) ? min : v;
+    }
+
+    // Pack two half-floats into a uint32
+    static inline uint32_t pack_half2(float a, float b) {
+        // Clamp to prevent NaN/Inf from propagating
+        if (!std::isfinite(a)) a = 0.0f;
+        if (!std::isfinite(b)) b = 0.0f;
+        
+        // Clamp to half-float range: -65504 to +65504
+        a = fast_clamp(a, -65504.0f, 65504.0f);
+        b = fast_clamp(b, -65504.0f, 65504.0f);
+        
+        uint16_t ha = float_to_half(a);
+        uint16_t hb = float_to_half(b);
+        return static_cast<uint32_t>(ha) | (static_cast<uint32_t>(hb) << 16);
+    }
+
+    // Float32 to Float16 conversion (scalar version)
+    static inline uint16_t float_to_half(float f) {
+        union { float f; uint32_t i; } u = {f};
+        uint32_t bits = u.i;
+        
+        uint32_t sign = (bits >> 16) & 0x8000;
+        int32_t exponent = ((bits >> 23) & 0xFF) - 127 + 15;
+        uint32_t mantissa = (bits >> 13) & 0x3FF;
+        
+        // Handle denormalized numbers and underflow
+        if (exponent <= 0) {
+            if (exponent < -10) {
+                // Too small, flush to zero
+                return static_cast<uint16_t>(sign);
+            }
+            // Denormalized number - shift mantissa
+            mantissa = (mantissa | 0x400) >> (1 - exponent);
+            return static_cast<uint16_t>(sign | mantissa);
+        }
+        
+        // Handle overflow to infinity
+        if (exponent >= 31) {
+            return static_cast<uint16_t>(sign | 0x7C00);
+        }
+        
+        // Normal number
+        return static_cast<uint16_t>(sign | (exponent << 10) | mantissa);
+    }
 
     struct Batch {
         SDL_GPUTexture* texture = nullptr;
@@ -197,7 +266,7 @@ public:
 
     // Instanced rendering shaders
     static const uint8_t sprite_instanced_vert_bin[];
-    static const size_t sprite_instanced_vert_bin_len = 2832;
+    static const size_t sprite_instanced_vert_bin_len = 21564;
 
     static const uint8_t sprite_instanced_frag_bin[];
     static const size_t sprite_instanced_frag_bin_len = 1000;

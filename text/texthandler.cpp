@@ -19,7 +19,7 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
 
     do {
         TextureAsset tex = {
-            .filename = textToDraw,
+            .filename = textToDraw.c_str(),
             .gpuTexture = sequence->atlas_texture,
             .gpuSampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode()),
         };

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <string>
 #include "SDL3/SDL.h"
 #include "utils/vectors.h"
 
@@ -10,7 +9,7 @@
 struct TextureAsset {
     int width = -1; /**< Width of the texture. */
     int height = -1; /**< Height of the texture. */
-    std::string filename; /**< Filename of the texture image file. */
+    const char* filename = nullptr; /**< Filename of the texture image file. */
 
     SDL_GPUTexture *gpuTexture = nullptr; /**< Pointer to the SDL_GPU texture. */
     SDL_GPUSampler *gpuSampler = nullptr; /**< Pointer to the sampler bound to this texture. */

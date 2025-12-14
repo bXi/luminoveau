@@ -61,7 +61,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
 
     SDL_SetSurfaceBlendMode(surface, SDL_BLENDMODE_BLEND);
 
-    texture.filename = fileName;
+    texture.filename = fileName.c_str();
     texture.width  = surface->w;
     texture.height = surface->h;
 
@@ -99,8 +99,8 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     texture.gpuSampler = Renderer::GetSampler(defaultMode);
     texture.gpuTexture = gpuTexture;
 
-    if (!texture.filename.empty()) {
-        SDL_SetGPUTextureName(Renderer::GetDevice(), gpuTexture, texture.filename.c_str());
+    if(texture.filename && texture.filename[0]) {
+        SDL_SetGPUTextureName(Renderer::GetDevice(), gpuTexture, texture.filename);
     }
 
     SDL_DestroySurface(surface);

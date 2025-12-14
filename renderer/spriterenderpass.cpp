@@ -149,7 +149,7 @@ bool SpriteRenderPass::init(
 
     SDL_GPUTransferBufferCreateInfo transferBufferCreateInfo = {
         .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = MAX_SPRITES * sizeof(SpriteInstance)
+        .size = MAX_SPRITES * sizeof(CompactSpriteInstance)  // Use compact size
     };
 
     SpriteDataTransferBuffer = SDL_CreateGPUTransferBuffer(
@@ -159,7 +159,7 @@ bool SpriteRenderPass::init(
 
     SDL_GPUBufferCreateInfo bufferCreateInfo = {
         .usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
-        .size = MAX_SPRITES * sizeof(SpriteInstance)
+        .size = MAX_SPRITES * sizeof(CompactSpriteInstance)  // Use compact size
     };
 
     SpriteDataBuffer = SDL_CreateGPUBuffer(
@@ -244,15 +244,14 @@ void SpriteRenderPass::render(
     #endif
 
     //sets up transfer - map the transfer buffer directly
-    auto *dataPtr = static_cast<SpriteInstance *>(SDL_MapGPUTransferBuffer(
+    auto *dataPtr = static_cast<CompactSpriteInstance *>(SDL_MapGPUTransferBuffer(
         m_gpu_device,
         SpriteDataTransferBuffer,
         false
     ));
 
-    // Copy directly from renderQueue to transfer buffer
-    // This assumes Renderable struct layout matches SpriteInstance
-    // We're copying: x, y, z, rotation, tex_u, tex_v, tex_w, tex_h, r, g, b, a, w, h, pivot_x, pivot_y
+    // Copy and compress from renderQueue to transfer buffer
+    // Convert float32 to float16 and pack pairs into uint32
     
     size_t thread_count = thread_pool.get_thread_count();
     size_t chunk_size = renderQueueCount / thread_count + 1;
@@ -260,10 +259,34 @@ void SpriteRenderPass::render(
     for (size_t start = 0; start < renderQueueCount; start += chunk_size) {
         size_t end = std::min(start + chunk_size, renderQueueCount);
         thread_pool.enqueue([this, dataPtr, start, end]() {
-            constexpr size_t sprite_size = sizeof(SpriteInstance);
             for (size_t i = start; i < end; ++i) {
-                // Direct copy from renderQueue to transfer buffer
-                std::memcpy(&dataPtr[i], &renderQueue[i].x, sprite_size);
+                // Validate and sanitize input values
+                float x = renderQueue[i].x;
+                float y = renderQueue[i].y;
+                float z = renderQueue[i].z;
+                float rotation = renderQueue[i].rotation;
+                float tex_u = fast_clamp(renderQueue[i].tex_u, 0.0f, 1.0f);
+                float tex_v = fast_clamp(renderQueue[i].tex_v, 0.0f, 1.0f);
+                float tex_w = fast_clamp(renderQueue[i].tex_w, 0.0f, 1.0f);
+                float tex_h = fast_clamp(renderQueue[i].tex_h, 0.0f, 1.0f);
+                float r = fast_clamp(renderQueue[i].r, 0.0f, 1.0f);
+                float g = fast_clamp(renderQueue[i].g, 0.0f, 1.0f);
+                float b = fast_clamp(renderQueue[i].b, 0.0f, 1.0f);
+                float a = fast_clamp(renderQueue[i].a, 0.0f, 1.0f);
+                float w = fast_max(renderQueue[i].w, 0.001f);  // Prevent zero size
+                float h = fast_max(renderQueue[i].h, 0.001f);
+                float pivot_x = renderQueue[i].pivot_x;
+                float pivot_y = renderQueue[i].pivot_y;
+                
+                // Pack each pair of floats into a single uint32
+                dataPtr[i].pos_xy = pack_half2(x, y);
+                dataPtr[i].pos_z_rot = pack_half2(z, rotation);
+                dataPtr[i].tex_uv = pack_half2(tex_u, tex_v);
+                dataPtr[i].tex_wh = pack_half2(tex_w, tex_h);
+                dataPtr[i].color_rg = pack_half2(r, g);
+                dataPtr[i].color_ba = pack_half2(b, a);
+                dataPtr[i].size_wh = pack_half2(w, h);
+                dataPtr[i].pivot_xy = pack_half2(pivot_x, pivot_y);
             }
         });
     }
@@ -303,7 +326,7 @@ void SpriteRenderPass::render(
         SDL_GPUBufferRegion bufferRegion = {
             .buffer = SpriteDataBuffer,
             .offset = 0,
-            .size = static_cast<Uint32>(renderQueueCount * sizeof(SpriteInstance))
+            .size = static_cast<Uint32>(renderQueueCount * sizeof(CompactSpriteInstance))
         };
 
         SDL_UploadToGPUBuffer(
