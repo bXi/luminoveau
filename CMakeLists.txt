@@ -24,6 +24,50 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
 endif()
 
+# ============================================================================
+# AGGRESSIVE OPTIMIZATION FLAGS
+# ============================================================================
+
+# Silence warnings from dependencies
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w")
+
+if(MSVC)
+    # MSVC Release optimizations
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /Ob2 /Oi /Ot /GL /fp:fast")
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG /OPT:REF /OPT:ICF")
+    set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /LTCG /OPT:REF /OPT:ICF")
+    set(CMAKE_STATIC_LINKER_FLAGS_RELEASE "${CMAKE_STATIC_LINKER_FLAGS_RELEASE} /LTCG")
+    
+    # MSVC Debug optimizations (fast but debuggable)
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od /Zi /RTC1")
+    
+    # MSVC RelWithDebInfo (optimized with debug info)
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /O2 /Ob1 /Zi /fp:fast")
+    
+else()
+    # GCC/Clang Release optimizations
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -mtune=native -ffast-math -funroll-loops")
+    
+    # Try to enable LTO if supported
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT LTO_ERROR)
+    if(LTO_SUPPORTED)
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto")
+        set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -flto")
+        set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -flto")
+        message(STATUS "LTO enabled for Release build")
+    else()
+        message(STATUS "LTO not supported, skipping: ${LTO_ERROR}")
+    endif()
+    
+    # GCC/Clang Debug optimizations (O1 for speed, -g for debugging)
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O1 -g")
+    
+    # GCC/Clang RelWithDebInfo
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3 -g -march=native -mtune=native -ffast-math")
+endif()
+
 # Including source and header file lists
 include(cmake/Sources.cmake)
 
@@ -49,10 +93,10 @@ target_include_directories(luminoveau PUBLIC
     "${PROJECT_SOURCE_DIR}/extern"
 )
 
-# Compiler-specific options
+# Compiler-specific options for Luminoveau library only
 if(MSVC)
     target_compile_options(luminoveau PRIVATE
-        /W4              # Enable high warning level
+        /W4              # Enable high warning level for our code
         /wd4820          # Suppress padding warning
         /wd4514          # Suppress unreferenced inline function warning
         /wd5045          # Suppress Spectre mitigation warning
@@ -61,13 +105,6 @@ else()
     target_compile_options(luminoveau PRIVATE
         -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-function
     )
-endif()
-
-# Build-type specific optimizations
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options(luminoveau PRIVATE -O3)
-elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_options(luminoveau PRIVATE -g -O0)
 endif()
 
 # Platform-specific linking options
@@ -87,6 +124,11 @@ file(
     EXPECTED_HASH SHA256=c46b876ae3b9f994b4f05a4c15553e0485636862064f1fcc9d8b4f832086bc5d
 )
 include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
+
+# Disable warnings for all dependencies
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+set(CMAKE_POLICY_WARNING_CMP0077 OFF)
+set(CMAKE_POLICY_WARNING_CMP0091 OFF)
 
 # Including external CMake modules
 include(cmake/AssetPreparation.cmake)
