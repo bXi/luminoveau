@@ -30,6 +30,9 @@ set(LUMINOVEAU_SOURCES
     assethandler/spritebatchfrag.cpp
     assethandler/spritebatchvert.cpp
 
+    assethandler/spriteinstancedfrag.cpp
+    assethandler/spriteinstancedvert.cpp
+
     # Renderer
     renderer/sdl_gpu_structs.cpp
     renderer/rendererhandler.cpp

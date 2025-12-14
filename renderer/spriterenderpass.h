@@ -109,6 +109,10 @@ class SpriteRenderPass : public RenderPass {
 
     SDL_GPUTransferBuffer* SpriteDataTransferBuffer;
     SDL_GPUBuffer* SpriteDataBuffer;
+    
+    // Index buffer for instanced quad rendering
+    SDL_GPUBuffer* IndexBuffer;
+    SDL_GPUTransferBuffer* IndexTransferBuffer;
 
     struct SpriteInstance {
         float x, y, z;
@@ -126,8 +130,6 @@ class SpriteRenderPass : public RenderPass {
         size_t offset = 0; // Offset in sprite_buffer (in instances)
         size_t count = 0;  // Number of sprites
     };
-
-    std::vector<SpriteInstance> sprite_data;
 
     static constexpr Uint32 MAX_SPRITES = 4'000'000;
 public:
@@ -193,6 +195,12 @@ public:
     static const uint8_t sprite_batch_vert_bin[];
     static const size_t sprite_batch_vert_bin_len = 3204;
 
+    // Instanced rendering shaders
+    static const uint8_t sprite_instanced_vert_bin[];
+    static const size_t sprite_instanced_vert_bin_len = 2832;
+
+    static const uint8_t sprite_instanced_frag_bin[];
+    static const size_t sprite_instanced_frag_bin_len = 1000;
 
     void createShaders();
 };
