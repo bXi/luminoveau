@@ -19,6 +19,13 @@ AssetHandler::AssetHandler() {
         TTF_Init();
     }
 
+    // Reserve space to prevent map reallocation (important since we return references!)
+    _textures.reserve(1000);
+    _sounds.reserve(100);
+    _musics.reserve(50);
+    _fonts.reserve(50);
+    _shaders.reserve(50);
+
     SDL_IOStream* ttfFontData = SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
     auto font = TTF_OpenFontIO(ttfFontData, true, 16.0);
     if (!font) {
@@ -28,10 +35,93 @@ AssetHandler::AssetHandler() {
     defaultFont.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
 };
 
+void AssetHandler::_cleanup() {
+    SDL_Log("%s: Cleaning up all assets...", CURRENT_METHOD());
+    
+    std::lock_guard<std::mutex> lock(assetMutex);
+    auto device = Renderer::GetDevice();
+    
+    // Cleanup textures
+    for (auto& [name, tex] : _textures) {
+        if (tex.gpuTexture) {
+            SDL_ReleaseGPUTexture(device, tex.gpuTexture);
+            tex.gpuTexture = nullptr;
+        }
+    }
+    _textures.clear();
+    
+    // Cleanup shaders
+    for (auto& [name, shader] : _shaders) {
+        if (shader.shader) {
+            SDL_ReleaseGPUShader(device, shader.shader);
+            shader.shader = nullptr;
+        }
+    }
+    _shaders.clear();
+    
+    // Cleanup fonts
+    for (auto& [name, font] : _fonts) {
+        if (font.ttfFont) {
+            TTF_CloseFont(font.ttfFont);
+            font.ttfFont = nullptr;
+        }
+        if (font.textEngine) {
+            TTF_DestroyGPUTextEngine(font.textEngine);
+            font.textEngine = nullptr;
+        }
+        if (font.fontData) {
+            free(font.fontData);
+            font.fontData = nullptr;
+        }
+    }
+    _fonts.clear();
+    
+    // Cleanup sounds
+    for (auto& [name, sound] : _sounds) {
+        if (sound.sound) {
+            ma_sound_uninit(sound.sound);
+            delete sound.sound;
+            sound.sound = nullptr;
+        }
+        if (sound.fileData) {
+            free(sound.fileData);
+            sound.fileData = nullptr;
+        }
+    }
+    _sounds.clear();
+    
+    // Cleanup music
+    for (auto& [name, music] : _musics) {
+        if (music.music) {
+            ma_sound_uninit(music.music);
+            delete music.music;
+            music.music = nullptr;
+        }
+        if (music.fileData) {
+            free(music.fileData);
+            music.fileData = nullptr;
+        }
+    }
+    _musics.clear();
+    
+    // Cleanup default font
+    if (defaultFont.ttfFont) {
+        TTF_CloseFont(defaultFont.ttfFont);
+        defaultFont.ttfFont = nullptr;
+    }
+    if (defaultFont.textEngine) {
+        TTF_DestroyGPUTextEngine(defaultFont.textEngine);
+        defaultFont.textEngine = nullptr;
+    }
+    
+    SDL_Log("%s: Asset cleanup complete", CURRENT_METHOD());
+}
+
 Texture AssetHandler::_getTexture(const std::string &fileName) {
+    std::lock_guard<std::mutex> lock(assetMutex);
+    
     if (_textures.find(fileName) == _textures.end()) {
         _loadTexture(fileName);
-
         return _textures[fileName];
     } else {
         return _textures[fileName];
@@ -109,6 +199,9 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     SDL_Log("%s: loaded texture %s (%i x %i)", CURRENT_METHOD(), fileName.c_str(), texture.width, texture.height);
 
     _textures[std::string(fileName)] = texture;
+    
+    // FIX: Point filename to the stable string in the map, not the local variable!
+    _textures[fileName].filename = _textures.find(fileName)->first.c_str();
 
     return texture;
 }
@@ -143,12 +236,18 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 }
 
 Sound AssetHandler::_getSound(const std::string &fileName) {
+    std::lock_guard<std::mutex> lock(assetMutex);
+    
     if (_sounds.find(fileName) == _sounds.end()) {
         SoundAsset _sound;
         _sound.sound    = new ma_sound();
         _sound.fileName = fileName;
 
         auto filedata = _resolveFile(fileName);
+        
+        // Store fileData so we can free it in cleanup
+        _sound.fileData = filedata.data;
+        
         ma_resource_manager_register_encoded_data(Audio::GetAudioEngine()->pResourceManager, fileName.c_str(), filedata.data, filedata.fileSize);
 
         ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
@@ -156,6 +255,8 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
                                                    _sound.sound);
 
         if (result != MA_SUCCESS) {
+            free(filedata.data);  // Free on error
+            delete _sound.sound;
             std::string error = Helpers::TextFormat("GetSound failed: %s", fileName.c_str());
 
             SDL_Log("%s", error.c_str());
@@ -171,12 +272,18 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
 }
 
 Music AssetHandler::_getMusic(const std::string &fileName) {
+    std::lock_guard<std::mutex> lock(assetMutex);
+    
     if (_musics.find(fileName) == _musics.end()) {
         MusicAsset _music;
 
         _music.music = new ma_sound();
 
         auto filedata = _resolveFile(fileName);
+        
+        // Store fileData so we can free it in cleanup
+        _music.fileData = filedata.data;
+        
         ma_resource_manager_register_encoded_data(Audio::GetAudioEngine()->pResourceManager, fileName.c_str(), filedata.data, filedata.fileSize);
 
         ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
@@ -184,6 +291,8 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
                                                    _music.music);
 
         if (result != MA_SUCCESS) {
+            free(filedata.data);  // Free on error
+            delete _music.music;
             std::string error = Helpers::TextFormat("GetMusic failed: %s", fileName.c_str());
 
             SDL_Log("%s", error.c_str());
@@ -199,6 +308,8 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
 }
 
 Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
+    std::lock_guard<std::mutex> lock(assetMutex);
+    
     std::string index = std::string(Helpers::TextFormat("%s%d", fileName.c_str(), fontSize));
 
     auto it = _fonts.find(index);
@@ -208,20 +319,23 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
         FontAsset _font;
 
         auto filedata = _resolveFile(fileName);
+        
+        // Store fontData so we can free it in cleanup
+        _font.fontData = filedata.data;
+        
         SDL_IOStream* ttfFontData = SDL_IOFromConstMem(filedata.data, filedata.fileSize);
 
         _font.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
         _font.ttfFont = TTF_OpenFontIO(ttfFontData, true, fontSize);
 
         if (!_font.ttfFont) {
+            free(filedata.data);  // Free on error
             throw std::runtime_error(Helpers::TextFormat("%s: failed to load font: %s", CURRENT_METHOD(), fileName.c_str()));
         }
 
         SDL_Log("%s: loaded font %s (size: %i)", CURRENT_METHOD(), fileName.c_str(), fontSize);
 
         _fonts[index] = _font;
-
-        _font.fontData = std::move(filedata.data);
 
         return _fonts[index];
     } else {
@@ -238,6 +352,7 @@ ScaleMode AssetHandler::_getDefaultTextureScaleMode() {
 }
 
 Shader AssetHandler::_getShader(const std::string &fileName) {
+    std::lock_guard<std::mutex> lock(assetMutex);
 
     if (_shaders.find(fileName) == _shaders.end()) {
 

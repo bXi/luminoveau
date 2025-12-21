@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <string>
 #include <utility>
+#include <mutex>
 
 #include "SDL3/SDL.h"
 #include "SDL3_ttf/SDL_ttf.h"
@@ -168,6 +169,12 @@ public:
 
     static PhysFSFileData GetFileFromPhysFS(const std::string &filename) { return get()._resolveFile(filename); }
 
+    /**
+     * @brief Cleans up all loaded assets.
+     * @note Called automatically on shutdown. You rarely need to call this manually.
+     */
+    static void Cleanup() { get()._cleanup(); }
+
 
 private:
     // Textures
@@ -218,6 +225,11 @@ private:
 
     ScaleMode defaultMode = ScaleMode::NEAREST;
 
+    // Thread safety
+    std::mutex assetMutex;
+
+    // Cleanup
+    void _cleanup();
 
     bool _initPhysFS();
 
@@ -292,6 +304,10 @@ private:
 
 public:
     AssetHandler(const AssetHandler &) = delete;
+
+    ~AssetHandler() {
+        _cleanup();
+    }
 
     static AssetHandler &get() {
         static AssetHandler instance;

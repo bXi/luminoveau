@@ -25,6 +25,7 @@ struct TextureAsset {
     /**
      * @brief Releases the GPU texture resources.
      * @param device Pointer to the SDL_GPUDevice.
+     * @note This is now handled automatically by AssetHandler. You rarely need to call this manually.
      */
     void release(SDL_GPUDevice *device) {
         if (this->gpuTexture != nullptr) {
@@ -32,7 +33,6 @@ struct TextureAsset {
             this->gpuTexture = nullptr;
         }
     }
-
 };
 
 using Texture = TextureAsset&;

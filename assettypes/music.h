@@ -11,6 +11,7 @@ struct MusicAsset {
 
     bool shouldPlay = false; /**< Flag indicating whether the music should play. */
     bool started = false; /**< Flag indicating whether the music playback has started. */
+    void *fileData = nullptr; /**< Internal: PhysFS file data for cleanup. */
 };
 
 using Music = MusicAsset&;
