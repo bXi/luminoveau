@@ -33,10 +33,14 @@ set(LUMINOVEAU_SOURCES
     assethandler/spriteinstancedfrag.cpp
     assethandler/spriteinstancedvert.cpp
 
+    assethandler/model3dvert.cpp
+    assethandler/model3dfrag.cpp
+
     # Renderer
     renderer/sdl_gpu_structs.cpp
     renderer/rendererhandler.cpp
     renderer/spriterenderpass.cpp
+    renderer/model3drenderpass.cpp
     renderer/shaderrenderpass.cpp
     renderer/shaderhandler.cpp
     renderer/resourcepack.cpp
@@ -46,6 +50,7 @@ set(LUMINOVEAU_SOURCES
     utils/lerp.cpp
     utils/rectangles.cpp
     utils/vectors.cpp
+    utils/scene3d.cpp
 
     # Window management
     window/windowhandler.cpp
@@ -92,16 +97,26 @@ set(LUMINOVEAU_HEADERS
     # Asset handling
     assethandler/assethandler.h
 
+    # Asset types
+    assettypes/font.h
+    assettypes/model.h
+    assettypes/music.h
+    assettypes/shader.h
+    assettypes/sound.h
+    assettypes/texture.h
+
     # Renderer
     renderer/sdl_gpu_structs.h
     renderer/rendererhandler.h
     renderer/renderpass.h
     renderer/spriterenderpass.h
+    renderer/model3drenderpass.h
     renderer/shaderrenderpass.h
     renderer/shaderhandler.h
 
     # Utilities
     utils/camera.h
+    utils/camera3d.h
     utils/colors.h
     utils/constants.h
     utils/easings.h
@@ -110,6 +125,7 @@ set(LUMINOVEAU_HEADERS
     utils/quadtree.h
     utils/rectangles.h
     utils/vectors.h
+    utils/scene3d.h
 
     # Window management
     window/windowhandler.h

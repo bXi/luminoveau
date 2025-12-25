@@ -6,6 +6,7 @@
 #include <assettypes/shader.h>
 #include <assettypes/sound.h>
 #include <assettypes/texture.h>
+#include <assettypes/model.h>
 
 //Engine components
 #include <assethandler/assethandler.h>
@@ -20,10 +21,12 @@
 
 //Utilities
 #include <utils/camera.h>
+#include <utils/camera3d.h>
 #include <utils/colors.h>
 #include <utils/constants.h>
 #include <utils/helpers.h>
 #include <utils/lerp.h>
 #include <utils/rectangles.h>
 #include <utils/vectors.h>
+#include <utils/scene3d.h>
 

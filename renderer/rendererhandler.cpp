@@ -10,9 +10,10 @@
 
 #include "renderpass.h"
 #include "spriterenderpass.h"
+#include "model3drenderpass.h"
 #include "shaderrenderpass.h"
 #include "shaderhandler.h"
-
+#define LUMIDEBUG
 void Renderer::_initRendering() {
 
     bool enableGPUDebug = false;
@@ -83,9 +84,15 @@ void Renderer::_initRendering() {
     
     SDL_Log("%s: Creating framebuffers at desktop size: %dx%d", CURRENT_METHOD(), desktopWidth, desktopHeight);
 
+    // Add 3D model render pass (render first)
+    framebuffer->renderpasses.emplace_back("3dmodels", new Model3DRenderPass(m_device));
+    framebuffer->renderpasses.back().second->color_target_info_loadop = SDL_GPU_LOADOP_CLEAR; // Clear for 3D
+    framebuffer->renderpasses.back().second->color_target_info_clear_color = SDL_FColor(0.f, 0.f, 0.f, 1.f);
+
+    // Add 2D sprite pass (render on top of 3D)
     framebuffer->renderpasses.emplace_back("2dsprites", new SpriteRenderPass(m_device));
-    framebuffer->renderpasses.begin()->second->color_target_info_loadop      = SDL_GPU_LOADOP_CLEAR;
-    framebuffer->renderpasses.begin()->second->color_target_info_clear_color = SDL_FColor(0.f, 0.f, 0.f, 1.f);
+    framebuffer->renderpasses.back().second->color_target_info_loadop = SDL_GPU_LOADOP_LOAD; // Don't clear, render on top
+    framebuffer->renderpasses.back().second->color_target_info_clear_color = SDL_FColor(0.f, 0.f, 0.f, 1.f);
 
     // Create framebuffer at desktop size, not window size
     framebuffer->fbContent = AssetHandler::CreateEmptyTexture({(float)desktopWidth, (float)desktopHeight}).gpuTexture;
@@ -205,9 +212,25 @@ void Renderer::_endFrame() {
 
         SDL_SetGPUTextureName(Renderer::GetDevice(), swapchain_texture, "Renderer: swapchain_texture");
 
+        bool useMSAA = (currentSampleCount > SDL_GPU_SAMPLECOUNT_1);
+
         for (auto &[fbName, framebuffer]: frameBuffers) {
-            for (auto &[passname, renderpass]: framebuffer->renderpasses) {
-                renderpass->render(m_cmdbuf, framebuffer->fbContent, m_camera);
+            // Render all passes to MSAA texture if enabled, otherwise directly to fbContent
+            SDL_GPUTexture* renderTarget = useMSAA ? framebuffer->fbContentMSAA : framebuffer->fbContent;
+            SDL_GPUTexture* depthTarget = useMSAA ? framebuffer->fbDepthMSAA : nullptr;
+            
+            // Render all passes
+            for (size_t i = 0; i < framebuffer->renderpasses.size(); i++) {
+                auto& [passname, renderpass] = framebuffer->renderpasses[i];
+                
+                // Pass shared depth target
+                renderpass->renderTargetDepth = depthTarget;
+                
+                // Last pass should resolve MSAA to fbContent
+                bool isLastPass = (i == framebuffer->renderpasses.size() - 1);
+                renderpass->renderTargetResolve = (useMSAA && isLastPass) ? framebuffer->fbContent : nullptr;
+                
+                renderpass->render(m_cmdbuf, renderTarget, m_camera);
             }
         }
 
@@ -261,11 +284,58 @@ void Renderer::_endFrame() {
 }
 
 void Renderer::_reset() {
+    SDL_Log("%s: Resetting render passes with MSAA=%d", CURRENT_METHOD(), currentSampleCount);
+    
     // Get desktop size for render pass re-initialization
     SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
     int desktopWidth = displayMode ? displayMode->w : 3840;
     int desktopHeight = displayMode ? displayMode->h : 2160;
+
+    bool useMSAA = (currentSampleCount > SDL_GPU_SAMPLECOUNT_1);
+    SDL_GPUTextureFormat swapchainFormat = SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow());
+
+    // Recreate framebuffer MSAA textures if needed
+    for (auto &[fbName, framebuffer]: frameBuffers) {
+        // Release old MSAA textures
+        if (framebuffer->fbContentMSAA) {
+            SDL_ReleaseGPUTexture(m_device, framebuffer->fbContentMSAA);
+            framebuffer->fbContentMSAA = nullptr;
+        }
+        if (framebuffer->fbDepthMSAA) {
+            SDL_ReleaseGPUTexture(m_device, framebuffer->fbDepthMSAA);
+            framebuffer->fbDepthMSAA = nullptr;
+        }
+
+        // Create new MSAA textures if MSAA is enabled
+        if (useMSAA) {
+            SDL_GPUTextureCreateInfo msaaColorInfo = {
+                .type = SDL_GPU_TEXTURETYPE_2D,
+                .format = swapchainFormat,
+                .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
+                .width = static_cast<uint32_t>(desktopWidth),
+                .height = static_cast<uint32_t>(desktopHeight),
+                .layer_count_or_depth = 1,
+                .num_levels = 1,
+                .sample_count = currentSampleCount,
+            };
+            framebuffer->fbContentMSAA = SDL_CreateGPUTexture(m_device, &msaaColorInfo);
+            SDL_Log("%s: Created framebuffer MSAA texture %p for %s", CURRENT_METHOD(), framebuffer->fbContentMSAA, fbName.c_str());
+
+            SDL_GPUTextureCreateInfo msaaDepthInfo = {
+                .type = SDL_GPU_TEXTURETYPE_2D,
+                .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,  // Match 3D pass format
+                .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+                .width = static_cast<uint32_t>(desktopWidth),
+                .height = static_cast<uint32_t>(desktopHeight),
+                .layer_count_or_depth = 1,
+                .num_levels = 1,
+                .sample_count = currentSampleCount,
+            };
+            framebuffer->fbDepthMSAA = SDL_CreateGPUTexture(m_device, &msaaDepthInfo);
+            SDL_Log("%s: Created framebuffer MSAA depth %p", CURRENT_METHOD(), framebuffer->fbDepthMSAA);
+        }
+    }
 
     for (auto &[fbName, framebuffer]: frameBuffers) {
         for (auto &[passname, renderpass]: framebuffer->renderpasses) {
@@ -275,13 +345,16 @@ void Renderer::_reset() {
 
             SDL_WaitForGPUIdle(m_device);
 
-            if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), 
+            bool initSuccess = renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), 
                                   desktopWidth, desktopHeight,
-                                  passname, false)) {
+                                  passname, true);  // Force logging during reset
+            if (!initSuccess) {
                 SDL_Log("%s: renderpass (%s) failed to init()", CURRENT_METHOD(), passname.c_str());
             }
         }
     }
+    
+    SDL_Log("%s: Reset complete", CURRENT_METHOD());
 }
 
 SDL_GPUDevice *Renderer::_getDevice() {

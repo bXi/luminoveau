@@ -567,6 +567,80 @@ TextureAsset AssetHandler::_createWhitePixel() {
     return whitePixel;
 }
 
+ModelAsset AssetHandler::_createCube(float size) {
+    ModelAsset cube;
+    cube.name = "[Generated]Cube";
+    
+    // Assign white pixel texture
+    TextureAsset whitePixel = _createWhitePixel();
+    cube.texture = whitePixel;
+    
+    float halfSize = size * 0.5f;
+    
+    // Define 8 corners of the cube
+    // Each face will have its own vertices to allow proper normals and UVs
+    
+    // Front face (Z+)
+    cube.vertices.push_back({-halfSize, -halfSize,  halfSize,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 0
+    cube.vertices.push_back({ halfSize, -halfSize,  halfSize,  0.0f, 0.0f, 1.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 1
+    cube.vertices.push_back({ halfSize,  halfSize,  halfSize,  0.0f, 0.0f, 1.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 2
+    cube.vertices.push_back({-halfSize,  halfSize,  halfSize,  0.0f, 0.0f, 1.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 3
+    
+    // Back face (Z-)
+    cube.vertices.push_back({ halfSize, -halfSize, -halfSize,  0.0f, 0.0f, -1.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 4
+    cube.vertices.push_back({-halfSize, -halfSize, -halfSize,  0.0f, 0.0f, -1.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 5
+    cube.vertices.push_back({-halfSize,  halfSize, -halfSize,  0.0f, 0.0f, -1.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 6
+    cube.vertices.push_back({ halfSize,  halfSize, -halfSize,  0.0f, 0.0f, -1.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 7
+    
+    // Top face (Y+)
+    cube.vertices.push_back({-halfSize,  halfSize,  halfSize,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 8
+    cube.vertices.push_back({ halfSize,  halfSize,  halfSize,  0.0f, 1.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 9
+    cube.vertices.push_back({ halfSize,  halfSize, -halfSize,  0.0f, 1.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 10
+    cube.vertices.push_back({-halfSize,  halfSize, -halfSize,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 11
+    
+    // Bottom face (Y-)
+    cube.vertices.push_back({-halfSize, -halfSize, -halfSize,  0.0f, -1.0f, 0.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 12
+    cube.vertices.push_back({ halfSize, -halfSize, -halfSize,  0.0f, -1.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 13
+    cube.vertices.push_back({ halfSize, -halfSize,  halfSize,  0.0f, -1.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 14
+    cube.vertices.push_back({-halfSize, -halfSize,  halfSize,  0.0f, -1.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 15
+    
+    // Right face (X+)
+    cube.vertices.push_back({ halfSize, -halfSize,  halfSize,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 16
+    cube.vertices.push_back({ halfSize, -halfSize, -halfSize,  1.0f, 0.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 17
+    cube.vertices.push_back({ halfSize,  halfSize, -halfSize,  1.0f, 0.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 18
+    cube.vertices.push_back({ halfSize,  halfSize,  halfSize,  1.0f, 0.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 19
+    
+    // Left face (X-)
+    cube.vertices.push_back({-halfSize, -halfSize, -halfSize,  -1.0f, 0.0f, 0.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 20
+    cube.vertices.push_back({-halfSize, -halfSize,  halfSize,  -1.0f, 0.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 21
+    cube.vertices.push_back({-halfSize,  halfSize,  halfSize,  -1.0f, 0.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 22
+    cube.vertices.push_back({-halfSize,  halfSize, -halfSize,  -1.0f, 0.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 23
+    
+    // Indices (2 triangles per face, 6 faces) - CLOCKWISE winding
+    // Front face (Z+)
+    cube.indices.push_back(0); cube.indices.push_back(1); cube.indices.push_back(2);
+    cube.indices.push_back(2); cube.indices.push_back(3); cube.indices.push_back(0);
+    // Back face (Z-)
+    cube.indices.push_back(4); cube.indices.push_back(5); cube.indices.push_back(6);
+    cube.indices.push_back(6); cube.indices.push_back(7); cube.indices.push_back(4);
+    // Top face (Y+)
+    cube.indices.push_back(8); cube.indices.push_back(9); cube.indices.push_back(10);
+    cube.indices.push_back(10); cube.indices.push_back(11); cube.indices.push_back(8);
+    // Bottom face (Y-)
+    cube.indices.push_back(12); cube.indices.push_back(13); cube.indices.push_back(14);
+    cube.indices.push_back(14); cube.indices.push_back(15); cube.indices.push_back(12);
+    // Right face (X+)
+    cube.indices.push_back(16); cube.indices.push_back(17); cube.indices.push_back(18);
+    cube.indices.push_back(18); cube.indices.push_back(19); cube.indices.push_back(16);
+    // Left face (X-)
+    cube.indices.push_back(20); cube.indices.push_back(21); cube.indices.push_back(22);
+    cube.indices.push_back(22); cube.indices.push_back(23); cube.indices.push_back(20);
+    
+    SDL_Log("%s: created cube with %zu vertices and %zu indices", CURRENT_METHOD(), cube.GetVertexCount(), cube.GetIndexCount());
+    
+    return cube;
+}
+
 
 TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData, std::string fileName) {
     LUMI_UNUSED(size, pixelData, fileName);

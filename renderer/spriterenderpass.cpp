@@ -66,40 +66,20 @@ bool SpriteRenderPass::init(
     passname = std::move(name);
 
     SDL_GPUSampleCount sampleCount = Renderer::GetSampleCount();
-    bool useMSAA                   = (sampleCount > SDL_GPU_SAMPLECOUNT_1);
 
-    // Only create MSAA textures if MSAA is enabled
-    if (useMSAA) {
-        // Create MSAA color target
-        SDL_GPUTextureCreateInfo msaaColorTargetInfo = {
-            .type                 = SDL_GPU_TEXTURETYPE_2D,
-            .format               = swapchain_texture_format,
-            .usage                = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
-            .width                = surface_width,
-            .height               = surface_height,
-            .layer_count_or_depth = 1,
-            .num_levels           = 1,
-            .sample_count         = sampleCount,
-        };
-
-        m_msaa_color_texture = SDL_CreateGPUTexture(Renderer::GetDevice(), &msaaColorTargetInfo);
-
-        // Create MSAA depth target
-        SDL_GPUTextureCreateInfo msaaDepthTargetInfo = {
-            .type                 = SDL_GPU_TEXTURETYPE_2D,
-            .format               = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
-            .usage                = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
-            .width                = surface_width,
-            .height               = surface_height,
-            .layer_count_or_depth = 1,
-            .num_levels           = 1,
-            .sample_count         = sampleCount,
-        };
-
-        m_msaa_depth_texture = SDL_CreateGPUTexture(Renderer::GetDevice(), &msaaDepthTargetInfo);
-    }
-
-    m_depth_texture = AssetHandler::CreateDepthTarget(Renderer::GetDevice(), surface_width, surface_height);
+    // Don't create MSAA textures - use shared framebuffer MSAA texture
+    // Create local depth texture with D32_FLOAT to match pipeline
+    SDL_GPUTextureCreateInfo depth_create_info{
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,  // Must match pipeline format
+        .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+        .width = surface_width,
+        .height = surface_height,
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
+    };
+    m_depth_texture.gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &depth_create_info);
 
     renderQueue.resize(MAX_SPRITES);
 
@@ -140,7 +120,7 @@ bool SpriteRenderPass::init(
         .target_info = {
             .color_target_descriptions = &color_target_description,
             .num_color_targets         = 1,
-            .depth_stencil_format      = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
+            .depth_stencil_format      = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,  // Must match 3D pass
             .has_depth_stencil_target  = true,
         },
         .props = 0,
@@ -338,25 +318,24 @@ void SpriteRenderPass::render(
         SDL_EndGPUCopyPass(copyPass);
     }
 
-    // Determine if we're using MSAA
-    SDL_GPUSampleCount sampleCount = Renderer::GetSampleCount();
-    bool useMSAA                   = (sampleCount > SDL_GPU_SAMPLECOUNT_1);
+    // Check if we should resolve (if renderTargetResolve is set)
+    bool shouldResolve = (renderTargetResolve != nullptr);
 
-    // Render pass - configure based on MSAA status
+    // Render directly to target texture
     SDL_GPUColorTargetInfo color_target_info{
-        .texture              = useMSAA ? m_msaa_color_texture : target_texture,
+        .texture              = target_texture,
         .mip_level            = 0,
         .layer_or_depth_plane = 0,
         .clear_color          = color_target_info_clear_color,
         .load_op              = color_target_info_loadop,
-        .store_op             = useMSAA ? SDL_GPU_STOREOP_RESOLVE : SDL_GPU_STOREOP_STORE,
-        .resolve_texture      = useMSAA ? target_texture : nullptr,
+        .store_op             = shouldResolve ? SDL_GPU_STOREOP_RESOLVE : SDL_GPU_STOREOP_STORE,
+        .resolve_texture      = renderTargetResolve,
         .resolve_mip_level    = 0,
         .resolve_layer        = 0,
         .cycle                = false};
 
     SDL_GPUDepthStencilTargetInfo depth_stencil_info{
-        .texture          = useMSAA ? m_msaa_depth_texture : m_depth_texture.gpuTexture,
+        .texture          = renderTargetDepth ? renderTargetDepth : m_depth_texture.gpuTexture,  // Use shared MSAA depth if provided
         .clear_depth      = 1.0f,
         .load_op          = SDL_GPU_LOADOP_CLEAR,
         .store_op         = SDL_GPU_STOREOP_DONT_CARE,

@@ -303,3 +303,78 @@ typedef v2d_generic<int32_t> vi2d;
 typedef v2d_generic<uint32_t> vu2d;
 typedef v2d_generic<float> vf2d;
 typedef v2d_generic<double> vd2d;
+
+// 3D Vector
+template<class T>
+struct v3d_generic {
+    T x = 0;
+    T y = 0;
+    T z = 0;
+
+    v3d_generic() : x(0), y(0), z(0) {}
+    v3d_generic(T _x, T _y, T _z) : x(_x), y(_y), z(_z) {}
+    v3d_generic(const v3d_generic &v) : x(v.x), y(v.y), z(v.z) {}
+    v3d_generic &operator=(const v3d_generic &v) = default;
+
+    T mag() const { return T(std::sqrt(x * x + y * y + z * z)); }
+    T mag2() const { return x * x + y * y + z * z; }
+    
+    v3d_generic norm() const {
+        T r = 1 / mag();
+        return v3d_generic(x * r, y * r, z * r);
+    }
+
+    T dot(const v3d_generic &rhs) const { return this->x * rhs.x + this->y * rhs.y + this->z * rhs.z; }
+    
+    v3d_generic cross(const v3d_generic &rhs) const {
+        return v3d_generic(
+            this->y * rhs.z - this->z * rhs.y,
+            this->z * rhs.x - this->x * rhs.z,
+            this->x * rhs.y - this->y * rhs.x
+        );
+    }
+
+    v3d_generic operator+(const v3d_generic &rhs) const { return v3d_generic(this->x + rhs.x, this->y + rhs.y, this->z + rhs.z); }
+    v3d_generic operator-(const v3d_generic &rhs) const { return v3d_generic(this->x - rhs.x, this->y - rhs.y, this->z - rhs.z); }
+    v3d_generic operator*(const T &rhs) const { return v3d_generic(this->x * rhs, this->y * rhs, this->z * rhs); }
+    v3d_generic operator*(const v3d_generic &rhs) const { return v3d_generic(this->x * rhs.x, this->y * rhs.y, this->z * rhs.z); }
+    v3d_generic operator/(const T &rhs) const { return v3d_generic(this->x / rhs, this->y / rhs, this->z / rhs); }
+    v3d_generic operator/(const v3d_generic &rhs) const { return v3d_generic(this->x / rhs.x, this->y / rhs.y, this->z / rhs.z); }
+
+    v3d_generic &operator+=(const v3d_generic &rhs) {
+        this->x += rhs.x; this->y += rhs.y; this->z += rhs.z;
+        return *this;
+    }
+    v3d_generic &operator-=(const v3d_generic &rhs) {
+        this->x -= rhs.x; this->y -= rhs.y; this->z -= rhs.z;
+        return *this;
+    }
+    v3d_generic &operator*=(const T &rhs) {
+        this->x *= rhs; this->y *= rhs; this->z *= rhs;
+        return *this;
+    }
+    v3d_generic &operator/=(const T &rhs) {
+        this->x /= rhs; this->y /= rhs; this->z /= rhs;
+        return *this;
+    }
+
+    v3d_generic operator+() const { return {+x, +y, +z}; }
+    v3d_generic operator-() const { return {-x, -y, -z}; }
+
+    bool operator==(const v3d_generic &rhs) const { return (this->x == rhs.x && this->y == rhs.y && this->z == rhs.z); }
+    bool operator!=(const v3d_generic &rhs) const { return !(*this == rhs); }
+
+    const std::string str() const {
+        return std::string("(") + doTextFormat("%.2f", this->x) + "," + 
+               doTextFormat("%.2f", this->y) + "," + doTextFormat("%.2f", this->z) + ")";
+    }
+
+    operator v3d_generic<int32_t>() const { return {static_cast<int32_t>(this->x), static_cast<int32_t>(this->y), static_cast<int32_t>(this->z)}; }
+    operator v3d_generic<float>() const { return {static_cast<float>(this->x), static_cast<float>(this->y), static_cast<float>(this->z)}; }
+    operator v3d_generic<double>() const { return {static_cast<double>(this->x), static_cast<double>(this->y), static_cast<double>(this->z)}; }
+};
+
+typedef v3d_generic<int32_t> vi3d;
+typedef v3d_generic<uint32_t> vu3d;
+typedef v3d_generic<float> vf3d;
+typedef v3d_generic<double> vd3d;

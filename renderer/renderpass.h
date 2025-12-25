@@ -40,6 +40,8 @@ protected:
 public:
     SDL_GPULoadOp color_target_info_loadop = SDL_GPU_LOADOP_LOAD;
     SDL_FColor color_target_info_clear_color = {0.0, 0.0, 0.0, 0.0};
+    SDL_GPUTexture* renderTargetDepth = nullptr;  // Shared MSAA depth texture (set by renderer)
+    SDL_GPUTexture* renderTargetResolve = nullptr;  // Resolve target for MSAA (set by renderer, only for last pass)
     RenderPass(const RenderPass&) = delete;
     RenderPass& operator=(const RenderPass&) = delete;
     RenderPass(RenderPass&&) = delete;

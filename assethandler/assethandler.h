@@ -22,6 +22,7 @@
 #include "assettypes/shader.h"
 #include "assettypes/sound.h"
 #include "assettypes/texture.h"
+#include "assettypes/model.h"
 
 #include "physfs.h"
 
@@ -156,6 +157,16 @@ public:
         return get()._createWhitePixel();
     }
 
+    /**
+     * @brief Creates a simple cube model with vertices and indices.
+     *
+     * @param size The size of the cube (default 1.0).
+     * @return A ModelAsset containing a cube.
+     */
+    static ModelAsset CreateCube(float size = 1.0f) {
+        return get()._createCube(size);
+    }
+
     static bool InitPhysFS() { return get()._initPhysFS(); }
 
     template<typename T>
@@ -199,6 +210,10 @@ private:
     TextureAsset _createDepthTarget(SDL_GPUDevice *device, uint32_t width, uint32_t height);
 
     TextureAsset _createWhitePixel();
+
+    // Models
+    
+    ModelAsset _createCube(float size);
 
     // Fonts
 

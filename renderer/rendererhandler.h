@@ -42,7 +42,9 @@ struct SDL_Window;
 union SDL_Event;
 
 struct FrameBuffer {
-    SDL_GPUTexture *fbContent = nullptr;
+    SDL_GPUTexture *fbContent = nullptr;          // Resolved non-MSAA texture (for screen display)
+    SDL_GPUTexture *fbContentMSAA = nullptr;      // MSAA texture (for rendering when MSAA enabled)
+    SDL_GPUTexture *fbDepthMSAA = nullptr;        // MSAA depth texture (shared by all passes)
 
     uint32_t width  = 0;
     uint32_t height = 0;
