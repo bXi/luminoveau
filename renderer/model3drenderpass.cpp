@@ -130,8 +130,8 @@ void Model3DRenderPass::createShaders() {
         .stage = SDL_GPU_SHADERSTAGE_VERTEX,
         .num_samplers = 0,
         .num_storage_textures = 0,
-        .num_storage_buffers = 1,  // SceneUniforms storage buffer (with model matrix)
-        .num_uniform_buffers = 0,  // No push constants
+        .num_storage_buffers = 1,  // SceneUniforms at set 0
+        .num_uniform_buffers = 0,  // Not using push constants
     };
     
     SDL_Log("%s: Vertex shader info - storage_buffers: %u, uniform_buffers: %u",
@@ -143,14 +143,14 @@ void Model3DRenderPass::createShaders() {
         return;
     }
     
-    // Create fragment shader (no samplers - just outputs vertex color)
+    // Create fragment shader (now with texture sampling)
     SDL_GPUShaderCreateInfo fragmentShaderInfo = {
         .code_size = model3d_frag_bin_len,
         .code = model3d_frag_bin,
         .entrypoint = "main",
         .format = SDL_GPU_SHADERFORMAT_SPIRV,
         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
-        .num_samplers = 0,  // No texture sampling
+        .num_samplers = 1,  // Sampler at binding 0
         .num_storage_textures = 0,
         .num_storage_buffers = 0,
         .num_uniform_buffers = 0,
@@ -167,6 +167,9 @@ void Model3DRenderPass::createShaders() {
 }
 
 void Model3DRenderPass::createPipeline(SDL_GPUTextureFormat swapchain_format) {
+
+    SDL_GPUSampleCount currentSampleCount = Renderer::GetSampleCount();
+    SDL_Log("%s: Called with sampleCount=%d", CURRENT_METHOD(), currentSampleCount);
 
     if (!vertex_shader || !fragment_shader) {
         SDL_Log("%s: Cannot create pipeline - shaders not loaded", CURRENT_METHOD());
@@ -258,6 +261,8 @@ void Model3DRenderPass::createPipeline(SDL_GPUTextureFormat swapchain_format) {
         },
         .props = 0,
     };
+    
+    SDL_Log("%s: Creating pipeline with sample_count=%d", CURRENT_METHOD(), pipelineInfo.multisample_state.sample_count);
     
     m_pipeline = SDL_CreateGPUGraphicsPipeline(m_gpu_device, &pipelineInfo);
     if (!m_pipeline) {
@@ -460,6 +465,9 @@ void Model3DRenderPass::render(
         }
     }
     
+    // Check if we should resolve (if renderTargetResolve is set)
+    bool shouldResolve = (renderTargetResolve != nullptr);
+    
     // Render directly to target texture (no separate MSAA texture)
     SDL_GPUColorTargetInfo colorTarget = {
         .texture = target_texture,
@@ -467,8 +475,8 @@ void Model3DRenderPass::render(
         .layer_or_depth_plane = 0,
         .clear_color = color_target_info_clear_color,
         .load_op = color_target_info_loadop,
-        .store_op = SDL_GPU_STOREOP_STORE,  // Always store, no resolve
-        .resolve_texture = nullptr,
+        .store_op = shouldResolve ? SDL_GPU_STOREOP_RESOLVE : SDL_GPU_STOREOP_STORE,
+        .resolve_texture = renderTargetResolve,
         .resolve_mip_level = 0,
         .resolve_layer = 0,
         .cycle = false,
@@ -526,6 +534,34 @@ void Model3DRenderPass::render(
             .offset = 0,
         };
         SDL_BindGPUIndexBuffer(render_pass, &indexBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+        
+        // Determine texture to use: instance override -> model texture -> white pixel
+        SDL_GPUTexture* textureToUse = nullptr;
+        SDL_GPUSampler* samplerToUse = nullptr;
+        
+        // Check if instance has texture override
+        if (models[0].textureOverride.gpuTexture) {
+            textureToUse = models[0].textureOverride.gpuTexture;
+        }
+        // Otherwise use model's default texture
+        else if (models[0].model->texture.gpuTexture) {
+            textureToUse = models[0].model->texture.gpuTexture;
+        }
+        // Fallback to white pixel if no texture set
+        else {
+            Texture whitePixel = Renderer::WhitePixel();
+            textureToUse = whitePixel.gpuTexture;
+        }
+        
+        // Always use LINEAR sampler for 3D models (smooth filtering, not pixel art)
+        samplerToUse = Renderer::GetSampler(ScaleMode::LINEAR);
+        
+        // Bind the texture at slot 0 (matches shader binding 0)
+        SDL_GPUTextureSamplerBinding textureBinding = {
+            .texture = textureToUse,
+            .sampler = samplerToUse,
+        };
+        SDL_BindGPUFragmentSamplers(render_pass, 0, &textureBinding, 1);
         
         // Draw ALL models in one instanced draw call!
         SDL_DrawGPUIndexedPrimitives(

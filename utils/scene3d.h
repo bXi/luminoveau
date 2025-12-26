@@ -21,6 +21,7 @@ struct ModelInstance {
     vf3d scale = {1.0f, 1.0f, 1.0f};
     
     Color tint = WHITE;
+    TextureAsset textureOverride;  // Optional: overrides model's default texture (use model.texture if not set)
     
     /**
      * @brief Gets the model matrix for this instance

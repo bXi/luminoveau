@@ -161,10 +161,11 @@ public:
      * @brief Creates a simple cube model with vertices and indices.
      *
      * @param size The size of the cube (default 1.0).
+     * @param layout UV layout pattern (default: Atlas4x4)
      * @return A ModelAsset containing a cube.
      */
-    static ModelAsset CreateCube(float size = 1.0f) {
-        return get()._createCube(size);
+    static ModelAsset CreateCube(float size = 1.0f, CubeUVLayout layout = CubeUVLayout::Atlas4x4) {
+        return get()._createCube(size, layout);
     }
 
     static bool InitPhysFS() { return get()._initPhysFS(); }
@@ -213,7 +214,7 @@ private:
 
     // Models
     
-    ModelAsset _createCube(float size);
+    ModelAsset _createCube(float size, CubeUVLayout layout);
 
     // Fonts
 

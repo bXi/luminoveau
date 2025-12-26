@@ -567,81 +567,6 @@ TextureAsset AssetHandler::_createWhitePixel() {
     return whitePixel;
 }
 
-ModelAsset AssetHandler::_createCube(float size) {
-    ModelAsset cube;
-    cube.name = "[Generated]Cube";
-    
-    // Assign white pixel texture
-    TextureAsset whitePixel = _createWhitePixel();
-    cube.texture = whitePixel;
-    
-    float halfSize = size * 0.5f;
-    
-    // Define 8 corners of the cube
-    // Each face will have its own vertices to allow proper normals and UVs
-    
-    // Front face (Z+)
-    cube.vertices.push_back({-halfSize, -halfSize,  halfSize,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 0
-    cube.vertices.push_back({ halfSize, -halfSize,  halfSize,  0.0f, 0.0f, 1.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 1
-    cube.vertices.push_back({ halfSize,  halfSize,  halfSize,  0.0f, 0.0f, 1.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 2
-    cube.vertices.push_back({-halfSize,  halfSize,  halfSize,  0.0f, 0.0f, 1.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 3
-    
-    // Back face (Z-)
-    cube.vertices.push_back({ halfSize, -halfSize, -halfSize,  0.0f, 0.0f, -1.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 4
-    cube.vertices.push_back({-halfSize, -halfSize, -halfSize,  0.0f, 0.0f, -1.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 5
-    cube.vertices.push_back({-halfSize,  halfSize, -halfSize,  0.0f, 0.0f, -1.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 6
-    cube.vertices.push_back({ halfSize,  halfSize, -halfSize,  0.0f, 0.0f, -1.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 7
-    
-    // Top face (Y+)
-    cube.vertices.push_back({-halfSize,  halfSize,  halfSize,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 8
-    cube.vertices.push_back({ halfSize,  halfSize,  halfSize,  0.0f, 1.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 9
-    cube.vertices.push_back({ halfSize,  halfSize, -halfSize,  0.0f, 1.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 10
-    cube.vertices.push_back({-halfSize,  halfSize, -halfSize,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 11
-    
-    // Bottom face (Y-)
-    cube.vertices.push_back({-halfSize, -halfSize, -halfSize,  0.0f, -1.0f, 0.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 12
-    cube.vertices.push_back({ halfSize, -halfSize, -halfSize,  0.0f, -1.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 13
-    cube.vertices.push_back({ halfSize, -halfSize,  halfSize,  0.0f, -1.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 14
-    cube.vertices.push_back({-halfSize, -halfSize,  halfSize,  0.0f, -1.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 15
-    
-    // Right face (X+)
-    cube.vertices.push_back({ halfSize, -halfSize,  halfSize,  1.0f, 0.0f, 0.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 16
-    cube.vertices.push_back({ halfSize, -halfSize, -halfSize,  1.0f, 0.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 17
-    cube.vertices.push_back({ halfSize,  halfSize, -halfSize,  1.0f, 0.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 18
-    cube.vertices.push_back({ halfSize,  halfSize,  halfSize,  1.0f, 0.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 19
-    
-    // Left face (X-)
-    cube.vertices.push_back({-halfSize, -halfSize, -halfSize,  -1.0f, 0.0f, 0.0f,  0.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 20
-    cube.vertices.push_back({-halfSize, -halfSize,  halfSize,  -1.0f, 0.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 21
-    cube.vertices.push_back({-halfSize,  halfSize,  halfSize,  -1.0f, 0.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 22
-    cube.vertices.push_back({-halfSize,  halfSize, -halfSize,  -1.0f, 0.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f, 1.0f, 1.0f}); // 23
-    
-    // Indices (2 triangles per face, 6 faces) - CLOCKWISE winding
-    // Front face (Z+)
-    cube.indices.push_back(0); cube.indices.push_back(1); cube.indices.push_back(2);
-    cube.indices.push_back(2); cube.indices.push_back(3); cube.indices.push_back(0);
-    // Back face (Z-)
-    cube.indices.push_back(4); cube.indices.push_back(5); cube.indices.push_back(6);
-    cube.indices.push_back(6); cube.indices.push_back(7); cube.indices.push_back(4);
-    // Top face (Y+)
-    cube.indices.push_back(8); cube.indices.push_back(9); cube.indices.push_back(10);
-    cube.indices.push_back(10); cube.indices.push_back(11); cube.indices.push_back(8);
-    // Bottom face (Y-)
-    cube.indices.push_back(12); cube.indices.push_back(13); cube.indices.push_back(14);
-    cube.indices.push_back(14); cube.indices.push_back(15); cube.indices.push_back(12);
-    // Right face (X+)
-    cube.indices.push_back(16); cube.indices.push_back(17); cube.indices.push_back(18);
-    cube.indices.push_back(18); cube.indices.push_back(19); cube.indices.push_back(16);
-    // Left face (X-)
-    cube.indices.push_back(20); cube.indices.push_back(21); cube.indices.push_back(22);
-    cube.indices.push_back(22); cube.indices.push_back(23); cube.indices.push_back(20);
-    
-    SDL_Log("%s: created cube with %zu vertices and %zu indices", CURRENT_METHOD(), cube.GetVertexCount(), cube.GetIndexCount());
-    
-    return cube;
-}
-
-
 TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData, std::string fileName) {
     LUMI_UNUSED(size, pixelData, fileName);
 
@@ -722,4 +647,129 @@ PhysFSFileData AssetHandler::_resolveFile(const std::string& filename) {
     result.data = buffer;
     result.fileSize = static_cast<int>(fileSize);
     return result;
+}
+
+ModelAsset AssetHandler::_createCube(float size, CubeUVLayout layout) {
+    ModelAsset cube;
+    cube.name = "cube";
+    
+    float s = size / 2.0f;  // Half size for centering
+    
+    // UV inset to avoid sampling at exact atlas boundaries
+    // This prevents texture bleeding between atlas regions
+    constexpr float UV_INSET = 0.00005f;  // ~0.25 pixel on 512x512 texture
+    
+    // Helper lambda to apply inset to UV coordinates
+    auto insetUV = [](float uMin, float vMin, float uMax, float vMax) {
+        return FaceUV(
+            uMin + UV_INSET,
+            vMin + UV_INSET,
+            uMax - UV_INSET,
+            vMax - UV_INSET
+        );
+    };
+    
+    // Create cube with default UVs (will be overridden based on layout)
+    // 6 faces x 4 vertices = 24 vertices
+    // Order: Front, Back, Top, Bottom, Right, Left
+    
+    // Front face (+Z) - CubeFace::Front
+    cube.vertices.push_back({-s, -s,  s,  0, 0, 1,  0, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({ s, -s,  s,  0, 0, 1,  1, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({ s,  s,  s,  0, 0, 1,  1, 1,  1, 1, 1, 1});
+    cube.vertices.push_back({-s,  s,  s,  0, 0, 1,  0, 1,  1, 1, 1, 1});
+    
+    // Back face (-Z) - CubeFace::Back
+    cube.vertices.push_back({ s, -s, -s,  0, 0, -1,  0, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({-s, -s, -s,  0, 0, -1,  1, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({-s,  s, -s,  0, 0, -1,  1, 1,  1, 1, 1, 1});
+    cube.vertices.push_back({ s,  s, -s,  0, 0, -1,  0, 1,  1, 1, 1, 1});
+    
+    // Top face (+Y) - CubeFace::Top
+    cube.vertices.push_back({-s,  s,  s,  0, 1, 0,  0, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({ s,  s,  s,  0, 1, 0,  1, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({ s,  s, -s,  0, 1, 0,  1, 1,  1, 1, 1, 1});
+    cube.vertices.push_back({-s,  s, -s,  0, 1, 0,  0, 1,  1, 1, 1, 1});
+    
+    // Bottom face (-Y) - CubeFace::Bottom
+    cube.vertices.push_back({-s, -s, -s,  0, -1, 0,  0, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({ s, -s, -s,  0, -1, 0,  1, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({ s, -s,  s,  0, -1, 0,  1, 1,  1, 1, 1, 1});
+    cube.vertices.push_back({-s, -s,  s,  0, -1, 0,  0, 1,  1, 1, 1, 1});
+    
+    // Right face (+X) - CubeFace::Right
+    cube.vertices.push_back({ s, -s,  s,  1, 0, 0,  0, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({ s, -s, -s,  1, 0, 0,  1, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({ s,  s, -s,  1, 0, 0,  1, 1,  1, 1, 1, 1});
+    cube.vertices.push_back({ s,  s,  s,  1, 0, 0,  0, 1,  1, 1, 1, 1});
+    
+    // Left face (-X) - CubeFace::Left
+    cube.vertices.push_back({-s, -s, -s,  -1, 0, 0,  0, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({-s, -s,  s,  -1, 0, 0,  1, 0,  1, 1, 1, 1});
+    cube.vertices.push_back({-s,  s,  s,  -1, 0, 0,  1, 1,  1, 1, 1, 1});
+    cube.vertices.push_back({-s,  s, -s,  -1, 0, 0,  0, 1,  1, 1, 1, 1});
+    
+    // Indices for all 6 faces (2 triangles per face)
+    for (uint32_t i = 0; i < 6; i++) {
+        uint32_t base = i * 4;
+        cube.indices.push_back(base + 0);
+        cube.indices.push_back(base + 1);
+        cube.indices.push_back(base + 2);
+        cube.indices.push_back(base + 2);
+        cube.indices.push_back(base + 3);
+        cube.indices.push_back(base + 0);
+    }
+    
+    // Apply UV layout
+    switch (layout) {
+        case CubeUVLayout::SingleTexture:
+            // Default UVs (0,0 to 1,1) per face - already set!
+            break;
+            
+        case CubeUVLayout::Atlas4x4:
+            // 4x4 grid layout with UV inset to prevent texture bleeding:
+            // Row 0: X, Top, X, X
+            // Row 1: West, South, East, North
+            // Row 2: X, Bottom, X, X
+            // Row 3: Random (not used)
+            cube.SetCubeFaceUVs(CubeFace::Front,  insetUV(0.25f, 0.25f, 0.5f,  0.5f));   // South
+            cube.SetCubeFaceUVs(CubeFace::Back,   insetUV(0.75f, 0.25f, 1.0f,  0.5f));   // North
+            cube.SetCubeFaceUVs(CubeFace::Top,    insetUV(0.25f, 0.0f,  0.5f,  0.25f));  // Top
+            cube.SetCubeFaceUVs(CubeFace::Bottom, insetUV(0.25f, 0.5f,  0.5f,  0.75f));  // Bottom
+            cube.SetCubeFaceUVs(CubeFace::Right,  insetUV(0.5f,  0.25f, 0.75f, 0.5f));   // East
+            cube.SetCubeFaceUVs(CubeFace::Left,   insetUV(0.0f,  0.25f, 0.25f, 0.5f));   // West
+            break;
+            
+        case CubeUVLayout::Atlas3x2:
+            // 3x2 horizontal cross layout with UV inset:
+            // Row 0: Left, Front, Right
+            // Row 1: Bottom, Back, Top
+            cube.SetCubeFaceUVs(CubeFace::Front,  insetUV(0.333f, 0.5f,   0.667f, 1.0f));   // Front
+            cube.SetCubeFaceUVs(CubeFace::Back,   insetUV(0.333f, 0.0f,   0.667f, 0.5f));   // Back
+            cube.SetCubeFaceUVs(CubeFace::Top,    insetUV(0.667f, 0.0f,   1.0f,   0.5f));   // Top
+            cube.SetCubeFaceUVs(CubeFace::Bottom, insetUV(0.0f,   0.0f,   0.333f, 0.5f));   // Bottom
+            cube.SetCubeFaceUVs(CubeFace::Right,  insetUV(0.667f, 0.5f,   1.0f,   1.0f));   // Right
+            cube.SetCubeFaceUVs(CubeFace::Left,   insetUV(0.0f,   0.5f,   0.333f, 1.0f));   // Left
+            break;
+            
+        case CubeUVLayout::Skybox:
+            // 6 textures stitched horizontally (1/6th width each) with UV inset:
+            // Order: Right, Left, Top, Bottom, Front, Back
+            cube.SetCubeFaceUVs(CubeFace::Right,  insetUV(0.0f,    0.0f, 0.1667f, 1.0f));
+            cube.SetCubeFaceUVs(CubeFace::Left,   insetUV(0.1667f, 0.0f, 0.3333f, 1.0f));
+            cube.SetCubeFaceUVs(CubeFace::Top,    insetUV(0.3333f, 0.0f, 0.5f,    1.0f));
+            cube.SetCubeFaceUVs(CubeFace::Bottom, insetUV(0.5f,    0.0f, 0.6667f, 1.0f));
+            cube.SetCubeFaceUVs(CubeFace::Front,  insetUV(0.6667f, 0.0f, 0.8333f, 1.0f));
+            cube.SetCubeFaceUVs(CubeFace::Back,   insetUV(0.8333f, 0.0f, 1.0f,    1.0f));
+            break;
+            
+        case CubeUVLayout::Custom:
+            // User will call SetCubeFaceUVs() manually
+            break;
+    }
+    
+    // Set default texture to white pixel
+    cube.texture = _createWhitePixel();
+    
+    return cube;
 }
