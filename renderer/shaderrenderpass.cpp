@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "SDL3/SDL_gpu.h"
+#include "assethandler/shaders_generated.h"
 #include "spriterenderpass.h"
 #include "window/windowhandler.h"
 
@@ -173,15 +174,15 @@ bool ShaderRenderPass::init(
 
     if (!finalrender_vertex_shader) {
         SDL_GPUShaderCreateInfo vertexShaderInfo = {
-            .code_size            = SpriteRenderPass::sprite_vert_bin_len,
-            .code                 = SpriteRenderPass::sprite_vert_bin,
+            .code_size            = Luminoveau::Shaders::FullscreenQuad_Vert_Size,
+            .code                 = Luminoveau::Shaders::FullscreenQuad_Vert,
             .entrypoint           = "main",
             .format               = SDL_GPU_SHADERFORMAT_SPIRV,
             .stage                = SDL_GPU_SHADERSTAGE_VERTEX,
             .num_samplers         = 0,
             .num_storage_textures = 0,
             .num_storage_buffers  = 0,
-            .num_uniform_buffers  = 2,
+            .num_uniform_buffers  = 1,  // CameraUniforms at space1
         };
 
         finalrender_vertex_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &vertexShaderInfo);
@@ -189,15 +190,15 @@ bool ShaderRenderPass::init(
 
     if (!finalrender_fragment_shader) {
         SDL_GPUShaderCreateInfo fragmentShaderInfo = {
-            .code_size            = SpriteRenderPass::sprite_frag_bin_len,
-            .code                 = SpriteRenderPass::sprite_frag_bin,
+            .code_size            = Luminoveau::Shaders::FullscreenQuad_Frag_Size,
+            .code                 = Luminoveau::Shaders::FullscreenQuad_Frag,
             .entrypoint           = "main",
             .format               = SDL_GPU_SHADERFORMAT_SPIRV,
             .stage                = SDL_GPU_SHADERSTAGE_FRAGMENT,
             .num_samplers         = 1,
             .num_storage_textures = 0,
             .num_storage_buffers  = 0,
-            .num_uniform_buffers  = 1,
+            .num_uniform_buffers  = 0,  // No fragment uniforms
         };
 
         finalrender_fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &fragmentShaderInfo);
@@ -290,39 +291,57 @@ void ShaderRenderPass::render(
         SDL_SetGPUViewport(copy_pass, &viewport);
         SDL_BindGPUGraphicsPipeline(copy_pass, finalrender_pipeline);
         
+        // Push full uniforms struct to match shader expectations
         glm::mat4 model = glm::mat4(
             (float)Window::GetWidth(), 0.0f, 0.0f, 0.0f,
             0.0f, (float)Window::GetHeight(), 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.1f, 1.0f
+            0.0f, 0.0f, 0.0f, 1.0f
         );
         
-        // Sample window region from desktop framebuffer, write to full inputTexture
-        float uv_max_x = (float)Window::GetWidth() / (float)m_desktop_width;
-        float uv_max_y = (float)Window::GetHeight() / (float)m_desktop_height;
+        // Calculate UV coordinates to sample window region from desktop framebuffer
+        float uMax = (float)Window::GetWidth() / (float)m_desktop_width;
+        float vMax = (float)Window::GetHeight() / (float)m_desktop_height;
+        
+        struct Uniforms {
+            glm::mat4 camera;
+            glm::mat4 model;
+            glm::vec2 flipped;
+            glm::vec2 uv0;
+            glm::vec2 uv1;
+            glm::vec2 uv2;
+            glm::vec2 uv3;
+            glm::vec2 uv4;
+            glm::vec2 uv5;
+            float tintColorR;
+            float tintColorG;
+            float tintColorB;
+            float tintColorA;
+        };
+        
         Uniforms copy_uniforms{
             .camera = camera,
             .model = model,
             .flipped = glm::vec2(1.0, 1.0),
-            .uv0 = glm::vec2(uv_max_x, uv_max_y),
-            .uv1 = glm::vec2(0.0, uv_max_y),
-            .uv2 = glm::vec2(uv_max_x, 0.0),
-            .uv3 = glm::vec2(0.0, uv_max_y),
+            .uv0 = glm::vec2(uMax, vMax),
+            .uv1 = glm::vec2(0.0, vMax),
+            .uv2 = glm::vec2(uMax, 0.0),
+            .uv3 = glm::vec2(0.0, vMax),
             .uv4 = glm::vec2(0.0, 0.0),
-            .uv5 = glm::vec2(uv_max_x, 0.0),
+            .uv5 = glm::vec2(uMax, 0.0),
             .tintColorR = 1.0f,
             .tintColorG = 1.0f,
             .tintColorB = 1.0f,
-            .tintColorA = 1.0f,
+            .tintColorA = 1.0f
         };
-        
         SDL_PushGPUVertexUniformData(cmd_buffer, 0, &copy_uniforms, sizeof(copy_uniforms));
+        
         SDL_GPUTextureSamplerBinding binding{
             .texture = framebuffer->fbContent,
             .sampler = Renderer::GetSampler(ScaleMode::LINEAR),
         };
         SDL_BindGPUFragmentSamplers(copy_pass, 0, &binding, 1);
-        SDL_DrawGPUPrimitives(copy_pass, 6, 1, 0, 0);
+        SDL_DrawGPUPrimitives(copy_pass, 6, 1, 0, 0);  // 6 vertices for fullscreen quad
         SDL_EndGPURenderPass(copy_pass);
     }
     
@@ -465,33 +484,47 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
         // Use the pipeline created during init instead of creating a new one each frame
         SDL_BindGPUGraphicsPipeline(render_pass, finalrender_pipeline);
 
+        // Push full uniforms struct to match shader expectations
         glm::mat4 model = glm::mat4(
-            (float)Window::GetWidth(), 0.0f, 0.0f, 0.0f,  // X scale to window width
-            0.0f, (float)Window::GetHeight(), 0.0f, 0.0f, // Y scale to window height
-            0.0f, 0.0f, 1.0f, 0.0f,                      // Z unchanged (depth)
-            0.0f, 0.0f, 0.1f, 1.0f                       // Slight Z offset, W = 1
+            (float)Window::GetWidth(), 0.0f, 0.0f, 0.0f,
+            0.0f, (float)Window::GetHeight(), 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f
         );
-
-        // resultTexture is window-sized, sample it fully with UVs at 1.0
-        Uniforms uniforms{
+        
+        struct Uniforms {
+            glm::mat4 camera;
+            glm::mat4 model;
+            glm::vec2 flipped;
+            glm::vec2 uv0;
+            glm::vec2 uv1;
+            glm::vec2 uv2;
+            glm::vec2 uv3;
+            glm::vec2 uv4;
+            glm::vec2 uv5;
+            float tintColorR;
+            float tintColorG;
+            float tintColorB;
+            float tintColorA;
+        };
+        
+        // Sample entire window-sized resultTexture (UVs 0-1)
+        Uniforms finalrender_uniforms{
             .camera = camera,
             .model = model,
-            .flipped = glm::vec2(
-                1.0, 1.0
-            ),
+            .flipped = glm::vec2(1.0, 1.0),
             .uv0 = glm::vec2(1.0, 1.0),
             .uv1 = glm::vec2(0.0, 1.0),
             .uv2 = glm::vec2(1.0, 0.0),
             .uv3 = glm::vec2(0.0, 1.0),
             .uv4 = glm::vec2(0.0, 0.0),
             .uv5 = glm::vec2(1.0, 0.0),
-            .tintColorR = fs.r / 255.f,
-            .tintColorG = fs.g / 255.f,
-            .tintColorB = fs.b / 255.f,
-            .tintColorA = fs.a / 255.f,
+            .tintColorR = 1.0f,
+            .tintColorG = 1.0f,
+            .tintColorB = 1.0f,
+            .tintColorA = 1.0f
         };
-
-        SDL_PushGPUVertexUniformData(cmd_buffer, 0, &uniforms, sizeof(uniforms));
+        SDL_PushGPUVertexUniformData(cmd_buffer, 0, &finalrender_uniforms, sizeof(finalrender_uniforms));
 
         std::vector<SDL_GPUTextureSamplerBinding> texture_sampler_bindings(1, SDL_GPUTextureSamplerBinding{
             .texture = result_texture,
@@ -499,7 +532,7 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
         });
 
         SDL_BindGPUFragmentSamplers(render_pass, 0, texture_sampler_bindings.data(), texture_sampler_bindings.size());
-        SDL_DrawGPUPrimitives(render_pass, 6, 1, 0, 0);
+        SDL_DrawGPUPrimitives(render_pass, 6, 1, 0, 0);  // 6 vertices for fullscreen quad
     }
 
     SDL_EndGPURenderPass(render_pass);

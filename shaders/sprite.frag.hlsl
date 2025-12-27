@@ -1,3 +1,6 @@
+// Sprite Fragment Shader (HLSL)
+// Instanced sprite rendering
+
 struct Input
 {
     float2 Texcoord : TEXCOORD0;

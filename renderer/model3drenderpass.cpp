@@ -1,6 +1,7 @@
 #include "model3drenderpass.h"
 #include "renderer/sdl_gpu_structs.h"
 #include "window/windowhandler.h"
+#include "assethandler/shaders_generated.h"
 #include <algorithm>
 
 bool Model3DRenderPass::init(
@@ -119,12 +120,12 @@ void Model3DRenderPass::release(bool logRelease) {
 void Model3DRenderPass::createShaders() {
 
     SDL_Log("%s: Creating shaders - vert size: %zu, frag size: %zu",
-            CURRENT_METHOD(), model3d_vert_bin_len, model3d_frag_bin_len);
+            CURRENT_METHOD(), Luminoveau::Shaders::Model3d_Vert_Size, Luminoveau::Shaders::Model3d_Frag_Size);
 
     // Create vertex shader
     SDL_GPUShaderCreateInfo vertexShaderInfo = {
-        .code_size = model3d_vert_bin_len,
-        .code = model3d_vert_bin,
+        .code_size = Luminoveau::Shaders::Model3d_Vert_Size,
+        .code = Luminoveau::Shaders::Model3d_Vert,
         .entrypoint = "main",
         .format = SDL_GPU_SHADERFORMAT_SPIRV,
         .stage = SDL_GPU_SHADERSTAGE_VERTEX,
@@ -145,8 +146,8 @@ void Model3DRenderPass::createShaders() {
     
     // Create fragment shader (now with texture sampling)
     SDL_GPUShaderCreateInfo fragmentShaderInfo = {
-        .code_size = model3d_frag_bin_len,
-        .code = model3d_frag_bin,
+        .code_size = Luminoveau::Shaders::Model3d_Frag_Size,
+        .code = Luminoveau::Shaders::Model3d_Frag,
         .entrypoint = "main",
         .format = SDL_GPU_SHADERFORMAT_SPIRV,
         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,

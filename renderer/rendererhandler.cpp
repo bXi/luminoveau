@@ -4,6 +4,7 @@
 #include "audio/audiohandler.h"
 
 #include "assethandler/assethandler.h"
+#include "assethandler/shaders_generated.h"
 #include "draw/drawhandler.h"
 
 #include "utils/helpers.h"
@@ -48,27 +49,27 @@ void Renderer::_initRendering() {
     fs = AssetHandler::CreateEmptyTexture({1, 1});
 
     SDL_GPUShaderCreateInfo rttVertexShaderInfo = {
-        .code_size = SpriteRenderPass::sprite_vert_bin_len,
-        .code = SpriteRenderPass::sprite_vert_bin,
+        .code_size = Luminoveau::Shaders::FullscreenQuad_Vert_Size,
+        .code = Luminoveau::Shaders::FullscreenQuad_Vert,
         .entrypoint = "main",
         .format = SDL_GPU_SHADERFORMAT_SPIRV,
         .stage = SDL_GPU_SHADERSTAGE_VERTEX,
         .num_samplers = 0,
         .num_storage_textures = 0,
         .num_storage_buffers = 0,
-        .num_uniform_buffers = 2,
+        .num_uniform_buffers = 1,  // CameraUniforms at space1
     };
 
     SDL_GPUShaderCreateInfo rttFragmentShaderInfo = {
-        .code_size = SpriteRenderPass::sprite_frag_bin_len,
-        .code = SpriteRenderPass::sprite_frag_bin,
+        .code_size = Luminoveau::Shaders::FullscreenQuad_Frag_Size,
+        .code = Luminoveau::Shaders::FullscreenQuad_Frag,
         .entrypoint = "main",
         .format = SDL_GPU_SHADERFORMAT_SPIRV,
         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
         .num_samplers = 1,
         .num_storage_textures = 0,
         .num_storage_buffers = 0,
-        .num_uniform_buffers = 1,
+        .num_uniform_buffers = 0,  // No fragment uniforms
     };
 
     rtt_vertex_shader   = SDL_CreateGPUShader(Renderer::GetDevice(), &rttVertexShaderInfo);

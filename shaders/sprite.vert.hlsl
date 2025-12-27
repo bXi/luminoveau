@@ -1,3 +1,6 @@
+// Sprite Vertex Shader (HLSL)
+// Instanced sprite rendering with half-precision data packing
+
 struct SpriteData
 {
     uint pos_xy;      // x in low 16 bits, y in high 16 bits

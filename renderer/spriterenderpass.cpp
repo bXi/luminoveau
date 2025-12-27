@@ -4,6 +4,7 @@
 
 #include "SDL3/SDL_gpu.h"
 #include "window/windowhandler.h"
+#include "assethandler/shaders_generated.h"
 
 void SpriteRenderPass::release(bool logRelease) {
     if (m_msaa_color_texture) {
@@ -414,8 +415,8 @@ void SpriteRenderPass::render(
 
 void SpriteRenderPass::createShaders() {
     SDL_GPUShaderCreateInfo vertexShaderInfo = {
-        .code_size = sprite_instanced_vert_bin_len,
-        .code = sprite_instanced_vert_bin,
+        .code_size = Luminoveau::Shaders::Sprite_Vert_Size,
+        .code = Luminoveau::Shaders::Sprite_Vert,
         .entrypoint = "main",
         .format = SDL_GPU_SHADERFORMAT_SPIRV,
         .stage = SDL_GPU_SHADERSTAGE_VERTEX,
@@ -433,8 +434,8 @@ void SpriteRenderPass::createShaders() {
     }
 
     SDL_GPUShaderCreateInfo fragmentShaderInfo = {
-        .code_size = sprite_instanced_frag_bin_len,
-        .code = sprite_instanced_frag_bin,
+        .code_size = Luminoveau::Shaders::Sprite_Frag_Size,
+        .code = Luminoveau::Shaders::Sprite_Frag,
         .entrypoint = "main",
         .format = SDL_GPU_SHADERFORMAT_SPIRV,
         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,

@@ -1,4 +1,12 @@
 # Defining source files for the Luminoveau library
+
+# Include auto-generated shader sources
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Sources.Shaders.cmake")
+    include(cmake/Sources.Shaders.cmake)
+else()
+    message(FATAL_ERROR "Shader sources file not found: cmake/Sources.Shaders.cmake\nPlease run shaders/compile_shaders.ps1 to generate shader binaries.")
+endif()
+
 set(LUMINOVEAU_SOURCES
     # Audio module
     audio/audiohandler.cpp
@@ -25,16 +33,9 @@ set(LUMINOVEAU_SOURCES
     # Asset handling
     assethandler/assethandler.cpp
     assethandler/DroidSansMono.cpp
-    assethandler/spritefrag.cpp
-    assethandler/spritevert.cpp
-    assethandler/spritebatchfrag.cpp
-    assethandler/spritebatchvert.cpp
 
-    assethandler/spriteinstancedfrag.cpp
-    assethandler/spriteinstancedvert.cpp
-
-    assethandler/model3dvert.cpp
-    assethandler/model3dfrag.cpp
+    # Shaders (auto-generated)
+    ${LUMINOVEAU_SHADER_SOURCES}
 
     # Renderer
     renderer/sdl_gpu_structs.cpp
@@ -96,6 +97,9 @@ set(LUMINOVEAU_HEADERS
 
     # Asset handling
     assethandler/assethandler.h
+
+    # Shaders (auto-generated)
+    assethandler/shaders_generated.h
 
     # Asset types
     assettypes/font.h

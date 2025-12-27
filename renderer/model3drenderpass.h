@@ -78,11 +78,4 @@ public:
         static UniformBuffer dummy;
         return dummy;
     }
-
-// Shader binaries
-static const uint8_t model3d_vert_bin[];
-static const size_t model3d_vert_bin_len = 7004;
-
-static const uint8_t model3d_frag_bin[];
-static const size_t model3d_frag_bin_len = 976;
 };

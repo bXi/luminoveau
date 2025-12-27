@@ -252,24 +252,5 @@ public:
 
     SDL_GPUColorTargetBlendState renderPassBlendState = GPUstructs::defaultBlendState;
 
-    static const uint8_t sprite_frag_bin[];
-    static const size_t  sprite_frag_bin_len = 1000;
-
-    static const uint8_t sprite_vert_bin[];
-    static const size_t  sprite_vert_bin_len = 3212;
-
-    static const uint8_t sprite_batch_frag_bin[];
-    static const size_t  sprite_batch_frag_bin_len = 1020;
-
-    static const uint8_t sprite_batch_vert_bin[];
-    static const size_t sprite_batch_vert_bin_len = 3204;
-
-    // Instanced rendering shaders
-    static const uint8_t sprite_instanced_vert_bin[];
-    static const size_t sprite_instanced_vert_bin_len = 21564;
-
-    static const uint8_t sprite_instanced_frag_bin[];
-    static const size_t sprite_instanced_frag_bin_len = 1000;
-
     void createShaders();
 };
