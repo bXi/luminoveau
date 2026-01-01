@@ -15,15 +15,11 @@
 #include "shaderrenderpass.h"
 #include "shaderhandler.h"
 
-#define LUMIDEBUG
-
 void Renderer::_initRendering() {
-
-    // Enable verbose GPU logging to debug shader issues
-    SDL_SetLogPriority(SDL_LOG_CATEGORY_GPU, SDL_LOG_PRIORITY_VERBOSE);
 
     bool enableGPUDebug = false;
     #ifdef LUMIDEBUG
+    SDL_SetLogPriority(SDL_LOG_CATEGORY_GPU, SDL_LOG_PRIORITY_VERBOSE);
     enableGPUDebug = true;
     #endif
 
