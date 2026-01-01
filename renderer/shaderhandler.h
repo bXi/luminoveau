@@ -74,8 +74,6 @@ private:
     
     std::string _computeSourceHash(const std::string &source);
     
-    std::vector<uint8_t> _crossCompileToFormat(const std::vector<uint32_t> &spirv, SDL_GPUShaderFormat targetFormat, EShLanguage shaderStage);
-    
     // Cache paths
     std::string _getCachePath(const std::string &filename, const std::string &extension);
     std::string _getMetadataPath(const std::string &filename);
@@ -87,7 +85,17 @@ private:
     void _saveCachedMetadata(const std::string &metadataPath, const ShaderMetadata &metadata);
 
     struct ResourceBuffer : public std::streambuf {
+        ResourceBuffer() = default;  // Default constructor for in-memory buffers
         ResourceBuffer(std::ifstream &ifs, uint32_t offset, uint32_t size);
+        
+        // Setup buffer pointers for in-memory data
+        void SetupMemoryBuffer() {
+            setg(
+                reinterpret_cast<char*>(vMemory.data()),
+                reinterpret_cast<char*>(vMemory.data()),
+                reinterpret_cast<char*>(vMemory.data() + vMemory.size())
+            );
+        }
 
         std::vector<uint8_t> vMemory;
     };
@@ -136,6 +144,7 @@ private:
 
     // Cache storage
     std::unordered_map<std::string, ShaderMetadata> metadataCache;
+    std::unordered_map<std::string, PhysFSFileData> shaderDataCache;  // Cache loaded shader bytecode
     ResourcePack* shaderCache = nullptr;  // Runtime shader cache
 
 public:

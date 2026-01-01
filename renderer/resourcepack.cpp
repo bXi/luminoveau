@@ -153,7 +153,19 @@ bool Shaders::ResourcePack::SavePack() {
 }
 
 Shaders::ResourceBuffer Shaders::ResourcePack::GetFileBuffer(const std::string &sFile) {
-    return {baseFile, mapFiles[sFile].nOffset, mapFiles[sFile].nSize};
+    auto& entry = mapFiles[sFile];
+    
+    // If this is a ByteArray (added but not yet saved to disk), return from memory
+    if (entry.eType == eResourceType::ByteArray && !entry.aBytes.empty()) {
+        // Create a buffer from the in-memory bytes
+        ResourceBuffer buffer;
+        buffer.vMemory = entry.aBytes;
+        buffer.SetupMemoryBuffer();
+        return buffer;
+    }
+    
+    // Otherwise read from disk file
+    return {baseFile, entry.nOffset, entry.nSize};
 }
 
 bool Shaders::ResourcePack::Loaded() { return baseFile.is_open(); }

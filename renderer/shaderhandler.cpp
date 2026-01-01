@@ -85,15 +85,19 @@ void Shaders::_init() {
     if (!shaderCache->Loaded()) {
         SDL_Log("[Shaders] No existing shader cache found, will create on first save");
     } else {
-        SDL_Log("[Shaders] Loaded existing shader cache");
+        SDL_Log("[Shaders] Successfully loaded existing shader cache from shader.cache");
     }
 }
 
 void Shaders::_quit() {
     // Save shader cache before shutting down
-    if (shaderCache && !metadataCache.empty()) {
-        SDL_Log("[Shaders] Saving shader cache...");
-        shaderCache->SavePack();
+    if (shaderCache) {
+        SDL_Log("[Shaders] Saving shader cache (cached %zu shaders)...", metadataCache.size());
+        if (shaderCache->SavePack()) {
+            SDL_Log("[Shaders] Shader cache saved successfully to shader.cache");
+        } else {
+            SDL_Log("[Shaders] Failed to save shader cache!");
+        }
     }
     delete shaderCache;
     shaderCache = nullptr;
@@ -157,7 +161,16 @@ bool Shaders::_loadCachedMetadata(const std::string &metadataKey, ShaderMetadata
 
 void Shaders::_saveCachedShader(const std::string &cacheKey, const std::vector<uint8_t> &data) {
     if (shaderCache) {
+        SDL_Log("[Shaders] Adding shader to cache: %s (%zu bytes)", cacheKey.c_str(), data.size());
         shaderCache->AddFile(cacheKey, data);
+        // Save immediately - don't wait for shutdown
+        if (shaderCache->SavePack()) {
+            SDL_Log("[Shaders] Cache saved to shader.cache");
+        } else {
+            SDL_Log("[Shaders] WARNING: Failed to save cache!");
+        }
+    } else {
+        SDL_Log("[Shaders] WARNING: Cannot cache shader %s - shaderCache is null!", cacheKey.c_str());
     }
 }
 
@@ -165,7 +178,16 @@ void Shaders::_saveCachedMetadata(const std::string &metadataKey, const ShaderMe
     if (shaderCache) {
         std::string metadataStr = metadata.serialize();
         std::vector<uint8_t> metadataBytes(metadataStr.begin(), metadataStr.end());
+        SDL_Log("[Shaders] Adding metadata to cache: %s (%zu bytes)", metadataKey.c_str(), metadataBytes.size());
         shaderCache->AddFile(metadataKey, metadataBytes);
+        // Save immediately - don't wait for shutdown
+        if (shaderCache->SavePack()) {
+            SDL_Log("[Shaders] Cache saved to shader.cache");
+        } else {
+            SDL_Log("[Shaders] WARNING: Failed to save cache!");
+        }
+    } else {
+        SDL_Log("[Shaders] WARNING: Cannot cache metadata %s - shaderCache is null!", metadataKey.c_str());
     }
 }
 
@@ -209,29 +231,13 @@ ShaderMetadata Shaders::_extractMetadataFromSPIRV(const std::vector<uint32_t> &s
     return metadata;
 }
 
-std::vector<uint8_t> Shaders::_crossCompileToFormat(const std::vector<uint32_t> &spirv, SDL_GPUShaderFormat targetFormat, EShLanguage shaderStage) {
-    // For Vulkan, just return SPIRV as-is
-    if (targetFormat == SDL_GPU_SHADERFORMAT_SPIRV) {
-        const uint8_t* spirvBytes = reinterpret_cast<const uint8_t*>(spirv.data());
-        size_t spirvSize = spirv.size() * sizeof(uint32_t);
-        return std::vector<uint8_t>(spirvBytes, spirvBytes + spirvSize);
+PhysFSFileData Shaders::_getShader(const std::string &filename) {
+    // Check in-memory cache first (for multiple calls in same frame)
+    auto cacheIt = shaderDataCache.find(filename);
+    if (cacheIt != shaderDataCache.end()) {
+        return cacheIt->second;
     }
     
-    // For DirectX, we need to use external DXC compiler
-    // SDL_shadercross doesn't provide a way to extract compiled bytecode
-    // So we'll write SPIRV to a temp file and use DXC command line
-    
-    const uint8_t* spirvBytes = reinterpret_cast<const uint8_t*>(spirv.data());
-    size_t spirvSize = spirv.size() * sizeof(uint32_t);
-    
-    // For now, just return SPIRV and document that DirectX won't work
-    SDL_Log("[Shaders] Warning: DirectX requires DXIL, but we can only cache SPIRV");
-    SDL_Log("[Shaders] DirectX shader loading will fail - need to implement DXC compilation");
-    
-    return std::vector<uint8_t>(spirvBytes, spirvBytes + spirvSize);
-}
-
-PhysFSFileData Shaders::_getShader(const std::string &filename) {
     PhysFSFileData filedata;
     
     // Determine shader stage from filename
@@ -246,39 +252,20 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
         throw std::runtime_error("Could not determine shader stage from filename: " + filename);
     }
     
-    // Get target format from renderer - we'll store SPIRV and cross-compile at runtime
+    // We cache SPIRV and cross-compile at runtime
+    // (SDL_shadercross doesn't expose DXIL bytecode extraction)
     auto formats = SDL_GetGPUShaderFormats(Renderer::GetDevice());
-    SDL_GPUShaderFormat runtimeFormat;  // Format for runtime
-    SDL_GPUShaderFormat cacheFormat = SDL_GPU_SHADERFORMAT_SPIRV;  // Always cache SPIRV
-    std::string formatExt = ".spv";  // Always cache as .spv
+    SDL_GPUShaderFormat runtimeFormat;
+    std::string formatExt = ".spv";  // Always cache SPIRV
     
-    // Check backend driver to determine runtime format
     const char* driver = SDL_GetGPUDeviceDriver(Renderer::GetDevice());
-    SDL_Log("[Shaders] GPU driver: %s", driver);
     
     if (strcmp(driver, "direct3d12") == 0 || strcmp(driver, "direct3d11") == 0) {
-        // DirectX backends - runtime cross-compile SPIRV -> DXIL
-        if (formats & SDL_GPU_SHADERFORMAT_DXIL) {
-            runtimeFormat = SDL_GPU_SHADERFORMAT_DXIL;
-            SDL_Log("[Shaders] Will cross-compile to DXIL at runtime");
-        } else if (formats & SDL_GPU_SHADERFORMAT_DXBC) {
-            runtimeFormat = SDL_GPU_SHADERFORMAT_DXBC;
-            SDL_Log("[Shaders] Will cross-compile to DXBC at runtime");
-        } else {
-            throw std::runtime_error("No supported shader format found for DirectX");
-        }
+        runtimeFormat = (formats & SDL_GPU_SHADERFORMAT_DXIL) ? SDL_GPU_SHADERFORMAT_DXIL : SDL_GPU_SHADERFORMAT_DXBC;
     } else if (strcmp(driver, "metal") == 0) {
-        // Metal backend - runtime cross-compile SPIRV -> MSL
-        if (formats & SDL_GPU_SHADERFORMAT_METALLIB) {
-            runtimeFormat = SDL_GPU_SHADERFORMAT_METALLIB;
-            SDL_Log("[Shaders] Will cross-compile to MetalLib at runtime");
-        } else {
-            throw std::runtime_error("No supported shader format found for Metal");
-        }
+        runtimeFormat = SDL_GPU_SHADERFORMAT_METALLIB;
     } else {
-        // Vulkan - use SPIRV directly
         runtimeFormat = SDL_GPU_SHADERFORMAT_SPIRV;
-        SDL_Log("[Shaders] Using SPIRV directly");
     }
     
     // Try to load from cache
@@ -299,6 +286,11 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
             filedata.fileDataVector = std::move(cachedData);
             filedata.data = filedata.fileDataVector.data();
             filedata.fileSize = filedata.fileDataVector.size();
+            
+            // Store in memory cache and metadata cache
+            shaderDataCache[filename] = filedata;
+            metadataCache[filename] = cachedMetadata;
+            
             return filedata;
         } else {
             SDL_Log("[Shaders] Cache invalid for %s (source changed), recompiling", filename.c_str());
@@ -321,24 +313,29 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
     // Extract metadata from SPIRV
     ShaderMetadata metadata = _extractMetadataFromSPIRV(spirvBlob);
     metadata.source_hash = _computeSourceHash(source);
-    metadata.shader_format = runtimeFormat; // Store runtime format for cross-compilation!
+    metadata.shader_format = runtimeFormat;
     
-    // We cache SPIRV, cross-compilation happens at runtime
-    std::vector<uint8_t> targetBlob(reinterpret_cast<const uint8_t*>(spirvBlob.data()),
-                                     reinterpret_cast<const uint8_t*>(spirvBlob.data() + spirvBlob.size()));
+    // Cache SPIRV bytecode
+    std::vector<uint8_t> spirvBytes(
+        reinterpret_cast<const uint8_t*>(spirvBlob.data()),
+        reinterpret_cast<const uint8_t*>(spirvBlob.data() + spirvBlob.size())
+    );
     
     // Save to cache
-    _saveCachedShader(cachePath, targetBlob);
+    _saveCachedShader(cachePath, spirvBytes);
     _saveCachedMetadata(metadataPath, metadata);
     
     // Store metadata in memory
     metadataCache[filename] = metadata;
     
-    SDL_Log("[Shaders] Compiled and cached shader: %s (%zu bytes)", filename.c_str(), targetBlob.size());
+    SDL_Log("[Shaders] Compiled and cached shader: %s (%zu bytes)", filename.c_str(), spirvBytes.size());
     
-    filedata.fileDataVector = std::move(targetBlob);
+    filedata.fileDataVector = std::move(spirvBytes);
     filedata.data = filedata.fileDataVector.data();
     filedata.fileSize = filedata.fileDataVector.size();
+    
+    // Store in memory cache
+    shaderDataCache[filename] = filedata;
     
     return filedata;
 }
@@ -380,7 +377,7 @@ SDL_GPUShaderFormat Shaders::_getShaderFormat(const std::string &filename) {
 }
 
 SDL_GPUShader* Shaders::CreateGPUShader(SDL_GPUDevice* device, const std::string& filename, SDL_GPUShaderStage stage) {
-    // Load shader data
+    // Load SPIRV shader data from cache
     PhysFSFileData shaderData = GetShader(filename);
     ShaderMetadata metadata = GetShaderMetadata(filename);
     
@@ -412,13 +409,12 @@ SDL_GPUShader* Shaders::CreateGPUShader(SDL_GPUDevice* device, const std::string
         .num_uniform_buffers = metadata.num_uniform_buffers
     };
     
-    // Use SDL_shadercross to cross-compile from SPIRV to backend-specific format
-    SDL_Log("[Shaders] Cross-compiling %s using SDL_shadercross", filename.c_str());
+    // Cross-compile SPIRV to backend format and create shader
     SDL_GPUShader* shader = SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(
         device,
         &spirvInfo,
         &resourceInfo,
-        0  // No extra properties
+        0
     );
     
     if (!shader) {
