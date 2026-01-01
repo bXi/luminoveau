@@ -396,7 +396,7 @@ void Model3DRenderPass::render(
     SDL_GPUTexture* target_texture,
     const glm::mat4& camera_unused
 ) {
-    SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
+    //SDL_PushGPUDebugGroup(cmd_buffer, CURRENT_METHOD());
     
     // Get current scene data
     Camera3D& camera = Scene::GetCamera();
@@ -572,4 +572,23 @@ void Model3DRenderPass::render(
         
         // Bind the texture at slot 0 (matches shader binding 0)
         SDL_GPUTextureSamplerBinding textureBinding = {
- 
+            .texture = textureToUse,
+            .sampler = samplerToUse,
+        };
+        SDL_BindGPUFragmentSamplers(render_pass, 0, &textureBinding, 1);
+        
+        // Draw ALL models in one instanced draw call!
+        SDL_DrawGPUIndexedPrimitives(
+            render_pass,
+            static_cast<uint32_t>(models[0].model->indices.size()),
+            static_cast<uint32_t>(models.size()),  // Instance count
+            0,
+            0,
+            0
+        );
+
+    }
+    
+    SDL_EndGPURenderPass(render_pass);
+    SDL_PopGPUDebugGroup(cmd_buffer);
+}

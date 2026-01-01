@@ -264,8 +264,28 @@ extern const size_t ${SymbolName}_Size = $length;
 } // namespace Luminoveau
 "@
     
-    [System.IO.File]::WriteAllText($OutputFile, $cppContent)
-    Write-Success "Generated $OutputFile ($length bytes)"
+    # Check if file exists and content is identical
+    $shouldWrite = $true
+    if (Test-Path $OutputFile) {
+        $existingContent = [System.IO.File]::ReadAllText($OutputFile)
+        # Remove the timestamp line for comparison (line 4)
+        $existingLines = $existingContent -split "`n"
+        $newLines = $cppContent -split "`n"
+        
+        # Compare everything except the "Generated:" timestamp line
+        $existingWithoutTimestamp = ($existingLines | Where-Object { $_ -notmatch '^// Generated:' }) -join "`n"
+        $newWithoutTimestamp = ($newLines | Where-Object { $_ -notmatch '^// Generated:' }) -join "`n"
+        
+        if ($existingWithoutTimestamp -eq $newWithoutTimestamp) {
+            $shouldWrite = $false
+            Write-Info "Skipped $OutputFile (unchanged)"
+        }
+    }
+    
+    if ($shouldWrite) {
+        [System.IO.File]::WriteAllText($OutputFile, $cppContent)
+        Write-Success "Generated $OutputFile ($length bytes)"
+    }
 }
 
 function Generate-HeaderFile {
@@ -307,8 +327,23 @@ namespace Shaders {
 } // namespace Luminoveau
 "@
     
-    [System.IO.File]::WriteAllText($HeaderOutputPath, $headerContent)
-    Write-Success "Generated $HeaderOutputPath"
+    # Check if file exists and content is identical (ignoring timestamp)
+    $shouldWrite = $true
+    if (Test-Path $HeaderOutputPath) {
+        $existingContent = [System.IO.File]::ReadAllText($HeaderOutputPath)
+        $existingWithoutTimestamp = ($existingContent -split "`n" | Where-Object { $_ -notmatch '^// Generated:' }) -join "`n"
+        $newWithoutTimestamp = ($headerContent -split "`n" | Where-Object { $_ -notmatch '^// Generated:' }) -join "`n"
+        
+        if ($existingWithoutTimestamp -eq $newWithoutTimestamp) {
+            $shouldWrite = $false
+            Write-Info "Skipped $HeaderOutputPath (unchanged)"
+        }
+    }
+    
+    if ($shouldWrite) {
+        [System.IO.File]::WriteAllText($HeaderOutputPath, $headerContent)
+        Write-Success "Generated $HeaderOutputPath"
+    }
 }
 
 function Generate-CMakeFile {
@@ -376,8 +411,23 @@ source_group("Generated\\Shaders" FILES `${LUMINOVEAU_SHADER_SOURCES})
 add_compile_definitions(LUMINOVEAU_SHADER_BACKEND_`${LUMINOVEAU_GPU_BACKEND})
 "@
     
-    [System.IO.File]::WriteAllText($CMakeOutputPath, $cmakeContent)
-    Write-Success "Generated $CMakeOutputPath"
+    # Check if file exists and content is identical (ignoring timestamp)
+    $shouldWrite = $true
+    if (Test-Path $CMakeOutputPath) {
+        $existingContent = [System.IO.File]::ReadAllText($CMakeOutputPath)
+        $existingWithoutTimestamp = ($existingContent -split "`n" | Where-Object { $_ -notmatch '^# Generated:' }) -join "`n"
+        $newWithoutTimestamp = ($cmakeContent -split "`n" | Where-Object { $_ -notmatch '^# Generated:' }) -join "`n"
+        
+        if ($existingWithoutTimestamp -eq $newWithoutTimestamp) {
+            $shouldWrite = $false
+            Write-Info "Skipped $CMakeOutputPath (unchanged)"
+        }
+    }
+    
+    if ($shouldWrite) {
+        [System.IO.File]::WriteAllText($CMakeOutputPath, $cmakeContent)
+        Write-Success "Generated $CMakeOutputPath"
+    }
 }
 
 # ============================================================================

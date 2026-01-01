@@ -80,12 +80,24 @@ void Shaders::_init() {
     }
     SDL_Log("[Shaders] SDL_shadercross initialized successfully");
     
-    // Create cache directory if it doesn't exist
-    std::filesystem::create_directories(cacheDirectory);
-    SDL_Log("[Shaders] Shader cache directory: %s", cacheDirectory.c_str());
+    // Load shader cache resource pack
+    shaderCache = new ResourcePack("shader.cache", "luminoveau_shaders");
+    if (!shaderCache->Loaded()) {
+        SDL_Log("[Shaders] No existing shader cache found, will create on first save");
+    } else {
+        SDL_Log("[Shaders] Loaded existing shader cache");
+    }
 }
 
 void Shaders::_quit() {
+    // Save shader cache before shutting down
+    if (shaderCache && !metadataCache.empty()) {
+        SDL_Log("[Shaders] Saving shader cache...");
+        shaderCache->SavePack();
+    }
+    delete shaderCache;
+    shaderCache = nullptr;
+    
     SDL_ShaderCross_Quit();
     SDL_Log("[Shaders] SDL_shadercross shut down");
 }
@@ -101,65 +113,60 @@ std::string Shaders::_computeSourceHash(const std::string &source) {
 }
 
 std::string Shaders::_getCachePath(const std::string &filename, const std::string &extension) {
-    // Replace slashes with underscores for flat cache structure
+    // Just return the key for resource pack lookup
     std::string safeName = filename;
     std::replace(safeName.begin(), safeName.end(), '/', '_');
     std::replace(safeName.begin(), safeName.end(), '\\', '_');
-    return cacheDirectory + "/" + safeName + extension;
+    return safeName + extension;
 }
 
 std::string Shaders::_getMetadataPath(const std::string &filename) {
     return _getCachePath(filename, ".meta");
 }
 
-bool Shaders::_loadCachedShader(const std::string &cachePath, std::vector<uint8_t> &outData) {
-    std::ifstream file(cachePath, std::ios::binary);
-    if (!file.is_open()) {
-        return false;
-    }
-    
-    file.seekg(0, std::ios::end);
-    size_t size = file.tellg();
-    file.seekg(0, std::ios::beg);
-    
-    outData.resize(size);
-    file.read(reinterpret_cast<char*>(outData.data()), size);
-    
-    return file.good();
-}
-
-bool Shaders::_loadCachedMetadata(const std::string &metadataPath, ShaderMetadata &outMetadata) {
-    std::ifstream file(metadataPath);
-    if (!file.is_open()) {
+bool Shaders::_loadCachedShader(const std::string &cacheKey, std::vector<uint8_t> &outData) {
+    if (!shaderCache || !shaderCache->HasFile(cacheKey)) {
         return false;
     }
     
     try {
-        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        outMetadata = ShaderMetadata::deserialize(content);
+        auto buffer = shaderCache->GetFileBuffer(cacheKey);
+        outData.assign(buffer.vMemory.begin(), buffer.vMemory.end());
         return true;
     } catch (const std::exception& e) {
-        SDL_Log("[Shaders] Failed to parse metadata from %s: %s", metadataPath.c_str(), e.what());
+        SDL_Log("[Shaders] Failed to load cached shader %s: %s", cacheKey.c_str(), e.what());
         return false;
     }
 }
 
-void Shaders::_saveCachedShader(const std::string &cachePath, const std::vector<uint8_t> &data) {
-    std::ofstream file(cachePath, std::ios::binary);
-    if (!file.is_open()) {
-        SDL_Log("[Shaders] Failed to write shader cache to %s", cachePath.c_str());
-        return;
+bool Shaders::_loadCachedMetadata(const std::string &metadataKey, ShaderMetadata &outMetadata) {
+    if (!shaderCache || !shaderCache->HasFile(metadataKey)) {
+        return false;
     }
-    file.write(reinterpret_cast<const char*>(data.data()), data.size());
+    
+    try {
+        auto buffer = shaderCache->GetFileBuffer(metadataKey);
+        std::string metadataStr(buffer.vMemory.begin(), buffer.vMemory.end());
+        outMetadata = ShaderMetadata::deserialize(metadataStr);
+        return true;
+    } catch (const std::exception& e) {
+        SDL_Log("[Shaders] Failed to parse metadata from cache: %s", e.what());
+        return false;
+    }
 }
 
-void Shaders::_saveCachedMetadata(const std::string &metadataPath, const ShaderMetadata &metadata) {
-    std::ofstream file(metadataPath);
-    if (!file.is_open()) {
-        SDL_Log("[Shaders] Failed to write metadata to %s", metadataPath.c_str());
-        return;
+void Shaders::_saveCachedShader(const std::string &cacheKey, const std::vector<uint8_t> &data) {
+    if (shaderCache) {
+        shaderCache->AddFile(cacheKey, data);
     }
-    file << metadata.serialize();
+}
+
+void Shaders::_saveCachedMetadata(const std::string &metadataKey, const ShaderMetadata &metadata) {
+    if (shaderCache) {
+        std::string metadataStr = metadata.serialize();
+        std::vector<uint8_t> metadataBytes(metadataStr.begin(), metadataStr.end());
+        shaderCache->AddFile(metadataKey, metadataBytes);
+    }
 }
 
 ShaderMetadata Shaders::_extractMetadataFromSPIRV(const std::vector<uint32_t> &spirv) {

@@ -136,7 +136,7 @@ private:
 
     // Cache storage
     std::unordered_map<std::string, ShaderMetadata> metadataCache;
-    std::string cacheDirectory;
+    ResourcePack* shaderCache = nullptr;  // Runtime shader cache
 
 public:
     Shaders(const Shaders &) = delete;
@@ -147,8 +147,7 @@ public:
     }
 
 private:
-    Shaders() : cacheDirectory("shader_cache") {
-    };
+    Shaders() = default;
 
     void _fillResources(TBuiltInResource *pResource);
 };
