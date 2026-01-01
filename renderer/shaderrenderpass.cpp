@@ -6,6 +6,7 @@
 #include "assethandler/shaders_generated.h"
 #include "spriterenderpass.h"
 #include "window/windowhandler.h"
+#include "shaderhandler.h"
 
 void ShaderRenderPass::release(bool logRelease) {
     m_depth_texture.release(Renderer::GetDevice());
@@ -56,45 +57,20 @@ void ShaderRenderPass::release(bool logRelease) {
 }
 
 void ShaderRenderPass::_loadUniformsFromShader(const std::vector<uint8_t> &spirvBinary) {
-
-    try {
-        spirv_cross::Compiler compiler(reinterpret_cast<const uint32_t *>(spirvBinary.data()),
-                                       spirvBinary.size() / sizeof(uint32_t));
-
-        auto resources = compiler.get_shader_resources();
-
-        for (const auto &uniform: resources.uniform_buffers) {
-            auto &bufferType = compiler.get_type(uniform.base_type_id);
-
-            for (size_t i = 0; i < bufferType.member_types.size(); ++i) {
-                const std::string &memberName = compiler.get_member_name(uniform.base_type_id, i);
-                size_t            memberSize  = compiler.get_declared_struct_member_size(bufferType, i);
-
-                uniformBuffer.addVariable(memberName, memberSize, compiler.type_struct_member_offset(bufferType, i));
-            }
-        }
-    } catch (const std::exception &e) {
-        throw std::runtime_error(Helpers::TextFormat("%s: Reflection failed: %s", CURRENT_METHOD(), e.what()));
+    // Load metadata from cache instead of doing runtime reflection
+    // The metadata was extracted during shader compilation and cached
+    ShaderMetadata metadata = Shaders::GetShaderMetadata(vertShader.shaderFilename);
+    
+    for (const auto& [name, offset] : metadata.uniform_offsets) {
+        size_t size = metadata.uniform_sizes.at(name);
+        uniformBuffer.addVariable(name, size, offset);
     }
 }
 
 void ShaderRenderPass::_loadSamplerNamesFromShader(const std::vector<uint8_t> &spirvBinary) {
-
-    try {
-        spirv_cross::Compiler compiler(reinterpret_cast<const uint32_t *>(spirvBinary.data()),
-                                       spirvBinary.size() / sizeof(uint32_t));
-
-        auto resources = compiler.get_shader_resources();
-
-        for (const auto &sampler: resources.sampled_images) {
-            const std::string &samplerName = compiler.get_name(sampler.id);
-            //uint32_t binding = compiler.get_decoration(sampler.id, spv::DecorationBinding);
-
-            foundSamplers.push_back(samplerName);
-        }
-    } catch (const std::exception &e) {
-        throw std::runtime_error(Helpers::TextFormat("%s: Reflection failed: %s", CURRENT_METHOD(), e.what()));
-    }
+    // Load sampler names from cached metadata
+    ShaderMetadata metadata = Shaders::GetShaderMetadata(fragShader.shaderFilename);
+    foundSamplers = metadata.sampler_names;
 }
 
 bool ShaderRenderPass::init(
@@ -173,11 +149,21 @@ bool ShaderRenderPass::init(
     }
 
     if (!finalrender_vertex_shader) {
+        // Select shader format based on build configuration
+        SDL_GPUShaderFormat shaderFormat;
+        #if defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
+            shaderFormat = SDL_GPU_SHADERFORMAT_DXIL;
+        #elif defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+            shaderFormat = SDL_GPU_SHADERFORMAT_METALLIB;
+        #else
+            shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;  // Default: Vulkan
+        #endif
+        
         SDL_GPUShaderCreateInfo vertexShaderInfo = {
             .code_size            = Luminoveau::Shaders::FullscreenQuad_Vert_Size,
             .code                 = Luminoveau::Shaders::FullscreenQuad_Vert,
             .entrypoint           = "main",
-            .format               = SDL_GPU_SHADERFORMAT_SPIRV,
+            .format               = shaderFormat,  // Use selected format
             .stage                = SDL_GPU_SHADERSTAGE_VERTEX,
             .num_samplers         = 0,
             .num_storage_textures = 0,
@@ -189,11 +175,21 @@ bool ShaderRenderPass::init(
     }
 
     if (!finalrender_fragment_shader) {
+        // Select shader format based on build configuration
+        SDL_GPUShaderFormat shaderFormat;
+        #if defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
+            shaderFormat = SDL_GPU_SHADERFORMAT_DXIL;
+        #elif defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+            shaderFormat = SDL_GPU_SHADERFORMAT_METALLIB;
+        #else
+            shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;  // Default: Vulkan
+        #endif
+        
         SDL_GPUShaderCreateInfo fragmentShaderInfo = {
             .code_size            = Luminoveau::Shaders::FullscreenQuad_Frag_Size,
             .code                 = Luminoveau::Shaders::FullscreenQuad_Frag,
             .entrypoint           = "main",
-            .format               = SDL_GPU_SHADERFORMAT_SPIRV,
+            .format               = shaderFormat,  // Use selected format
             .stage                = SDL_GPU_SHADERSTAGE_FRAGMENT,
             .num_samplers         = 1,
             .num_storage_textures = 0,

@@ -392,17 +392,21 @@ void SpriteRenderPass::render(
             SDL_BindGPUFragmentSamplers(render_pass, 0, &samplerBinding, 1);
             SDL_PushGPUVertexUniformData(cmd_buffer, 0, &camera, sizeof(glm::mat4));
             
+            // Push batch offset for DirectX 12 compatibility (SV_InstanceID doesn't include first_instance)
+            uint32_t batchOffset = static_cast<uint32_t>(batch.offset);
+            SDL_PushGPUVertexUniformData(cmd_buffer, 1, &batchOffset, sizeof(uint32_t));
+            
             // Draw using instancing:
             // - 6 indices per quad (2 triangles)
-            // - batch.count instances
-            // - first_instance controls which sprite data to read from storage buffer
+            // - batch.count instances  
+            // - Set first_instance to 0 since we now use baseInstance uniform
             SDL_DrawGPUIndexedPrimitives(
                 render_pass,
                 6,              // num_indices - we have 6 indices for the quad
                 batch.count,    // num_instances - one instance per sprite
                 0,              // first_index
                 0,              // vertex_offset
-                batch.offset    // first_instance - offset into sprite data buffer
+                0               // first_instance - always 0, we use baseInstance uniform instead
             );
         }
     }
@@ -414,16 +418,26 @@ void SpriteRenderPass::render(
 }
 
 void SpriteRenderPass::createShaders() {
+    // Select shader format based on build configuration
+    SDL_GPUShaderFormat shaderFormat;
+    #if defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
+        shaderFormat = SDL_GPU_SHADERFORMAT_DXIL;
+    #elif defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+        shaderFormat = SDL_GPU_SHADERFORMAT_METALLIB;
+    #else
+        shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;  // Default: Vulkan
+    #endif
+
     SDL_GPUShaderCreateInfo vertexShaderInfo = {
         .code_size = Luminoveau::Shaders::Sprite_Vert_Size,
         .code = Luminoveau::Shaders::Sprite_Vert,
         .entrypoint = "main",
-        .format = SDL_GPU_SHADERFORMAT_SPIRV,
+        .format = shaderFormat,  // Use selected format
         .stage = SDL_GPU_SHADERSTAGE_VERTEX,
         .num_samplers = 0,
         .num_storage_textures = 0,
         .num_storage_buffers = 1,
-        .num_uniform_buffers = 1,
+        .num_uniform_buffers = 2,  // Now we have 2: ViewProjection and InstanceOffset
     };
 
     vertex_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &vertexShaderInfo);
@@ -437,7 +451,7 @@ void SpriteRenderPass::createShaders() {
         .code_size = Luminoveau::Shaders::Sprite_Frag_Size,
         .code = Luminoveau::Shaders::Sprite_Frag,
         .entrypoint = "main",
-        .format = SDL_GPU_SHADERFORMAT_SPIRV,
+        .format = shaderFormat,  // Use selected format
         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
         .num_samplers = 1,
         .num_storage_textures = 0,

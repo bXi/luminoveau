@@ -53,37 +53,6 @@ else()
     message(WARNING "Failed to fetch GLM. Some functionality may be unavailable")
 endif()
 
-# Fetching SPIRV-Cross (disabling unwanted components)
-set(SPIRV_CROSS_CLI OFF CACHE BOOL "Disable SPIRV-Cross CLI" FORCE)
-set(SPIRV_CROSS_ENABLE_TESTS OFF CACHE BOOL "Disable SPIRV-Cross tests" FORCE)
-set(SPIRV_CROSS_ENABLE_GLSL ON CACHE BOOL "Enable GLSL support" FORCE)
-set(SPIRV_CROSS_ENABLE_HLSL ON CACHE BOOL "Enable HLSL support" FORCE)
-set(SPIRV_CROSS_ENABLE_MSL ON CACHE BOOL "Enable MSL support" FORCE)
-set(SPIRV_CROSS_ENABLE_CPP OFF CACHE BOOL "Disable C++ support" FORCE)
-set(SPIRV_CROSS_ENABLE_REFLECT OFF CACHE BOOL "Disable reflection support" FORCE)
-set(SPIRV_CROSS_ENABLE_UTIL OFF CACHE BOOL "Disable utility support" FORCE)
-
-CPMAddPackage(
-    NAME SPIRV-Cross
-    GITHUB_REPOSITORY KhronosGroup/SPIRV-Cross
-    GIT_TAG 1a7b7ef
-)
-if(SPIRV-Cross_ADDED)
-    if(NOT EXISTS "${SPIRV-Cross_SOURCE_DIR}")
-        message(FATAL_ERROR "SPIRV-Cross source directory '${SPIRV-Cross_SOURCE_DIR}' does not exist")
-    endif()
-    target_include_directories(luminoveau SYSTEM PUBLIC "${SPIRV-Cross_SOURCE_DIR}")
-    target_link_libraries(luminoveau PUBLIC
-        spirv-cross-core
-        spirv-cross-glsl
-        spirv-cross-hlsl
-        spirv-cross-msl
-    )
-    message(STATUS "Luminoveau: SPIRV-Cross configured")
-else()
-    message(WARNING "Failed to fetch SPIRV-Cross. Shader functionality may be unavailable")
-endif()
-
 # Fetching glslang (disabling unwanted components)
 set(ENABLE_OPT OFF CACHE BOOL "Disable glslang optimizations" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "Disable glslang tests" FORCE)
@@ -124,6 +93,40 @@ if(SDL3_ADDED)
     message(STATUS "Luminoveau: SDL3 configured")
 else()
     message(FATAL_ERROR "Failed to fetch SDL3. SDL3 is a required dependency")
+endif()
+
+# Fetching SDL_shadercross (shader translation library)
+# NOTE: Must come AFTER SDL3 since it depends on it
+set(SDLSHADERCROSS_SHARED OFF CACHE BOOL "Build static SDL_shadercross library" FORCE)
+set(SDLSHADERCROSS_STATIC ON CACHE BOOL "Build static SDL_shadercross library" FORCE)
+set(SDLSHADERCROSS_CLI OFF CACHE BOOL "Disable SDL_shadercross CLI" FORCE)
+set(SDLSHADERCROSS_VENDORED ON CACHE BOOL "Use vendored dependencies (required)" FORCE)
+set(SDLSHADERCROSS_SPIRVCROSS_SHARED OFF CACHE BOOL "Build SPIRV-Cross statically into SDL_shadercross" FORCE)
+set(SDLSHADERCROSS_DXC OFF CACHE BOOL "Disable DXC compilation (use runtime DLLs instead)" FORCE)
+
+CPMAddPackage(
+    NAME SDL_shadercross
+    GITHUB_REPOSITORY libsdl-org/SDL_shadercross
+    GIT_TAG main
+)
+if(SDL_shadercross_ADDED)
+    if(NOT EXISTS "${SDL_shadercross_SOURCE_DIR}")
+        message(FATAL_ERROR "SDL_shadercross source directory '${SDL_shadercross_SOURCE_DIR}' does not exist")
+    endif()
+    target_include_directories(luminoveau SYSTEM PUBLIC "${SDL_shadercross_SOURCE_DIR}/include")
+    target_link_libraries(luminoveau PUBLIC SDL3_shadercross::SDL3_shadercross-static)
+    
+    # Use SDL_shadercross's vendored SPIRV-Cross for our shader reflection needs
+    target_include_directories(luminoveau SYSTEM PUBLIC "${SDL_shadercross_SOURCE_DIR}/external/SPIRV-Cross")
+    # Link against the vendored SPIRV-Cross targets (built statically by SDL_shadercross)
+    target_link_libraries(luminoveau PUBLIC
+        spirv-cross-core
+        spirv-cross-glsl
+    )
+    
+    message(STATUS "Luminoveau: SDL_shadercross configured with static SPIRV-Cross")
+else()
+    message(WARNING "Failed to fetch SDL_shadercross. Runtime shader compilation may be unavailable")
 endif()
 
 # Fetching harfbuzz (non-MSVC only)

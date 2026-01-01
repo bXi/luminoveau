@@ -14,15 +14,50 @@
 #include "model3drenderpass.h"
 #include "shaderrenderpass.h"
 #include "shaderhandler.h"
+
 #define LUMIDEBUG
+
 void Renderer::_initRendering() {
+
+    // Enable verbose GPU logging to debug shader issues
+    SDL_SetLogPriority(SDL_LOG_CATEGORY_GPU, SDL_LOG_PRIORITY_VERBOSE);
 
     bool enableGPUDebug = false;
     #ifdef LUMIDEBUG
     enableGPUDebug = true;
     #endif
 
-    m_device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, enableGPUDebug, nullptr);
+    // Select shader format and driver based on build configuration
+    SDL_GPUShaderFormat shaderFormat;
+    const char* preferredDriver = nullptr;
+    
+    // Create device with explicit driver selection
+    SDL_PropertiesID props = SDL_CreateProperties();
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, enableGPUDebug);
+    
+    #if defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
+        // Use DXIL SM6.0 for modern DirectX 12 (PC and Xbox One S)
+        shaderFormat = SDL_GPU_SHADERFORMAT_DXIL;  
+        preferredDriver = "direct3d12";  // Force DirectX 12
+        SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_DXIL_BOOLEAN, true);
+        SDL_Log("%s: using DXIL shaders (DirectX 12 SM6.0)", CURRENT_METHOD());
+    #elif defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+        shaderFormat = SDL_GPU_SHADERFORMAT_METALLIB;
+        preferredDriver = "metal";  // Force Metal
+        SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_METALLIB_BOOLEAN, true);
+        SDL_Log("%s: using Metal shaders", CURRENT_METHOD());
+    #else
+        // Default to SPIR-V (Vulkan)
+        shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;
+        preferredDriver = "vulkan";  // Force Vulkan
+        SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
+        SDL_Log("%s: using SPIR-V shaders (Vulkan)", CURRENT_METHOD());
+    #endif
+    
+    SDL_SetStringProperty(props, SDL_PROP_GPU_DEVICE_CREATE_NAME_STRING, preferredDriver);
+    
+    m_device = SDL_CreateGPUDeviceWithProperties(props);
+    SDL_DestroyProperties(props);
     if (!m_device) {
         SDL_Log("%s: failed to create gpu device: %s", CURRENT_METHOD(), SDL_GetError());
         SDL_DestroyWindow(Window::GetWindow());
@@ -52,7 +87,7 @@ void Renderer::_initRendering() {
         .code_size = Luminoveau::Shaders::FullscreenQuad_Vert_Size,
         .code = Luminoveau::Shaders::FullscreenQuad_Vert,
         .entrypoint = "main",
-        .format = SDL_GPU_SHADERFORMAT_SPIRV,
+        .format = shaderFormat,  // Use selected format
         .stage = SDL_GPU_SHADERSTAGE_VERTEX,
         .num_samplers = 0,
         .num_storage_textures = 0,
@@ -64,7 +99,7 @@ void Renderer::_initRendering() {
         .code_size = Luminoveau::Shaders::FullscreenQuad_Frag_Size,
         .code = Luminoveau::Shaders::FullscreenQuad_Frag,
         .entrypoint = "main",
-        .format = SDL_GPU_SHADERFORMAT_SPIRV,
+        .format = shaderFormat,  // Use selected format
         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
         .num_samplers = 1,
         .num_storage_textures = 0,
@@ -167,6 +202,8 @@ void Renderer::_initRendering() {
 }
 
 void Renderer::_close() {
+    // Shutdown SDL_shadercross
+    Shaders::Quit();
 }
 
 void Renderer::_updateCameraProjection() {
@@ -223,6 +260,13 @@ void Renderer::_endFrame() {
             // Render all passes
             for (size_t i = 0; i < framebuffer->renderpasses.size(); i++) {
                 auto& [passname, renderpass] = framebuffer->renderpasses[i];
+                
+                // First pass should always clear, subsequent passes should load
+                if (i == 0) {
+                    renderpass->color_target_info_loadop = SDL_GPU_LOADOP_CLEAR;
+                } else {
+                    renderpass->color_target_info_loadop = SDL_GPU_LOADOP_LOAD;
+                }
                 
                 // Pass shared depth target
                 renderpass->renderTargetDepth = depthTarget;

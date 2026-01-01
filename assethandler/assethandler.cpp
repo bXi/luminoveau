@@ -356,7 +356,9 @@ Shader AssetHandler::_getShader(const std::string &fileName) {
 
     if (_shaders.find(fileName) == _shaders.end()) {
 
-        // Auto-detect the shader stage from the file name for convenience
+        SDL_Log("%s: loading shader: %s", CURRENT_METHOD(), fileName.c_str());
+
+        // Auto-detect the shader stage from the file name
         SDL_GPUShaderStage stage;
         if (SDL_strstr(fileName.c_str(), ".vert")) {
             stage = SDL_GPU_SHADERSTAGE_VERTEX;
@@ -366,42 +368,12 @@ Shader AssetHandler::_getShader(const std::string &fileName) {
             throw std::runtime_error("Invalid shader stage!!");
         }
 
-        ShaderAsset _shader;
-
-        auto shaderData = Shaders::GetShader(fileName);
-
-        _shader.fileData = shaderData.fileDataVector;
-        spirv_cross::Compiler compiler(reinterpret_cast<const uint32_t*>(_shader.fileData.data()), _shader.fileData.size() / sizeof(uint32_t));
-        const auto resources = compiler.get_shader_resources();
-
-        Uint32 samplerCount        = resources.sampled_images.size();
-        Uint32 uniformBufferCount  = resources.uniform_buffers.size();
-        Uint32 storageBufferCount  = resources.storage_buffers.size();
-        Uint32 storageTextureCount = resources.storage_images.size();
-
-        SDL_GPUShaderCreateInfo shaderInfo = {
-            .code_size = _shader.fileData.size(),
-            .code = _shader.fileData.data(),
-            .entrypoint = "main",
-            .format = SDL_GPU_SHADERFORMAT_SPIRV,
-            .stage = stage,
-            .num_samplers = samplerCount,
-            .num_storage_textures = storageTextureCount,
-            .num_storage_buffers = storageBufferCount,
-            .num_uniform_buffers = uniformBufferCount,
-        };
-
-        _shader.shaderFilename = fileName;
-
-        _shader.samplerCount = samplerCount;
-        _shader.uniformBufferCount = uniformBufferCount;
-        _shader.storageBufferCount = storageBufferCount;
-        _shader.storageTextureCount = storageTextureCount;
-
-        _shader.shader = SDL_CreateGPUShader(Renderer::GetDevice(), &shaderInfo);
-        if (_shader.shader == nullptr) {
-            throw std::runtime_error("Failed to create shader!");
-        }
+        // Use Shaders::CreateShaderAsset which handles format correctly
+        ShaderAsset _shader = Shaders::CreateShaderAsset(
+            Renderer::GetDevice(), 
+            fileName, 
+            stage
+        );
 
         _shaders[std::string(fileName)] = _shader;
 

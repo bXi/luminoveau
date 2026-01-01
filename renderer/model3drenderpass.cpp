@@ -122,12 +122,22 @@ void Model3DRenderPass::createShaders() {
     SDL_Log("%s: Creating shaders - vert size: %zu, frag size: %zu",
             CURRENT_METHOD(), Luminoveau::Shaders::Model3d_Vert_Size, Luminoveau::Shaders::Model3d_Frag_Size);
 
+    // Select shader format based on build configuration
+    SDL_GPUShaderFormat shaderFormat;
+    #if defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
+        shaderFormat = SDL_GPU_SHADERFORMAT_DXIL;
+    #elif defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+        shaderFormat = SDL_GPU_SHADERFORMAT_METALLIB;
+    #else
+        shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;  // Default: Vulkan
+    #endif
+
     // Create vertex shader
     SDL_GPUShaderCreateInfo vertexShaderInfo = {
         .code_size = Luminoveau::Shaders::Model3d_Vert_Size,
         .code = Luminoveau::Shaders::Model3d_Vert,
         .entrypoint = "main",
-        .format = SDL_GPU_SHADERFORMAT_SPIRV,
+        .format = shaderFormat,  // Use selected format
         .stage = SDL_GPU_SHADERSTAGE_VERTEX,
         .num_samplers = 0,
         .num_storage_textures = 0,
@@ -149,7 +159,7 @@ void Model3DRenderPass::createShaders() {
         .code_size = Luminoveau::Shaders::Model3d_Frag_Size,
         .code = Luminoveau::Shaders::Model3d_Frag,
         .entrypoint = "main",
-        .format = SDL_GPU_SHADERFORMAT_SPIRV,
+        .format = shaderFormat,  // Use selected format
         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
         .num_samplers = 1,  // Sampler at binding 0
         .num_storage_textures = 0,
@@ -165,6 +175,9 @@ void Model3DRenderPass::createShaders() {
         return;
     }
     
+    SDL_Log("%s: Shaders created successfully - vertex=%p, fragment=%p", 
+            CURRENT_METHOD(), (void*)vertex_shader, (void*)fragment_shader);
+    
 }
 
 void Model3DRenderPass::createPipeline(SDL_GPUTextureFormat swapchain_format) {
@@ -178,7 +191,7 @@ void Model3DRenderPass::createPipeline(SDL_GPUTextureFormat swapchain_format) {
     }
     
     // Define vertex input layout matching Vertex3D
-    SDL_GPUVertexAttribute vertexAttributes[] = {
+    static SDL_GPUVertexAttribute vertexAttributes[] = {
         {
             .location = 0,
             .buffer_slot = 0,
@@ -205,7 +218,7 @@ void Model3DRenderPass::createPipeline(SDL_GPUTextureFormat swapchain_format) {
         }
     };
     
-    SDL_GPUVertexBufferDescription vertexBufferDesc = {
+    static SDL_GPUVertexBufferDescription vertexBufferDesc = {
         .slot = 0,
         .pitch = sizeof(Vertex3D),
         .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
@@ -559,23 +572,4 @@ void Model3DRenderPass::render(
         
         // Bind the texture at slot 0 (matches shader binding 0)
         SDL_GPUTextureSamplerBinding textureBinding = {
-            .texture = textureToUse,
-            .sampler = samplerToUse,
-        };
-        SDL_BindGPUFragmentSamplers(render_pass, 0, &textureBinding, 1);
-        
-        // Draw ALL models in one instanced draw call!
-        SDL_DrawGPUIndexedPrimitives(
-            render_pass,
-            static_cast<uint32_t>(models[0].model->indices.size()),
-            static_cast<uint32_t>(models.size()),  // Instance count
-            0,
-            0,
-            0
-        );
-
-    }
-    
-    SDL_EndGPURenderPass(render_pass);
-    SDL_PopGPUDebugGroup(cmd_buffer);
-}
+ 

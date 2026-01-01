@@ -11,10 +11,27 @@
 #include <SPIRV/GlslangToSpv.h>
 
 #include <spirv_cross.hpp>
-#include <spirv_hlsl.hpp>
-#include <spirv_msl.hpp>
+
+#include <SDL3_shadercross/SDL_shadercross.h>
 
 #include "assethandler/assethandler.h"
+
+// Simple text-based shader metadata structure
+struct ShaderMetadata {
+    std::string source_hash;
+    std::vector<std::string> sampler_names;
+    std::unordered_map<std::string, size_t> uniform_offsets;
+    std::unordered_map<std::string, size_t> uniform_sizes;
+    uint32_t num_samplers = 0;
+    uint32_t num_uniform_buffers = 0;
+    uint32_t num_storage_buffers = 0;
+    uint32_t num_storage_textures = 0;
+    SDL_GPUShaderFormat shader_format = SDL_GPU_SHADERFORMAT_SPIRV; // Store the format!
+    
+    // Simple text serialization
+    std::string serialize() const;
+    static ShaderMetadata deserialize(const std::string& data);
+};
 
 class Shaders {
 public:
@@ -22,20 +39,52 @@ public:
     static void Init() {
         get()._init();
     }
+    
+    static void Quit() {
+        get()._quit();
+    }
 
     static PhysFSFileData GetShader(const std::string &filename) { return get()._getShader(filename); }
+    
+    static ShaderMetadata GetShaderMetadata(const std::string &filename) { return get()._getShaderMetadata(filename); }
+    
+    static SDL_GPUShaderFormat GetShaderFormat(const std::string &filename) { return get()._getShaderFormat(filename); }
+    
+    // Helper to create SDL_GPUShader with correct format
+    static SDL_GPUShader* CreateGPUShader(SDL_GPUDevice* device, const std::string& filename, SDL_GPUShaderStage stage);
+    
+    // Helper to create complete ShaderAsset from filename
+    static ShaderAsset CreateShaderAsset(SDL_GPUDevice* device, const std::string& filename, SDL_GPUShaderStage stage);
 
 private:
 
     void _init();
+    
+    void _quit();
 
     PhysFSFileData _getShader(const std::string &filename);
+    
+    ShaderMetadata _getShaderMetadata(const std::string &filename);
+    
+    SDL_GPUShaderFormat _getShaderFormat(const std::string &filename);
 
     std::vector<uint32_t> _compileGLSLtoSPIRV(const std::string &source, EShLanguage shaderStage);
-
-    std::string _convertSPIRVtoHLSL(const std::vector<uint32_t> &spirv);
-
-    std::string _convertSPIRVtoMSL(const std::vector<uint32_t> &spirv);
+    
+    ShaderMetadata _extractMetadataFromSPIRV(const std::vector<uint32_t> &spirv);
+    
+    std::string _computeSourceHash(const std::string &source);
+    
+    std::vector<uint8_t> _crossCompileToFormat(const std::vector<uint32_t> &spirv, SDL_GPUShaderFormat targetFormat, EShLanguage shaderStage);
+    
+    // Cache paths
+    std::string _getCachePath(const std::string &filename, const std::string &extension);
+    std::string _getMetadataPath(const std::string &filename);
+    
+    bool _loadCachedShader(const std::string &cachePath, std::vector<uint8_t> &outData);
+    bool _loadCachedMetadata(const std::string &metadataPath, ShaderMetadata &outMetadata);
+    
+    void _saveCachedShader(const std::string &cachePath, const std::vector<uint8_t> &data);
+    void _saveCachedMetadata(const std::string &metadataPath, const ShaderMetadata &metadata);
 
     struct ResourceBuffer : public std::streambuf {
         ResourceBuffer(std::ifstream &ifs, uint32_t offset, uint32_t size);
@@ -85,7 +134,9 @@ private:
         std::string makeposix(const std::string &path);
     };
 
-    ResourcePack shaderCache;
+    // Cache storage
+    std::unordered_map<std::string, ShaderMetadata> metadataCache;
+    std::string cacheDirectory;
 
 public:
     Shaders(const Shaders &) = delete;
@@ -96,7 +147,7 @@ public:
     }
 
 private:
-    Shaders() : shaderCache("shader.cache", "") {
+    Shaders() : cacheDirectory("shader_cache") {
     };
 
     void _fillResources(TBuiltInResource *pResource);

@@ -21,7 +21,7 @@
 
 param(
     [ValidateSet("spirv", "dxil", "metallib", "all")]
-    [string]$Backend = "spirv",  # Default to SPIR-V only for now
+    [string]$Backend = "all",  # Compile all backends by default
     
     [string]$Shader = "",  # Empty = all shaders
     
@@ -34,7 +34,8 @@ $ErrorActionPreference = "Stop"
 # Configuration
 # ============================================================================
 
-# Shader profiles (same for all shaders)
+# Shader profiles
+# DXIL SM6.0 for modern DirectX 12 (works on PC and Xbox One S)
 $VertexProfile = "vs_6_0"
 $FragmentProfile = "ps_6_0"
 
@@ -180,9 +181,25 @@ function Compile-DXIL {
         [string]$ShaderName
     )
     
-    # TODO: Implement DXIL compilation (DirectX 12)
-    Write-Info "DXIL compilation not yet implemented for $ShaderName"
-    return $false
+    Write-Info "Compiling $ShaderName to DXIL (SM6.0)..."
+    
+    # Compile using DXC to DXIL (Shader Model 6.0)
+    $dxcArgs = @(
+        "-T", $Profile,
+        "-E", "main",
+        "-Fo", $OutputFile,
+        $SourceFile
+    )
+    
+    $dxcProcess = Start-Process -FilePath "dxc" -ArgumentList $dxcArgs -NoNewWindow -Wait -PassThru
+    
+    if ($dxcProcess.ExitCode -ne 0) {
+        Write-Error-Custom "DXC compilation failed for $ShaderName (exit code $($dxcProcess.ExitCode))"
+        return $false
+    }
+    
+    Write-Success "Compiled $ShaderName"
+    return $true
 }
 
 function Compile-Metal {
@@ -224,7 +241,8 @@ function Generate-CppFile {
         $byteArray += "`n"
     }
     
-    # Generate C++ file with extern linkage for const variables
+    # Generate C++ file with extern linkage
+    # Symbol names are the SAME across backends - CMake selects which .cpp to compile
     $cppContent = @"
 // Auto-generated shader binary - DO NOT EDIT
 // Source: $BinaryFile
@@ -301,25 +319,61 @@ function Generate-CMakeFile {
     
     Write-Header "Generating CMake Sources File"
     
+    # Generate conditional CMake file that selects backend at build time
     $cmakeContent = @"
 # Auto-generated shader sources - DO NOT EDIT
 # Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-# Backend: $Backend
+# Available backends: $Backend
 
-set(LUMINOVEAU_SHADER_SOURCES
+# Set default GPU backend if not specified
+if(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
+    set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)")
+endif()
+
+# Validate backend selection
+if(NOT LUMINOVEAU_GPU_BACKEND MATCHES "^(SPIRV|DXIL|METALLIB)$")
+    message(FATAL_ERROR "Invalid LUMINOVEAU_GPU_BACKEND: `${LUMINOVEAU_GPU_BACKEND}. Must be SPIRV, DXIL, or METALLIB")
+endif()
+
+message(STATUS "Luminoveau GPU Backend: `${LUMINOVEAU_GPU_BACKEND}")
+
+# Select shader files based on backend
+if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
+    set(LUMINOVEAU_SHADER_SOURCES
 "@
     
     foreach ($shader in $CompiledShaders) {
-        $cmakeContent += "`n    assethandler/shaders/$($shader.VertCpp)"
-        $cmakeContent += "`n    assethandler/shaders/$($shader.FragCpp)"
+        if ($shader.VertCppSPIRV) {
+            $cmakeContent += "`n        assethandler/shaders/$($shader.VertCppSPIRV)"
+            $cmakeContent += "`n        assethandler/shaders/$($shader.FragCppSPIRV)"
+        }
+    }
+    
+    $cmakeContent += "`n    )`n"
+    
+    # DXIL section
+    $cmakeContent += "elseif(LUMINOVEAU_GPU_BACKEND STREQUAL `"DXIL`")`n"
+    $cmakeContent += "    set(LUMINOVEAU_SHADER_SOURCES`n"
+    
+    foreach ($shader in $CompiledShaders) {
+        if ($shader.VertCppDXIL) {
+            $cmakeContent += "`n        assethandler/shaders/$($shader.VertCppDXIL)"
+            $cmakeContent += "`n        assethandler/shaders/$($shader.FragCppDXIL)"
+        }
     }
     
     $cmakeContent += @"
 
-)
+    )
+else()
+    message(FATAL_ERROR "No shader files available for backend: `${LUMINOVEAU_GPU_BACKEND}")
+endif()
 
 # Group shader files in IDE
 source_group("Generated\\Shaders" FILES `${LUMINOVEAU_SHADER_SOURCES})
+
+# Define shader backend for C++ code
+add_compile_definitions(LUMINOVEAU_SHADER_BACKEND_`${LUMINOVEAU_GPU_BACKEND})
 "@
     
     [System.IO.File]::WriteAllText($CMakeOutputPath, $cmakeContent)
@@ -359,9 +413,13 @@ function Compile-AllShaders {
             Name = $shaderDef.Name
             VertSymbol = "$($shaderDef.Name)_Vert"
             FragSymbol = "$($shaderDef.Name)_Frag"
+            VertCppSPIRV = ""
+            FragCppSPIRV = ""
+            VertCppDXIL = ""
+            FragCppDXIL = ""
         }
         
-        # Compile to SPIR-V (current backend)
+        # Compile to SPIR-V
         if ($Backend -eq "spirv" -or $Backend -eq "all") {
             $vertSpv = Join-Path $OutputDir "$($shaderDef.BaseName)_vert.spv"
             $fragSpv = Join-Path $OutputDir "$($shaderDef.BaseName)_frag.spv"
@@ -371,20 +429,36 @@ function Compile-AllShaders {
             
             if ($vertSuccess -and $fragSuccess) {
                 # Generate C++ files
-                $vertCpp = "$($shaderDef.BaseName)_vert.spirv.cpp"
-                $fragCpp = "$($shaderDef.BaseName)_frag.spirv.cpp"
+                $shaderInfo.VertCppSPIRV = "$($shaderDef.BaseName)_vert.spirv.cpp"
+                $shaderInfo.FragCppSPIRV = "$($shaderDef.BaseName)_frag.spirv.cpp"
                 
-                Generate-CppFile -BinaryFile $vertSpv -OutputFile (Join-Path $OutputDir $vertCpp) -SymbolName $shaderInfo.VertSymbol -Backend "SPIR-V"
-                Generate-CppFile -BinaryFile $fragSpv -OutputFile (Join-Path $OutputDir $fragCpp) -SymbolName $shaderInfo.FragSymbol -Backend "SPIR-V"
-                
-                $shaderInfo.VertCpp = $vertCpp
-                $shaderInfo.FragCpp = $fragCpp
-                $compiledShaders += $shaderInfo
+                Generate-CppFile -BinaryFile $vertSpv -OutputFile (Join-Path $OutputDir $shaderInfo.VertCppSPIRV) -SymbolName $shaderInfo.VertSymbol -Backend "SPIR-V"
+                Generate-CppFile -BinaryFile $fragSpv -OutputFile (Join-Path $OutputDir $shaderInfo.FragCppSPIRV) -SymbolName $shaderInfo.FragSymbol -Backend "SPIR-V"
             }
         }
         
-        # TODO: Add DXIL compilation when $Backend is "dxil" or "all"
-        # TODO: Add Metal compilation when $Backend is "metallib" or "all"
+        # Compile to DXIL
+        if ($Backend -eq "dxil" -or $Backend -eq "all") {
+            $vertDxil = Join-Path $OutputDir "$($shaderDef.BaseName)_vert.dxil"
+            $fragDxil = Join-Path $OutputDir "$($shaderDef.BaseName)_frag.dxil"
+            
+            $vertSuccess = Compile-DXIL -SourceFile $vertSource -OutputFile $vertDxil -Profile $VertexProfile -ShaderName "$($shaderDef.Name) Vertex"
+            $fragSuccess = Compile-DXIL -SourceFile $fragSource -OutputFile $fragDxil -Profile $FragmentProfile -ShaderName "$($shaderDef.Name) Fragment"
+            
+            if ($vertSuccess -and $fragSuccess) {
+                # Generate C++ files
+                $shaderInfo.VertCppDXIL = "$($shaderDef.BaseName)_vert.dxil.cpp"
+                $shaderInfo.FragCppDXIL = "$($shaderDef.BaseName)_frag.dxil.cpp"
+                
+                Generate-CppFile -BinaryFile $vertDxil -OutputFile (Join-Path $OutputDir $shaderInfo.VertCppDXIL) -SymbolName $shaderInfo.VertSymbol -Backend "DXIL"
+                Generate-CppFile -BinaryFile $fragDxil -OutputFile (Join-Path $OutputDir $shaderInfo.FragCppDXIL) -SymbolName $shaderInfo.FragSymbol -Backend "DXIL"
+            }
+        }
+        
+        # Add to compiled shaders if at least one backend succeeded
+        if ($shaderInfo.VertCppSPIRV -or $shaderInfo.VertCppDXIL) {
+            $compiledShaders += $shaderInfo
+        }
     }
     
     # Generate header and cmake files
@@ -392,14 +466,19 @@ function Compile-AllShaders {
         Generate-HeaderFile -CompiledShaders $compiledShaders
         Generate-CMakeFile -CompiledShaders $compiledShaders -Backend $Backend
         
-        # Clean up intermediate .spv files
-        Write-Info "Cleaning up intermediate .spv files..."
-        $spvFiles = Get-ChildItem -Path $OutputDir -Filter "*.spv"
-        foreach ($spvFile in $spvFiles) {
-            Remove-Item -Path $spvFile.FullName -Force
+        # Clean up intermediate binary files
+        Write-Info "Cleaning up intermediate binary files..."
+        $binaryFiles = @()
+        $binaryFiles += Get-ChildItem -Path $OutputDir -Filter "*.spv" -File
+        $binaryFiles += Get-ChildItem -Path $OutputDir -Filter "*.dxil" -File
+        $binaryFiles += Get-ChildItem -Path $OutputDir -Filter "*.dxbc" -File
+        $binaryFiles += Get-ChildItem -Path $OutputDir -Filter "*.metallib" -File
+        
+        foreach ($binaryFile in $binaryFiles) {
+            Remove-Item -Path $binaryFile.FullName -Force
         }
-        if ($spvFiles.Count -gt 0) {
-            Write-Success "Removed $($spvFiles.Count) .spv file(s)"
+        if ($binaryFiles.Count -gt 0) {
+            Write-Success "Removed $($binaryFiles.Count) intermediate binary file(s)"
         }
         
         Write-Header "Compilation Complete"

@@ -24,6 +24,17 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
 endif()
 
+# Set output directories for built executables and libraries
+if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+endif()
+if(NOT CMAKE_LIBRARY_OUTPUT_DIRECTORY)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+endif()
+if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+endif()
+
 # ============================================================================
 # AGGRESSIVE OPTIMIZATION FLAGS
 # ============================================================================
@@ -135,6 +146,10 @@ include(cmake/AssetPreparation.cmake)
 include(cmake/SteamDetection.cmake)
 include(cmake/DependencySetup.cmake)
 include(cmake/ImGuiIntegration.cmake)
+include(cmake/DownloadDXC.cmake)
+
+# Make helper function available to consuming projects
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CopyRuntimeDLLs.cmake)
 
 # Optional test suite
 if(LUMINOVEAU_BUILD_TESTS)
@@ -150,6 +165,11 @@ install(TARGETS luminoveau
 )
 install(FILES ${LUMINOVEAU_HEADERS}
     DESTINATION include/luminoveau
+)
+# Install CMake helper scripts
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CopyRuntimeDLLs.cmake"
+    DESTINATION lib/cmake/Luminoveau
 )
 
 # Generating configuration file for find_package

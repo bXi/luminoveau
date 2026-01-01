@@ -3,10 +3,10 @@
 // Vertex input structure
 struct VertexInput
 {
-    float3 Position : POSITION;
-    float3 Normal : NORMAL;
-    float2 TexCoord : TEXCOORD0;
-    float4 Color : COLOR;
+    float3 Position : TEXCOORD0;  // Changed from POSITION
+    float3 Normal : TEXCOORD1;    // Changed from NORMAL
+    float2 TexCoord : TEXCOORD2;  // Changed from TEXCOORD0
+    float4 Color : TEXCOORD3;     // Changed from COLOR
 };
 
 // Vertex output structure

@@ -1,5 +1,5 @@
 // Auto-generated shader header - DO NOT EDIT
-// Generated: 2025-12-27 01:17:36
+// Generated: 2026-01-01 14:03:50
 //
 // This file provides a unified interface to all compiled shaders.
 // The actual backend (SPIR-V, DXIL, Metal) is determined at compile time

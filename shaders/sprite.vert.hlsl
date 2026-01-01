@@ -28,6 +28,11 @@ cbuffer UniformBlock : register(b0, space1)
     float4x4 ViewProjectionMatrix : packoffset(c0);
 };
 
+cbuffer InstanceOffset : register(b1, space1)
+{
+    uint baseInstance : packoffset(c0);
+};
+
 // Vertex positions for a quad (indexed)
 static const float2 quadVertices[4] = {
     {0.0f, 0.0f},  // bottom-left
@@ -36,48 +41,10 @@ static const float2 quadVertices[4] = {
     {1.0f, 1.0f}   // top-right
 };
 
-// Float16 to Float32 conversion
+// Float16 to Float32 conversion using HLSL built-in
 float unpackHalf(uint h16)
 {
-    uint sign = (h16 >> 15) & 0x1;
-    uint exponent = (h16 >> 10) & 0x1F;
-    uint mantissa = h16 & 0x3FF;
-    
-    // Handle zero
-    if (exponent == 0 && mantissa == 0)
-    {
-        return sign ? -0.0 : 0.0;
-    }
-    
-    // Handle denormalized numbers
-    if (exponent == 0)
-    {
-        // Denormalized: use exponent -14 and normalize mantissa
-        float f = (float)mantissa / 1024.0;
-        f = ldexp(f, -14);
-        return sign ? -f : f;
-    }
-    
-    // Handle infinity and NaN
-    if (exponent == 31)
-    {
-        if (mantissa == 0)
-        {
-            // Infinity
-            return sign ? -1.0 / 0.0 : 1.0 / 0.0;
-        }
-        else
-        {
-            // NaN - return 0 to avoid rendering issues
-            return 0.0;
-        }
-    }
-    
-    // Normalized number: exponent bias is 15
-    int realExponent = (int)exponent - 15;
-    float f = 1.0 + ((float)mantissa / 1024.0);
-    f = ldexp(f, realExponent);
-    return sign ? -f : f;
+    return f16tof32(h16);
 }
 
 float2 unpackHalf2(uint packed)
@@ -89,8 +56,8 @@ float2 unpackHalf2(uint packed)
 
 Output main(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
 {
-    // Get sprite data for this instance
-    SpriteData sprite = SpriteInstances[instanceID];
+    // Get sprite data for this instance (add baseInstance offset for DirectX 12 compatibility)
+    SpriteData sprite = SpriteInstances[instanceID + baseInstance];
     
     // Unpack half-precision floats from packed uint32 values
     float3 position = float3(
