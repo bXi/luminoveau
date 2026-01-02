@@ -5,6 +5,8 @@
 #include <memory>
 #include <mutex>
 #include <chrono>
+#include <cstdlib>      // for std::exit
+#include <stdexcept>   // for std::runtime_error
 #include <fmt/core.h>
 #include <fmt/format.h>
 
@@ -18,6 +20,9 @@
 #endif
 
 // Logging macros with automatic location capture
+// LOG_DEBUG, LOG_INFO, LOG_WARNING - Log messages only
+// LOG_ERROR - Logs the error and throws std::runtime_error (catchable)
+// LOG_CRITICAL - Logs the error, flushes all sinks, and exits program with EXIT_FAILURE
 #define LOG_DEBUG(fmt, ...) Log::DebugImpl(__FILE__, __LINE__, CURRENT_METHOD(), fmt, ##__VA_ARGS__)
 #define LOG_INFO(fmt, ...) Log::InfoImpl(__FILE__, __LINE__, CURRENT_METHOD(), fmt, ##__VA_ARGS__)
 #define LOG_WARNING(fmt, ...) Log::WarningImpl(__FILE__, __LINE__, CURRENT_METHOD(), fmt, ##__VA_ARGS__)
@@ -29,8 +34,8 @@ enum class LogLevel {
     Debug,      // Verbose debug information
     Info,       // General information
     Warning,    // Warning but not critical
-    Error,      // Error that doesn't crash
-    Critical    // Critical error (used by Exception)
+    Error,      // Error - logs and throws std::runtime_error
+    Critical    // Critical error - logs, flushes, and exits program
 };
 
 // Single log entry
@@ -122,13 +127,18 @@ public:
     }
     
     template<typename... Args>
-    static void ErrorImpl(const char* file, int line, const char* func, fmt::format_string<Args...> fmt, Args&&... args) {
-        get().LogImpl(LogLevel::Error, false, file, line, func, fmt::format(fmt, std::forward<Args>(args)...));
+    [[noreturn]] static void ErrorImpl(const char* file, int line, const char* func, fmt::format_string<Args...> fmt, Args&&... args) {
+        std::string message = fmt::format(fmt, std::forward<Args>(args)...);
+        get().LogImpl(LogLevel::Error, false, file, line, func, message);
+        throw std::runtime_error(message);
     }
     
     template<typename... Args>
-    static void CriticalImpl(const char* file, int line, const char* func, fmt::format_string<Args...> fmt, Args&&... args) {
-        get().LogImpl(LogLevel::Critical, false, file, line, func, fmt::format(fmt, std::forward<Args>(args)...));
+    [[noreturn]] static void CriticalImpl(const char* file, int line, const char* func, fmt::format_string<Args...> fmt, Args&&... args) {
+        std::string message = fmt::format(fmt, std::forward<Args>(args)...);
+        get().LogImpl(LogLevel::Critical, false, file, line, func, message);
+        get()._flushAll();  // Flush all logs before exit
+        std::exit(EXIT_FAILURE);
     }
     
     // Get singleton instance (auto-initializes on first use)
