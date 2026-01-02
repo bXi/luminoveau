@@ -53,6 +53,23 @@ else()
     message(WARNING "Failed to fetch GLM. Some functionality may be unavailable")
 endif()
 
+# Fetching fmt (for logging with source_location support)
+CPMAddPackage(
+    NAME fmt
+    GITHUB_REPOSITORY fmtlib/fmt
+    GIT_TAG 10.2.1
+    OPTIONS
+        "FMT_INSTALL OFF"
+        "FMT_TEST OFF"
+        "FMT_DOC OFF"
+)
+if(fmt_ADDED)
+    target_link_libraries(luminoveau PUBLIC fmt::fmt)
+    message(STATUS "Luminoveau: fmt configured")
+else()
+    message(WARNING "Failed to fetch fmt")
+endif()
+
 # Fetching glslang (disabling unwanted components)
 set(ENABLE_OPT OFF CACHE BOOL "Disable glslang optimizations" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "Disable glslang tests" FORCE)

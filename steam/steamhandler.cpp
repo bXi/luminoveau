@@ -7,14 +7,15 @@ void Steam::_init(int newAppId) {
 #ifdef NDEBUG
     if ( SteamAPI_RestartAppIfNecessary( newAppId ) )
     {
-         throw std::runtime_error("SteamAPI_RestartAppIfNecessary failed.");
+
+         LOG_CRITICAL("SteamAPI_RestartAppIfNecessary failed.");
     }
 #endif
 
     SteamErrMsg errMsg;
 
     if (SteamAPI_InitEx(&errMsg) != k_ESteamAPIInitResult_OK)
-        throw std::runtime_error(Helpers::TextFormat("%s failed to init Steam.  %s", CURRENT_METHOD(), errMsg));
+        LOG_CRITICAL("failed to init Steam: {}", errMsg);
 
     isInit = true;
 #else

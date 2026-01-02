@@ -5,6 +5,7 @@
 #include "SDL3/SDL_gpu.h"
 #include "window/windowhandler.h"
 #include "assethandler/shaders_generated.h"
+#include "../log/loghandler.h"
 
 void SpriteRenderPass::release(bool logRelease) {
     if (m_msaa_color_texture) {
@@ -58,7 +59,7 @@ void SpriteRenderPass::release(bool logRelease) {
     }
 
     if (logRelease) {
-        SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+        LOG_INFO("Released graphics pipeline: {}", passname.c_str());
     }
 }
 
@@ -207,11 +208,11 @@ bool SpriteRenderPass::init(
     SDL_SubmitGPUCommandBuffer(uploadCmdBuffer);
 
     if (!m_pipeline) {
-        throw std::runtime_error(Helpers::TextFormat("%s: failed to create graphics pipeline: %s", CURRENT_METHOD(), SDL_GetError()));
+        LOG_CRITICAL("failed to create graphics pipeline: {}", SDL_GetError());
     }
 
     if (logInit) {
-        SDL_Log("%s: created graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+        LOG_INFO("Created graphics pipeline: {}", passname.c_str());
     }
 
     return true;
@@ -443,8 +444,7 @@ void SpriteRenderPass::createShaders() {
     vertex_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &vertexShaderInfo);
 
     if (!vertex_shader) {
-        throw std::runtime_error(
-            Helpers::TextFormat("%s: failed to create vertex shader for: %s (%s)", CURRENT_METHOD(), passname.c_str(), SDL_GetError()));
+        LOG_CRITICAL("failed to create vertex shader for: {} ({})", passname.c_str(), SDL_GetError());
     }
 
     SDL_GPUShaderCreateInfo fragmentShaderInfo = {
@@ -462,7 +462,6 @@ void SpriteRenderPass::createShaders() {
     fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &fragmentShaderInfo);
 
     if (!fragment_shader) {
-        throw std::runtime_error(
-            Helpers::TextFormat("%s: failed to create fragment shader for: %s (%s)", CURRENT_METHOD(), passname.c_str(), SDL_GetError()));
+        LOG_CRITICAL("failed to create fragment shader for: {} ({})", passname.c_str(), SDL_GetError());
     }
 }

@@ -272,7 +272,7 @@ private:
                 free(static_cast<FontAsset>(asset).fontData);
                 _fonts.erase(it);
             } else {
-                throw std::runtime_error("Font not found in the map");
+                LOG_CRITICAL("font not found in the map");
             }
         } else if constexpr (std::is_same_v<T, MusicAsset>) {
             std::cout << "Deleting Music..." << std::endl;
@@ -284,7 +284,7 @@ private:
                 ma_sound_uninit(static_cast<MusicAsset>(asset).music);
                 _musics.erase(it);
             } else {
-                throw std::runtime_error("MusicAsset not found in the map");
+                LOG_CRITICAL("MusicAsset not found in the map");
             }
         } else if constexpr (std::is_same_v<T, SoundAsset>) {
             std::cout << "Deleting Sound..." << std::endl;
@@ -296,7 +296,7 @@ private:
                 ma_sound_uninit(static_cast<SoundAsset>(asset).sound);
                 _sounds.erase(it);
             } else {
-                throw std::runtime_error("Sound not found in the map");
+                LOG_CRITICAL("sound not found in the map");
             }
         } else if constexpr (std::is_same_v<T, TextureAsset>) {
             std::cout << "Deleting Texture..." << std::endl;
@@ -311,10 +311,10 @@ private:
 
                 _textures.erase(it);
             } else {
-                throw std::runtime_error("Texture not found in the map");
+                LOG_CRITICAL("texture not found in the map");
             }
         } else {
-            throw std::runtime_error("Trying to delete invalid asset");
+            LOG_CRITICAL("trying to delete invalid asset");
         }
     };
 

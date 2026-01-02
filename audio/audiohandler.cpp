@@ -149,7 +149,8 @@ void Audio::_close() {
 }
 
 void Audio::_setNumberOfChannels(int newNumberOfChannels) {
-    if (get().audioInit) throw std::runtime_error("Can't run SetNumberOfChannels() after audio has been initialized.");
+    if (get().audioInit)
+        LOG_CRITICAL("can't run SetNumberOfChannels() after audio has been initialized");
 
     get()._numberChannels = std::clamp(newNumberOfChannels, 1, 8);
 }

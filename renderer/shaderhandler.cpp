@@ -1,6 +1,7 @@
 #include "shaderhandler.h"
 #include "rendererhandler.h"
 #include "../assettypes/shader.h"
+#include "../log/loghandler.h"
 
 #include <fstream>
 #include <filesystem>
@@ -75,35 +76,34 @@ ShaderMetadata ShaderMetadata::deserialize(const std::string& data) {
 void Shaders::_init() {
     // Initialize SDL_shadercross
     if (!SDL_ShaderCross_Init()) {
-        SDL_Log("[Shaders] Failed to initialize SDL_shadercross: %s", SDL_GetError());
-        throw std::runtime_error("Failed to initialize SDL_shadercross");
+        LOG_CRITICAL("Failed to initialize SDL_shadercross: {}", SDL_GetError());
     }
-    SDL_Log("[Shaders] SDL_shadercross initialized successfully");
+    LOG_INFO("SDL_shadercross initialized successfully");
     
     // Load shader cache resource pack
     shaderCache = new ResourcePack("shader.cache", "luminoveau_shaders");
     if (!shaderCache->Loaded()) {
-        SDL_Log("[Shaders] No existing shader cache found, will create on first save");
+        LOG_INFO("No existing shader cache found, will create on first save");
     } else {
-        SDL_Log("[Shaders] Successfully loaded existing shader cache from shader.cache");
+        LOG_INFO("Successfully loaded existing shader cache from shader.cache");
     }
 }
 
 void Shaders::_quit() {
     // Save shader cache before shutting down
     if (shaderCache) {
-        SDL_Log("[Shaders] Saving shader cache (cached %zu shaders)...", metadataCache.size());
+        LOG_INFO("Saving shader cache (cached {} shaders)...", metadataCache.size());
         if (shaderCache->SavePack()) {
-            SDL_Log("[Shaders] Shader cache saved successfully to shader.cache");
+            LOG_INFO("Shader cache saved successfully to shader.cache");
         } else {
-            SDL_Log("[Shaders] Failed to save shader cache!");
+            LOG_ERROR("Failed to save shader cache!");
         }
     }
     delete shaderCache;
     shaderCache = nullptr;
     
     SDL_ShaderCross_Quit();
-    SDL_Log("[Shaders] SDL_shadercross shut down");
+    LOG_INFO("SDL_shadercross shut down");
 }
 
 std::string Shaders::_computeSourceHash(const std::string &source) {
@@ -138,7 +138,7 @@ bool Shaders::_loadCachedShader(const std::string &cacheKey, std::vector<uint8_t
         outData.assign(buffer.vMemory.begin(), buffer.vMemory.end());
         return true;
     } catch (const std::exception& e) {
-        SDL_Log("[Shaders] Failed to load cached shader %s: %s", cacheKey.c_str(), e.what());
+        LOG_ERROR("Failed to load cached shader {}: {}", cacheKey.c_str(), e.what());
         return false;
     }
 }
@@ -154,23 +154,23 @@ bool Shaders::_loadCachedMetadata(const std::string &metadataKey, ShaderMetadata
         outMetadata = ShaderMetadata::deserialize(metadataStr);
         return true;
     } catch (const std::exception& e) {
-        SDL_Log("[Shaders] Failed to parse metadata from cache: %s", e.what());
+        LOG_ERROR("Failed to parse metadata from cache: {}", e.what());
         return false;
     }
 }
 
 void Shaders::_saveCachedShader(const std::string &cacheKey, const std::vector<uint8_t> &data) {
     if (shaderCache) {
-        SDL_Log("[Shaders] Adding shader to cache: %s (%zu bytes)", cacheKey.c_str(), data.size());
+        LOG_INFO("Adding shader to cache: {} ({} bytes)", cacheKey.c_str(), data.size());
         shaderCache->AddFile(cacheKey, data);
         // Save immediately - don't wait for shutdown
         if (shaderCache->SavePack()) {
-            SDL_Log("[Shaders] Cache saved to shader.cache");
+            LOG_INFO("Cache saved to shader.cache");
         } else {
-            SDL_Log("[Shaders] WARNING: Failed to save cache!");
+            LOG_WARNING("Failed to save cache!");
         }
     } else {
-        SDL_Log("[Shaders] WARNING: Cannot cache shader %s - shaderCache is null!", cacheKey.c_str());
+        LOG_WARNING("Cannot cache shader {} - shaderCache is null!", cacheKey.c_str());
     }
 }
 
@@ -178,16 +178,16 @@ void Shaders::_saveCachedMetadata(const std::string &metadataKey, const ShaderMe
     if (shaderCache) {
         std::string metadataStr = metadata.serialize();
         std::vector<uint8_t> metadataBytes(metadataStr.begin(), metadataStr.end());
-        SDL_Log("[Shaders] Adding metadata to cache: %s (%zu bytes)", metadataKey.c_str(), metadataBytes.size());
+        LOG_INFO("Adding metadata to cache: {} ({} bytes)", metadataKey.c_str(), metadataBytes.size());
         shaderCache->AddFile(metadataKey, metadataBytes);
         // Save immediately - don't wait for shutdown
         if (shaderCache->SavePack()) {
-            SDL_Log("[Shaders] Cache saved to shader.cache");
+            LOG_INFO("Cache saved to shader.cache");
         } else {
-            SDL_Log("[Shaders] WARNING: Failed to save cache!");
+            LOG_WARNING("Failed to save cache!");
         }
     } else {
-        SDL_Log("[Shaders] WARNING: Cannot cache metadata %s - shaderCache is null!", metadataKey.c_str());
+        LOG_WARNING("Cannot cache metadata {} - shaderCache is null!", metadataKey.c_str());
     }
 }
 
@@ -225,7 +225,7 @@ ShaderMetadata Shaders::_extractMetadataFromSPIRV(const std::vector<uint32_t> &s
         metadata.num_storage_textures = static_cast<uint32_t>(resources.storage_images.size());
         
     } catch (const std::exception &e) {
-        SDL_Log("[Shaders] SPIRV reflection failed: %s", e.what());
+        LOG_ERROR("SPIRV reflection failed: {}", e.what());
     }
     
     return metadata;
@@ -249,7 +249,7 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
     } else if (filename.find(".comp") != std::string::npos) {
         shaderStage = EShLanguage::EShLangCompute;
     } else {
-        throw std::runtime_error("Could not determine shader stage from filename: " + filename);
+        LOG_CRITICAL("Could not determine shader stage from filename: {}", filename);
     }
     
     // We cache SPIRV and cross-compile at runtime
@@ -282,7 +282,7 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
         std::string sourceHash = _computeSourceHash(source);
         
         if (sourceHash == cachedMetadata.source_hash) {
-            SDL_Log("[Shaders] Loaded cached shader: %s", filename.c_str());
+            LOG_INFO("Loaded cached shader: {}", filename.c_str());
             filedata.fileDataVector = std::move(cachedData);
             filedata.data = filedata.fileDataVector.data();
             filedata.fileSize = filedata.fileDataVector.size();
@@ -293,12 +293,12 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
             
             return filedata;
         } else {
-            SDL_Log("[Shaders] Cache invalid for %s (source changed), recompiling", filename.c_str());
+            LOG_INFO("Cache invalid for {} (source changed), recompiling", filename.c_str());
         }
     }
     
     // Cache miss or invalid - compile from source
-    SDL_Log("[Shaders] Compiling shader: %s", filename.c_str());
+    LOG_INFO("Compiling shader: {}", filename.c_str());
     
     // Load GLSL source
     auto sourceFile = AssetHandler::GetFileFromPhysFS(filename);
@@ -307,7 +307,7 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
     // Compile GLSL -> SPIRV
     auto spirvBlob = _compileGLSLtoSPIRV(source, shaderStage);
     if (spirvBlob.empty()) {
-        throw std::runtime_error("Failed to compile shader to SPIRV: " + filename);
+        LOG_CRITICAL("failed to compile shader to SPIRV: {}", filename);
     }
     
     // Extract metadata from SPIRV
@@ -328,7 +328,7 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
     // Store metadata in memory
     metadataCache[filename] = metadata;
     
-    SDL_Log("[Shaders] Compiled and cached shader: %s (%zu bytes)", filename.c_str(), spirvBytes.size());
+    LOG_INFO("Compiled and cached shader: {} ({} bytes)", filename.c_str(), spirvBytes.size());
     
     filedata.fileDataVector = std::move(spirvBytes);
     filedata.data = filedata.fileDataVector.data();
@@ -366,7 +366,7 @@ ShaderMetadata Shaders::_getShaderMetadata(const std::string &filename) {
     }
     
     // Fallback: return empty metadata
-    SDL_Log("[Shaders] Warning: Could not get metadata for %s", filename.c_str());
+    LOG_WARNING("Could not get metadata for {}", filename.c_str());
     return ShaderMetadata();
 }
 
@@ -388,7 +388,7 @@ SDL_GPUShader* Shaders::CreateGPUShader(SDL_GPUDevice* device, const std::string
     } else if (stage == SDL_GPU_SHADERSTAGE_FRAGMENT) {
         crossStage = SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT;
     } else {
-        SDL_Log("[Shaders] Unsupported shader stage");
+        LOG_ERROR("Unsupported shader stage");
         return nullptr;
     }
     
@@ -418,7 +418,7 @@ SDL_GPUShader* Shaders::CreateGPUShader(SDL_GPUDevice* device, const std::string
     );
     
     if (!shader) {
-        SDL_Log("[Shaders] Failed to create GPU shader for %s: %s", filename.c_str(), SDL_GetError());
+        LOG_ERROR("Failed to create GPU shader for {}: {}", filename.c_str(), SDL_GetError());
     }
     
     return shader;
@@ -444,7 +444,7 @@ ShaderAsset Shaders::CreateShaderAsset(SDL_GPUDevice* device, const std::string&
     // Create the GPU shader with correct format
     asset.shader = CreateGPUShader(device, filename, stage);
     
-    SDL_Log("[Shaders] Created ShaderAsset for %s (format=%d, samplers=%d)", 
+    LOG_INFO("Created ShaderAsset for {} (format={}, samplers={})",
             filename.c_str(), metadata.shader_format, asset.samplerCount);
     
     return asset;
@@ -465,8 +465,8 @@ std::vector<uint32_t> Shaders::_compileGLSLtoSPIRV(const std::string& source, ES
     _fillResources(&resources);
 
     if (!shader.parse(&resources, 450, EProfile::ECoreProfile, false, true, EShMsgDefault)) {
-        SDL_Log("[Shaders] GLSL parsing failed: %s", shader.getInfoLog());
-        SDL_Log("[Shaders] Debug log: %s", shader.getInfoDebugLog());
+        LOG_ERROR("GLSL parsing failed: {}", shader.getInfoLog());
+        LOG_ERROR("Debug log: {}", shader.getInfoDebugLog());
         glslang::FinalizeProcess();
         return {};
     }
@@ -475,7 +475,7 @@ std::vector<uint32_t> Shaders::_compileGLSLtoSPIRV(const std::string& source, ES
     program.addShader(&shader);
 
     if (!program.link(EShMsgDefault)) {
-        SDL_Log("[Shaders] Program linking failed: %s", program.getInfoLog());
+        LOG_ERROR("Program linking failed: {}", program.getInfoLog());
         glslang::FinalizeProcess();
         return {};
     }

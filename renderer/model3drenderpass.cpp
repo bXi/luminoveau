@@ -2,6 +2,7 @@
 #include "renderer/sdl_gpu_structs.h"
 #include "window/windowhandler.h"
 #include "assethandler/shaders_generated.h"
+#include "../log/loghandler.h"
 #include <algorithm>
 
 bool Model3DRenderPass::init(
@@ -34,7 +35,7 @@ bool Model3DRenderPass::init(
     
     m_depth_texture.gpuTexture = SDL_CreateGPUTexture(m_gpu_device, &depth_create_info);
     if (!m_depth_texture.gpuTexture) {
-        SDL_Log("%s: Failed to create depth texture: %s", passname.c_str(), SDL_GetError());
+        LOG_ERROR("Failed to create depth texture: {}", SDL_GetError());
         return false;
     }
     
@@ -46,7 +47,7 @@ bool Model3DRenderPass::init(
     
     uniformBuffer = SDL_CreateGPUBuffer(m_gpu_device, &uniform_buffer_info);
     if (!uniformBuffer) {
-        SDL_Log("%s: Failed to create uniform buffer: %s", passname.c_str(), SDL_GetError());
+        LOG_ERROR("Failed to create uniform buffer: {}", SDL_GetError());
         return false;
     }
     
@@ -57,7 +58,7 @@ bool Model3DRenderPass::init(
     
     uniformTransferBuffer = SDL_CreateGPUTransferBuffer(m_gpu_device, &transfer_buffer_info);
     if (!uniformTransferBuffer) {
-        SDL_Log("%s: Failed to create uniform transfer buffer: %s", passname.c_str(), SDL_GetError());
+        LOG_ERROR("Failed to create uniform transfer buffer: {}", SDL_GetError());
         return false;
     }
     
@@ -65,7 +66,7 @@ bool Model3DRenderPass::init(
     createPipeline(swapchain_texture_format);
     
     if (logInit) {
-        SDL_Log("%s: Initialized 3D model render pass with MSAA=%d", CURRENT_METHOD(), sampleCount);
+        LOG_INFO("Initialized 3D model render pass with MSAA={}", static_cast<int>(sampleCount));
     }
     
     return true;
@@ -113,14 +114,14 @@ void Model3DRenderPass::release(bool logRelease) {
     }
     
     if (logRelease) {
-        SDL_Log("%s: Released 3D model render pass", passname.c_str());
+        LOG_INFO("Released 3D model render pass");
     }
 }
 
 void Model3DRenderPass::createShaders() {
 
-    SDL_Log("%s: Creating shaders - vert size: %zu, frag size: %zu",
-            CURRENT_METHOD(), Luminoveau::Shaders::Model3d_Vert_Size, Luminoveau::Shaders::Model3d_Frag_Size);
+    LOG_INFO("Creating shaders - vert size: {}, frag size: {}",
+            Luminoveau::Shaders::Model3d_Vert_Size, Luminoveau::Shaders::Model3d_Frag_Size);
 
     // Select shader format based on build configuration
     SDL_GPUShaderFormat shaderFormat;
@@ -145,12 +146,12 @@ void Model3DRenderPass::createShaders() {
         .num_uniform_buffers = 0,  // Not using push constants
     };
     
-    SDL_Log("%s: Vertex shader info - storage_buffers: %u, uniform_buffers: %u",
-            CURRENT_METHOD(), vertexShaderInfo.num_storage_buffers, vertexShaderInfo.num_uniform_buffers);
+    LOG_INFO("Vertex shader info - storage_buffers: {}, uniform_buffers: {}",
+            vertexShaderInfo.num_storage_buffers, vertexShaderInfo.num_uniform_buffers);
     
     vertex_shader = SDL_CreateGPUShader(m_gpu_device, &vertexShaderInfo);
     if (!vertex_shader) {
-        SDL_Log("%s: Failed to create vertex shader: %s", passname.c_str(), SDL_GetError());
+        LOG_ERROR("Failed to create vertex shader: {}", SDL_GetError());
         return;
     }
     
@@ -169,24 +170,20 @@ void Model3DRenderPass::createShaders() {
     
     fragment_shader = SDL_CreateGPUShader(m_gpu_device, &fragmentShaderInfo);
     if (!fragment_shader) {
-        SDL_Log("%s: Failed to create fragment shader: %s", CURRENT_METHOD(), SDL_GetError());
+        LOG_ERROR("Failed to create fragment shader: {}", SDL_GetError());
         SDL_ReleaseGPUShader(m_gpu_device, vertex_shader);
         vertex_shader = nullptr;
         return;
     }
-    
-    SDL_Log("%s: Shaders created successfully - vertex=%p, fragment=%p", 
-            CURRENT_METHOD(), (void*)vertex_shader, (void*)fragment_shader);
-    
+
 }
 
 void Model3DRenderPass::createPipeline(SDL_GPUTextureFormat swapchain_format) {
 
     SDL_GPUSampleCount currentSampleCount = Renderer::GetSampleCount();
-    SDL_Log("%s: Called with sampleCount=%d", CURRENT_METHOD(), currentSampleCount);
 
     if (!vertex_shader || !fragment_shader) {
-        SDL_Log("%s: Cannot create pipeline - shaders not loaded", CURRENT_METHOD());
+        LOG_ERROR("Cannot create pipeline - shaders not loaded");
         return;
     }
     
@@ -276,15 +273,13 @@ void Model3DRenderPass::createPipeline(SDL_GPUTextureFormat swapchain_format) {
         .props = 0,
     };
     
-    SDL_Log("%s: Creating pipeline with sample_count=%d", CURRENT_METHOD(), pipelineInfo.multisample_state.sample_count);
+    LOG_INFO("Creating pipeline with sample_count={}", static_cast<int>(pipelineInfo.multisample_state.sample_count));
     
     m_pipeline = SDL_CreateGPUGraphicsPipeline(m_gpu_device, &pipelineInfo);
     if (!m_pipeline) {
-        SDL_Log("%s: Failed to create graphics pipeline: %s", CURRENT_METHOD(), SDL_GetError());
+        LOG_ERROR("Failed to create graphics pipeline: {}", SDL_GetError());
         return;
     }
-    
-    SDL_Log("%s: Graphics pipeline created successfully", CURRENT_METHOD());
 }
 
 void Model3DRenderPass::uploadModelToGPU(ModelAsset* model) {
@@ -305,7 +300,7 @@ void Model3DRenderPass::uploadModelToGPU(ModelAsset* model) {
     
     model->vertexBuffer = SDL_CreateGPUBuffer(m_gpu_device, &vertex_buffer_info);
     if (!model->vertexBuffer) {
-        SDL_Log("%s: Failed to create vertex buffer: %s", CURRENT_METHOD(), SDL_GetError());
+        LOG_ERROR("Failed to create vertex buffer: {}", SDL_GetError());
         return;
     }
     
@@ -317,7 +312,7 @@ void Model3DRenderPass::uploadModelToGPU(ModelAsset* model) {
     
     model->indexBuffer = SDL_CreateGPUBuffer(m_gpu_device, &index_buffer_info);
     if (!model->indexBuffer) {
-        SDL_Log("%s: Failed to create index buffer: %s", CURRENT_METHOD(), SDL_GetError());
+        LOG_ERROR("Failed to create index buffer: {}", SDL_GetError());
         return;
     }
     
@@ -329,7 +324,7 @@ void Model3DRenderPass::uploadModelToGPU(ModelAsset* model) {
     
     model->vertexTransferBuffer = SDL_CreateGPUTransferBuffer(m_gpu_device, &vertex_transfer_info);
     if (!model->vertexTransferBuffer) {
-        SDL_Log("%s: Failed to create vertex transfer buffer: %s", CURRENT_METHOD(), SDL_GetError());
+        LOG_ERROR("Failed to create vertex transfer buffer: {}", SDL_GetError());
         return;
     }
     
@@ -340,7 +335,7 @@ void Model3DRenderPass::uploadModelToGPU(ModelAsset* model) {
     
     model->indexTransferBuffer = SDL_CreateGPUTransferBuffer(m_gpu_device, &index_transfer_info);
     if (!model->indexTransferBuffer) {
-        SDL_Log("%s: Failed to create index transfer buffer: %s", CURRENT_METHOD(), SDL_GetError());
+        LOG_ERROR("Failed to create index transfer buffer: {}", SDL_GetError());
         return;
     }
     

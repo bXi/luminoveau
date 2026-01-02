@@ -10,6 +10,7 @@
 #include "utils/camera3d.h"
 #include "assettypes/model.h"
 
+#include "log/loghandler.h"
 /**
  * @brief Instance of a 3D model with transform
  */

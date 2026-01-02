@@ -8,6 +8,7 @@
 #include "draw/drawhandler.h"
 
 #include "utils/helpers.h"
+#include "log/loghandler.h"
 
 #include "renderpass.h"
 #include "spriterenderpass.h"
@@ -36,18 +37,18 @@ void Renderer::_initRendering() {
         shaderFormat = SDL_GPU_SHADERFORMAT_DXIL;  
         preferredDriver = "direct3d12";  // Force DirectX 12
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_DXIL_BOOLEAN, true);
-        SDL_Log("%s: using DXIL shaders (DirectX 12 SM6.0)", CURRENT_METHOD());
+        LOG_INFO("Using DXIL shaders (DirectX 12 SM6.0)");
     #elif defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
         shaderFormat = SDL_GPU_SHADERFORMAT_METALLIB;
         preferredDriver = "metal";  // Force Metal
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_METALLIB_BOOLEAN, true);
-        SDL_Log("%s: using Metal shaders", CURRENT_METHOD());
+        LOG_INFO("Using Metal shaders");
     #else
         // Default to SPIR-V (Vulkan)
         shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;
         preferredDriver = "vulkan";  // Force Vulkan
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
-        SDL_Log("%s: using SPIR-V shaders (Vulkan)", CURRENT_METHOD());
+        LOG_INFO("Using SPIR-V shaders (Vulkan)");
     #endif
     
     SDL_SetStringProperty(props, SDL_PROP_GPU_DEVICE_CREATE_NAME_STRING, preferredDriver);
@@ -55,18 +56,18 @@ void Renderer::_initRendering() {
     m_device = SDL_CreateGPUDeviceWithProperties(props);
     SDL_DestroyProperties(props);
     if (!m_device) {
-        SDL_Log("%s: failed to create gpu device: %s", CURRENT_METHOD(), SDL_GetError());
+        LOG_ERROR("Failed to create GPU device: {}", SDL_GetError());
         SDL_DestroyWindow(Window::GetWindow());
         return;
     }
 
-    SDL_Log("%s: using graphics backend: %s", CURRENT_METHOD(), SDL_GetGPUDeviceDriver(m_device));
+    LOG_INFO("Using graphics backend: {}", SDL_GetGPUDeviceDriver(m_device));
 
     if (!SDL_ClaimWindowForGPUDevice(m_device, Window::GetWindow())) {
-        SDL_Log("%s: failed to claim window for gpu device: %s", CURRENT_METHOD(), SDL_GetError());
+        LOG_ERROR("Failed to claim window for GPU device: {}", SDL_GetError());
         return;
     }
-    SDL_Log("%s: claimed window for gpu device", CURRENT_METHOD());
+    LOG_INFO("Claimed window for GPU device");
 
     SDL_SetGPUAllowedFramesInFlight(m_device, 1);
 
@@ -114,7 +115,7 @@ void Renderer::_initRendering() {
     int desktopWidth = displayMode ? displayMode->w : 3840;  // Fallback to 4K if can't get display
     int desktopHeight = displayMode ? displayMode->h : 2160;
     
-    SDL_Log("%s: Creating framebuffers at desktop size: %dx%d", CURRENT_METHOD(), desktopWidth, desktopHeight);
+    LOG_INFO("Creating framebuffers at desktop size: {}x{}", desktopWidth, desktopHeight);
 
     // Add 3D model render pass (render first)
     framebuffer->renderpasses.emplace_back("3dmodels", new Model3DRenderPass(m_device));
@@ -140,7 +141,7 @@ void Renderer::_initRendering() {
             if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), 
                                   _framebuffer->width, _framebuffer->height,
                                   passname)) {
-                SDL_Log("%s: renderpass (%s) failed to init()", CURRENT_METHOD(), passname.c_str());
+                LOG_ERROR("Renderpass ({}) failed to init()", passname.c_str());
             }
         }
     }
@@ -233,12 +234,12 @@ void Renderer::_endFrame() {
     Draw::FlushPixels();
     m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
     if (!m_cmdbuf) {
-        SDL_Log("Renderer::StartFrame: failed to acquire gpu command buffer: %s", SDL_GetError());
+        LOG_ERROR("Failed to acquire GPU command buffer: {}", SDL_GetError());
         return;
     }
 
     if (!SDL_WaitAndAcquireGPUSwapchainTexture(m_cmdbuf, Window::GetWindow(), &swapchain_texture, nullptr, nullptr)) {
-        SDL_Log("Renderer::render: failed to acquire gpu swapchain texture: %s", SDL_GetError());
+        LOG_ERROR("Failed to acquire GPU swapchain texture: {}", SDL_GetError());
         return;
     }
 
@@ -325,7 +326,7 @@ void Renderer::_endFrame() {
 }
 
 void Renderer::_reset() {
-    SDL_Log("%s: Resetting render passes with MSAA=%d", CURRENT_METHOD(), currentSampleCount);
+    LOG_INFO("Resetting render passes with MSAA={}", static_cast<int>(currentSampleCount));
     
     // Get desktop size for render pass re-initialization
     SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
@@ -361,7 +362,6 @@ void Renderer::_reset() {
                 .sample_count = currentSampleCount,
             };
             framebuffer->fbContentMSAA = SDL_CreateGPUTexture(m_device, &msaaColorInfo);
-            SDL_Log("%s: Created framebuffer MSAA texture %p for %s", CURRENT_METHOD(), framebuffer->fbContentMSAA, fbName.c_str());
 
             SDL_GPUTextureCreateInfo msaaDepthInfo = {
                 .type = SDL_GPU_TEXTURETYPE_2D,
@@ -374,7 +374,6 @@ void Renderer::_reset() {
                 .sample_count = currentSampleCount,
             };
             framebuffer->fbDepthMSAA = SDL_CreateGPUTexture(m_device, &msaaDepthInfo);
-            SDL_Log("%s: Created framebuffer MSAA depth %p", CURRENT_METHOD(), framebuffer->fbDepthMSAA);
         }
     }
 
@@ -390,12 +389,12 @@ void Renderer::_reset() {
                                   desktopWidth, desktopHeight,
                                   passname, true);  // Force logging during reset
             if (!initSuccess) {
-                SDL_Log("%s: renderpass (%s) failed to init()", CURRENT_METHOD(), passname.c_str());
+                LOG_ERROR("Renderpass ({}) failed to init()", passname.c_str());
             }
         }
     }
     
-    SDL_Log("%s: Reset complete", CURRENT_METHOD());
+    LOG_INFO("Reset complete");
 }
 
 SDL_GPUDevice *Renderer::_getDevice() {
@@ -448,7 +447,7 @@ void Renderer::_addShaderPass(const std::string &passname, const ShaderAsset &ve
             }
         }
     } else {
-        SDL_Log("%s: failed to create shaderpass: %s", CURRENT_METHOD(), passname.c_str());
+        LOG_ERROR("Failed to create shaderpass: {}", passname.c_str());
     }
 }
 
@@ -556,7 +555,7 @@ void Renderer::_createFrameBuffer(const std::string &fbname) {
         framebuffer->fbContent = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
         frameBuffers.emplace_back(fbname, framebuffer);
 
-        SDL_Log("%s: created framebuffer: %s", CURRENT_METHOD(), fbname.c_str());
+        LOG_INFO("Created framebuffer: {}", fbname.c_str());
     }
 }
 
@@ -564,9 +563,9 @@ void Renderer::_setFramebufferRenderToScreen(const std::string& fbName, bool ren
     auto* framebuffer = _getFramebuffer(fbName);
     if (framebuffer) {
         framebuffer->renderToScreen = render;
-        SDL_Log("%s: Set renderToScreen to %d for framebuffer: %s", CURRENT_METHOD(), render, fbName.c_str());
+        LOG_INFO("Set renderToScreen to {} for framebuffer: {}", render, fbName.c_str());
     } else {
-        SDL_Log("%s: Framebuffer not found: %s", CURRENT_METHOD(), fbName.c_str());
+        LOG_WARNING("Framebuffer not found: {}", fbName.c_str());
     }
 }
 
@@ -578,7 +577,7 @@ void Renderer::_attachRenderPassToFrameBuffer(RenderPass *renderPass, const std:
     if (it != frameBuffers.end()) {
         it->second->renderpasses.emplace_back(passname, renderPass);
 
-        SDL_Log("%s: attached renderpass %s to framebuffer: %s", CURRENT_METHOD(), passname.c_str(), fbName.c_str());
+        LOG_INFO("Attached renderpass {} to framebuffer: {}", passname.c_str(), fbName.c_str());
     }
 }
 

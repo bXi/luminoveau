@@ -4,6 +4,7 @@
 #include "SDL3/SDL.h"
 #include "utils/vectors.h"
 #include "assettypes/texture.h"
+#include "log/loghandler.h"
 
 struct Vertex3D {
     float x, y, z;           // Position
@@ -81,7 +82,7 @@ struct ModelAsset {
      */
     void SetCubeFaceUVs(CubeFace face, const FaceUV& uvs) {
         if (vertices.size() != 24) {
-            SDL_Log("Warning: SetCubeFaceUVs called on non-cube model (expected 24 vertices, got %zu)", vertices.size());
+            LOG_WARNING("SetCubeFaceUVs called on non-cube model (expected 24 vertices, got {})", vertices.size());
             return;
         }
         

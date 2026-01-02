@@ -14,7 +14,7 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
     TTF_GPUAtlasDrawSequence *sequence = TTF_GetGPUTextDrawData(text);
 
     if (!sequence) {
-        throw std::runtime_error(Helpers::TextFormat("%s: failed to create a font sequence: %s", CURRENT_METHOD(), SDL_GetError()));
+        LOG_CRITICAL("failed to create a font sequence: {}", SDL_GetError());
     }
 
     do {

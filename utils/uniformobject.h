@@ -8,6 +8,8 @@
 #include <cstring>
 #include <type_traits>
 
+#include "log/loghandler.h"
+
 template<typename T>
 struct is_std_array : std::false_type {
 };
@@ -114,7 +116,7 @@ public:
                 return *reinterpret_cast<const T *>(&buffer[offset]);
             }
         }
-        throw std::runtime_error("Variable not found: " + name);
+        LOG_CRITICAL("variable not found: {}", name);
     }
 
     [[nodiscard]] const void *getBufferPointer() const {

@@ -3,14 +3,14 @@
 
 void Scene::_new(const std::string& name) {
     if (scenes.find(name) != scenes.end()) {
-        throw std::runtime_error("Scene with name '" + name + "' already exists");
+        LOG_CRITICAL("scene with name {} already exists", name);
     }
     scenes[name] = SceneData();
 }
 
 void Scene::_switch(const std::string& name) {
     if (scenes.find(name) == scenes.end()) {
-        throw std::runtime_error("Scene with name '" + name + "' does not exist");
+        LOG_CRITICAL("scene with name {} does not exist", name);
     }
     currentSceneName = name;
 }
@@ -123,10 +123,10 @@ void Scene::_clear() {
 
 void Scene::_delete(const std::string& name) {
     if (name == "defaultScene") {
-        throw std::runtime_error("Cannot delete the default scene");
+        LOG_CRITICAL("cannot delete the default scene");
     }
     if (scenes.find(name) == scenes.end()) {
-        throw std::runtime_error("Scene with name '" + name + "' does not exist");
+        LOG_CRITICAL("scene with name {} does not exist", name);
     }
     if (currentSceneName == name) {
         currentSceneName = "defaultScene";

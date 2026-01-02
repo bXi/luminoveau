@@ -22,18 +22,6 @@
 #endif
 
 #define MAX_TEXT_BUFFER_LENGTH              1024
-#ifndef _MSC_VER
-#define CURRENT_METHOD() ({ \
-    static thread_local char _log_current_method_buffer[256]; \
-    int _log_current_method_status; \
-    char *_log_current_method_class_name = abi::__cxa_demangle(typeid(*this).name(), 0, 0, &_log_current_method_status); \
-    snprintf(_log_current_method_buffer, sizeof(_log_current_method_buffer), "[Lumi] %s::%s", _log_current_method_class_name, __func__); \
-    free(_log_current_method_class_name); \
-    _log_current_method_buffer; \
-})
-#else
-#define CURRENT_METHOD() __FUNCTION__
-#endif
 
 template<typename... T>
 inline void LUMI_UNUSED(T&&...) {}

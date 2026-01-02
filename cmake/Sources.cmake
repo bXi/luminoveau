@@ -46,6 +46,9 @@ set(LUMINOVEAU_SOURCES
     renderer/shaderhandler.cpp
     renderer/resourcepack.cpp
 
+    # Logging
+    log/loghandler.cpp
+
     # Utilities
     utils/helpers.cpp
     utils/lerp.cpp
@@ -117,6 +120,9 @@ set(LUMINOVEAU_HEADERS
     renderer/model3drenderpass.h
     renderer/shaderrenderpass.h
     renderer/shaderhandler.h
+
+    # Logging
+    log/loghandler.h
 
     # Utilities
     utils/camera.h

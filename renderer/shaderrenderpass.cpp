@@ -7,6 +7,7 @@
 #include "spriterenderpass.h"
 #include "window/windowhandler.h"
 #include "shaderhandler.h"
+#include "../log/loghandler.h"
 
 void ShaderRenderPass::release(bool logRelease) {
     m_depth_texture.release(Renderer::GetDevice());
@@ -52,7 +53,7 @@ void ShaderRenderPass::release(bool logRelease) {
     }
 
     if (logRelease) {
-        SDL_Log("%s: released graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+        LOG_INFO("Released graphics pipeline: {}", passname.c_str());
     }
 }
 
@@ -145,7 +146,7 @@ bool ShaderRenderPass::init(
     m_pipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &pipeline_create_info);
 
     if (!m_pipeline) {
-        throw std::runtime_error(Helpers::TextFormat("%s: failed to create graphics pipeline: %s", CURRENT_METHOD(), SDL_GetError()));
+        LOG_CRITICAL("failed to create graphics pipeline: {}", SDL_GetError());
     }
 
     if (!finalrender_vertex_shader) {
@@ -244,12 +245,12 @@ bool ShaderRenderPass::init(
         finalrender_pipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &finalrender_pipeline_create_info);
 
         if (!finalrender_pipeline) {
-            throw std::runtime_error(Helpers::TextFormat("%s: failed to create final render graphics pipeline: %s", CURRENT_METHOD(), SDL_GetError()));
+            LOG_CRITICAL("failed to create final render graphics pipeline: {}", SDL_GetError());
         }
     }
 
     if (logInit) {
-        SDL_Log("%s: created graphics pipeline: %s", CURRENT_METHOD(), passname.c_str());
+        LOG_INFO("created graphics pipeline: {}", passname.c_str());
     }
 
     return true;
@@ -450,8 +451,7 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
                                                    const glm::mat4 &camera) {
 
     if (!fragment_shader) {
-        throw std::runtime_error(
-            Helpers::TextFormat("%s: failed to create fragment shader for: %s (%s)", CURRENT_METHOD(), passname.c_str(), SDL_GetError()));
+        LOG_CRITICAL("failed to create fragment shader for: {} ({})", passname.c_str(), SDL_GetError());
     }
 
     std::vector<SDL_GPUColorTargetInfo> color_target_info(1, SDL_GPUColorTargetInfo{

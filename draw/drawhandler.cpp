@@ -8,9 +8,9 @@ void Draw::_initPixelBuffer() {
     const SDL_DisplayMode* displayMode = SDL_GetCurrentDisplayMode(primaryDisplay);
     _pixelBufferWidth = displayMode ? displayMode->w : 3840;  // Fallback to 4K if can't get display
     _pixelBufferHeight = displayMode ? displayMode->h : 2160;
-    
-    SDL_Log("%s: initializing pixel buffer at desktop size: %dx%d", CURRENT_METHOD(), _pixelBufferWidth, _pixelBufferHeight);
-    
+
+    LOG_INFO("initializing pixel buffer at desktop size: {}x{}", _pixelBufferWidth, _pixelBufferHeight);
+
     // Pre-allocate buffer for pixel data
     _pixelBufferData.resize(_pixelBufferWidth * _pixelBufferHeight, 0x00000000); // Transparent
     
@@ -34,7 +34,7 @@ void Draw::_initPixelBuffer() {
     _pixelTexture.filename = "[Lumi]PixelBuffer";
     
     if (!_pixelTexture.gpuTexture) {
-        SDL_Log("Failed to create pixel buffer texture: %s", SDL_GetError());
+        LOG_ERROR("failed to create pixel buffer texture: {}", SDL_GetError());
         return;
     }
     
@@ -50,7 +50,7 @@ void Draw::_initPixelBuffer() {
     _pixelTransferBuffer = SDL_CreateGPUTransferBuffer(Renderer::GetDevice(), &transferInfo);
     
     if (!_pixelTransferBuffer) {
-        SDL_Log("Failed to create pixel transfer buffer: %s", SDL_GetError());
+        LOG_ERROR("failed to create pixel transfer buffer: {}", SDL_GetError());
     }
 }
 
@@ -67,13 +67,13 @@ void Draw::_flushPixels() {
         // Upload to GPU texture
         SDL_GPUCommandBuffer* cmdBuf = SDL_AcquireGPUCommandBuffer(Renderer::GetDevice());
         if (!cmdBuf) {
-            SDL_Log("Failed to acquire GPU command buffer: %s", SDL_GetError());
+            LOG_ERROR("Failed to acquire GPU command buffer: %s", SDL_GetError());
             return;
         }
         
         SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmdBuf);
         if (!copyPass) {
-            SDL_Log("Failed to begin GPU copy pass: %s", SDL_GetError());
+            LOG_ERROR("failed to begin GPU copy pass: {}", SDL_GetError());
             return;
         }
         
@@ -100,7 +100,7 @@ void Draw::_flushPixels() {
         SDL_EndGPUCopyPass(copyPass);
         SDL_SubmitGPUCommandBuffer(cmdBuf);
     } else {
-        SDL_Log("Failed to map transfer buffer: %s", SDL_GetError());
+        LOG_ERROR("failed to map transfer buffer: {}", SDL_GetError());
         return;
     }
     

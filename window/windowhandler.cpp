@@ -27,7 +27,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     if (window) {
         m_window = window;
     } else {
-        throw std::runtime_error(SDL_GetError());
+        LOG_CRITICAL("{}", SDL_GetError());
     }
 
 #ifdef LUMINOVEAU_WITH_IMGUI
@@ -38,7 +38,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     Renderer::InitRendering();
 
     if (!AssetHandler::InitPhysFS()) {
-        throw std::runtime_error(Helpers::TextFormat("%s AssetHandler::InitPhysFS failed. %s", CURRENT_METHOD()));
+        LOG_CRITICAL("AssetHandler::InitPhysFS failed");
     }
 }
 

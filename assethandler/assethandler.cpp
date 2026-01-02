@@ -1,13 +1,9 @@
 #include "assethandler.h"
 #include "window/windowhandler.h"
 #include "spirv_cross.hpp"
-#include "renderer/spriterenderpass.h"
-
-#include <filesystem>
-#include <utility>
+#include "log/loghandler.h"
 
 #include <iostream>
-#include <fstream>
 #include <vector>
 
 #include "renderer/rendererhandler.h"
@@ -29,15 +25,14 @@ AssetHandler::AssetHandler() {
     SDL_IOStream* ttfFontData = SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
     auto font = TTF_OpenFontIO(ttfFontData, true, 16.0);
     if (!font) {
-        throw std::runtime_error(Helpers::TextFormat("%s: failed to create default font: %s", CURRENT_METHOD(), SDL_GetError()));
+        LOG_CRITICAL("failed to create default font: {}", SDL_GetError());
     }
     defaultFont.ttfFont = font;
     defaultFont.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
 };
 
 void AssetHandler::_cleanup() {
-    SDL_Log("%s: Cleaning up all assets...", CURRENT_METHOD());
-    
+
     std::lock_guard<std::mutex> lock(assetMutex);
     auto device = Renderer::GetDevice();
     
@@ -114,7 +109,7 @@ void AssetHandler::_cleanup() {
         defaultFont.textEngine = nullptr;
     }
     
-    SDL_Log("%s: Asset cleanup complete", CURRENT_METHOD());
+    LOG_INFO("asset cleanup complete");
 }
 
 Texture AssetHandler::_getTexture(const std::string &fileName) {
@@ -136,10 +131,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     auto surface = STBIMG_LoadFromMemory((const unsigned char*)filedata.data, filedata.fileSize);
 
     if (!surface) {
-        std::string error = Helpers::TextFormat("IMG_Load failed: %s", SDL_GetError());
-
-        SDL_Log("%s", error.c_str());
-        throw std::runtime_error(error.c_str());
+        LOG_CRITICAL("IMG_Load failed: {}", SDL_GetError());
     }
 
     if (surface->format != SDL_PIXELFORMAT_RGBA32) {
@@ -169,8 +161,8 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     SDL_GPUTexture *gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &texture_create_info);
     if (!gpuTexture)
     {
-        SDL_Log("GPUTexture::from_file: failed to create texture: %s (%s)", fileName.c_str(), SDL_GetError());
-        throw std::runtime_error("failed to create texture");
+
+        LOG_CRITICAL("failed to create texture: {} ({})", fileName.c_str(), SDL_GetError());
     }
 
     if (!_copy_to_texture(
@@ -183,7 +175,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
         ))
     {
         SDL_ReleaseGPUTexture(Renderer::GetDevice(), gpuTexture);
-        throw std::runtime_error("failed to copy image data to texture");
+        LOG_CRITICAL("failed to copy image data to texture");
     }
 
     texture.gpuSampler = Renderer::GetSampler(defaultMode);
@@ -196,7 +188,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     SDL_DestroySurface(surface);
     free(filedata.data);
 
-    SDL_Log("%s: loaded texture %s (%i x %i)", CURRENT_METHOD(), fileName.c_str(), texture.width, texture.height);
+    LOG_INFO("loaded texture {} ({}x{})", fileName.c_str(), texture.width, texture.height);
 
     _textures[std::string(fileName)] = texture;
     
@@ -257,10 +249,8 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
         if (result != MA_SUCCESS) {
             free(filedata.data);  // Free on error
             delete _sound.sound;
-            std::string error = Helpers::TextFormat("GetSound failed: %s", fileName.c_str());
 
-            SDL_Log("%s", error.c_str());
-            throw std::runtime_error(error.c_str());
+            LOG_CRITICAL("GetSound failed: {}", fileName.c_str());
         }
 
         _sounds[fileName] = _sound;
@@ -293,10 +283,7 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
         if (result != MA_SUCCESS) {
             free(filedata.data);  // Free on error
             delete _music.music;
-            std::string error = Helpers::TextFormat("GetMusic failed: %s", fileName.c_str());
-
-            SDL_Log("%s", error.c_str());
-            throw std::runtime_error(error.c_str());
+            LOG_CRITICAL("GetMusic failed: {}", fileName.c_str());
         }
 
         _musics[fileName] = _music;
@@ -330,10 +317,10 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
 
         if (!_font.ttfFont) {
             free(filedata.data);  // Free on error
-            throw std::runtime_error(Helpers::TextFormat("%s: failed to load font: %s", CURRENT_METHOD(), fileName.c_str()));
+            LOG_CRITICAL("failed to load font: {}", fileName.c_str());
         }
 
-        SDL_Log("%s: loaded font %s (size: %i)", CURRENT_METHOD(), fileName.c_str(), fontSize);
+        LOG_INFO("loaded font %s (size: %i)", fileName.c_str(), fontSize);
 
         _fonts[index] = _font;
 
@@ -356,7 +343,7 @@ Shader AssetHandler::_getShader(const std::string &fileName) {
 
     if (_shaders.find(fileName) == _shaders.end()) {
 
-        SDL_Log("%s: loading shader: %s", CURRENT_METHOD(), fileName.c_str());
+        LOG_INFO("loading shader: %s", fileName.c_str());
 
         // Auto-detect the shader stage from the file name
         SDL_GPUShaderStage stage;
@@ -365,7 +352,7 @@ Shader AssetHandler::_getShader(const std::string &fileName) {
         } else if (SDL_strstr(fileName.c_str(), ".frag")) {
             stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
         } else {
-            throw std::runtime_error("Invalid shader stage!!");
+            LOG_CRITICAL("invalid shader stage");
         }
 
         // Use Shaders::CreateShaderAsset which handles format correctly
@@ -462,7 +449,7 @@ TextureAsset AssetHandler::_createDepthTarget(SDL_GPUDevice *device, uint32_t wi
     SDL_GPUTexture *texture = SDL_CreateGPUTexture(device, &texture_create_info);
     if (!texture)
     {
-        throw std::runtime_error("failed to create depth texture");
+        LOG_CRITICAL("failed to create depth texture");
     }
 
     TextureAsset tex;
@@ -565,7 +552,7 @@ bool AssetHandler::_initPhysFS() {
     }
 
     #ifdef PACKED_ASSET_FILE
-        SDL_Log("%s: found packed asset file: %s", CURRENT_METHOD(), PACKED_ASSET_FILE);
+        LOG_INFO("found packed asset file: %s", PACKED_ASSET_FILE);
         if (!PHYSFS_mount(PACKED_ASSET_FILE, nullptr, 0)) {
             std::cerr << "Failed to mount archive (" << PACKED_ASSET_FILE << "): "
                       << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
