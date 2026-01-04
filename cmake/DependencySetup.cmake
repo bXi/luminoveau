@@ -146,35 +146,8 @@ else()
     message(WARNING "Failed to fetch SDL_shadercross. Runtime shader compilation may be unavailable")
 endif()
 
-# Fetching harfbuzz (non-MSVC only)
-if(NOT MSVC)
-    CPMAddPackage(
-        NAME harfbuzz
-        GITHUB_REPOSITORY harfbuzz/harfbuzz
-        GIT_TAG 40ef6c0
-        OPTIONS
-            "HB_BUILD_UTILS OFF"
-            "HB_BUILD_SUBSET OFF"
-    )
-    if(harfbuzz_ADDED)
-        if(NOT EXISTS "${harfbuzz_SOURCE_DIR}")
-            message(FATAL_ERROR "harfbuzz source directory '${harfbuzz_SOURCE_DIR}' does not exist")
-        endif()
-        target_include_directories(luminoveau SYSTEM PUBLIC "${harfbuzz_SOURCE_DIR}/src")
-        target_link_libraries(luminoveau PUBLIC harfbuzz)
-        # Add -Wa,-mbig-obj for MinGW to handle large harfbuzz.cc
-        if(MINGW)
-            target_compile_options(harfbuzz PRIVATE -Wa,-mbig-obj)
-        endif()
-        message(STATUS "Luminoveau: harfbuzz configured")
-    else()
-        message(WARNING "Failed to fetch harfbuzz. Text rendering may be limited")
-    endif()
-endif()
-
-
-if (NOT MSVC)
-# Fetching freetype (always fetched to support SDL3_ttf)
+if (NOT MSVC AND NOT ANDROID)
+# Fetching freetype FIRST (harfbuzz depends on it)
 CPMAddPackage(
     NAME freetype
     GITHUB_REPOSITORY freetype/freetype
@@ -183,7 +156,7 @@ CPMAddPackage(
         "FT_DISABLE_ZLIB ON"
         "FT_DISABLE_BZIP2 ON"
         "FT_DISABLE_PNG ON"
-        "FT_DISABLE_HARFBUZZ OFF"
+        "FT_DISABLE_HARFBUZZ ON"  # Disable for first pass to avoid circular dependency
         "FT_DISABLE_BROTLI ON"
 )
 if(freetype_ADDED)
@@ -192,15 +165,59 @@ if(freetype_ADDED)
     endif()
     target_include_directories(luminoveau SYSTEM PUBLIC "${freetype_SOURCE_DIR}/include")
     target_link_libraries(luminoveau PUBLIC freetype)
-    # Creating alias expected by SDL3_ttf
-    add_library(Freetype::Freetype ALIAS freetype)
+    # Creating aliases expected by SDL3_ttf
+    if(NOT TARGET Freetype::Freetype)
+        add_library(Freetype::Freetype ALIAS freetype)
+    endif()
+    if(NOT TARGET freetype::freetype)
+        add_library(freetype::freetype ALIAS freetype)
+    endif()
     message(STATUS "Luminoveau: freetype configured")
 else()
     message(WARNING "Failed to fetch freetype. Font rendering may be unavailable")
 endif()
+
+# Fetching harfbuzz AFTER freetype (needs FreeType to be available)
+CPMAddPackage(
+    NAME harfbuzz
+    GITHUB_REPOSITORY harfbuzz/harfbuzz
+    GIT_TAG 40ef6c0
+    OPTIONS
+        "HB_BUILD_UTILS OFF"
+        "HB_BUILD_SUBSET OFF"
+        "HB_HAVE_FREETYPE ON"  # Enable FreeType integration (required for SDL3_ttf)
+)
+if(harfbuzz_ADDED)
+    if(NOT EXISTS "${harfbuzz_SOURCE_DIR}")
+        message(FATAL_ERROR "harfbuzz source directory '${harfbuzz_SOURCE_DIR}' does not exist")
+    endif()
+    target_include_directories(luminoveau SYSTEM PUBLIC "${harfbuzz_SOURCE_DIR}/src")
+    target_link_libraries(luminoveau PUBLIC harfbuzz)
+    # Add -Wa,-mbig-obj for MinGW to handle large harfbuzz.cc
+    if(MINGW)
+        target_compile_options(harfbuzz PRIVATE -Wa,-mbig-obj)
+    endif()
+    # Create alias expected by SDL3_ttf
+    if(NOT TARGET harfbuzz::harfbuzz)
+        add_library(harfbuzz::harfbuzz ALIAS harfbuzz)
+    endif()
+    message(STATUS "Luminoveau: harfbuzz configured with FreeType support")
+else()
+    message(WARNING "Failed to fetch harfbuzz. Text rendering may be limited")
+endif()
 endif()
 
 # Fetching SDL3_ttf
+# Tell SDL3_ttf to NOT use its vendored harfbuzz/freetype since we already provide them
+if(ANDROID)
+    # On Android, disable HarfBuzz to avoid circular dependency issues
+    set(SDLTTF_VENDORED ON CACHE BOOL "Use SDL_ttf vendored dependencies on Android" FORCE)
+else()
+    set(SDLTTF_VENDORED OFF CACHE BOOL "Don't use SDL_ttf vendored dependencies" FORCE)
+    set(SDLTTF_HARFBUZZ ON CACHE BOOL "Enable HarfBuzz support" FORCE)
+    set(SDLTTF_FREETYPE ON CACHE BOOL "Enable FreeType support" FORCE)
+endif()
+
 CPMAddPackage(
     NAME SDL3_ttf
     GITHUB_REPOSITORY libsdl-org/SDL_ttf
