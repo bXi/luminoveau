@@ -22,7 +22,7 @@ jobs:
       uses: easingthemes/ssh-deploy@main
       env:
           SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          REMOTE_PORT: "10022" 
+          REMOTE_PORT: "10025" 
           ARGS: "-rltgoDzvO --delete"
           SOURCE: "html/"
           REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
