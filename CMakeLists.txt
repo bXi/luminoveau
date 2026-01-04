@@ -36,6 +36,26 @@ if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
 endif()
 
 # ============================================================================
+# PLATFORM-SPECIFIC SETTINGS
+# ============================================================================
+
+# Android-specific fixes
+if(ANDROID)
+    # Remove incompatible linker flags that may be set by dependencies
+    string(REPLACE "-fuse-ld=gold" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+    string(REPLACE "-fuse-ld=gold" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
+    string(REPLACE "-fuse-ld=gold" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}")
+    string(REPLACE "-fuse-ld=gold" "" CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE}")
+    string(REPLACE "-fuse-ld=gold" "" CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}")
+    
+    # Android uses lld linker
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld")
+    
+    message(STATUS "Android build detected - using lld linker")
+endif()
+
+# ============================================================================
 # AGGRESSIVE OPTIMIZATION FLAGS
 # ============================================================================
 
@@ -58,7 +78,12 @@ if(MSVC)
     
 else()
     # GCC/Clang Release optimizations
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -mtune=native -ffast-math -funroll-loops")
+    if(ANDROID)
+        # Android cross-compilation - don't use march=native
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math -funroll-loops")
+    else()
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -mtune=native -ffast-math -funroll-loops")
+    endif()
     
     # Try to enable LTO if supported
     include(CheckIPOSupported)
@@ -119,7 +144,11 @@ else()
 endif()
 
 # Platform-specific linking options
-if(UNIX AND NOT APPLE)
+if(ANDROID)
+    # Android-specific settings
+    target_compile_definitions(luminoveau PUBLIC __ANDROID__)
+    target_link_libraries(luminoveau PUBLIC log android)  # Android system libraries
+elseif(UNIX AND NOT APPLE)
     target_compile_options(luminoveau PUBLIC -static-libstdc++ -static-libgcc)
     target_link_options(luminoveau PUBLIC -static-libstdc++ -static-libgcc)
 endif()
@@ -147,6 +176,18 @@ include(cmake/SteamDetection.cmake)
 include(cmake/DependencySetup.cmake)
 include(cmake/ImGuiIntegration.cmake)
 include(cmake/DownloadDXC.cmake)
+
+# Android: Fix linker flags again after dependencies (they may override)
+if(ANDROID)
+    string(REPLACE "-fuse-ld=gold" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+    string(REPLACE "-fuse-ld=gold" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
+    if(NOT CMAKE_EXE_LINKER_FLAGS MATCHES "-fuse-ld=lld")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
+    endif()
+    if(NOT CMAKE_SHARED_LINKER_FLAGS MATCHES "-fuse-ld=lld")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld")
+    endif()
+endif()
 
 # Make helper function available to consuming projects
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CopyRuntimeDLLs.cmake)
