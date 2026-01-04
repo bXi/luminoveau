@@ -21,15 +21,9 @@ PixelOutput main(PixelInput input)
     
     // Sample the texture
     float4 texColor = QuadTexture.Sample(QuadSampler, input.TexCoord);
-    
-    // Discard fully transparent pixels
-    if (texColor.a == 0.0)
-    {
-        discard;
-    }
-    
+
     // Apply tint color
     output.Color = texColor * input.TintColor;
-    
+
     return output;
 }
