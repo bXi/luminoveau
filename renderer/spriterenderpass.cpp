@@ -115,15 +115,15 @@ bool SpriteRenderPass::init(
             .front_stencil_state = {},
             .compare_mask        = 0,
             .write_mask          = 0,
-            .enable_depth_test   = true,
+            .enable_depth_test   = false,  // Disabled for 2D sprites!
             .enable_depth_write  = false,
             .enable_stencil_test = false,
         },
         .target_info = {
             .color_target_descriptions = &color_target_description,
             .num_color_targets         = 1,
-            .depth_stencil_format      = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,  // Must match 3D pass
-            .has_depth_stencil_target  = true,
+            .depth_stencil_format      = SDL_GPU_TEXTUREFORMAT_INVALID,  // No depth needed
+            .has_depth_stencil_target  = false,
         },
         .props = 0,
     };
@@ -337,15 +337,17 @@ void SpriteRenderPass::render(
         .cycle                = false};
 
     SDL_GPUDepthStencilTargetInfo depth_stencil_info{
-        .texture          = renderTargetDepth ? renderTargetDepth : m_depth_texture.gpuTexture,  // Use shared MSAA depth if provided
+        .texture          = renderTargetDepth ? renderTargetDepth : m_depth_texture.gpuTexture,
         .clear_depth      = 1.0f,
-        .load_op          = SDL_GPU_LOADOP_CLEAR,
+        .load_op          = SDL_GPU_LOADOP_CLEAR,  // CLEAR since we're the first pass!
         .store_op         = SDL_GPU_STOREOP_DONT_CARE,
         .stencil_load_op  = SDL_GPU_LOADOP_DONT_CARE,
         .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
     };
 
-    render_pass = SDL_BeginGPURenderPass(cmd_buffer, &color_target_info, 1, &depth_stencil_info);
+    render_pass = SDL_BeginGPURenderPass(cmd_buffer, &color_target_info, 1, nullptr);  // No depth!
+
+
     assert(render_pass);
     {
         // Set viewport to window size (render to top-left portion of desktop-sized buffer)

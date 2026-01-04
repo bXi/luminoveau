@@ -56,16 +56,12 @@ float2 unpackHalf2(uint packed)
 
 Output main(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
 {
-    // Get sprite data for this instance (add baseInstance offset for DirectX 12 compatibility)
+    // Read sprite data
     SpriteData sprite = SpriteInstances[instanceID + baseInstance];
     
-    // Unpack half-precision floats from packed uint32 values
-    float3 position = float3(
-        unpackHalf(sprite.pos_xy & 0xFFFF),
-        unpackHalf((sprite.pos_xy >> 16) & 0xFFFF),
-        unpackHalf(sprite.pos_z_rot & 0xFFFF)
-    );
-    
+    // Unpack position, size, UV, and color
+    float x = unpackHalf(sprite.pos_xy & 0xFFFF);
+    float y = unpackHalf((sprite.pos_xy >> 16) & 0xFFFF);
     float rotation = unpackHalf((sprite.pos_z_rot >> 16) & 0xFFFF);
     float2 texUV = unpackHalf2(sprite.tex_uv);
     float2 texWH = unpackHalf2(sprite.tex_wh);
@@ -77,7 +73,7 @@ Output main(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
     );
     float2 scale = unpackHalf2(sprite.size_wh);
     float2 pivot = unpackHalf2(sprite.pivot_xy);
-    
+
     // Get vertex position for this corner of the quad
     float2 coord = quadVertices[vertexID];
     
@@ -105,14 +101,13 @@ Output main(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
         coord = mul(coord, rotMatrix);
         coord += (pivot * scale);
     }
-    
-    // Add sprite position and create 3D coordinate with depth
-    float3 worldPos = float3(coord + position.xy, position.z);
+
+    // Add sprite position (NO Z-DEPTH FOR NOW)
+    float3 worldPos = float3(coord + float2(x, y), 0.0f);
     
     Output output;
     output.Position = mul(ViewProjectionMatrix, float4(worldPos, 1.0f));
     output.Texcoord = texcoord;
     output.Color = color;
-    
     return output;
 }

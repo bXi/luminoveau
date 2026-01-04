@@ -32,7 +32,20 @@ void Renderer::_initRendering() {
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, enableGPUDebug);
     
-    #if defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
+    #if defined(__ANDROID__)
+        // Android: Force Vulkan (our shaders are SPIRV only)
+        shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;
+        preferredDriver = "vulkan";  // Force Vulkan - OpenGL ES won't work!
+        SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
+        
+        // Disable optional Vulkan features for broader Android device compatibility
+        SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_CLIP_DISTANCE_BOOLEAN, false);
+        SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_DEPTH_CLAMPING_BOOLEAN, true);
+        SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_INDIRECT_DRAW_FIRST_INSTANCE_BOOLEAN, false);
+        SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_ANISOTROPY_BOOLEAN, false);
+
+        LOG_INFO("Using SPIR-V shaders (Android - Vulkan with reduced features)");
+    #elif defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
         // Use DXIL SM6.0 for modern DirectX 12 (PC and Xbox One S)
         shaderFormat = SDL_GPU_SHADERFORMAT_DXIL;  
         preferredDriver = "direct3d12";  // Force DirectX 12
@@ -107,6 +120,12 @@ void Renderer::_initRendering() {
     rtt_vertex_shader   = SDL_CreateGPUShader(Renderer::GetDevice(), &rttVertexShaderInfo);
     rtt_fragment_shader = SDL_CreateGPUShader(Renderer::GetDevice(), &rttFragmentShaderInfo);
 
+    if (!rtt_vertex_shader || !rtt_fragment_shader) {
+        LOG_CRITICAL("Failed to create RTT shaders: {}", SDL_GetError());
+        return;
+    }
+    LOG_INFO("RTT shaders created successfully");
+
     auto *framebuffer = new FrameBuffer;
 
     // Get the primary display's size for creating desktop-sized framebuffers
@@ -173,7 +192,7 @@ void Renderer::_initRendering() {
                 .front_stencil_state = {},
                 .compare_mask        = 0,
                 .write_mask          = 0,
-                .enable_depth_test   = true,
+                .enable_depth_test   = false,  // No depth for RTT quad
                 .enable_depth_write  = false,
                 .enable_stencil_test = false,
             },
@@ -181,7 +200,7 @@ void Renderer::_initRendering() {
             {
                 .color_target_descriptions = &color_target_descriptions,
                 .num_color_targets         = 1,
-                .depth_stencil_format      = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
+                .depth_stencil_format      = SDL_GPU_TEXTUREFORMAT_INVALID,  // No depth!
                 .has_depth_stencil_target  = false,
             },
         .props = 0,
@@ -479,10 +498,11 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
         .texture = swapchain_texture,
         .clear_color = SDL_FColor{0.0f, 0.0f, 0.0f, 1.0f},
         .load_op = SDL_GPU_LOADOP_CLEAR,
-        .store_op    = SDL_GPU_STOREOP_STORE,// was SDL_GPU_STOREOP_STORE
+        .store_op    = SDL_GPU_STOREOP_STORE,
     };
 
     SDL_GPURenderPass *renderPass = SDL_BeginGPURenderPass(cmd_buffer, &sdlGpuColorTargetInfo, 1, nullptr);
+    
     SDL_BindGPUGraphicsPipeline(renderPass, m_rendertotexturepipeline);
 
     glm::mat4 model = glm::mat4(
