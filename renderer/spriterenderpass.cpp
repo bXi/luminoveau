@@ -5,7 +5,9 @@
 #include "SDL3/SDL_gpu.h"
 #include "window/windowhandler.h"
 #include "assethandler/shaders_generated.h"
-#include "../log/loghandler.h"
+#include "log/loghandler.h"
+
+#include "utils/constants.h"
 
 void SpriteRenderPass::release(bool logRelease) {
     if (m_msaa_color_texture) {

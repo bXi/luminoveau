@@ -14,6 +14,8 @@
 #include "utils/colors.h"
 #include "utils/camera.h"
 
+#include "utils/constants.h"
+
 struct Mode7Parameters {
     int h = 0;
     int v = 0;

@@ -15,3 +15,7 @@
 #ifndef RAD2DEG
 #define RAD2DEG (180.0f/PI) /**< Conversion factor from radians to degrees. */
 #endif
+
+#ifndef MAX_SPRITES
+#define MAX_SPRITES 4'000'000
+#endif

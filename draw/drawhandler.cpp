@@ -218,7 +218,7 @@ void Draw::_drawTexture(TextureType texture, const vf2d& pos, const vf2d &size, 
 
         .x = dstRect.x,
         .y = dstRect.y,
-        .z = (float)Renderer::GetZIndex(),
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
 
         .rotation = 0.f,
 
@@ -257,7 +257,7 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &si
 
         .x = dstRect.x,
         .y = dstRect.y,
-        .z = (float)Renderer::GetZIndex() / INT_MAX,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
 
         .rotation = 0.f,
 
@@ -288,7 +288,7 @@ void Draw::_drawRotatedTexture(Draw::TextureType texture, const vf2d& pos, const
 
         .x = pos.x,
         .y = pos.y,
-        .z = (float)Renderer::GetZIndex(),
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
 
         .rotation = glm::radians(fmod(angle, 360.f)),
 
@@ -326,7 +326,7 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, const vf2d &pos, c
 
         .x = pos.x,
         .y = pos.y,
-        .z = (float)Renderer::GetZIndex(),
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
 
         .rotation = glm::radians(fmod(angle, 360.f)),
 

@@ -200,7 +200,6 @@ class SpriteRenderPass : public RenderPass {
         size_t count = 0;  // Number of sprites
     };
 
-    static constexpr Uint32 MAX_SPRITES = 4'000'000;
 public:
 
     std::vector<Renderable> renderQueue;
