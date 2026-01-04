@@ -27,7 +27,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     if (window) {
         m_window = window;
     } else {
-        LOG_CRITICAL("{}", SDL_GetError());
+        LOG_CRITICAL("couldn't create window: {}", SDL_GetError());
     }
 
 #ifdef LUMINOVEAU_WITH_IMGUI
