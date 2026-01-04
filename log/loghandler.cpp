@@ -147,10 +147,12 @@ void SDLConsoleSink::Write(const LogEntry& entry) {
         return;
     }
 
-    // Use printf directly to preserve ANSI color codes
-    // SDL_LogMessage strips or doesn't handle ANSI codes properly
-    std::printf("%s\n", entry.ToColoredString().c_str());
-    std::fflush(stdout);
+#ifdef __ANDROID__
+    //Removing color because logcat doesn't show this properly.
+    SDL_Log("%s", entry.ToString().c_str());
+#else
+    SDL_Log("%s\n", entry.ToColoredString().c_str());
+#endif
 }
 
 // FileSink implementation
