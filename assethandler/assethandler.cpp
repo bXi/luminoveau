@@ -127,7 +127,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
 
     TextureAsset texture;
 
-    auto filedata = _resolveFile(fileName);
+    auto filedata = FileHandler::ReadFile(fileName);
     auto surface = STBIMG_LoadFromMemory((const unsigned char*)filedata.data, filedata.fileSize);
 
     if (!surface) {
@@ -235,7 +235,7 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
         _sound.sound    = new ma_sound();
         _sound.fileName = fileName;
 
-        auto filedata = _resolveFile(fileName);
+        auto filedata = FileHandler::ReadFile(fileName);
         
         // Store fileData so we can free it in cleanup
         _sound.fileData = filedata.data;
@@ -269,7 +269,7 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
 
         _music.music = new ma_sound();
 
-        auto filedata = _resolveFile(fileName);
+        auto filedata = FileHandler::ReadFile(fileName);
         
         // Store fileData so we can free it in cleanup
         _music.fileData = filedata.data;
@@ -305,7 +305,7 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
 
         FontAsset _font;
 
-        auto filedata = _resolveFile(fileName);
+        auto filedata = FileHandler::ReadFile(fileName);
         
         // Store fontData so we can free it in cleanup
         _font.fontData = filedata.data;
@@ -320,7 +320,7 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
             LOG_CRITICAL("failed to load font: {}", fileName.c_str());
         }
 
-        LOG_INFO("loaded font %s (size: %i)", fileName.c_str(), fontSize);
+        LOG_INFO("loaded font {} (size: {})", fileName.c_str(), fontSize);
 
         _fonts[index] = _font;
 
@@ -343,7 +343,7 @@ Shader AssetHandler::_getShader(const std::string &fileName) {
 
     if (_shaders.find(fileName) == _shaders.end()) {
 
-        LOG_INFO("loading shader: %s", fileName.c_str());
+        LOG_INFO("loading shader: {}", fileName.c_str());
 
         // Auto-detect the shader stage from the file name
         SDL_GPUShaderStage stage;
@@ -537,76 +537,7 @@ TextureAsset AssetHandler::_loadFromPixelData(const vf2d& size, void *pixelData,
     return texture;
 }
 
-bool AssetHandler::_initPhysFS() {
-    if (PHYSFS_init(nullptr) == 0) {
-        std::cerr << "Failed to initialize PhysFS: "
-                  << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
-        return false;
-    }
 
-    if (!PHYSFS_mount("./", nullptr, 1)) {
-        std::cerr << "Failed to mount current working directory: "
-                  << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
-        PHYSFS_deinit();
-        return false;
-    }
-
-    #ifdef PACKED_ASSET_FILE
-        LOG_INFO("found packed asset file: %s", PACKED_ASSET_FILE);
-        if (!PHYSFS_mount(PACKED_ASSET_FILE, nullptr, 0)) {
-            std::cerr << "Failed to mount archive (" << PACKED_ASSET_FILE << "): "
-                      << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
-            PHYSFS_deinit();
-            return false;
-        }
-    #endif
-
-    return true;
-}
-
-PhysFSFileData AssetHandler::_resolveFile(const std::string& filename) {
-    PhysFSFileData result = {nullptr, 0, {0}};
-    if (!PHYSFS_exists(filename.c_str())) {
-        std::cerr << "File does not exist: " << filename << std::endl;
-        return result;
-    }
-
-    PHYSFS_File* file = PHYSFS_openRead(filename.c_str());
-    if (!file) {
-        std::cerr << "Failed to open file: " << filename
-                  << " - " << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
-        return result;
-    }
-
-    PHYSFS_sint64 fileSize = PHYSFS_fileLength(file);
-    if (fileSize <= 0) {
-        std::cerr << "Invalid file size: " << fileSize << std::endl;
-        PHYSFS_close(file);
-        return result;
-    }
-
-    void* buffer = malloc(fileSize);
-    if (!buffer) {
-        std::cerr << "Failed to allocate memory for file: " << filename << std::endl;
-        PHYSFS_close(file);
-        return result;
-    }
-
-    PHYSFS_sint64 bytesRead = PHYSFS_readBytes(file, buffer, fileSize);
-    if (bytesRead != fileSize) {
-        std::cerr << "Failed to read file: " << filename
-                  << " - " << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
-        free(buffer);
-        PHYSFS_close(file);
-        return result;
-    }
-
-    PHYSFS_close(file);
-
-    result.data = buffer;
-    result.fileSize = static_cast<int>(fileSize);
-    return result;
-}
 
 ModelAsset AssetHandler::_createCube(float size, CubeUVLayout layout) {
     ModelAsset cube;

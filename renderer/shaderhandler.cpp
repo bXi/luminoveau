@@ -277,7 +277,7 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
     
     if (_loadCachedShader(cachePath, cachedData) && _loadCachedMetadata(metadataPath, cachedMetadata)) {
         // Load source to verify hash
-        auto sourceFile = AssetHandler::GetFileFromPhysFS(filename);
+        auto sourceFile = FileHandler::GetFileFromPhysFS(filename);
         std::string source(static_cast<char*>(sourceFile.data), sourceFile.fileSize);
         std::string sourceHash = _computeSourceHash(source);
         
@@ -301,7 +301,7 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
     LOG_INFO("Compiling shader: {}", filename.c_str());
     
     // Load GLSL source
-    auto sourceFile = AssetHandler::GetFileFromPhysFS(filename);
+    auto sourceFile = FileHandler::GetFileFromPhysFS(filename);
     std::string source(static_cast<char*>(sourceFile.data), sourceFile.fileSize);
     
     // Compile GLSL -> SPIRV

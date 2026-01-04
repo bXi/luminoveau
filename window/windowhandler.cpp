@@ -37,7 +37,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 
     Renderer::InitRendering();
 
-    if (!AssetHandler::InitPhysFS()) {
+    if (!FileHandler::InitPhysFS()) {
         LOG_CRITICAL("AssetHandler::InitPhysFS failed");
     }
 }
@@ -408,7 +408,7 @@ void Window::SetupImGuiStyle() {
 
 void Window::_setIcon(const std::string &filename) {
 
-    auto icon = AssetHandler::GetFileFromPhysFS(filename);
+    auto icon = FileHandler::GetFileFromPhysFS(filename);
     auto* iconSurface = STBIMG_LoadFromMemory((const unsigned char*)icon.data, icon.fileSize);
 
     if (iconSurface) {
@@ -425,7 +425,7 @@ void Window::_setTitle(const std::string &title) {
 
 void Window::_setCursor(const std::string &filename) {
 
-    auto icon = AssetHandler::GetFileFromPhysFS(filename);
+    auto icon = FileHandler::GetFileFromPhysFS(filename);
     auto* cursorSurface = STBIMG_LoadFromMemory((const unsigned char*)icon.data, icon.fileSize);
 
     SDL_Cursor *cursor = nullptr;

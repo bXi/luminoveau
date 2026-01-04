@@ -29,17 +29,38 @@ bool Shaders::ResourcePack::AddFile(const std::string &sFile) {
 }
 
 bool Shaders::ResourcePack::LoadPack() {
-    // Open the resource file
-    baseFile.open(_fileName, std::ifstream::binary);
-    if (!baseFile.is_open()) return false;
+    // Check if file exists first
+    if (!FileHandler::FileExists(_fileName)) {
+        return false;
+    }
+
+    // Read entire resource file into memory
+    std::vector<uint8_t> fileData = FileHandler::ReadBinaryFile(_fileName);
+    if (fileData.empty()) {
+        LOG_ERROR("ResourcePack file is empty or failed to read: {}", _fileName);
+        return false;
+    }
+
+    // Create a buffer position tracker
+    size_t bufferPos = 0;
+
+    // Helper lambda to read from buffer
+    auto readFromBuffer = [&](void* dest, size_t size) -> bool {
+        if (bufferPos + size > fileData.size()) return false;
+        std::memcpy(dest, fileData.data() + bufferPos, size);
+        bufferPos += size;
+        return true;
+    };
 
     // 1) Read Scrambled index
     uint32_t nIndexSize = 0;
-    baseFile.read((char *) &nIndexSize, sizeof(uint32_t));
+    if (!readFromBuffer(&nIndexSize, sizeof(uint32_t))) return false;
 
     std::vector<char> buffer(nIndexSize);
-    for (uint32_t     j = 0; j < nIndexSize; j++)
-        buffer[j] = baseFile.get();
+    for (uint32_t j = 0; j < nIndexSize; j++) {
+        if (bufferPos >= fileData.size()) return false;
+        buffer[j] = fileData[bufferPos++];
+    }
 
     std::vector<char> decoded = scramble(buffer, _key);
     size_t            pos     = 0;

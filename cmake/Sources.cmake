@@ -34,6 +34,9 @@ set(LUMINOVEAU_SOURCES
     assethandler/assethandler.cpp
     assethandler/DroidSansMono.cpp
 
+    # File handling
+    file/filehandler.cpp
+
     # Shaders (auto-generated)
     ${LUMINOVEAU_SHADER_SOURCES}
 
@@ -100,6 +103,9 @@ set(LUMINOVEAU_HEADERS
 
     # Asset handling
     assethandler/assethandler.h
+
+    # File handling
+    file/filehandler.h
 
     # Shaders (auto-generated)
     assethandler/shaders_generated.h

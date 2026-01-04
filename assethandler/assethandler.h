@@ -24,17 +24,11 @@
 #include "assettypes/texture.h"
 #include "assettypes/model.h"
 
-#include "physfs.h"
+#include "file/filehandler.h"
 
 enum class ScaleMode {
     NEAREST,
     LINEAR,
-};
-
-struct PhysFSFileData {
-    void* data;
-    int fileSize;
-    std::vector<uint8_t> fileDataVector;
 };
 
 
@@ -168,8 +162,6 @@ public:
         return get()._createCube(size, layout);
     }
 
-    static bool InitPhysFS() { return get()._initPhysFS(); }
-
     template<typename T>
     static void Delete(T &asset) {
         get()._delete(asset);
@@ -178,8 +170,6 @@ public:
     static std::unordered_map<std::string, MusicAsset> &GetLoadedMusics() {
         return get()._musics;
     }
-
-    static PhysFSFileData GetFileFromPhysFS(const std::string &filename) { return get()._resolveFile(filename); }
 
     /**
      * @brief Cleans up all loaded assets.
@@ -246,10 +236,6 @@ private:
 
     // Cleanup
     void _cleanup();
-
-    bool _initPhysFS();
-
-    PhysFSFileData _resolveFile(const std::string& filename);
 
 
     // default font asset Droid Sans Mono.ttf
