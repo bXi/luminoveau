@@ -2,6 +2,9 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
+
+#include <SDL3/sdl.h>
 
 struct PhysFSFileData {
     void* data;
