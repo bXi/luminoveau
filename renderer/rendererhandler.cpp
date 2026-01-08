@@ -212,8 +212,15 @@ void Renderer::_initRendering() {
 
 
     #ifdef LUMINOVEAU_WITH_IMGUI
-    ImGui_ImplSDL3_InitForOther(Window::GetWindow());
-    ImGui_ImplSDLGPU3_Init(m_device, SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()));
+    ImGui_ImplSDL3_InitForSDLGPU(Window::GetWindow());
+
+    ImGui_ImplSDLGPU3_InitInfo init_info = {};
+    init_info.Device = m_device;
+    init_info.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow());
+    init_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
+    init_info.SwapchainComposition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;
+    init_info.PresentMode = SDL_GPU_PRESENTMODE_VSYNC;
+    ImGui_ImplSDLGPU3_Init(&init_info);
     #endif
 }
 
@@ -303,11 +310,11 @@ void Renderer::_endFrame() {
         SDL_PushGPUDebugGroup(m_cmdbuf, "[Lumi] ImGuiRenderPass::render");
 #endif
         ImGui::Render();
-        {
-            auto copy_pass = SDL_BeginGPUCopyPass(m_cmdbuf);
-            ImGui_ImplSDLGPU3_UploadDrawData(ImGui::GetDrawData(), copy_pass);
-            SDL_EndGPUCopyPass(copy_pass);
-        }
+        ImDrawData* draw_data = ImGui::GetDrawData();
+        
+        // IMPORTANT: PrepareDrawData must be called BEFORE the render pass
+        ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, m_cmdbuf);
+        
         {
             SDL_GPUColorTargetInfo color_target_info = {};
             color_target_info.texture              = swapchain_texture;
