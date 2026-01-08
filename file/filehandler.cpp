@@ -14,6 +14,9 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <shlobj.h>
+#ifdef GetSystemDirectory
+#undef GetSystemDirectory
+#endif
 #else
 #include <sys/stat.h>
 #include <unistd.h>
