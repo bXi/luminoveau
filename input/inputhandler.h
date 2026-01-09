@@ -13,6 +13,7 @@
 
 #include "inputconstants.h"
 #include "inputdevice.h"
+#include "virtualcontrols.h"
 
 static const int DEADZONE = 8000;
 
@@ -142,6 +143,17 @@ public:
 
     static Uint32 MouseScrolledDown() { return get()._mouseScrolledDown(); };
 
+    // === Virtual Controls (Onscreen Joystick/Buttons) ===
+    /**
+     * @brief Get the virtual controls instance
+     */
+    static VirtualControls& GetVirtualControls() { return get().virtualControls; }
+
+    /**
+     * @brief Handle touch events for virtual controls
+     */
+    static void HandleTouchEvent(const SDL_Event* event) { get()._handleTouchEvent(event); }
+
     //For internal use. handle with care
     static void UpdateInputs(std::vector<Uint8> keys, bool held) { get()._updateInputs(keys, held); }
 
@@ -215,6 +227,11 @@ private:
     };
 
     std::vector<gamepadInfo> gamepads;
+
+    VirtualControls virtualControls;
+
+    bool _didInit = false;
+    void _handleTouchEvent(const SDL_Event* event);
 public:
     Input(const Input &) = delete;
 

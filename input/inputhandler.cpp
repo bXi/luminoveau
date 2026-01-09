@@ -3,6 +3,10 @@
 #include "window/windowhandler.h"
 
 void Input::_init() {
+    if (_didInit) return;
+
+    _didInit = true;
+
     SDL_SetHint(SDL_HINT_JOYSTICK_ENHANCED_REPORTS, "1");
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAM, "1");
     SDL_SetHint(SDL_HINT_JOYSTICK_ROG_CHAKRAM, "1");
@@ -53,6 +57,9 @@ void Input::_update() {
             gamepad.currentButtonState[i] = SDL_GetGamepadButton(gamepad.gamepad, static_cast<SDL_GamepadButton>(i));
         }
     }
+
+    // Update virtual controls
+    virtualControls.Update();
 }
 
 void Input::_updateTimings() {
@@ -192,4 +199,8 @@ void Input::_updateScroll(int scrollDir) {
     if (scrollDir > 0) {
         scrolledUpTicks++;
     }
+}
+
+void Input::_handleTouchEvent(const SDL_Event* event) {
+    virtualControls.HandleTouchEvent(event);
 }

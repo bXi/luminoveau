@@ -242,6 +242,14 @@ public:
     static Texture WhitePixel() { return get()._whitePixel(); }
 
     /**
+     * @brief Retrieves a 1024x1024 white circle texture for rendering circles.
+     *
+     * @return The white circle texture.
+     */
+    static Texture WhiteCircle() { return get()._whiteCircle(); }
+
+
+    /**
      * @brief Gets the current MSAA sample count setting.
      *
      * @return The current sample count (e.g., SDL_GPU_SAMPLECOUNT_1, SDL_GPU_SAMPLECOUNT_4).
@@ -302,8 +310,10 @@ private:
     void _setScissorMode(const std::string &passname, const rectf &cliprect);
 
     TextureAsset _whitePixelTexture;
+    TextureAsset _whiteCircleTexture;
 
     Texture _whitePixel();
+    Texture _whiteCircle();
 
     UniformBuffer &_getUniformBuffer(const std::string &passname);
 

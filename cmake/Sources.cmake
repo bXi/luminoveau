@@ -20,6 +20,7 @@ set(LUMINOVEAU_SOURCES
     # Input handling
     input/inputdevice.cpp
     input/inputhandler.cpp
+    input/virtualcontrols.cpp
 
     # Drawing
     draw/drawhandler.cpp
@@ -89,6 +90,7 @@ set(LUMINOVEAU_HEADERS
     input/inputconstants.h
     input/inputdevice.h
     input/inputhandler.h
+    input/virtualcontrols.h
 
     # Drawing
     draw/drawhandler.h

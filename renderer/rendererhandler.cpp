@@ -210,6 +210,9 @@ void Renderer::_initRendering() {
     
     _whitePixelTexture = AssetHandler::CreateWhitePixel();
 
+    _whiteCircleTexture = AssetHandler::GetTexture("assets/circle.png");
+    _whiteCircleTexture.gpuSampler = GetSampler(ScaleMode::LINEAR);
+
 
     #ifdef LUMINOVEAU_WITH_IMGUI
     ImGui_ImplSDL3_InitForSDLGPU(Window::GetWindow());
@@ -258,6 +261,7 @@ void Renderer::_startFrame() const {
 
 void Renderer::_endFrame() {
     Draw::FlushPixels();
+    Input::GetVirtualControls().Render(); //Draw as last thing
     m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
     if (!m_cmdbuf) {
         LOG_ERROR("Failed to acquire GPU command buffer: {}", SDL_GetError());
@@ -326,7 +330,7 @@ void Renderer::_endFrame() {
 
             auto render_pass = SDL_BeginGPURenderPass(m_cmdbuf, &color_target_info, 1, nullptr);
 
-            ImGui_ImplSDLGPU3_RenderDrawData(ImGui::GetDrawData(), m_cmdbuf, render_pass);
+            ImGui_ImplSDLGPU3_RenderDrawData(draw_data, m_cmdbuf, render_pass);
 
             SDL_EndGPURenderPass(render_pass);
         }
@@ -614,6 +618,10 @@ SDL_GPUSampler *Renderer::_getSampler(ScaleMode scaleMode) {
 
 Texture Renderer::_whitePixel() {
     return _whitePixelTexture;
+}
+
+Texture Renderer::_whiteCircle() {
+    return _whiteCircleTexture;
 }
 
 SDL_GPURenderPass* Renderer::_getRenderPass(const std::string& passname) {

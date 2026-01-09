@@ -377,7 +377,39 @@ void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         pos = Camera::ToScreenSpace(pos);
+        radius *= Camera::GetScale();
     }
+
+    Renderable renderable = {
+        .texture = Renderer::WhiteCircle(),
+
+        .x = pos.x - radius,
+        .y = pos.y - radius,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
+
+        .rotation = 0.f,
+
+
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = radius * 2.f,
+        .h = radius * 2.f,
+
+        .pivot_x = 0.5f,
+        .pivot_y = 0.5f,
+    };
+
+    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+
+
 }
 
 void Draw::_drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {

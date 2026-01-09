@@ -40,6 +40,8 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     if (!FileHandler::InitPhysFS()) {
         LOG_CRITICAL("AssetHandler::InitPhysFS failed");
     }
+
+    Input::Init();
 }
 
 void Window::_close() {
@@ -120,7 +122,12 @@ void Window::_processEvent(SDL_Event* event) {
                 _lastWindowWidth = event->window.data1;
                 _lastWindowHeight = event->window.data2;
             }
-
+            break;
+        }
+        case SDL_EVENT_FINGER_DOWN:
+        case SDL_EVENT_FINGER_MOTION:
+        case SDL_EVENT_FINGER_UP: {
+            Input::HandleTouchEvent(event);
             break;
         }
         case SDL_EventType::SDL_EVENT_WINDOW_MAXIMIZED: {
@@ -344,7 +351,6 @@ void Window::SetupImGuiStyle() {
     style.GrabRounding              = 0.0f;
     style.TabRounding               = 4.0f;
     style.TabBorderSize             = 0.0f;
-    style.TabMinWidthForCloseButton = 0.0f;
     style.ColorButtonPosition       = ImGuiDir_Right;
     style.ButtonTextAlign           = ImVec2(0.5f, 0.5f);
     style.SelectableTextAlign       = ImVec2(0.0f, 0.0f);
