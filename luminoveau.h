@@ -20,6 +20,7 @@
 #include <window/windowhandler.h>
 
 //Utilities
+#include <utils/angles.h>
 #include <utils/camera.h>
 #include <utils/camera3d.h>
 #include <utils/colors.h>

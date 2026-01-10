@@ -196,7 +196,7 @@ void Draw::_drawLine(vf2d start, vf2d end, Color color) {
     if (line.x == 0.0f && line.y == 0.0f) return;
 
     float length = std::hypot(line.x, line.y);
-    float angle = std::atan2(line.y, line.x) * 180.0f / PI; // Convert to degrees
+    float angle = std::atan2(line.y, line.x);  // Keep in radians
 
     vf2d size = {length, 1.0f};
     vf2d pivot = {0.0f, 0.5f};
@@ -293,7 +293,7 @@ void Draw::_drawRotatedTexture(Draw::TextureType texture, const vf2d& pos, const
         .y = pos.y,
         .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
 
-        .rotation = glm::radians(fmod(angle, 360.f)),
+        .rotation = angle,  // Angle is already in radians
 
         .tex_u = 0.f,
         .tex_v = 0.f,
@@ -332,7 +332,7 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, const vf2d &pos, c
         .y = pos.y,
         .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
 
-        .rotation = glm::radians(fmod(angle, 360.f)),
+        .rotation = angle,  // Angle is already in radians
 
         .tex_u = u0,
         .tex_v = v0,
@@ -504,7 +504,7 @@ void Draw::_drawThickLine(vf2d start, vf2d end, Color color, float width) {
     if (std::fabs(line.x) < EPS && std::fabs(line.y) < EPS) return;
 
     float length = std::hypot(line.x, line.y);
-    float angle = std::atan2(line.y, line.x) * 180.0f / PI; // degrees
+    float angle = std::atan2(line.y, line.x);  // Keep in radians
 
     // draw rectangle with pivot at left-center so we can place it exactly at `start`
     vf2d size = { length, width };
