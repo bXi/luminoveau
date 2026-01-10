@@ -45,6 +45,7 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
             // Set up the Renderable object with UVs
             Renderable ren = {
                 .texture = tex,
+                .geometry = Renderer::GetQuadGeometry(),  // Need geometry to render!
 
                 .x = minX + pos.x,
                 .y = pos.y + (0 - maxY),
