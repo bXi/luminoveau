@@ -138,11 +138,7 @@ void Geometry2D::UploadToGPU(SDL_GPUDevice* device) {
     
     SDL_EndGPUCopyPass(copyPass);
     SDL_SubmitGPUCommandBuffer(uploadCmd);
-    
-    if (name) {
-        LOG_INFO("Uploaded 2D geometry '{}': {} vertices, {} indices", 
-                 name, vertices.size(), indices.size());
-    }
+
 }
 
 void Geometry2D::Release(SDL_GPUDevice* device) {
@@ -231,6 +227,75 @@ namespace Geometry2DFactory {
         circle->UploadToGPU(Renderer::GetDevice());
         geometryCache[key] = circle;
         return circle;
+    }
+    
+    Geometry2D* CreateRoundedRect(float cornerRadius, int cornerSegments) {
+        // Clamp corner radius to valid range
+        cornerRadius = std::max(0.0f, std::min(0.5f, cornerRadius));
+        
+        std::string key = "roundrect_" + std::to_string(cornerRadius) + "_" + std::to_string(cornerSegments);
+        auto it = geometryCache.find(key);
+        if (it != geometryCache.end()) {
+            return it->second;
+        }
+        
+        auto* roundedRect = new Geometry2D();
+        roundedRect->name = "RoundedRect";
+        
+        // Center vertex at (0.5, 0.5) with UV (0.5, 0.5) for triangle fan
+        roundedRect->vertices.push_back({0.5f, 0.5f, 0.5f, 0.5f});
+        
+        // Generate perimeter vertices (clockwise from top-left)
+        std::vector<Vertex2D> perimeter;
+        
+        // Top-left corner arc (180° to 270°)
+        for (int i = 0; i <= cornerSegments; i++) {
+            float angle = PI + (PI * 0.5f) * (float)i / (float)cornerSegments;
+            float x = cornerRadius + std::cos(angle) * cornerRadius;
+            float y = cornerRadius + std::sin(angle) * cornerRadius;
+            perimeter.push_back({x, y, x, y});
+        }
+        
+        // Top-right corner arc (270° to 360°)
+        for (int i = 0; i <= cornerSegments; i++) {
+            float angle = PI * 1.5f + (PI * 0.5f) * (float)i / (float)cornerSegments;
+            float x = (1.0f - cornerRadius) + std::cos(angle) * cornerRadius;
+            float y = cornerRadius + std::sin(angle) * cornerRadius;
+            perimeter.push_back({x, y, x, y});
+        }
+        
+        // Bottom-right corner arc (0° to 90°)
+        for (int i = 0; i <= cornerSegments; i++) {
+            float angle = 0.0f + (PI * 0.5f) * (float)i / (float)cornerSegments;
+            float x = (1.0f - cornerRadius) + std::cos(angle) * cornerRadius;
+            float y = (1.0f - cornerRadius) + std::sin(angle) * cornerRadius;
+            perimeter.push_back({x, y, x, y});
+        }
+        
+        // Bottom-left corner arc (90° to 180°)
+        for (int i = 0; i <= cornerSegments; i++) {
+            float angle = PI * 0.5f + (PI * 0.5f) * (float)i / (float)cornerSegments;
+            float x = cornerRadius + std::cos(angle) * cornerRadius;
+            float y = (1.0f - cornerRadius) + std::sin(angle) * cornerRadius;
+            perimeter.push_back({x, y, x, y});
+        }
+        
+        // Add perimeter vertices
+        for (const auto& v : perimeter) {
+            roundedRect->vertices.push_back(v);
+        }
+        
+        // Create triangle fan indices
+        int perimeterCount = perimeter.size();
+        for (int i = 0; i < perimeterCount; i++) {
+            roundedRect->indices.push_back(0);  // Center
+            roundedRect->indices.push_back(i + 1);  // Current perimeter vertex
+            roundedRect->indices.push_back(((i + 1) % perimeterCount) + 1);  // Next perimeter vertex
+        }
+        
+        roundedRect->UploadToGPU(Renderer::GetDevice());
+        geometryCache[key] = roundedRect;
+        return roundedRect;
     }
     
     void ReleaseAll(SDL_GPUDevice* device) {

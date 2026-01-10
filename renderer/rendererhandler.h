@@ -255,6 +255,17 @@ public:
      * @return Pointer to the circle geometry.
      */
     static Geometry2D* GetCircleGeometry(int segments = 32) { return get()._getCircleGeometry(segments); }
+    
+    /**
+     * @brief Retrieves a rounded rectangle geometry with the specified corner radius and segments.
+     *
+     * @param cornerRadius Radius of the rounded corners (0.0 to 0.5).
+     * @param cornerSegments Number of segments per corner arc (default 8).
+     * @return Pointer to the rounded rectangle geometry.
+     */
+    static Geometry2D* GetRoundedRectGeometry(float cornerRadius = 0.1f, int cornerSegments = 8) { 
+        return get()._getRoundedRectGeometry(cornerRadius, cornerSegments); 
+    }
 
 
     /**
@@ -323,6 +334,7 @@ private:
 
     Geometry2D* _getQuadGeometry();
     Geometry2D* _getCircleGeometry(int segments);
+    Geometry2D* _getRoundedRectGeometry(float cornerRadius, int cornerSegments);
 
     UniformBuffer &_getUniformBuffer(const std::string &passname);
 

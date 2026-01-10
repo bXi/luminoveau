@@ -367,13 +367,54 @@ void Draw::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {
 }
 
 void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
-    LUMI_UNUSED(radius, color);
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Clamp radius to not exceed half of the smallest dimension
+    radius = std::min(radius, std::min(size.x, size.y) / 2.0f);
+    
+    // Apply camera transformation
     if (Camera::IsActive()) {
-        // Convert world space coordinates to screen space
         pos = Camera::ToScreenSpace(pos);
-        radius *= Camera::GetScale();  // Scale the radius with the camera's zoom
-        size *= Camera::GetScale();    // Scale the size with the camera's zoom
+        radius *= Camera::GetScale();
+        size *= Camera::GetScale();
     }
+    
+    // Calculate normalized corner radius (0.0 to 0.5)
+    float normalizedRadius = radius / std::min(size.x, size.y);
+    normalizedRadius = std::min(0.5f, normalizedRadius);
+    
+    // Get the rounded rectangle geometry with 8 segments per corner
+    Geometry2D* geom = Renderer::GetRoundedRectGeometry(normalizedRadius, 8);
+    
+    // Create renderable using the geometry
+    Renderable renderable = {
+        .texture = Renderer::WhitePixel(),
+        .geometry = geom,
+
+        .x = pos.x,
+        .y = pos.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,
+
+        .rotation = 0.f,
+
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = size.x,
+        .h = size.y,
+
+        .pivot_x = 0.5f,
+        .pivot_y = 0.5f,
+    };
+
+    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
 }
 
 void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {

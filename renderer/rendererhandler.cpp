@@ -624,6 +624,10 @@ Geometry2D* Renderer::_getCircleGeometry(int segments) {
     return Geometry2DFactory::CreateCircle(segments);
 }
 
+Geometry2D* Renderer::_getRoundedRectGeometry(float cornerRadius, int cornerSegments) {
+    return Geometry2DFactory::CreateRoundedRect(cornerRadius, cornerSegments);
+}
+
 SDL_GPURenderPass* Renderer::_getRenderPass(const std::string& passname) {
 
     SDL_GPURenderPass* foundPass = nullptr;

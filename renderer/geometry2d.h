@@ -80,6 +80,13 @@ namespace Geometry2DFactory {
     Geometry2D* CreateCircle(int segments = 32);
     
     /**
+     * @brief Creates a unit rounded rectangle geometry (0,0) to (1,1) with rounded corners
+     * @param cornerRadius Radius of the rounded corners (0.0 to 0.5)
+     * @param cornerSegments Number of segments per corner arc
+     */
+    Geometry2D* CreateRoundedRect(float cornerRadius = 0.1f, int cornerSegments = 8);
+    
+    /**
      * @brief Releases all cached geometries
      * @param device Pointer to the SDL_GPUDevice.
      */
