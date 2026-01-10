@@ -127,6 +127,9 @@ CPMAddPackage(
     GIT_TAG main
 )
 if(SDL_shadercross_ADDED)
+    # Force SDL_shadercross to compile with C17 instead of C23 to avoid bool/NULL conversion issues
+    set_target_properties(SDL3_shadercross-static PROPERTIES C_STANDARD 17)
+    set_target_properties(SDL3_shadercross-static PROPERTIES C_STANDARD_REQUIRED ON)
     if(NOT EXISTS "${SDL_shadercross_SOURCE_DIR}")
         message(FATAL_ERROR "SDL_shadercross source directory '${SDL_shadercross_SOURCE_DIR}' does not exist")
     endif()
