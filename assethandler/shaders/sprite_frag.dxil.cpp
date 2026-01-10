@@ -1,7 +1,7 @@
 // Auto-generated shader binary - DO NOT EDIT
 // Source: E:\luminoveau\assethandler\shaders\sprite_frag.dxil
 // Backend: DXIL
-// Generated: 2026-01-01 14:03:50
+// Generated: 2026-01-09 18:49:09
 
 #include <cstdint>
 #include <cstddef>

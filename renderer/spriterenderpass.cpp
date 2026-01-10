@@ -32,17 +32,6 @@ void SpriteRenderPass::release(bool logRelease) {
         SpriteDataBuffer = nullptr;
     }
 
-    // Release index buffer
-    if (IndexBuffer) {
-        SDL_ReleaseGPUBuffer(Renderer::GetDevice(), IndexBuffer);
-        IndexBuffer = nullptr;
-    }
-
-    if (IndexTransferBuffer) {
-        SDL_ReleaseGPUTransferBuffer(Renderer::GetDevice(), IndexTransferBuffer);
-        IndexTransferBuffer = nullptr;
-    }
-
     // Release shaders
     if (vertex_shader) {
         SDL_ReleaseGPUShader(Renderer::GetDevice(), vertex_shader);
@@ -94,15 +83,38 @@ bool SpriteRenderPass::init(
         .blend_state = renderPassBlendState,
     };
 
+    // Define vertex buffer layout for Vertex2D (CompactVertex2D)
+    SDL_GPUVertexAttribute vertexAttributes[] = {
+        {
+            .location = 0,
+            .buffer_slot = 0,
+            .format = SDL_GPU_VERTEXELEMENTFORMAT_UINT,  // pos_xy (uint32 with 2 packed half-floats)
+            .offset = 0
+        },
+        {
+            .location = 1,
+            .buffer_slot = 0,
+            .format = SDL_GPU_VERTEXELEMENTFORMAT_UINT,  // uv (uint32 with 2 packed half-floats)
+            .offset = 4
+        }
+    };
+    
+    SDL_GPUVertexBufferDescription vertexBufferDesc = {
+        .slot = 0,
+        .pitch = 8,  // sizeof(CompactVertex2D)
+        .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
+        .instance_step_rate = 0
+    };
+    
     SDL_GPUGraphicsPipelineCreateInfo pipeline_create_info{
         .vertex_shader = vertex_shader,
         .fragment_shader = fragment_shader,
         .vertex_input_state =
             {
-                .vertex_buffer_descriptions = nullptr,
-                .num_vertex_buffers = 0,
-                .vertex_attributes = nullptr,
-                .num_vertex_attributes = 0,
+                .vertex_buffer_descriptions = &vertexBufferDesc,
+                .num_vertex_buffers = 1,
+                .vertex_attributes = vertexAttributes,
+                .num_vertex_attributes = 2,
             },
         .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
         .rasterizer_state = GPUstructs::defaultRasterizerState,
@@ -150,64 +162,6 @@ bool SpriteRenderPass::init(
         m_gpu_device,
         &bufferCreateInfo
     );
-
-    // Create index buffer for instanced quad rendering
-    // Quad indices: 0-1-2, 2-1-3 (two triangles forming a quad)
-    const uint16_t quadIndices[6] = {0, 1, 2, 2, 1, 3};
-
-    SDL_GPUTransferBufferCreateInfo indexTransferBufferCreateInfo = {
-        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = sizeof(quadIndices)
-    };
-
-    IndexTransferBuffer = SDL_CreateGPUTransferBuffer(
-        m_gpu_device,
-        &indexTransferBufferCreateInfo
-    );
-
-    SDL_GPUBufferCreateInfo indexBufferCreateInfo = {
-        .usage = SDL_GPU_BUFFERUSAGE_INDEX,
-        .size = sizeof(quadIndices)
-    };
-
-    IndexBuffer = SDL_CreateGPUBuffer(
-        m_gpu_device,
-        &indexBufferCreateInfo
-    );
-
-    // Upload quad indices to GPU
-    void* indexData = SDL_MapGPUTransferBuffer(
-        m_gpu_device,
-        IndexTransferBuffer,
-        false
-    );
-    std::memcpy(indexData, quadIndices, sizeof(quadIndices));
-    SDL_UnmapGPUTransferBuffer(m_gpu_device, IndexTransferBuffer);
-
-    // Transfer indices to GPU buffer
-    SDL_GPUCommandBuffer* uploadCmdBuffer = SDL_AcquireGPUCommandBuffer(m_gpu_device);
-    SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuffer);
-
-    SDL_GPUTransferBufferLocation indexTransferLocation = {
-        .transfer_buffer = IndexTransferBuffer,
-        .offset = 0
-    };
-
-    SDL_GPUBufferRegion indexBufferRegion = {
-        .buffer = IndexBuffer,
-        .offset = 0,
-        .size = sizeof(quadIndices)
-    };
-
-    SDL_UploadToGPUBuffer(
-        copyPass,
-        &indexTransferLocation,
-        &indexBufferRegion,
-        false
-    );
-
-    SDL_EndGPUCopyPass(copyPass);
-    SDL_SubmitGPUCommandBuffer(uploadCmdBuffer);
 
     if (!m_pipeline) {
         LOG_CRITICAL("failed to create graphics pipeline: {}", SDL_GetError());
@@ -276,17 +230,21 @@ void SpriteRenderPass::render(
     }
     thread_pool.wait_all();
 
-    // Build batches respecting z-order and texture changes
+    // Build batches respecting z-order, geometry, and texture changes
     std::vector<Batch> batches;
     batches.reserve(64);
 
     size_t      currentOffset = 0;
     for (size_t i             = 0; i < renderQueueCount; ++i) {
-        if (i == 0 || renderQueue[i].texture.gpuTexture != renderQueue[i - 1].texture.gpuTexture) {
-            // Start a new batch when texture changes
+        bool geometryChanged = (i > 0 && renderQueue[i].geometry != renderQueue[i - 1].geometry);
+        bool textureChanged = (i > 0 && renderQueue[i].texture.gpuTexture != renderQueue[i - 1].texture.gpuTexture);
+        
+        if (i == 0 || geometryChanged || textureChanged) {
+            // Start a new batch when geometry or texture changes
             Batch batch;
             batch.offset  = currentOffset;
             batch.count   = 1;
+            batch.geometry = renderQueue[i].geometry;
             batch.texture = renderQueue[i].texture.gpuTexture;
             batch.sampler = renderQueue[i].texture.gpuSampler;
             batches.push_back(batch);
@@ -371,13 +329,6 @@ void SpriteRenderPass::render(
 
         SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline);
         
-        // Bind the index buffer
-        SDL_GPUBufferBinding indexBinding = {
-            .buffer = IndexBuffer,
-            .offset = 0
-        };
-        SDL_BindGPUIndexBuffer(render_pass, &indexBinding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
-        
         // Bind sprite instance data as storage buffer
         SDL_BindGPUVertexStorageBuffers(
             render_pass,
@@ -387,13 +338,26 @@ void SpriteRenderPass::render(
         );
 
         for (const auto &batch: batches) {
+            if (batch.texture == nullptr || batch.sampler == nullptr || batch.geometry == nullptr) continue;
+            
+            // Bind vertex buffer for this geometry
+            SDL_GPUBufferBinding vertexBinding = {
+                .buffer = batch.geometry->vertexBuffer,
+                .offset = 0
+            };
+            SDL_BindGPUVertexBuffers(render_pass, 0, &vertexBinding, 1);
+            
+            // Bind index buffer for this geometry
+            SDL_GPUBufferBinding indexBinding = {
+                .buffer = batch.geometry->indexBuffer,
+                .offset = 0
+            };
+            SDL_BindGPUIndexBuffer(render_pass, &indexBinding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+            
             SDL_GPUTextureSamplerBinding samplerBinding = {
                 .texture = batch.texture,
                 .sampler = batch.sampler
             };
-
-            if (batch.texture == nullptr || batch.sampler == nullptr) continue;
-
             SDL_BindGPUFragmentSamplers(render_pass, 0, &samplerBinding, 1);
             SDL_PushGPUVertexUniformData(cmd_buffer, 0, &camera, sizeof(glm::mat4));
             
@@ -401,13 +365,10 @@ void SpriteRenderPass::render(
             uint32_t batchOffset = static_cast<uint32_t>(batch.offset);
             SDL_PushGPUVertexUniformData(cmd_buffer, 1, &batchOffset, sizeof(uint32_t));
             
-            // Draw using instancing:
-            // - 6 indices per quad (2 triangles)
-            // - batch.count instances  
-            // - Set first_instance to 0 since we now use baseInstance uniform
+            // Draw using instancing with geometry-specific index count
             SDL_DrawGPUIndexedPrimitives(
                 render_pass,
-                6,              // num_indices - we have 6 indices for the quad
+                static_cast<uint32_t>(batch.geometry->GetIndexCount()),  // Use geometry's index count
                 batch.count,    // num_instances - one instance per sprite
                 0,              // first_index
                 0,              // vertex_offset

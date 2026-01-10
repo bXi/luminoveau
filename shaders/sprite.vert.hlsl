@@ -1,5 +1,5 @@
 // Sprite Vertex Shader (HLSL)
-// Instanced sprite rendering with half-precision data packing
+// Instanced sprite rendering with vertex buffers and half-precision data packing
 
 struct SpriteData
 {
@@ -11,6 +11,12 @@ struct SpriteData
     uint color_ba;    // b in low 16 bits, a in high 16 bits
     uint size_wh;     // w in low 16 bits, h in high 16 bits
     uint pivot_xy;    // pivot_x in low 16 bits, pivot_y in high 16 bits
+};
+
+struct VertexInput
+{
+    uint pos_xy : TEXCOORD0;  // Vertex position from vertex buffer (half-float packed)
+    uint uv : TEXCOORD1;      // UV coordinates from vertex buffer (half-float packed)
 };
 
 struct Output
@@ -33,14 +39,6 @@ cbuffer InstanceOffset : register(b1, space1)
     uint baseInstance : packoffset(c0);
 };
 
-// Vertex positions for a quad (indexed)
-static const float2 quadVertices[4] = {
-    {0.0f, 0.0f},  // bottom-left
-    {1.0f, 0.0f},  // bottom-right
-    {0.0f, 1.0f},  // top-left
-    {1.0f, 1.0f}   // top-right
-};
-
 // Float16 to Float32 conversion using HLSL built-in
 float unpackHalf(uint h16)
 {
@@ -54,12 +52,12 @@ float2 unpackHalf2(uint packed)
     return float2(unpackHalf(h0), unpackHalf(h1));
 }
 
-Output main(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
+Output main(VertexInput input, uint instanceID : SV_InstanceID)
 {
-    // Read sprite data
+    // Read sprite data from storage buffer
     SpriteData sprite = SpriteInstances[instanceID + baseInstance];
     
-    // Unpack position, size, UV, and color
+    // Unpack instance data
     float x = unpackHalf(sprite.pos_xy & 0xFFFF);
     float y = unpackHalf((sprite.pos_xy >> 16) & 0xFFFF);
     float rotation = unpackHalf((sprite.pos_z_rot >> 16) & 0xFFFF);
@@ -74,13 +72,18 @@ Output main(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
     float2 scale = unpackHalf2(sprite.size_wh);
     float2 pivot = unpackHalf2(sprite.pivot_xy);
 
-    // Get vertex position for this corner of the quad
-    float2 coord = quadVertices[vertexID];
+    // Unpack vertex data from vertex buffer
+    // Vertex position is in local space (0,0 to 1,1 for quad, -1 to 1 for circle, etc.)
+    float2 vertexPos = unpackHalf2(input.pos_xy);
+    float2 vertexUV = unpackHalf2(input.uv);
     
-    // Calculate texture coordinates
+    // Start with vertex position in local space
+    float2 coord = vertexPos;
+    
+    // Calculate texture coordinates (vertex UV mapped through instance UV rect)
     float2 texcoord = float2(
-        texUV.x + coord.x * texWH.x,
-        texUV.y + coord.y * texWH.y
+        texUV.x + vertexUV.x * texWH.x,
+        texUV.y + vertexUV.y * texWH.y
     );
     
     // Apply pivot offset before rotation

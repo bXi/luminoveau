@@ -4,6 +4,7 @@
 #include "audio/audiohandler.h"
 
 #include "assethandler/assethandler.h"
+#include "renderer/geometry2d.h"
 #include "assethandler/shaders_generated.h"
 #include "draw/drawhandler.h"
 
@@ -209,10 +210,6 @@ void Renderer::_initRendering() {
     m_rendertotexturepipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &rtt_pipeline_create_info);
     
     _whitePixelTexture = AssetHandler::CreateWhitePixel();
-
-    _whiteCircleTexture = AssetHandler::GetTexture("assets/circle.png");
-    _whiteCircleTexture.gpuSampler = GetSampler(ScaleMode::LINEAR);
-
 
     #ifdef LUMINOVEAU_WITH_IMGUI
     ImGui_ImplSDL3_InitForSDLGPU(Window::GetWindow());
@@ -594,7 +591,6 @@ void Renderer::_setFramebufferRenderToScreen(const std::string& fbName, bool ren
     auto* framebuffer = _getFramebuffer(fbName);
     if (framebuffer) {
         framebuffer->renderToScreen = render;
-        LOG_INFO("Set renderToScreen to {} for framebuffer: {}", render, fbName.c_str());
     } else {
         LOG_WARNING("Framebuffer not found: {}", fbName.c_str());
     }
@@ -620,8 +616,12 @@ Texture Renderer::_whitePixel() {
     return _whitePixelTexture;
 }
 
-Texture Renderer::_whiteCircle() {
-    return _whiteCircleTexture;
+Geometry2D* Renderer::_getQuadGeometry() {
+    return Geometry2DFactory::CreateQuad();
+}
+
+Geometry2D* Renderer::_getCircleGeometry(int segments) {
+    return Geometry2DFactory::CreateCircle(segments);
 }
 
 SDL_GPURenderPass* Renderer::_getRenderPass(const std::string& passname) {

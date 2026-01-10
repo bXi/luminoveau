@@ -242,11 +242,19 @@ public:
     static Texture WhitePixel() { return get()._whitePixel(); }
 
     /**
-     * @brief Retrieves a 1024x1024 white circle texture for rendering circles.
+     * @brief Retrieves the default quad geometry (unit quad from 0,0 to 1,1).
      *
-     * @return The white circle texture.
+     * @return Pointer to the quad geometry.
      */
-    static Texture WhiteCircle() { return get()._whiteCircle(); }
+    static Geometry2D* GetQuadGeometry() { return get()._getQuadGeometry(); }
+    
+    /**
+     * @brief Retrieves a circle geometry with the specified number of segments.
+     *
+     * @param segments Number of triangle segments (default 32).
+     * @return Pointer to the circle geometry.
+     */
+    static Geometry2D* GetCircleGeometry(int segments = 32) { return get()._getCircleGeometry(segments); }
 
 
     /**
@@ -310,10 +318,11 @@ private:
     void _setScissorMode(const std::string &passname, const rectf &cliprect);
 
     TextureAsset _whitePixelTexture;
-    TextureAsset _whiteCircleTexture;
 
     Texture _whitePixel();
-    Texture _whiteCircle();
+
+    Geometry2D* _getQuadGeometry();
+    Geometry2D* _getCircleGeometry(int segments);
 
     UniformBuffer &_getUniformBuffer(const std::string &passname);
 

@@ -110,10 +110,6 @@ class SpriteRenderPass : public RenderPass {
 
     SDL_GPUTransferBuffer* SpriteDataTransferBuffer;
     SDL_GPUBuffer* SpriteDataBuffer;
-    
-    // Index buffer for instanced quad rendering
-    SDL_GPUBuffer* IndexBuffer;
-    SDL_GPUTransferBuffer* IndexTransferBuffer;
 
     // Original full-precision struct (64 bytes)
     struct SpriteInstance {
@@ -193,6 +189,7 @@ class SpriteRenderPass : public RenderPass {
     }
 
     struct Batch {
+        Geometry2D* geometry = nullptr;  // Which geometry this batch uses
         SDL_GPUTexture* texture = nullptr;
         SDL_GPUSampler* sampler = nullptr;
 

@@ -4,6 +4,7 @@
 #include <glm/ext/matrix_transform.hpp>
 
 #include "assettypes/texture.h"
+#include "renderer/geometry2d.h"
 #include "utils/colors.h"
 struct SpriteInstance {
 
@@ -11,6 +12,7 @@ struct SpriteInstance {
 
 struct Renderable {
     TextureAsset texture;
+    Geometry2D* geometry = nullptr;  // Which geometry to use for this renderable
 
     float x, y, z;
     float rotation;

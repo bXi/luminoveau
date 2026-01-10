@@ -49,6 +49,7 @@ set(LUMINOVEAU_SOURCES
     renderer/shaderrenderpass.cpp
     renderer/shaderhandler.cpp
     renderer/resourcepack.cpp
+    renderer/geometry2d.cpp
 
     # Logging
     log/loghandler.cpp
@@ -128,6 +129,7 @@ set(LUMINOVEAU_HEADERS
     renderer/model3drenderpass.h
     renderer/shaderrenderpass.h
     renderer/shaderhandler.h
+    renderer/geometry2d.h
 
     # Logging
     log/loghandler.h

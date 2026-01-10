@@ -215,6 +215,7 @@ void Draw::_drawTexture(TextureType texture, const vf2d& pos, const vf2d &size, 
 
     Renderable renderable = {
         .texture = texture,
+        .geometry = Renderer::GetQuadGeometry(),
 
         .x = dstRect.x,
         .y = dstRect.y,
@@ -254,6 +255,7 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &si
 
     Renderable renderable = {
         .texture = texture,
+        .geometry = Renderer::GetQuadGeometry(),
 
         .x = dstRect.x,
         .y = dstRect.y,
@@ -285,6 +287,7 @@ void Draw::_drawRotatedTexture(Draw::TextureType texture, const vf2d& pos, const
 
     Renderable renderable = {
         .texture = texture,
+        .geometry = Renderer::GetQuadGeometry(),
 
         .x = pos.x,
         .y = pos.y,
@@ -323,6 +326,7 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, const vf2d &pos, c
 
     Renderable renderable = {
         .texture = texture,
+        .geometry = Renderer::GetQuadGeometry(),
 
         .x = pos.x,
         .y = pos.y,
@@ -373,7 +377,6 @@ void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color 
 }
 
 void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
-    LUMI_UNUSED(radius, color);
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         pos = Camera::ToScreenSpace(pos);
@@ -381,14 +384,14 @@ void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
     }
 
     Renderable renderable = {
-        .texture = Renderer::WhiteCircle(),
+        .texture = Renderer::WhitePixel(),  // Use white pixel texture for tinting
+        .geometry = Renderer::GetCircleGeometry(32),  // Use 32-segment circle
 
-        .x = pos.x - radius,
-        .y = pos.y - radius,
+        .x = pos.x,
+        .y = pos.y,
         .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
 
         .rotation = 0.f,
-
 
         .tex_u = 0.f,
         .tex_v = 0.f,
@@ -400,16 +403,14 @@ void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
         .b = (float) color.b / 255.f,
         .a = (float) color.a / 255.f,
 
-        .w = radius * 2.f,
-        .h = radius * 2.f,
+        .w = radius,
+        .h = radius,
 
         .pivot_x = 0.5f,
         .pivot_y = 0.5f,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
-
-
 }
 
 void Draw::_drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
