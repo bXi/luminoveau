@@ -4,6 +4,13 @@
 
 void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color) {
 
+    vf2d newPos = pos;
+
+    if (Camera::IsActive()) {
+        newPos = Camera::ToScreenSpace(pos);
+    }
+
+
     if (textToDraw.empty()) return;
     if (std::all_of(textToDraw.begin(), textToDraw.end(), isspace)) return;
 
@@ -47,8 +54,8 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
                 .texture = tex,
                 .geometry = Renderer::GetQuadGeometry(),  // Need geometry to render!
 
-                .x = minX + pos.x,
-                .y = pos.y + (0 - maxY),
+                .x = minX + newPos.x,
+                .y = newPos.y + (0 - maxY),
                 .z = (float) Renderer::GetZIndex(),
 
                 .rotation = 0.f,
