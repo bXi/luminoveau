@@ -579,11 +579,19 @@ void Renderer::_createFrameBuffer(const std::string &fbname) {
     });
 
     if (it == frameBuffers.end()) {
+        // Get desktop size for framebuffer texture
+        SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
+        const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
+        int desktopWidth = displayMode ? displayMode->w : 3840;
+        int desktopHeight = displayMode ? displayMode->h : 2160;
+        
         auto *framebuffer = new FrameBuffer;
-        framebuffer->fbContent = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
+        framebuffer->fbContent = AssetHandler::CreateEmptyTexture({(float)desktopWidth, (float)desktopHeight}).gpuTexture;
+        framebuffer->width = desktopWidth;   // CRITICAL: Set width
+        framebuffer->height = desktopHeight; // CRITICAL: Set height
         frameBuffers.emplace_back(fbname, framebuffer);
 
-        LOG_INFO("Created framebuffer: {}", fbname.c_str());
+        LOG_INFO("Created framebuffer: {} ({}x{})", fbname.c_str(), desktopWidth, desktopHeight);
     }
 }
 
