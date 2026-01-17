@@ -50,7 +50,7 @@ public:
     explicit RenderPass(SDL_GPUDevice* gpu_device) : m_gpu_device(gpu_device) {}
     virtual ~RenderPass() = default;
 
-    [[nodiscard]] virtual bool init(
+    virtual bool init(
         SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width,
         uint32_t surface_height, std::string name, bool logInit = true
     ) = 0;
