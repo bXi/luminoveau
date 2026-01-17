@@ -315,9 +315,9 @@ private:
 
     void _drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color = WHITE);
 
-    void _drawRotatedTexture(TextureType texture, const vf2d& pos, const vf2d& size, float angle, const vf2d& pivot,Color color = WHITE);
+    void _drawRotatedTexture(TextureType texture, vf2d pos, vf2d size, float angle, const vf2d& pivot,Color color = WHITE);
 
-    void _drawRotatedTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, float angle, const vf2d& pivot,Color color = WHITE);
+    void _drawRotatedTexturePart(TextureType texture, vf2d pos, vf2d size, const rectf& src, float angle, const vf2d& pivot,Color color = WHITE);
 
     void _setScissorMode(const rectf& area);
 

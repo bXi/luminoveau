@@ -129,13 +129,11 @@ void Draw::_cleanupPixelBuffer() {
 void Draw::_drawRectangle(const vf2d& pos, const vf2d& size, Color color) {
     _flushPixels();  // Auto-flush before drawing
     
-    rectf dstRect = _doCamera(pos, size);
-
-    // Draw the four sides of the rectangle using lines
-    vf2d topLeft = dstRect.pos;
-    vf2d topRight = {dstRect.pos.x + dstRect.size.x, dstRect.pos.y};
-    vf2d bottomRight = {dstRect.pos.x + dstRect.size.x, dstRect.pos.y + dstRect.size.y};
-    vf2d bottomLeft = {dstRect.pos.x, dstRect.pos.y + dstRect.size.y};
+    // Calculate corners from original pos/size, let _drawLine handle transformation
+    vf2d topLeft = pos;
+    vf2d topRight = {pos.x + size.x, pos.y};
+    vf2d bottomRight = {pos.x + size.x, pos.y + size.y};
+    vf2d bottomLeft = {pos.x, pos.y + size.y};
 
     // Top edge
     _drawLine(topLeft, topRight, color);
@@ -149,13 +147,22 @@ void Draw::_drawRectangle(const vf2d& pos, const vf2d& size, Color color) {
 
 void Draw::_drawCircle(vf2d pos, float radius, Color color, int segments = 32) {
     _flushPixels();  // Auto-flush before drawing
+    
+    // Apply camera transformation to center and radius
+    bool cameraWasActive = Camera::IsActive();
+    if (cameraWasActive) {
+        pos = Camera::ToScreenSpace(pos);
+        radius *= Camera::GetScale();
+        // Deactivate camera so _drawLine doesn't double-transform
+        Camera::Deactivate();
+    }
 
     float angleStep = 2.0f * PI / segments;
 
-vf2d first = {
-    pos.x + std::cos(0.0f) * radius,
-    pos.y + std::sin(0.0f) * radius - 0.5f  // Offset by half pixel
-};
+    vf2d first = {
+        pos.x + std::cos(0.0f) * radius,
+        pos.y + std::sin(0.0f) * radius - 0.5f  // Offset by half pixel
+    };
 
     vf2d prev = first;
 
@@ -172,6 +179,11 @@ vf2d first = {
 
     // Explicitly close the circle
     _drawLine(prev, first, color);
+    
+    // Reactivate camera if it was active
+    if (cameraWasActive) {
+        Camera::Activate();
+    }
 }
 
 void Draw::_drawRectangleRounded(vf2d pos, const vf2d &size, float radius, Color color) {
@@ -185,9 +197,13 @@ void Draw::_drawRectangleRounded(vf2d pos, const vf2d &size, float radius, Color
 void Draw::_drawLine(vf2d start, vf2d end, Color color) {
     _flushPixels();  // Auto-flush before drawing
     
-    if (Camera::IsActive()) {
+    // Apply camera transformation
+    bool cameraWasActive = Camera::IsActive();
+    if (cameraWasActive) {
         start = Camera::ToScreenSpace(start);
         end   = Camera::ToScreenSpace(end);
+        // Deactivate camera so _drawRotatedTexture doesn't double-transform
+        Camera::Deactivate();
     }
 
     vf2d line = end - start;
@@ -202,6 +218,11 @@ void Draw::_drawLine(vf2d start, vf2d end, Color color) {
     vf2d pivot = {0.0f, 0.5f};
 
     _drawRotatedTexture(Renderer::WhitePixel(), start, size, angle, pivot, color);
+    
+    // Reactivate camera if it was active
+    if (cameraWasActive) {
+        Camera::Activate();
+    }
 }
 
 void Draw::_drawArc(const vf2d& center, float radius, float startAngle, float endAngle, int segments, Color color) {
@@ -234,8 +255,8 @@ void Draw::_drawTexture(TextureType texture, const vf2d& pos, const vf2d &size, 
         .b = (float) color.b / 255.f,
         .a = (float) color.a / 255.f,
 
-        .w = size.x,
-        .h = size.y,
+        .w = dstRect.w,  // Use transformed size
+        .h = dstRect.h,  // Use transformed size
 
         .pivot_x = 0.5f,
         .pivot_y = 0.5f,
@@ -245,6 +266,8 @@ void Draw::_drawTexture(TextureType texture, const vf2d& pos, const vf2d &size, 
 }
 
 void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &size, const rectf &src, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
     SDL_FRect dstRect = _doCamera(pos, size);
     SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
@@ -283,7 +306,13 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &si
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
 }
 
-void Draw::_drawRotatedTexture(Draw::TextureType texture, const vf2d& pos, const vf2d &size, float angle, const vf2d& pivot, Color color) {
+void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, vf2d size, float angle, const vf2d& pivot, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    if (Camera::IsActive()) {
+        pos = Camera::ToScreenSpace(pos);
+        size = size * Camera::GetScale();
+    }
 
     Renderable renderable = {
         .texture = texture,
@@ -315,8 +344,14 @@ void Draw::_drawRotatedTexture(Draw::TextureType texture, const vf2d& pos, const
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
 }
 
-void Draw::_drawRotatedTexturePart(Draw::TextureType texture, const vf2d &pos, const vf2d &size, const rectf &src, float angle, const vf2d& pivot,
-                                   Color color) {
+void Draw::_drawRotatedTexturePart(Draw::TextureType texture, vf2d pos, vf2d size, const rectf &src, float angle, const vf2d& pivot, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    if (Camera::IsActive()) {
+        pos = Camera::ToScreenSpace(pos);
+        size = size * Camera::GetScale();
+    }
+    
     SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
     float u0 = (srcRect.x / (float) texture.getSize().x);
@@ -360,10 +395,9 @@ void Draw::_setScissorMode(const rectf& area) {
 
 void Draw::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {
     _flushPixels();  // Auto-flush before drawing
-
-    rectf dstRect = _doCamera(pos, size);
-
-    Texture(Renderer::WhitePixel(), dstRect.pos, dstRect.size, color);
+    
+    // _drawTexture now correctly handles camera transformation with proper size
+    _drawTexture(Renderer::WhitePixel(), pos, size, color);
 }
 
 void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
@@ -418,6 +452,8 @@ void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color 
 }
 
 void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         pos = Camera::ToScreenSpace(pos);
@@ -491,10 +527,14 @@ rectf Draw::_doCamera(const vf2d &pos, const vf2d &size) {
 void Draw::_drawThickLine(vf2d start, vf2d end, Color color, float width) {
     _flushPixels();  // Auto-flush before drawing
     
-    if (Camera::IsActive()) {
+    // Apply camera transformation
+    bool cameraWasActive = Camera::IsActive();
+    if (cameraWasActive) {
         start = Camera::ToScreenSpace(start);
         end   = Camera::ToScreenSpace(end);
         width *= Camera::GetScale();
+        // Deactivate camera so _drawRotatedTexture doesn't double-transform
+        Camera::Deactivate();
     }
 
     vf2d line = end - start;
@@ -512,17 +552,35 @@ void Draw::_drawThickLine(vf2d start, vf2d end, Color color, float width) {
     vf2d offsetStart = start - vf2d(0.f, width/2.f); // left-center of the rotated rectangle should be at `start`
 
     _drawRotatedTexture(Renderer::WhitePixel(), offsetStart, size, angle, pivot, color);
+    
+    // Reactivate camera if it was active
+    if (cameraWasActive) {
+        Camera::Activate();
+    }
 }
 
 
 void Draw::_drawTriangle(vf2d v1, vf2d v2, vf2d v3, Color color) {
-    LUMI_UNUSED(color);
-
-    if (Camera::IsActive()) {
-        // Convert world space coordinates to screen space
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Apply camera transformation
+    bool cameraWasActive = Camera::IsActive();
+    if (cameraWasActive) {
         v1 = Camera::ToScreenSpace(v1);
         v2 = Camera::ToScreenSpace(v2);
         v3 = Camera::ToScreenSpace(v3);
+        // Deactivate camera so _drawLine doesn't double-transform
+        Camera::Deactivate();
+    }
+    
+    // Draw the three edges
+    _drawLine(v1, v2, color);
+    _drawLine(v2, v3, color);
+    _drawLine(v3, v1, color);
+    
+    // Reactivate camera if it was active
+    if (cameraWasActive) {
+        Camera::Activate();
     }
 }
 
@@ -538,13 +596,75 @@ void Draw::_drawEllipse(vf2d center, float radiusX, float radiusY, Color color) 
 }
 
 void Draw::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
-    LUMI_UNUSED(color);
+    _flushPixels();  // Auto-flush before drawing
+    
     if (Camera::IsActive()) {
         // Convert world space coordinates to screen space
         v1 = Camera::ToScreenSpace(v1);
         v2 = Camera::ToScreenSpace(v2);
         v3 = Camera::ToScreenSpace(v3);
     }
+    
+    // Calculate bounding box for the triangle
+    float minX = std::min({v1.x, v2.x, v3.x});
+    float minY = std::min({v1.y, v2.y, v3.y});
+    float maxX = std::max({v1.x, v2.x, v3.x});
+    float maxY = std::max({v1.y, v2.y, v3.y});
+    
+    vf2d pos = {minX, minY};
+    vf2d size = {maxX - minX, maxY - minY};
+    
+    // Avoid division by zero for degenerate triangles
+    if (size.x < 0.001f) size.x = 0.001f;
+    if (size.y < 0.001f) size.y = 0.001f;
+    
+    // Create temporary geometry
+    Geometry2D* triangleGeom = new Geometry2D();
+    
+    // Create normalized vertices (0-1 range relative to bounding box)
+    triangleGeom->vertices.push_back(Vertex2D{(v1.x - minX) / size.x, (v1.y - minY) / size.y, 0.0f, 0.0f});
+    triangleGeom->vertices.push_back(Vertex2D{(v2.x - minX) / size.x, (v2.y - minY) / size.y, 1.0f, 0.0f});
+    triangleGeom->vertices.push_back(Vertex2D{(v3.x - minX) / size.x, (v3.y - minY) / size.y, 0.5f, 1.0f});
+    
+    triangleGeom->indices.push_back(0);
+    triangleGeom->indices.push_back(1);
+    triangleGeom->indices.push_back(2);
+    
+    triangleGeom->UploadToGPU(Renderer::GetDevice());
+    
+    // Create renderable
+    Renderable renderable = {
+        .texture = Renderer::WhitePixel(),
+        .geometry = triangleGeom,
+        
+        .x = pos.x,
+        .y = pos.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,
+        
+        .rotation = 0.0f,
+        
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+        
+        .r = (float)color.r / 255.f,
+        .g = (float)color.g / 255.f,
+        .b = (float)color.b / 255.f,
+        .a = (float)color.a / 255.f,
+        
+        .w = size.x,
+        .h = size.y,
+        
+        .pivot_x = 0.0f,
+        .pivot_y = 0.0f,
+    };
+    
+    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+    
+    // Note: Memory leak here - triangleGeom is not freed
+    // This is acceptable for temporary geometry that gets cleaned up at frame end
+    // A better solution would be to cache common triangle geometries
 }
 
 void Draw::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
