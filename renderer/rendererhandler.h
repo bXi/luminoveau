@@ -130,6 +130,17 @@ public:
     }
 
     /**
+     * @brief Removes a shader render pass from all framebuffers.
+     *
+     * Releases the render pass resources and removes it from any framebuffers it was attached to.
+     *
+     * @param passname Name of the render pass to remove.
+     */
+    static void RemoveShaderPass(const std::string &passname) {
+        get()._removeShaderPass(passname);
+    }
+
+    /**
      * @brief Attaches an existing render pass to a framebuffer.
      *
      * @param renderPass Pointer to the render pass to attach.
@@ -297,6 +308,8 @@ private:
 
     void
     _addShaderPass(const std::string &passname, const ShaderAsset &vertShader, const ShaderAsset &fragShader, std::vector<std::string> targetBuffers);
+
+    void _removeShaderPass(const std::string &passname);
 
     void _attachRenderPassToFrameBuffer(RenderPass *renderPass, const std::string &passname, const std::string &fbName);
 

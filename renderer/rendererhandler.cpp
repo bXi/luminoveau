@@ -478,6 +478,36 @@ void Renderer::_addShaderPass(const std::string &passname, const ShaderAsset &ve
     }
 }
 
+void Renderer::_removeShaderPass(const std::string &passname) {
+    bool found = false;
+    RenderPass* passToDelete = nullptr;
+    
+    // Find and remove the pass from all framebuffers
+    for (auto &[fbName, framebuffer]: frameBuffers) {
+        auto it = std::find_if(framebuffer->renderpasses.begin(), framebuffer->renderpasses.end(),
+                               [&passname](const std::pair<std::string, RenderPass *> &entry) {
+                                   return entry.first == passname;
+                               });
+
+        if (it != framebuffer->renderpasses.end()) {
+            passToDelete = it->second;
+            framebuffer->renderpasses.erase(it);
+            found = true;
+            LOG_INFO("Removed shader pass '{}' from framebuffer '{}'", passname, fbName);
+        }
+    }
+    
+    // Release GPU resources and delete the pass
+    if (passToDelete) {
+        passToDelete->release(true);  // Log the release
+        delete passToDelete;
+    }
+    
+    if (!found) {
+        LOG_WARNING("Shader pass '{}' not found for removal", passname);
+    }
+}
+
 UniformBuffer &Renderer::_getUniformBuffer(const std::string &passname) {
     for (auto &[fbName, framebuffer]: frameBuffers) {
 
