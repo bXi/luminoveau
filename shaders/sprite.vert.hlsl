@@ -23,6 +23,7 @@ struct Output
 {
     float2 Texcoord : TEXCOORD0;
     float4 Color : TEXCOORD1;
+    uint IsSDF : TEXCOORD2;  // SDF flag (0 or 1)
     float4 Position : SV_Position;
 };
 
@@ -70,7 +71,12 @@ Output main(VertexInput input, uint instanceID : SV_InstanceID)
         unpackHalf((sprite.color_ba >> 16) & 0xFFFF)
     );
     float2 scale = unpackHalf2(sprite.size_wh);
-    float2 pivot = unpackHalf2(sprite.pivot_xy);
+    
+    // Unpack pivot and extract SDF flag from highest bit
+    uint pivot_packed = sprite.pivot_xy;
+    uint isSDF = (pivot_packed >> 31) & 1u;  // Extract highest bit
+    uint pivot_cleared = pivot_packed & 0x7FFFFFFFu;  // Clear highest bit
+    float2 pivot = unpackHalf2(pivot_cleared);
 
     // Unpack vertex data from vertex buffer
     // Vertex position is in local space (0,0 to 1,1 for quad, -1 to 1 for circle, etc.)
@@ -112,5 +118,6 @@ Output main(VertexInput input, uint instanceID : SV_InstanceID)
     output.Position = mul(ViewProjectionMatrix, float4(worldPos, 1.0f));
     output.Texcoord = texcoord;
     output.Color = color;
+    output.IsSDF = isSDF;
     return output;
 }

@@ -1,7 +1,7 @@
 // Auto-generated shader binary - DO NOT EDIT
 // Source: E:\luminoveau\assethandler\shaders\fullscreen_quad_frag.spv
 // Backend: SPIR-V
-// Generated: 2026-01-03 17:10:31
+// Generated: 2026-01-19 11:31:00
 
 #include <cstdint>
 #include <cstddef>

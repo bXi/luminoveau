@@ -2,7 +2,7 @@
 #include "draw/drawhandler.h"
 #include <algorithm>
 
-void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color) {
+void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color, float renderSize) {
 
     vf2d newPos = pos;
 
@@ -13,6 +13,21 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
 
     if (textToDraw.empty()) return;
     if (std::all_of(textToDraw.begin(), textToDraw.end(), isspace)) return;
+
+    // Determine scale factor for SDF rendering
+    // If renderSize is -1, check if font has a defaultRenderSize set
+    // Otherwise use the font's generated size (no scaling)
+    float scale = 1.0f;
+    if (renderSize < 0.0f) {
+        // User didn't specify size - check if font has a default render size
+        if (font.defaultRenderSize > 0 && font.generatedSize > 0) {
+            scale = static_cast<float>(font.defaultRenderSize) / static_cast<float>(font.generatedSize);
+        }
+        // else scale stays 1.0 (render at generated size)
+    } else if (font.generatedSize > 0) {
+        // User specified explicit render size
+        scale = renderSize / static_cast<float>(font.generatedSize);
+    }
 
     TTF_Text *text = TTF_CreateText(font.textEngine, font.ttfFont, textToDraw.c_str(), textToDraw.length());
 
@@ -39,10 +54,10 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
             auto uv2 = sequence->uv[sequence->indices[i + 2]];
             auto uv3 = sequence->uv[sequence->indices[i + 3]];
 
-            float minX = v5.x;
-            float minY = v5.y;
-            float maxX = v1.x;
-            float maxY = v1.y;
+            float minX = v5.x * scale;  // Apply scale to glyph positions
+            float minY = v5.y * scale;
+            float maxX = v1.x * scale;
+            float maxY = v1.y * scale;
 
             float uvMinX = uv3.x;
             float uvMinY = uv3.y;
@@ -75,6 +90,7 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
 
                 .pivot_x = 0.5f,
                 .pivot_y = 0.5f,
+                .isSDF = true,  // Always SDF now
             };
 
             // Add to the render queue
@@ -105,7 +121,13 @@ vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw) {
 
     TTF_DestroyText(text);
 
-    return {width, height};
+    // Apply same scaling logic as _drawText
+    float scale = 1.0f;
+    if (font.defaultRenderSize > 0 && font.generatedSize > 0) {
+        scale = static_cast<float>(font.defaultRenderSize) / static_cast<float>(font.generatedSize);
+    }
+
+    return {width * scale, height * scale};
 }
 
 TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color color) {

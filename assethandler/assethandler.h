@@ -97,7 +97,7 @@ public:
      * @brief Retrieves a font asset with the specified filename and font size.
      *
      * @param fileName The filename of the font asset.
-     * @param fontSize The size of the font.
+     * @param fontSize The size to generate the SDF atlas at (recommended: use large size like 64-128 for best quality).
      * @return The font asset.
      */
     static Font GetFont(const char *fileName, const int fontSize) {

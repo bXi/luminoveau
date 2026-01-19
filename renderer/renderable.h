@@ -20,5 +20,6 @@ struct Renderable {
     float r, g, b, a;
     float w, h;
     float pivot_x, pivot_y;
+    bool isSDF = false;  // True for SDF text, false for regular sprites
 
 };

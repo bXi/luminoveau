@@ -23,12 +23,17 @@ AssetHandler::AssetHandler() {
     _shaders.reserve(50);
 
     SDL_IOStream* ttfFontData = SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
-    auto font = TTF_OpenFontIO(ttfFontData, true, 16.0);
+    auto font = TTF_OpenFontIO(ttfFontData, true, 128.0);  // Generate larger atlas to compensate for SDF padding
     if (!font) {
         LOG_CRITICAL("failed to create default font: {}", SDL_GetError());
     }
     defaultFont.ttfFont = font;
     defaultFont.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
+    defaultFont.generatedSize = 128;  // High-res atlas generation size
+    defaultFont.defaultRenderSize = 16;  // Render at 16px by default for backward compatibility
+    
+    // Always enable SDF for default font too
+    TTF_SetFontSDF(defaultFont.ttfFont, true);
 };
 
 void AssetHandler::_cleanup() {
@@ -314,13 +319,17 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
 
         _font.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
         _font.ttfFont = TTF_OpenFontIO(ttfFontData, true, fontSize);
+        _font.generatedSize = fontSize;
 
         if (!_font.ttfFont) {
             free(filedata.data);  // Free on error
             LOG_CRITICAL("failed to load font: {}", fileName.c_str());
         }
+        
+        // Always enable SDF rendering
+        TTF_SetFontSDF(_font.ttfFont, true);
 
-        LOG_INFO("loaded font {} (size: {})", fileName.c_str(), fontSize);
+        LOG_INFO("loaded SDF font {} (atlas size: {})", fileName.c_str(), fontSize);
 
         _fonts[index] = _font;
 

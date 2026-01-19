@@ -1,5 +1,5 @@
 # Auto-generated shader sources - DO NOT EDIT
-# Generated: 2026-01-09 18:49:09
+# Generated: 2026-01-19 11:31:10
 # Available backends: all
 
 # Set default GPU backend if not specified

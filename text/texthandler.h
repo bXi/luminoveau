@@ -32,13 +32,14 @@ public:
     /**
      * @brief Draws text using the specified font, position, text to draw, and color.
      *
-     * @param font The font to use for rendering.
+     * @param font The font to use for rendering (SDF atlas).
      * @param pos The position where the text will be drawn.
      * @param textToDraw The text to draw.
      * @param color The color of the text.
+     * @param renderSize The size to render at in pixels. Use -1 (default) to render at font's generated atlas size.
      */
-    static void DrawText(Font font, const vf2d& pos, const std::string& textToDraw, Color color) {
-        get()._drawText(font, pos, textToDraw, color);
+    static void DrawText(Font font, const vf2d& pos, const std::string& textToDraw, Color color, float renderSize = -1.0f) {
+        get()._drawText(font, pos, textToDraw, color, renderSize);
     }
 
     /**
@@ -92,7 +93,7 @@ public:
 
 private:
 
-    void _drawText(Font font, const vf2d& pos, const std::string &textToDraw, Color color);
+    void _drawText(Font font, const vf2d& pos, const std::string &textToDraw, Color color, float renderSize = -1.0f);
 
     void _drawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color);
 

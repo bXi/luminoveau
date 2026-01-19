@@ -1,7 +1,7 @@
 // Auto-generated shader binary - DO NOT EDIT
 // Source: E:\luminoveau\assethandler\shaders\model3d_frag.spv
 // Backend: SPIR-V
-// Generated: 2026-01-01 14:03:44
+// Generated: 2026-01-19 11:31:04
 
 #include <cstdint>
 #include <cstddef>

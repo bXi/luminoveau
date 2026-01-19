@@ -215,6 +215,7 @@ void SpriteRenderPass::render(
                 float h = fast_max(renderQueue[i].h, 0.001f);
                 float pivot_x = renderQueue[i].pivot_x;
                 float pivot_y = renderQueue[i].pivot_y;
+                bool isSDF = renderQueue[i].isSDF;
                 
                 // Pack each pair of floats into a single uint32
                 dataPtr[i].pos_xy = pack_half2(x, y);
@@ -224,7 +225,13 @@ void SpriteRenderPass::render(
                 dataPtr[i].color_rg = pack_half2(r, g);
                 dataPtr[i].color_ba = pack_half2(b, a);
                 dataPtr[i].size_wh = pack_half2(w, h);
-                dataPtr[i].pivot_xy = pack_half2(pivot_x, pivot_y);
+                
+                // Pack pivot_xy with SDF flag in highest bit
+                uint32_t pivot_packed = pack_half2(pivot_x, pivot_y);
+                if (isSDF) {
+                    pivot_packed |= 0x80000000u;  // Set highest bit
+                }
+                dataPtr[i].pivot_xy = pivot_packed;
             }
         });
     }

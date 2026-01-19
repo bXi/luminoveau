@@ -131,7 +131,7 @@ class SpriteRenderPass : public RenderPass {
         uint32_t color_rg;    // r in low 16 bits, g in high 16 bits
         uint32_t color_ba;    // b in low 16 bits, a in high 16 bits
         uint32_t size_wh;     // w in low 16 bits, h in high 16 bits
-        uint32_t pivot_xy;    // pivot_x in low 16 bits, pivot_y in high 16 bits
+        uint32_t pivot_xy;    // pivot_x in low 16 bits, pivot_y in high 15 bits, isSDF flag in highest bit
     };
 
     // Fast inline clamp - compiles to conditional moves (branchless)

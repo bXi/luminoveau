@@ -1,7 +1,7 @@
 // Auto-generated shader binary - DO NOT EDIT
 // Source: E:\luminoveau\assethandler\shaders\model3d_frag.dxil
 // Backend: DXIL
-// Generated: 2026-01-01 14:03:46
+// Generated: 2026-01-19 11:31:06
 
 #include <cstdint>
 #include <cstddef>

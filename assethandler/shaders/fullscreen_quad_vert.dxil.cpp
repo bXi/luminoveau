@@ -1,7 +1,7 @@
 // Auto-generated shader binary - DO NOT EDIT
 // Source: E:\luminoveau\assethandler\shaders\fullscreen_quad_vert.dxil
 // Backend: DXIL
-// Generated: 2026-01-01 14:03:42
+// Generated: 2026-01-19 11:31:02
 
 #include <cstdint>
 #include <cstddef>
