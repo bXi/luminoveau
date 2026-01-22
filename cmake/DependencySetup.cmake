@@ -92,6 +92,13 @@ else()
 endif()
 
 # Fetching SDL3
+# Disable examples, tests, and test applications to avoid unnecessary builds
+set(SDL_TEST_LIBRARY OFF CACHE BOOL "Disable SDL test library" FORCE)
+set(SDL_TESTS OFF CACHE BOOL "Disable SDL tests" FORCE)
+set(SDL_INSTALL_TESTS OFF CACHE BOOL "Disable SDL test installation" FORCE)
+set(SDL_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL installation" FORCE)
+set(SDL3_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL3 installation" FORCE)
+
 CPMAddPackage(
     NAME SDL3
     GITHUB_REPOSITORY libsdl-org/SDL
@@ -149,8 +156,8 @@ else()
     message(WARNING "Failed to fetch SDL_shadercross. Runtime shader compilation may be unavailable")
 endif()
 
-if (NOT MSVC AND NOT ANDROID)
-# Fetching freetype FIRST (harfbuzz depends on it)
+# Fetching freetype (required by MSDF-atlas-gen's msdfgen)
+if (NOT ANDROID)
 CPMAddPackage(
     NAME freetype
     GITHUB_REPOSITORY freetype/freetype
@@ -168,7 +175,7 @@ if(freetype_ADDED)
     endif()
     target_include_directories(luminoveau SYSTEM PUBLIC "${freetype_SOURCE_DIR}/include")
     target_link_libraries(luminoveau PUBLIC freetype)
-    # Creating aliases expected by SDL3_ttf
+    # Creating alias for MSDF-atlas-gen compatibility
     if(NOT TARGET Freetype::Freetype)
         add_library(Freetype::Freetype ALIAS freetype)
     endif()
@@ -180,62 +187,56 @@ else()
     message(WARNING "Failed to fetch freetype. Font rendering may be unavailable")
 endif()
 
-# Fetching harfbuzz AFTER freetype (needs FreeType to be available)
-CPMAddPackage(
-    NAME harfbuzz
-    GITHUB_REPOSITORY harfbuzz/harfbuzz
-    GIT_TAG 40ef6c0
-    OPTIONS
-        "HB_BUILD_UTILS OFF"
-        "HB_BUILD_SUBSET OFF"
-        "HB_HAVE_FREETYPE ON"  # Enable FreeType integration (required for SDL3_ttf)
-)
-if(harfbuzz_ADDED)
-    if(NOT EXISTS "${harfbuzz_SOURCE_DIR}")
-        message(FATAL_ERROR "harfbuzz source directory '${harfbuzz_SOURCE_DIR}' does not exist")
-    endif()
-    target_include_directories(luminoveau SYSTEM PUBLIC "${harfbuzz_SOURCE_DIR}/src")
-    target_link_libraries(luminoveau PUBLIC harfbuzz)
-    # Add -Wa,-mbig-obj for MinGW to handle large harfbuzz.cc
-    if(MINGW)
-        target_compile_options(harfbuzz PRIVATE -Wa,-mbig-obj)
-    endif()
-    # Create alias expected by SDL3_ttf
-    if(NOT TARGET harfbuzz::harfbuzz)
-        add_library(harfbuzz::harfbuzz ALIAS harfbuzz)
-    endif()
-    message(STATUS "Luminoveau: harfbuzz configured with FreeType support")
-else()
-    message(WARNING "Failed to fetch harfbuzz. Text rendering may be limited")
-endif()
+# NOTE: HarfBuzz is no longer needed - MSDF-atlas-gen doesn't require it
+# (it was only needed for SDL3_ttf which has been removed)
 endif()
 
-# Fetching SDL3_ttf
-# Tell SDL3_ttf to NOT use its vendored harfbuzz/freetype since we already provide them
-if(ANDROID)
-    # On Android, disable HarfBuzz to avoid circular dependency issues
-    set(SDLTTF_VENDORED ON CACHE BOOL "Use SDL_ttf vendored dependencies on Android" FORCE)
-else()
-    set(SDLTTF_VENDORED OFF CACHE BOOL "Don't use SDL_ttf vendored dependencies" FORCE)
-    set(SDLTTF_HARFBUZZ ON CACHE BOOL "Enable HarfBuzz support" FORCE)
-    set(SDLTTF_FREETYPE ON CACHE BOOL "Enable FreeType support" FORCE)
-endif()
+# MSDF-atlas-gen configuration
+set(MSDFGEN_DISABLE_PNG ON CACHE BOOL "" FORCE)
+
+set(MSDFGEN_DISABLE_SVG OFF CACHE BOOL "Disable SVG functionality")
+
+set(MSDF_ATLAS_BUILD_STANDALONE OFF)
+set(MSDF_ATLAS_USE_VCPKG ${OS_WINDOWS})
+set(MSDF_ATLAS_USE_SKIA OFF)
+set(MSDF_ATLAS_DYNAMIC_RUNTIME OFF)
+set(MSDF_ATLAS_MSDFGEN_EXTERNAL OFF)
+set(MSDF_ATLAS_INSTALL OFF)
+
+set(MSDF_ATLAS_BUILD_STANDALONE OFF CACHE BOOL "" FORCE)
+set(MSDF_ATLAS_USE_VCPKG OFF CACHE BOOL "" FORCE)
+set(MSDF_ATLAS_USE_SKIA OFF CACHE BOOL "" FORCE)
+set(MSDF_ATLAS_MSDFGEN_EXTERNAL OFF CACHE BOOL "" FORCE)
+
+    # tinyxml2
+    set(tinyxml2_BUILD_TESTING OFF)
+    FetchContent_Declare(
+        tinyxml2
+        GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git
+        GIT_TAG 10.0.0
+    )
+    FetchContent_MakeAvailable(tinyxml2)
+
+    set_target_properties(tinyxml2 PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 
 CPMAddPackage(
-    NAME SDL3_ttf
-    GITHUB_REPOSITORY libsdl-org/SDL_ttf
-    GIT_TAG a1ce367
+    NAME MSDF-atlas-gen
+    GITHUB_REPOSITORY Chlumsky/msdf-atlas-gen
+    GIT_TAG c76a323
 )
-if(SDL3_ttf_ADDED)
-    if(NOT EXISTS "${SDL3_ttf_SOURCE_DIR}")
-        message(FATAL_ERROR "SDL3_ttf include directory '${SDL3_ttf_SOURCE_DIR}' does not exist")
+if(MSDF-atlas-gen_ADDED)
+    if(NOT EXISTS "${MSDF-atlas-gen_SOURCE_DIR}")
+        message(FATAL_ERROR "MSDF-atlas-gen include directory '${MSDF-atlas-gen_SOURCE_DIR}' does not exist")
     endif()
-    target_include_directories(luminoveau SYSTEM PUBLIC "${SDL3_ttf_SOURCE_DIR}")
-    target_link_libraries(luminoveau PUBLIC SDL3_ttf::SDL3_ttf)
-    message(STATUS "Luminoveau: SDL3_ttf configured")
+    
+    target_include_directories(luminoveau SYSTEM PUBLIC "${MSDF-atlas-gen_SOURCE_DIR}")
+    target_link_libraries(luminoveau PUBLIC msdf-atlas-gen)
+    message(STATUS "Luminoveau: MSDF-atlas-gen configured")
 else()
-    message(WARNING "Failed to fetch SDL3_ttf. Text rendering may be unavailable")
+    message(WARNING "Failed to fetch MSDF-atlas-gen. Text rendering may be unavailable")
 endif()
+
 
 # Fetching physfs
 set(PHYSFS_BUILD_SHARED OFF CACHE BOOL "Disable physfs shared library" FORCE)

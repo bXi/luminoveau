@@ -41,6 +41,9 @@
 struct SDL_Window;
 union SDL_Event;
 
+// Forward declare RenderPass before FrameBuffer uses it
+class RenderPass;
+
 struct FrameBuffer {
     SDL_GPUTexture *fbContent = nullptr;          // Resolved non-MSAA texture (for screen display)
     SDL_GPUTexture *fbContentMSAA = nullptr;      // MSAA texture (for rendering when MSAA enabled)
@@ -53,8 +56,6 @@ struct FrameBuffer {
 
     bool renderToScreen = false;
 };
-
-class RenderPass;
 
 /**
  * @brief Provides functionality for GPU rendering and resource management.

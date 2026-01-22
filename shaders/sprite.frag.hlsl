@@ -1,5 +1,5 @@
 // Sprite Fragment Shader (HLSL)
-// Mixed sprite and SDF text rendering
+// Mixed sprite and MSDF text rendering
 
 struct Input
 {
@@ -16,26 +16,32 @@ struct Output
 Texture2D SpriteTexture : register(t0, space2);
 SamplerState SpriteSampler : register(s0, space2);
 
+// Median function for MSDF
+float median(float r, float g, float b) {
+    return max(min(r, g), min(max(r, g), b));
+}
+
 Output main(Input input)
 {
     Output output;
     
     if (input.IsSDF != 0)
     {
-        // SDF text rendering: distance field stored in alpha channel
-        float distance = SpriteTexture.Sample(SpriteSampler, input.Texcoord).a;
+        // MSDF text rendering: multi-channel signed distance field
+        float3 msd = SpriteTexture.Sample(SpriteSampler, input.Texcoord).rgb;
+        
+        // Median of 3 channels gives the signed distance
+        float sd = median(msd.r, msd.g, msd.b);
         
         // Calculate adaptive smoothing based on screen-space derivatives
-        // This makes the edge antialiasing adapt to the current scale/zoom level
-        float smoothing = fwidth(distance) * 0.5;
+        float smoothing = fwidth(sd) * 0.5;
         
         // Use slightly wider threshold (0.515 instead of 0.5) for better small text rendering
         // Reference: https://www.redblobgames.com/x/2403-distance-field-fonts/
         float threshold = 0.515;
         
         // Reconstruct sharp edge using smoothstep
-        // Values > threshold = inside glyph, < threshold = outside
-        float alpha = smoothstep(threshold - smoothing, threshold + smoothing, distance);
+        float alpha = smoothstep(threshold - smoothing, threshold + smoothing, sd);
         
         // Apply gamma correction (1.5) for more natural font weight
         // Compromise between gamma 1.0 (too thin) and 2.2 (too thick on non-gamma-correct displays)

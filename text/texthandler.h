@@ -8,8 +8,6 @@
 
 #include "assettypes/font.h"
 
-#include <SDL3_ttf/SDL_ttf.h>
-
 typedef struct Vertex {
     glm::vec3  pos;
     SDL_FColor color;
@@ -51,9 +49,10 @@ public:
      * @param textToDraw The full text string to render, potentially split across multiple lines.
      * @param maxWidth The maximum width allowed for each line of text. If a line exceeds this width, it is wrapped.
      * @param color The color to use for rendering the text.
+     * @param renderSize The size to render at in pixels. Use -1 (default) to render at font's default size.
      */
-    static void DrawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color) {
-        get()._drawWrappedText(font, pos, textToDraw, maxWidth, color);
+    static void DrawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color, float renderSize = -1.0f) {
+        get()._drawWrappedText(font, pos, textToDraw, maxWidth, color, renderSize);
     }
 
     /**
@@ -63,8 +62,8 @@ public:
      * @param text The text to measure.
      * @return The width of the text in pixels.
      */
-    static int MeasureText(Font font, std::string text) {
-        return get()._measureText(font, text);
+    static int MeasureText(Font font, std::string text, float renderSize = -1.0f) {
+        return get()._measureText(font, text, renderSize);
     }
 
     /**
@@ -75,8 +74,8 @@ public:
      * @return A 2d vector containing the size of the text in pixels.
      */
 
-    static vf2d GetRenderedTextSize(Font font, std::string text) {
-        return get()._getRenderedTextSize(font, text);
+    static vf2d GetRenderedTextSize(Font font, std::string text, float renderSize = -1.0f) {
+        return get()._getRenderedTextSize(font, text, renderSize);
     }
 
     /**
@@ -95,11 +94,11 @@ private:
 
     void _drawText(Font font, const vf2d& pos, const std::string &textToDraw, Color color, float renderSize = -1.0f);
 
-    void _drawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color);
+    void _drawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color, float renderSize = -1.0f);
 
-    int _measureText(Font font, std::string text);
+    int _measureText(Font font, std::string text, float renderSize = -1.0f);
 
-    vf2d _getRenderedTextSize(Font font, const std::string &textToDraw);
+    vf2d _getRenderedTextSize(Font font, const std::string &textToDraw, float renderSize = -1.0f);
 
     TextureAsset _drawTextToTexture(Font font, std::string textToDraw, Color color);
 
@@ -112,7 +111,5 @@ public:
     }
 
 private:
-    Text() {
-        TTF_Init();
-    };
+    Text() = default;
 };

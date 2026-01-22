@@ -9,12 +9,11 @@
 #include "renderer/rendererhandler.h"
 #include "renderer/shaderhandler.h"
 
+#include <msdf-atlas-gen/msdf-atlas-gen.h>
+#include <msdfgen/msdfgen.h>
+
 
 AssetHandler::AssetHandler() {
-    if (!TTF_WasInit()) {
-        TTF_Init();
-    }
-
     // Reserve space to prevent map reallocation (important since we return references!)
     _textures.reserve(1000);
     _sounds.reserve(100);
@@ -22,18 +21,107 @@ AssetHandler::AssetHandler() {
     _fonts.reserve(50);
     _shaders.reserve(50);
 
-    SDL_IOStream* ttfFontData = SDL_IOFromConstMem(DroidSansMono_ttf, DroidSansMono_ttf_len);
-    auto font = TTF_OpenFontIO(ttfFontData, true, 128.0);  // Generate larger atlas to compensate for SDF padding
-    if (!font) {
-        LOG_CRITICAL("failed to create default font: {}", SDL_GetError());
-    }
-    defaultFont.ttfFont = font;
-    defaultFont.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
-    defaultFont.generatedSize = 128;  // High-res atlas generation size
-    defaultFont.defaultRenderSize = 16;  // Render at 16px by default for backward compatibility
+    // Load default font using MSDF from embedded data
+    LOG_INFO("Loading default MSDF font");
     
-    // Always enable SDF for default font too
-    TTF_SetFontSDF(defaultFont.ttfFont, true);
+    msdfgen::FreetypeHandle *ft = msdfgen::initializeFreetype();
+    if (!ft) {
+        LOG_CRITICAL("Failed to initialize FreeType for default font");
+    }
+    
+    defaultFont.fontHandle = msdfgen::loadFontData(ft, 
+        (const unsigned char*)DroidSansMono_ttf, DroidSansMono_ttf_len);
+    
+    if (!defaultFont.fontHandle) {
+        msdfgen::deinitializeFreetype(ft);
+        LOG_CRITICAL("Failed to load default font");
+    }
+    
+    defaultFont.glyphs = new std::vector<msdf_atlas::GlyphGeometry>();
+    
+    msdf_atlas::FontGeometry fontGeometry(defaultFont.glyphs);
+    fontGeometry.loadCharset(defaultFont.fontHandle, 1.0, msdf_atlas::Charset::ASCII);
+    
+    // Get font metrics
+    defaultFont.ascender = fontGeometry.getMetrics().ascenderY;
+    defaultFont.descender = fontGeometry.getMetrics().descenderY;
+    defaultFont.lineHeight = fontGeometry.getMetrics().lineHeight;
+    
+    const double maxCornerAngle = 3.0;
+    for (msdf_atlas::GlyphGeometry &glyph : *defaultFont.glyphs) {
+        glyph.edgeColoring(&msdfgen::edgeColoringInkTrap, maxCornerAngle, 0);
+    }
+    
+    msdf_atlas::TightAtlasPacker packer;
+    packer.setDimensionsConstraint(msdf_atlas::DimensionsConstraint::SQUARE);
+    packer.setMinimumScale(96.0);  // High-res atlas
+    packer.setPixelRange(4.0);
+    packer.setMiterLimit(1.0);
+    packer.pack(defaultFont.glyphs->data(), defaultFont.glyphs->size());
+    
+    packer.getDimensions(defaultFont.atlasWidth, defaultFont.atlasHeight);
+    
+    LOG_INFO("Default font MSDF atlas: {}x{}", defaultFont.atlasWidth, defaultFont.atlasHeight);
+    
+    msdf_atlas::ImmediateAtlasGenerator<
+        float, 3,
+        msdf_atlas::msdfGenerator,
+        msdf_atlas::BitmapAtlasStorage<unsigned char, 3>
+    > generator(defaultFont.atlasWidth, defaultFont.atlasHeight);
+    
+    generator.setThreadCount(4);
+    generator.generate(defaultFont.glyphs->data(), defaultFont.glyphs->size());
+    
+    msdfgen::BitmapConstRef<unsigned char, 3> bitmap = generator.atlasStorage();
+    
+    std::vector<unsigned char> rgbaData(defaultFont.atlasWidth * defaultFont.atlasHeight * 4);
+    // Read bitmap bottom-to-top to flip it for GPU (which expects top-left origin)
+    for (int y = 0; y < defaultFont.atlasHeight; ++y) {
+        for (int x = 0; x < defaultFont.atlasWidth; ++x) {
+            // Flip Y: read from bottom row first
+            int srcY = defaultFont.atlasHeight - 1 - y;
+            int idx = (y * defaultFont.atlasWidth + x);
+            const unsigned char *pixel = bitmap(x, srcY);
+            rgbaData[idx * 4 + 0] = pixel[0];
+            rgbaData[idx * 4 + 1] = pixel[1];
+            rgbaData[idx * 4 + 2] = pixel[2];
+            rgbaData[idx * 4 + 3] = 255;
+        }
+    }
+    
+    SDL_GPUTextureCreateInfo textureInfo{
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .width = static_cast<Uint32>(defaultFont.atlasWidth),
+        .height = static_cast<Uint32>(defaultFont.atlasHeight),
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
+    };
+    
+    defaultFont.atlasTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &textureInfo);
+    
+    if (!_copy_to_texture(Renderer::GetDevice(), rgbaData.data(),
+                         rgbaData.size(), defaultFont.atlasTexture,
+                         defaultFont.atlasWidth, defaultFont.atlasHeight)) {
+        LOG_CRITICAL("Failed to upload default font MSDF atlas to GPU");
+    }
+    
+    defaultFont.glyphMap = new std::unordered_map<uint32_t, size_t>();
+    for (size_t i = 0; i < defaultFont.glyphs->size(); ++i) {
+        int codepoint = (*defaultFont.glyphs)[i].getCodepoint();
+        if (codepoint >= 0) {
+            (*defaultFont.glyphMap)[codepoint] = i;
+        }
+    }
+    
+    defaultFont.generatedSize = 64;
+    defaultFont.defaultRenderSize = 16;
+    
+    msdfgen::deinitializeFreetype(ft);
+    
+    LOG_INFO("Default MSDF font loaded ({} glyphs)", defaultFont.glyphs->size());
 };
 
 void AssetHandler::_cleanup() {
@@ -61,13 +149,21 @@ void AssetHandler::_cleanup() {
     
     // Cleanup fonts
     for (auto& [name, font] : _fonts) {
-        if (font.ttfFont) {
-            TTF_CloseFont(font.ttfFont);
-            font.ttfFont = nullptr;
+        if (font.glyphs) {
+            delete font.glyphs;
+            font.glyphs = nullptr;
         }
-        if (font.textEngine) {
-            TTF_DestroyGPUTextEngine(font.textEngine);
-            font.textEngine = nullptr;
+        if (font.glyphMap) {
+            delete font.glyphMap;
+            font.glyphMap = nullptr;
+        }
+        if (font.atlasTexture) {
+            SDL_ReleaseGPUTexture(device, font.atlasTexture);
+            font.atlasTexture = nullptr;
+        }
+        if (font.fontHandle) {
+            msdfgen::destroyFont(font.fontHandle);
+            font.fontHandle = nullptr;
         }
         if (font.fontData) {
             free(font.fontData);
@@ -105,13 +201,21 @@ void AssetHandler::_cleanup() {
     _musics.clear();
     
     // Cleanup default font
-    if (defaultFont.ttfFont) {
-        TTF_CloseFont(defaultFont.ttfFont);
-        defaultFont.ttfFont = nullptr;
+    if (defaultFont.glyphs) {
+        delete defaultFont.glyphs;
+        defaultFont.glyphs = nullptr;
     }
-    if (defaultFont.textEngine) {
-        TTF_DestroyGPUTextEngine(defaultFont.textEngine);
-        defaultFont.textEngine = nullptr;
+    if (defaultFont.glyphMap) {
+        delete defaultFont.glyphMap;
+        defaultFont.glyphMap = nullptr;
+    }
+    if (defaultFont.atlasTexture) {
+        SDL_ReleaseGPUTexture(device, defaultFont.atlasTexture);
+        defaultFont.atlasTexture = nullptr;
+    }
+    if (defaultFont.fontHandle) {
+        msdfgen::destroyFont(defaultFont.fontHandle);
+        defaultFont.fontHandle = nullptr;
     }
     
     LOG_INFO("asset cleanup complete");
@@ -302,41 +406,127 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
 Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
     std::lock_guard<std::mutex> lock(assetMutex);
     
-    std::string index = std::string(Helpers::TextFormat("%s%d", fileName.c_str(), fontSize));
-
-    auto it = _fonts.find(index);
-
-    if (it == _fonts.end()) {
-
-        FontAsset _font;
-
-        auto filedata = FileHandler::ReadFile(fileName);
-        
-        // Store fontData so we can free it in cleanup
-        _font.fontData = filedata.data;
-        
-        SDL_IOStream* ttfFontData = SDL_IOFromConstMem(filedata.data, filedata.fileSize);
-
-        _font.textEngine = TTF_CreateGPUTextEngine(Renderer::GetDevice());
-        _font.ttfFont = TTF_OpenFontIO(ttfFontData, true, fontSize);
-        _font.generatedSize = fontSize;
-
-        if (!_font.ttfFont) {
-            free(filedata.data);  // Free on error
-            LOG_CRITICAL("failed to load font: {}", fileName.c_str());
-        }
-        
-        // Always enable SDF rendering
-        TTF_SetFontSDF(_font.ttfFont, true);
-
-        LOG_INFO("loaded SDF font {} (atlas size: {})", fileName.c_str(), fontSize);
-
-        _fonts[index] = _font;
-
-        return _fonts[index];
-    } else {
-        return _fonts[index];
+    // Check if this font file is already loaded (ignore size, we'll set defaultRenderSize)
+    auto it = _fonts.find(fileName);
+    if (it != _fonts.end()) {
+        // Font atlas already exists, just update the default render size
+        _fonts[fileName].defaultRenderSize = fontSize;
+        return _fonts[fileName];
     }
+
+    LOG_INFO("Loading MSDF font {} (atlas size: 32, default render: {})", fileName.c_str(), fontSize);
+
+    FontAsset _font;
+    auto filedata = FileHandler::ReadFile(fileName);
+    _font.fontData = filedata.data;
+    
+    msdfgen::FreetypeHandle *ft = msdfgen::initializeFreetype();
+    if (!ft) {
+        free(filedata.data);
+        LOG_CRITICAL("Failed to initialize FreeType for MSDF: {}", fileName.c_str());
+    }
+    
+    _font.fontHandle = msdfgen::loadFontData(ft, 
+        (const unsigned char*)filedata.data, filedata.fileSize);
+    
+    if (!_font.fontHandle) {
+        free(filedata.data);
+        msdfgen::deinitializeFreetype(ft);
+        LOG_CRITICAL("Failed to load font for MSDF: {}", fileName.c_str());
+    }
+    
+    _font.glyphs = new std::vector<msdf_atlas::GlyphGeometry>();
+    
+    msdf_atlas::FontGeometry fontGeometry(_font.glyphs);
+    fontGeometry.loadCharset(_font.fontHandle, 1.0, msdf_atlas::Charset::ASCII);
+    
+    // Get font metrics
+    _font.ascender = fontGeometry.getMetrics().ascenderY;
+    _font.descender = fontGeometry.getMetrics().descenderY;
+    _font.lineHeight = fontGeometry.getMetrics().lineHeight;
+    
+    const double maxCornerAngle = 3.0;
+    for (msdf_atlas::GlyphGeometry &glyph : *_font.glyphs) {
+        glyph.edgeColoring(&msdfgen::edgeColoringInkTrap, maxCornerAngle, 0);
+    }
+    
+    // Always generate MSDF atlas at size 64 for quality and memory efficiency
+    // MSDF scales well both up and down, so this provides good quality for most use cases
+    const int ATLAS_GENERATION_SIZE = 64;
+    
+    msdf_atlas::TightAtlasPacker packer;
+    packer.setDimensionsConstraint(msdf_atlas::DimensionsConstraint::SQUARE);
+    packer.setMinimumScale(ATLAS_GENERATION_SIZE);
+    packer.setPixelRange(4.0);
+    packer.setMiterLimit(1.0);
+    packer.pack(_font.glyphs->data(), _font.glyphs->size());
+    
+    packer.getDimensions(_font.atlasWidth, _font.atlasHeight);
+    
+    LOG_INFO("MSDF atlas for {}: {}x{}", fileName.c_str(), _font.atlasWidth, _font.atlasHeight);
+    
+    msdf_atlas::ImmediateAtlasGenerator<
+        float, 3,
+        msdf_atlas::msdfGenerator,
+        msdf_atlas::BitmapAtlasStorage<unsigned char, 3>
+    > generator(_font.atlasWidth, _font.atlasHeight);
+    
+    generator.setThreadCount(4);
+    generator.generate(_font.glyphs->data(), _font.glyphs->size());
+    
+    msdfgen::BitmapConstRef<unsigned char, 3> bitmap = generator.atlasStorage();
+    
+    std::vector<unsigned char> rgbaData(_font.atlasWidth * _font.atlasHeight * 4);
+    // Read bitmap bottom-to-top to flip it for GPU (which expects top-left origin)
+    for (int y = 0; y < _font.atlasHeight; ++y) {
+        for (int x = 0; x < _font.atlasWidth; ++x) {
+            // Flip Y: read from bottom row first
+            int srcY = _font.atlasHeight - 1 - y;
+            int idx = (y * _font.atlasWidth + x);
+            const unsigned char *pixel = bitmap(x, srcY);
+            rgbaData[idx * 4 + 0] = pixel[0];
+            rgbaData[idx * 4 + 1] = pixel[1];
+            rgbaData[idx * 4 + 2] = pixel[2];
+            rgbaData[idx * 4 + 3] = 255;
+        }
+    }
+    
+    SDL_GPUTextureCreateInfo textureInfo{
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .width = static_cast<Uint32>(_font.atlasWidth),
+        .height = static_cast<Uint32>(_font.atlasHeight),
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
+    };
+    
+    _font.atlasTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &textureInfo);
+    
+    if (!_copy_to_texture(Renderer::GetDevice(), rgbaData.data(),
+                         rgbaData.size(), _font.atlasTexture,
+                         _font.atlasWidth, _font.atlasHeight)) {
+        LOG_CRITICAL("Failed to upload MSDF atlas to GPU: {}", fileName.c_str());
+    }
+    
+    _font.glyphMap = new std::unordered_map<uint32_t, size_t>();
+    for (size_t i = 0; i < _font.glyphs->size(); ++i) {
+        int codepoint = (*_font.glyphs)[i].getCodepoint();
+        if (codepoint >= 0) {
+            (*_font.glyphMap)[codepoint] = i;
+        }
+    }
+    
+    _font.generatedSize = ATLAS_GENERATION_SIZE;
+    _font.defaultRenderSize = fontSize;
+    
+    msdfgen::deinitializeFreetype(ft);
+    
+    LOG_INFO("Loaded MSDF font {} ({} glyphs, default render size: {})", fileName.c_str(), _font.glyphs->size(), fontSize);
+
+    _fonts[fileName] = _font;
+    return _fonts[fileName];
 }
 
 void AssetHandler::_setDefaultTextureScaleMode(ScaleMode mode) {

@@ -6,7 +6,6 @@
 #include <mutex>
 
 #include "SDL3/SDL.h"
-#include "SDL3_ttf/SDL_ttf.h"
 
 #include "stb_image.h"
 #include "stb_image_write.h"
@@ -26,10 +25,19 @@
 
 #include "file/filehandler.h"
 
+// Forward declarations for cleanup
+namespace msdfgen {
+    class FontHandle;
+    void destroyFont(FontHandle*);
+}
+
+// ScaleMode enum must be defined before including renderer (which uses it)
 enum class ScaleMode {
     NEAREST,
     LINEAR,
 };
+
+#include "renderer/rendererhandler.h"
 
 
 /**
@@ -97,7 +105,7 @@ public:
      * @brief Retrieves a font asset with the specified filename and font size.
      *
      * @param fileName The filename of the font asset.
-     * @param fontSize The size to generate the SDF atlas at (recommended: use large size like 64-128 for best quality).
+     * @param fontSize The size to generate the MSDF atlas at (recommended: use large size like 64-128 for best quality).
      * @return The font asset.
      */
     static Font GetFont(const char *fileName, const int fontSize) {
@@ -254,8 +262,29 @@ private:
             });
 
             if (it != _fonts.end()) {
-                TTF_CloseFont(static_cast<FontAsset>(asset).ttfFont);
-                free(static_cast<FontAsset>(asset).fontData);
+                // Cleanup MSDF resources
+                if (asset.glyphs) {
+                    delete asset.glyphs;
+                    asset.glyphs = nullptr;
+                }
+                if (asset.glyphMap) {
+                    delete asset.glyphMap;
+                    asset.glyphMap = nullptr;
+                }
+                if (asset.atlasTexture) {
+                    // Get device from global renderer - avoid circular dependency
+                    extern SDL_GPUDevice* GetRendererDevice();
+                    SDL_ReleaseGPUTexture(GetRendererDevice(), asset.atlasTexture);
+                    asset.atlasTexture = nullptr;
+                }
+                if (asset.fontHandle) {
+                    msdfgen::destroyFont(asset.fontHandle);
+                    asset.fontHandle = nullptr;
+                }
+                if (asset.fontData) {
+                    free(asset.fontData);
+                    asset.fontData = nullptr;
+                }
                 _fonts.erase(it);
             } else {
                 LOG_CRITICAL("font not found in the map");
