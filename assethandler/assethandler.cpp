@@ -119,7 +119,9 @@ AssetHandler::AssetHandler() {
     defaultFont.generatedSize = 64;
     defaultFont.defaultRenderSize = 16;
     
-    msdfgen::deinitializeFreetype(ft);
+    // NOTE: Don't call msdfgen::deinitializeFreetype(ft) here!
+    // The font handle needs the FreeType instance to remain alive.
+    // We'll destroy the font handle in cleanup, which will clean up FreeType resources.
     
     LOG_INFO("Default MSDF font loaded ({} glyphs)", defaultFont.glyphs->size());
 };
@@ -149,6 +151,10 @@ void AssetHandler::_cleanup() {
     
     // Cleanup fonts
     for (auto& [name, font] : _fonts) {
+        if (font.fontHandle) {
+            msdfgen::destroyFont(font.fontHandle);
+            font.fontHandle = nullptr;
+        }
         if (font.glyphs) {
             delete font.glyphs;
             font.glyphs = nullptr;
@@ -160,10 +166,6 @@ void AssetHandler::_cleanup() {
         if (font.atlasTexture) {
             SDL_ReleaseGPUTexture(device, font.atlasTexture);
             font.atlasTexture = nullptr;
-        }
-        if (font.fontHandle) {
-            msdfgen::destroyFont(font.fontHandle);
-            font.fontHandle = nullptr;
         }
         if (font.fontData) {
             free(font.fontData);
@@ -201,6 +203,10 @@ void AssetHandler::_cleanup() {
     _musics.clear();
     
     // Cleanup default font
+    if (defaultFont.fontHandle) {
+        msdfgen::destroyFont(defaultFont.fontHandle);
+        defaultFont.fontHandle = nullptr;
+    }
     if (defaultFont.glyphs) {
         delete defaultFont.glyphs;
         defaultFont.glyphs = nullptr;
@@ -213,10 +219,7 @@ void AssetHandler::_cleanup() {
         SDL_ReleaseGPUTexture(device, defaultFont.atlasTexture);
         defaultFont.atlasTexture = nullptr;
     }
-    if (defaultFont.fontHandle) {
-        msdfgen::destroyFont(defaultFont.fontHandle);
-        defaultFont.fontHandle = nullptr;
-    }
+    // Note: defaultFont.fontData is NOT allocated (uses embedded data), so no need to free
     
     LOG_INFO("asset cleanup complete");
 }
@@ -521,7 +524,9 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
     _font.generatedSize = ATLAS_GENERATION_SIZE;
     _font.defaultRenderSize = fontSize;
     
-    msdfgen::deinitializeFreetype(ft);
+    // NOTE: Don't call msdfgen::deinitializeFreetype(ft) here!
+    // The font handle needs the FreeType instance to remain alive.
+    // We'll destroy the font handle in cleanup, which will clean up FreeType resources.
     
     LOG_INFO("Loaded MSDF font {} ({} glyphs, default render size: {})", fileName.c_str(), _font.glyphs->size(), fontSize);
 
