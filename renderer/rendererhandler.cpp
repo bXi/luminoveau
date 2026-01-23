@@ -17,6 +17,11 @@
 #include "shaderrenderpass.h"
 #include "shaderhandler.h"
 
+#ifdef LUMINOVEAU_WITH_RMLUI
+#include "rmlui/rmluihandler.h"
+#include "rmlui/rmluibackend.h"
+#endif
+
 void Renderer::_initRendering() {
 
     bool enableGPUDebug = false;
@@ -304,6 +309,15 @@ void Renderer::_endFrame() {
         }
 
         renderFrameBuffer(m_cmdbuf);
+
+#ifdef LUMINOVEAU_WITH_RMLUI
+        // RmlUI rendering
+        RmlUI::Backend::BeginFrame(m_cmdbuf, swapchain_texture, 
+                                   static_cast<uint32_t>(Window::GetWidth()), 
+                                   static_cast<uint32_t>(Window::GetHeight()));
+        RmlUI::Render();
+        RmlUI::Backend::EndFrame();
+#endif
 
 #ifdef LUMINOVEAU_WITH_IMGUI
 

@@ -9,6 +9,12 @@
 
 #include "renderer/rendererhandler.h"
 
+#include <SDL3_image/SDL_image.h>
+
+#ifdef LUMINOVEAU_WITH_RMLUI
+#include "rmlui/rmluihandler.h"
+#endif
+
 void Window::_initWindow(const std::string &title, int width, int height, int scale, unsigned int flags) {
 
     if (scale > 1) { //when scaling asume width is virtual pixels instead of real screen pixels
@@ -42,9 +48,17 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     }
 
     Input::Init();
+
+#ifdef LUMINOVEAU_WITH_RMLUI
+    RmlUI::Init();
+#endif
 }
 
 void Window::_close() {
+#ifdef LUMINOVEAU_WITH_RMLUI
+    RmlUI::Shutdown();
+#endif
+    
     // SDL_QuitSubSystem is ref-counted
     Audio::Close();
     SDL_Quit();
@@ -89,6 +103,10 @@ int Window::_getFPS(float milliseconds) {
 void Window::_processEvent(SDL_Event* event) {
 #ifdef LUMINOVEAU_WITH_IMGUI
     ImGui_ImplSDL3_ProcessEvent(event);
+#endif
+
+#ifdef LUMINOVEAU_WITH_RMLUI
+    RmlUI::ProcessEvent(*event);
 #endif
 
     switch (event->type) {
@@ -413,9 +431,9 @@ void Window::SetupImGuiStyle() {
 #endif
 
 void Window::_setIcon(const std::string &filename) {
-
     auto icon = FileHandler::GetFileFromPhysFS(filename);
-    auto* iconSurface = STBIMG_LoadFromMemory((const unsigned char*)icon.data, icon.fileSize);
+    SDL_IOStream* io = SDL_IOFromMem(icon.data, icon.fileSize);
+    SDL_Surface* iconSurface = IMG_Load_IO(io, true); // SDL_TRUE = close IO after reading
 
     if (iconSurface) {
         SDL_SetWindowIcon(_getWindow(), iconSurface);
@@ -430,9 +448,9 @@ void Window::_setTitle(const std::string &title) {
 }
 
 void Window::_setCursor(const std::string &filename) {
-
     auto icon = FileHandler::GetFileFromPhysFS(filename);
-    auto* cursorSurface = STBIMG_LoadFromMemory((const unsigned char*)icon.data, icon.fileSize);
+    SDL_IOStream* io = SDL_IOFromMem(icon.data, icon.fileSize);
+    SDL_Surface* cursorSurface = IMG_Load_IO(io, true); // SDL_TRUE = close IO after reading
 
     SDL_Cursor *cursor = nullptr;
 

@@ -55,6 +55,8 @@ public:
 
     static std::string Slugify(std::string input);
 
+    static time_t GetFileModificationTime(const std::string& filepath);
+
 
 
 };

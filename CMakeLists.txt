@@ -15,6 +15,7 @@ project(Luminoveau
 
 # Configurable build options
 option(LUMINOVEAU_BUILD_IMGUI "Include ImGui support" OFF)
+option(LUMINOVEAU_BUILD_RMLUI "Include RmlUi support" OFF)
 option(LUMINOVEAU_ENABLE_LOGGING "Include logging support" ON)
 option(LUMINOVEAU_ENABLE_WARNINGS "Enable all compiler warnings" OFF)
 option(LUMINOVEAU_BUILD_TESTS "Build test suite" OFF)
@@ -175,6 +176,7 @@ include(cmake/AssetPreparation.cmake)
 include(cmake/SteamDetection.cmake)
 include(cmake/DependencySetup.cmake)
 include(cmake/ImGuiIntegration.cmake)
+include(cmake/RmlUiIntegration.cmake)
 include(cmake/DownloadDXC.cmake)
 
 # Android: Fix linker flags again after dependencies (they may override)

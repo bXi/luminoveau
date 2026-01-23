@@ -178,6 +178,14 @@ public:
     }
 
     /**
+     * @brief Get the embedded DroidSansMono font data
+     * @return Pointer to font data and length as a pair
+     */
+    static std::pair<const unsigned char*, size_t> GetEmbeddedFontData() {
+        return {DroidSansMono_ttf, get().DroidSansMono_ttf_len};
+    }
+
+    /**
      * @brief Cleans up all loaded assets.
      * @note Called automatically on shutdown. You rarely need to call this manually.
      */

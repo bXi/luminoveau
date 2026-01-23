@@ -31,3 +31,8 @@
 #include <utils/vectors.h>
 #include <utils/scene3d.h>
 
+//RmlUI integration
+#ifdef LUMINOVEAU_WITH_RMLUI
+#include <rmlui/rmluihandler.h>
+#endif
+

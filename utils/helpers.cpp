@@ -7,6 +7,7 @@
 #include "SDL3/SDL.h"
 
 #include <iostream>
+#include <sys/stat.h>
 
 #if defined(_WIN32) || defined(_WIN64)
 #ifndef NOMINMAX
@@ -679,4 +680,11 @@ std::unordered_map<std::string, std::string> charMap {
 	return input;
 }
 
+time_t Helpers::GetFileModificationTime(const std::string& filepath) {
+    struct stat fileInfo;
+    if (stat(filepath.c_str(), &fileInfo) == 0) {
+        return fileInfo.st_mtime;
+    }
+    return 0;  // Return 0 if file doesn't exist or error
+}
 
