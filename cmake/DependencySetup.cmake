@@ -119,6 +119,29 @@ else()
     message(FATAL_ERROR "Failed to fetch SDL3. SDL3 is a required dependency")
 endif()
 
+# Fetching SDL3_image
+set(SDL3IMAGE_INSTALL OFF CACHE BOOL "Disable SDL3_image installation" FORCE)
+set(SDL3IMAGE_DEPS_SHARED OFF CACHE BOOL "Use static dependencies" FORCE)
+set(SDL3IMAGE_VENDORED ON CACHE BOOL "Use vendored dependencies" FORCE)
+set(SDL3IMAGE_BUILD_SHARED_LIBS OFF CACHE BOOL "Build static SDL3_image" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
+
+CPMAddPackage(
+    NAME SDL3_image
+    GITHUB_REPOSITORY libsdl-org/SDL_image
+    GIT_TAG cc0b1ff
+)
+if(SDL3_image_ADDED)
+    if(NOT EXISTS "${SDL3_image_SOURCE_DIR}/include")
+        message(FATAL_ERROR "SDL3_image include directory '${SDL3_image_SOURCE_DIR}/include' does not exist")
+    endif()
+    target_include_directories(luminoveau SYSTEM PUBLIC "${SDL3_image_SOURCE_DIR}/include")
+    target_link_libraries(luminoveau PUBLIC SDL3_image::SDL3_image-static)
+    message(STATUS "Luminoveau: SDL3_image configured")
+else()
+    message(WARNING "Failed to fetch SDL3_image. Image loading may be limited")
+endif()
+
 # Fetching SDL_shadercross (shader translation library)
 # NOTE: Must come AFTER SDL3 since it depends on it
 set(SDLSHADERCROSS_SHARED OFF CACHE BOOL "Build static SDL_shadercross library" FORCE)

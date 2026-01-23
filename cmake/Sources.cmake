@@ -66,9 +66,6 @@ set(LUMINOVEAU_SOURCES
 
     # External sources
     extern/miniaudio.cpp
-    extern/SDL_stbimage.cpp
-    extern/stb_image.cpp
-    extern/stb_image_write.cpp
 )
 
 # Defining header files for installation and inclusion

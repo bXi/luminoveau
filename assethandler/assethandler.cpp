@@ -11,6 +11,7 @@
 
 #include <msdf-atlas-gen/msdf-atlas-gen.h>
 #include <msdfgen/msdfgen.h>
+#include <SDL3_image/SDL_image.h>
 
 
 AssetHandler::AssetHandler() {
@@ -240,7 +241,8 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     TextureAsset texture;
 
     auto filedata = FileHandler::ReadFile(fileName);
-    auto surface = STBIMG_LoadFromMemory((const unsigned char*)filedata.data, filedata.fileSize);
+    SDL_IOStream* io = SDL_IOFromMem(filedata.data, filedata.fileSize);
+    SDL_Surface* surface = IMG_Load_IO(io, true); // SDL_TRUE = close IO after reading
 
     if (!surface) {
         LOG_CRITICAL("IMG_Load failed: {}", SDL_GetError());
