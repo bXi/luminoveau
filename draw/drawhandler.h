@@ -16,6 +16,8 @@
 
 #include "utils/constants.h"
 
+#include <functional>
+
 struct Mode7Parameters {
     int h = 0;
     int v = 0;
@@ -257,6 +259,38 @@ public:
     };
 
     /**
+     * @brief Draws a texture with Mode 7 affine transformation.
+     * Applies a single affine transform to the entire texture using SNES-style Mode 7 parameters.
+     *
+     * @param texture The texture to draw.
+     * @param pos The position at which to draw the texture.
+     * @param size The size of the drawn texture.
+     * @param params Mode 7 transformation parameters (matrix, origin, scroll).
+     * @param color The color tint to apply.
+     */
+    static void Mode7Texture(TextureType texture, vf2d pos, vf2d size, const Mode7Parameters& params, Color color = WHITE) {
+        get()._drawMode7Texture(texture, pos, size, params, color);
+    };
+
+    /**
+     * @brief Draws a texture with per-scanline Mode 7 transformation for perspective effects.
+     * Each horizontal scanline can have different transformation parameters, enabling
+     * classic SNES-style perspective effects like roads, floors, etc.
+     *
+     * @param texture The texture to draw.
+     * @param pos The position at which to draw the texture.
+     * @param size The size of the drawn texture.
+     * @param getParamsForLine Callback that returns Mode7Parameters for each scanline.
+     * @param color The color tint to apply.
+     * @param scanlineStep Process every Nth scanline (default 1). Higher values = fewer strips, better performance.
+     */
+    static void Mode7TextureScanline(TextureType texture, vf2d pos, vf2d size, 
+        std::function<Mode7Parameters(int)> getParamsForLine, 
+        Color color = WHITE, int scanlineStep = 1) {
+        get()._drawMode7TextureScanline(texture, pos, size, getParamsForLine, color, scanlineStep);
+    };
+
+    /**
      * @brief Begins scissor mode with the specified area.
      *
      * @param area The area to apply scissor mode.
@@ -318,6 +352,10 @@ private:
     void _drawRotatedTexture(TextureType texture, vf2d pos, vf2d size, float angle, const vf2d& pivot,Color color = WHITE);
 
     void _drawRotatedTexturePart(TextureType texture, vf2d pos, vf2d size, const rectf& src, float angle, const vf2d& pivot,Color color = WHITE);
+
+    void _drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mode7Parameters& params, Color color);
+
+    void _drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size, std::function<Mode7Parameters(int)> getParamsForLine, Color color, int scanlineStep);
 
     void _setScissorMode(const rectf& area);
 

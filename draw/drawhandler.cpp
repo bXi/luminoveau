@@ -699,3 +699,174 @@ void Draw::_drawPixel(const vi2d& pos, Color color) {
         _pixelsDirty = true;
     }
 }
+
+// Helper function to convert screen position to Mode 7 texture UV coordinates
+static vf2d ScreenToMode7UV(vf2d screenPos, const Mode7Parameters& params, const TextureAsset& texture) {
+    // Get position relative to screen center
+    int relX = (int)screenPos.x - params.snesScreenWidth / 2;
+    int relY = (int)screenPos.y - params.snesScreenHeight / 2;
+    
+    // Apply inverse affine transform to get texture space coordinates
+    // The matrix [a b; c d] transforms texture space to screen space,
+    // so we apply it to get back to texture coordinates
+    int texX = ((params.a * relX + params.b * relY) >> 8) + params.x0 + params.h;
+    int texY = ((params.c * relX + params.d * relY) >> 8) + params.y0 + params.v;
+    
+    // Convert to UV coordinates (0.0 - 1.0)
+    return {
+        (float)texX / (float)texture.width,
+        (float)texY / (float)texture.height
+    };
+}
+
+void Draw::_drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mode7Parameters& params, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Apply camera transformation if active
+    rectf dstRect = _doCamera(pos, size);
+    
+    // Calculate UV coordinates for the four corners using Mode 7 transform
+    vf2d topLeft = ScreenToMode7UV(dstRect.pos, params, texture);
+    vf2d topRight = ScreenToMode7UV({dstRect.pos.x + dstRect.size.x, dstRect.pos.y}, params, texture);
+    vf2d bottomLeft = ScreenToMode7UV({dstRect.pos.x, dstRect.pos.y + dstRect.size.y}, params, texture);
+    vf2d bottomRight = ScreenToMode7UV(dstRect.pos + dstRect.size, params, texture);
+    
+    // Create custom geometry with transformed UVs
+    Geometry2D* mode7Geom = new Geometry2D();
+    mode7Geom->name = "Mode7Quad";
+    
+    // Vertices in normalized quad space (0-1)
+    mode7Geom->vertices.push_back(Vertex2D{0.0f, 0.0f, topLeft.x, topLeft.y});           // Top-left
+    mode7Geom->vertices.push_back(Vertex2D{1.0f, 0.0f, topRight.x, topRight.y});         // Top-right
+    mode7Geom->vertices.push_back(Vertex2D{0.0f, 1.0f, bottomLeft.x, bottomLeft.y});     // Bottom-left
+    mode7Geom->vertices.push_back(Vertex2D{1.0f, 1.0f, bottomRight.x, bottomRight.y});   // Bottom-right
+    
+    // Two triangles to form a quad
+    mode7Geom->indices = {0, 1, 2, 2, 1, 3};
+    
+    mode7Geom->UploadToGPU(Renderer::GetDevice());
+    
+    // Create renderable
+    Renderable renderable = {
+        .texture = texture,
+        .geometry = mode7Geom,
+        
+        .x = dstRect.pos.x,
+        .y = dstRect.pos.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,
+        
+        .rotation = 0.0f,
+        
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+        
+        .r = (float)color.r / 255.f,
+        .g = (float)color.g / 255.f,
+        .b = (float)color.b / 255.f,
+        .a = (float)color.a / 255.f,
+        
+        .w = dstRect.size.x,
+        .h = dstRect.size.y,
+        
+        .pivot_x = 0.0f,
+        .pivot_y = 0.0f,
+    };
+    
+    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+}
+
+void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size, 
+    std::function<Mode7Parameters(int)> getParamsForLine, Color color, int scanlineStep) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Apply camera transformation if active
+    rectf dstRect = _doCamera(pos, size);
+    
+    // Clamp scanline step to reasonable values
+    if (scanlineStep < 1) scanlineStep = 1;
+    if (scanlineStep > (int)size.y) scanlineStep = (int)size.y;
+    
+    int numScanlines = (int)dstRect.size.y;
+    
+    // Create geometry with horizontal strips
+    Geometry2D* scanlineGeom = new Geometry2D();
+    scanlineGeom->name = "Mode7Scanline";
+    
+    // Generate vertices for each scanline strip
+    for (int y = 0; y < numScanlines; y += scanlineStep) {
+        // Get Mode 7 parameters for this scanline
+        Mode7Parameters params = getParamsForLine(y);
+        
+        float screenY = dstRect.pos.y + y;
+        float nextScreenY = dstRect.pos.y + std::min(y + scanlineStep, numScanlines);
+        
+        // Calculate screen positions for left and right edges
+        vf2d leftScreen = {dstRect.pos.x, screenY};
+        vf2d rightScreen = {dstRect.pos.x + dstRect.size.x, screenY};
+        
+        // Transform to Mode 7 UV coordinates
+        vf2d leftUV = ScreenToMode7UV(leftScreen, params, texture);
+        vf2d rightUV = ScreenToMode7UV(rightScreen, params, texture);
+        
+        // Get parameters for next scanline for bottom UVs
+        Mode7Parameters nextParams = getParamsForLine(std::min(y + scanlineStep, numScanlines - 1));
+        vf2d leftBottomScreen = {dstRect.pos.x, nextScreenY};
+        vf2d rightBottomScreen = {dstRect.pos.x + dstRect.size.x, nextScreenY};
+        vf2d leftBottomUV = ScreenToMode7UV(leftBottomScreen, nextParams, texture);
+        vf2d rightBottomUV = ScreenToMode7UV(rightBottomScreen, nextParams, texture);
+        
+        // Normalize vertex positions to 0-1 range relative to entire drawable area
+        float normY = (float)y / dstRect.size.y;
+        float normNextY = (float)std::min(y + scanlineStep, numScanlines) / dstRect.size.y;
+        
+        // Add four vertices for this strip (two triangles)
+        int baseIdx = (int)scanlineGeom->vertices.size();
+        scanlineGeom->vertices.push_back(Vertex2D{0.0f, normY, leftUV.x, leftUV.y});              // Top-left
+        scanlineGeom->vertices.push_back(Vertex2D{1.0f, normY, rightUV.x, rightUV.y});            // Top-right
+        scanlineGeom->vertices.push_back(Vertex2D{0.0f, normNextY, leftBottomUV.x, leftBottomUV.y}); // Bottom-left
+        scanlineGeom->vertices.push_back(Vertex2D{1.0f, normNextY, rightBottomUV.x, rightBottomUV.y}); // Bottom-right
+        
+        // Add indices for two triangles
+        scanlineGeom->indices.push_back(baseIdx + 0);
+        scanlineGeom->indices.push_back(baseIdx + 1);
+        scanlineGeom->indices.push_back(baseIdx + 2);
+        
+        scanlineGeom->indices.push_back(baseIdx + 2);
+        scanlineGeom->indices.push_back(baseIdx + 1);
+        scanlineGeom->indices.push_back(baseIdx + 3);
+    }
+    
+    scanlineGeom->UploadToGPU(Renderer::GetDevice());
+    
+    // Create renderable
+    Renderable renderable = {
+        .texture = texture,
+        .geometry = scanlineGeom,
+        
+        .x = dstRect.pos.x,
+        .y = dstRect.pos.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,
+        
+        .rotation = 0.0f,
+        
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+        
+        .r = (float)color.r / 255.f,
+        .g = (float)color.g / 255.f,
+        .b = (float)color.b / 255.f,
+        .a = (float)color.a / 255.f,
+        
+        .w = dstRect.size.x,
+        .h = dstRect.size.y,
+        
+        .pivot_x = 0.0f,
+        .pivot_y = 0.0f,
+    };
+    
+    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+}
