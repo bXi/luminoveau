@@ -3,14 +3,13 @@
 #include "constants.h"
 
 /**
- * @brief Convert degrees to radians at compile-time.
+ * @brief Convert degrees to radians.
  * 
  * @param degrees Angle in degrees
  * @return Angle in radians
  * 
  * @example
- * Draw::RotatedTexture(texture, pos, size, deg(90));  // 90 degrees
- * Draw::RotatedTexture(texture, pos, size, deg(45.5)); // 45.5 degrees
+ * Draw::RotatedTexture(texture, pos, size, deg(90));  // 90 degrees = PI/2 radians
  */
 constexpr float deg(float degrees) {
     return degrees * PI / 180.0f;

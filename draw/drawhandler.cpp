@@ -322,7 +322,7 @@ void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, vf2d size, f
         .y = pos.y,
         .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
 
-        .rotation = angle,  // Angle is already in radians
+        .rotation = fmod(angle, 2.0f * PI),  // Wrap radians to 0-2π
 
         .tex_u = 0.f,
         .tex_v = 0.f,
@@ -367,7 +367,7 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, vf2d pos, vf2d siz
         .y = pos.y,
         .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
 
-        .rotation = angle,  // Angle is already in radians
+        .rotation = fmod(angle, 2.0f * PI),  // Wrap radians to 0-2π
 
         .tex_u = u0,
         .tex_v = v0,
