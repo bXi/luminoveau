@@ -127,6 +127,9 @@ void Init() {
         return;
     }
 
+
+    Rml::SetSystemInterface(&g_rml_system);
+
     // Initialize RmlUi core
     if (!Rml::Initialise()) {
         LOG_ERROR("Failed to initialize RmlUi core");

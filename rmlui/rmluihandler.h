@@ -14,6 +14,10 @@
 #include "utils/vectors.h"
 #include "utils/colors.h"
 
+#include "rmluisystemlog.h"
+
+static RmlSystem g_rml_system;
+
 namespace RmlUI {
 
 // ============================================================================
