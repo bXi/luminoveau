@@ -362,6 +362,18 @@ private:
     FrameBuffer *_getFramebuffer(std::string fbname);
 
     void _setSampleCount(SDL_GPUSampleCount sampleCount);
+    
+    void _processPendingScreenshot();
+    
+    // Pending screenshot data
+    struct PendingScreenshotData {
+        std::string filename;
+        SDL_GPUTransferBuffer* transferBuffer = nullptr;
+        int width = 0;
+        int height = 0;
+        size_t dataSize = 0;
+    };
+    PendingScreenshotData _pendingScreenshotData;
 
     struct Uniforms {
         glm::mat4 camera;

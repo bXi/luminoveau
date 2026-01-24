@@ -464,3 +464,9 @@ void Window::_setCursor(const std::string &filename) {
     }
     free(icon.data);
 }
+
+void Window::_takeScreenshot(const std::string& filename) {
+    // Defer screenshot until end of frame
+    _pendingScreenshot = true;
+    _pendingScreenshotFilename = filename;
+}

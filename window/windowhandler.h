@@ -214,6 +214,27 @@ public:
     static void ToggleDebugMenu() { get()._toggleDebugMenu(); }
 
     /**
+     * @brief Take a screenshot and save it to a file
+     * @param filename Optional filename (default: screenshot_TIMESTAMP.png)
+     */
+    static void TakeScreenshot(const std::string& filename = "") { get()._takeScreenshot(filename); }
+    
+    /**
+     * @brief Check if there's a pending screenshot
+     */
+    static bool HasPendingScreenshot() { return get()._pendingScreenshot; }
+    
+    /**
+     * @brief Get pending screenshot filename and clear the flag
+     */
+    static std::string GetAndClearPendingScreenshot() {
+        std::string filename = get()._pendingScreenshotFilename;
+        get()._pendingScreenshot = false;
+        get()._pendingScreenshotFilename.clear();
+        return filename;
+    }
+
+    /**
      * @brief Sets a callback function for text input events.
      *
      * @param callback Function to call when text input is received.
@@ -273,6 +294,8 @@ private:
 
     void _toggleDebugMenu();
 
+    void _takeScreenshot(const std::string& filename);
+
     void _processEvent(SDL_Event* event);
 
     SDL_Window *m_window = nullptr;
@@ -280,6 +303,9 @@ private:
     int  _lastWindowWidth  = 0;
     int  _lastWindowHeight = 0;
     bool _maximized        = false;
+    
+    bool _pendingScreenshot = false;
+    std::string _pendingScreenshotFilename;
 
     std::function<void(const char*)> _textInputCallback = nullptr;
 

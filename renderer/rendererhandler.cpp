@@ -1,6 +1,7 @@
 #include "rendererhandler.h"
 
 #include <stdexcept>
+#include <thread>
 #include "audio/audiohandler.h"
 
 #include "assethandler/assethandler.h"
@@ -16,6 +17,8 @@
 #include "model3drenderpass.h"
 #include "shaderrenderpass.h"
 #include "shaderhandler.h"
+
+#include <SDL3_image/SDL_image.h>
 
 #ifdef LUMINOVEAU_WITH_RMLUI
 #include "rmlui/rmluihandler.h"
@@ -264,6 +267,10 @@ void Renderer::_startFrame() const {
 void Renderer::_endFrame() {
     Draw::FlushPixels();
     Input::GetVirtualControls().Render(); //Draw as last thing
+    
+    // Process any pending screenshot from previous frame
+    _processPendingScreenshot();
+    
     m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
     if (!m_cmdbuf) {
         LOG_ERROR("Failed to acquire GPU command buffer: {}", SDL_GetError());
@@ -349,6 +356,85 @@ void Renderer::_endFrame() {
         SDL_PopGPUDebugGroup(m_cmdbuf);
 #endif
 #endif
+        
+        // Handle screenshot capture - add copy pass to main command buffer BEFORE submit
+        if (Window::HasPendingScreenshot()) {
+            std::string filename = Window::GetAndClearPendingScreenshot();
+            
+            // Generate filename if not provided  
+            if (filename.empty()) {
+                auto now = std::chrono::system_clock::now();
+                auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+                filename = Helpers::TextFormat("screenshot_%lld.png", timestamp);
+            }
+            
+            // Ensure PNG extension
+            if (!filename.ends_with(".png")) {
+                if (filename.ends_with(".bmp")) {
+                    filename = filename.substr(0, filename.length() - 4) + ".png";
+                } else {
+                    filename += ".png";
+                }
+            }
+            
+            int width = Window::GetWidth(true);
+            int height = Window::GetHeight(true);
+            size_t dataSize = width * height * 4;
+            
+            // Create transfer buffer
+            SDL_GPUTransferBufferCreateInfo transferInfo = {
+                .usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD,
+                .size = (Uint32)dataSize
+            };
+            
+            SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(m_device, &transferInfo);
+            if (transferBuffer) {
+                // Add copy pass to the MAIN command buffer (before submit)
+                SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(m_cmdbuf);
+                
+                SDL_GPUTextureRegion srcRegion = {
+                    .texture = swapchain_texture,
+                    .mip_level = 0,
+                    .layer = 0,
+                    .x = 0, .y = 0, .z = 0,
+                    .w = (Uint32)width,
+                    .h = (Uint32)height,
+                    .d = 1
+                };
+                
+                SDL_GPUTextureTransferInfo dstInfo = {
+                    .transfer_buffer = transferBuffer,
+                    .offset = 0,
+                    .pixels_per_row = (Uint32)width,
+                    .rows_per_layer = (Uint32)height
+                };
+                
+                SDL_DownloadFromGPUTexture(copyPass, &srcRegion, &dstInfo);
+                SDL_EndGPUCopyPass(copyPass);
+                
+                // Submit main command buffer (includes screenshot copy now)
+                // Don't wait - we'll process it on the next frame
+                SDL_SubmitGPUCommandBuffer(m_cmdbuf);
+                
+                // Store pending screenshot data for next frame processing
+                _pendingScreenshotData.filename = filename;
+                _pendingScreenshotData.transferBuffer = transferBuffer;
+                _pendingScreenshotData.width = width;
+                _pendingScreenshotData.height = height;
+                _pendingScreenshotData.dataSize = dataSize;
+                
+                // Reset state after submit
+                for (auto &[fbName, framebuffer]: frameBuffers) {
+                    for (auto &[passname, renderpass]: framebuffer->renderpasses) {
+                        renderpass->resetRenderQueue();
+                    }
+                }
+                m_cmdbuf = nullptr;
+                return;  // Early return - already submitted
+            } else {
+                LOG_ERROR("Failed to create transfer buffer for screenshot");
+            }
+        }
     } else {
         // don't have a swapchain. just end imgui
         #ifdef LUMINOVEAU_WITH_IMGUI
@@ -364,6 +450,65 @@ void Renderer::_endFrame() {
         }
     }
     m_cmdbuf = nullptr;
+}
+
+void Renderer::_processPendingScreenshot() {
+    // Check if we have a pending screenshot to process
+    if (!_pendingScreenshotData.transferBuffer) {
+        return;
+    }
+    
+    // Wait for GPU to finish the copy from previous frame
+    SDL_WaitForGPUIdle(m_device);
+    
+    // Map and read data
+    void* gpuData = SDL_MapGPUTransferBuffer(m_device, _pendingScreenshotData.transferBuffer, false);
+    if (gpuData) {
+        // Copy pixel data to a buffer we can pass to the background thread
+        unsigned char* pixelCopy = (unsigned char*)malloc(_pendingScreenshotData.dataSize);
+        if (pixelCopy) {
+            memcpy(pixelCopy, gpuData, _pendingScreenshotData.dataSize);
+            
+            // Capture data for thread (copy by value)
+            std::string filename = _pendingScreenshotData.filename;
+            int width = _pendingScreenshotData.width;
+            int height = _pendingScreenshotData.height;
+            size_t dataSize = _pendingScreenshotData.dataSize;
+            
+            // Get pixel format now (can't access SDL state from thread)
+            SDL_GPUTextureFormat gpuFormat = SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow());
+            SDL_PixelFormat pixelFormat;
+            if (gpuFormat == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM) {
+                pixelFormat = SDL_PIXELFORMAT_ARGB8888;  // BGRA in memory order
+            } else {
+                pixelFormat = SDL_PIXELFORMAT_RGBA32;  // Fallback to RGBA
+            }
+            
+            // Spawn thread to save PNG in background
+            std::thread([pixelCopy, filename, width, height, dataSize, pixelFormat]() {
+                SDL_Surface* surface = SDL_CreateSurface(width, height, pixelFormat);
+                if (surface) {
+                    memcpy(surface->pixels, pixelCopy, dataSize);
+                    
+                    if (IMG_SavePNG(surface, filename.c_str())) {
+                        LOG_INFO("Screenshot saved: {}", filename);
+                    } else {
+                        LOG_ERROR("Failed to save screenshot: {}", SDL_GetError());
+                    }
+                    
+                    SDL_DestroySurface(surface);
+                }
+                
+                free(pixelCopy);  // Thread owns this memory now
+            }).detach();  // Detach so thread runs independently
+        }
+        
+        SDL_UnmapGPUTransferBuffer(m_device, _pendingScreenshotData.transferBuffer);
+    }
+    
+    // Cleanup transfer buffer
+    SDL_ReleaseGPUTransferBuffer(m_device, _pendingScreenshotData.transferBuffer);
+    _pendingScreenshotData = {};  // Clear pending screenshot data
 }
 
 void Renderer::_reset() {
