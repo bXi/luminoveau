@@ -6,13 +6,15 @@
 #include <algorithm>
 
 #ifdef _WIN32
+
 #include <windows.h>
+
 #endif
 
 // LogEntry timestamp formatting methods
 std::string LogEntry::FormatTime() const {
     auto time = std::chrono::system_clock::to_time_t(timestamp);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+    auto ms   = std::chrono::duration_cast<std::chrono::milliseconds>(
         timestamp.time_since_epoch()) % 1000;
 
     std::ostringstream oss;
@@ -23,7 +25,7 @@ std::string LogEntry::FormatTime() const {
 
 std::string LogEntry::FormatDateTime() const {
     auto time = std::chrono::system_clock::to_time_t(timestamp);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+    auto ms   = std::chrono::duration_cast<std::chrono::milliseconds>(
         timestamp.time_since_epoch()) % 1000;
 
     std::ostringstream oss;
@@ -34,7 +36,7 @@ std::string LogEntry::FormatDateTime() const {
 
 std::string LogEntry::FormatDateTimeShort() const {
     auto time = std::chrono::system_clock::to_time_t(timestamp);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+    auto ms   = std::chrono::duration_cast<std::chrono::milliseconds>(
         timestamp.time_since_epoch()) % 1000;
 
     std::ostringstream oss;
@@ -44,8 +46,8 @@ std::string LogEntry::FormatDateTimeShort() const {
 }
 
 std::string LogEntry::FormatRelative() const {
-    auto now = std::chrono::system_clock::now();
-    auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - timestamp);
+    auto now     = std::chrono::system_clock::now();
+    auto diff    = std::chrono::duration_cast<std::chrono::seconds>(now - timestamp);
     auto seconds = diff.count();
 
     if (seconds < 0) {
@@ -66,8 +68,8 @@ std::string LogEntry::FormatRelative() const {
     }
 }
 
-std::string LogEntry::FormatCustom(const char* format) const {
-    auto time = std::chrono::system_clock::to_time_t(timestamp);
+std::string LogEntry::FormatCustom(const char *format) const {
+    auto               time = std::chrono::system_clock::to_time_t(timestamp);
     std::ostringstream oss;
     oss << std::put_time(std::localtime(&time), format);
     return oss.str();
@@ -82,11 +84,21 @@ std::string LogEntry::ToString() const {
 
     // Level
     switch (level) {
-        case LogLevel::Debug:    oss << "[DEBUG] "; break;
-        case LogLevel::Info:     oss << "[INFO] "; break;
-        case LogLevel::Warning:  oss << "[WARNING] "; break;
-        case LogLevel::Error:    oss << "[ERROR] "; break;
-        case LogLevel::Critical: oss << "[CRITICAL] "; break;
+        case LogLevel::Debug:
+            oss << "[DBUG] ";
+            break;
+        case LogLevel::Info:
+            oss << "[INFO] ";
+            break;
+        case LogLevel::Warning:
+            oss << "[WARN] ";
+            break;
+        case LogLevel::Error:
+            oss << "[ERRO] ";
+            break;
+        case LogLevel::Critical:
+            oss << "[CRIT] ";
+            break;
     }
 
     // Timestamp
@@ -100,18 +112,28 @@ std::string LogEntry::ToString() const {
 
 std::string LogEntry::ToColoredString() const {
     // ANSI color codes
-    const char* reset = "\033[0m";
-    const char* darkBlue = "\033[34m";      // Dark blue for brackets
-    const char* lightBlue = "\033[94m";     // Light blue for "Lumi"
-    const char* gray = "\033[90m";          // Gray for timestamp
-    const char* levelColor;
+    const char *reset     = "\033[0m";
+    const char *darkBlue  = "\033[34m";      // Dark blue for brackets
+    const char *lightBlue = "\033[94m";     // Light blue for "Lumi"
+    const char *gray      = "\033[90m";          // Gray for timestamp
+    const char *levelColor;
 
     switch (level) {
-        case LogLevel::Debug:    levelColor = "\033[36m"; break; // Cyan
-        case LogLevel::Info:     levelColor = "\033[32m"; break; // Green
-        case LogLevel::Warning:  levelColor = "\033[33m"; break; // Yellow
-        case LogLevel::Error:    levelColor = "\033[31m"; break; // Red
-        case LogLevel::Critical: levelColor = "\033[1;31m"; break; // Bold Red
+        case LogLevel::Debug:
+            levelColor = "\033[36m";
+            break; // Cyan
+        case LogLevel::Info:
+            levelColor = "\033[32m";
+            break; // Green
+        case LogLevel::Warning:
+            levelColor = "\033[33m";
+            break; // Yellow
+        case LogLevel::Error:
+            levelColor = "\033[31m";
+            break; // Red
+        case LogLevel::Critical:
+            levelColor = "\033[1;31m";
+            break; // Bold Red
     }
 
     std::ostringstream oss;
@@ -122,11 +144,21 @@ std::string LogEntry::ToColoredString() const {
     // Level with color
     oss << levelColor;
     switch (level) {
-        case LogLevel::Debug:    oss << "[DEBUG]"; break;
-        case LogLevel::Info:     oss << "[INFO]"; break;
-        case LogLevel::Warning:  oss << "[WARNING]"; break;
-        case LogLevel::Error:    oss << "[ERROR]"; break;
-        case LogLevel::Critical: oss << "[CRITICAL]"; break;
+        case LogLevel::Debug:
+            oss << "[DBUG]";
+            break;
+        case LogLevel::Info:
+            oss << "[INFO]";
+            break;
+        case LogLevel::Warning:
+            oss << "[WARN]";
+            break;
+        case LogLevel::Error:
+            oss << "[ERRO]";
+            break;
+        case LogLevel::Critical:
+            oss << "[CRIT]";
+            break;
     }
     oss << reset << " ";
 
@@ -142,7 +174,7 @@ std::string LogEntry::ToColoredString() const {
 // SDLConsoleSink implementation
 SDLConsoleSink::SDLConsoleSink(LogLevel minLevel) : minLevel(minLevel) {}
 
-void SDLConsoleSink::Write(const LogEntry& entry) {
+void SDLConsoleSink::Write(const LogEntry &entry) {
     if (entry.level < minLevel) {
         return;
     }
@@ -156,7 +188,7 @@ void SDLConsoleSink::Write(const LogEntry& entry) {
 }
 
 // FileSink implementation
-FileSink::FileSink(const std::string& filename, LogLevel minLevel)
+FileSink::FileSink(const std::string &filename, LogLevel minLevel)
     : filename(filename), minLevel(minLevel), file(nullptr) {
     file = std::fopen(filename.c_str(), "a");
     if (!file) {
@@ -170,7 +202,7 @@ FileSink::~FileSink() {
     }
 }
 
-void FileSink::Write(const LogEntry& entry) {
+void FileSink::Write(const LogEntry &entry) {
     if (!file || entry.level < minLevel) {
         return;
     }
@@ -189,7 +221,7 @@ MemoryBufferSink::MemoryBufferSink(size_t maxEntries) : maxEntries(maxEntries) {
     entries.reserve(maxEntries);
 }
 
-void MemoryBufferSink::Write(const LogEntry& entry) {
+void MemoryBufferSink::Write(const LogEntry &entry) {
     std::lock_guard<std::mutex> lock(mutex);
 
     if (entries.size() >= maxEntries) {
@@ -206,7 +238,7 @@ std::vector<LogEntry> MemoryBufferSink::GetEntries(LogLevel minLevel) const {
     std::vector<LogEntry> result;
     result.reserve(entries.size());
 
-    for (const auto& entry : entries) {
+    for (const auto &entry: entries) {
         if (entry.level >= minLevel) {
             result.push_back(entry);
         }
@@ -221,7 +253,7 @@ std::vector<LogEntry> MemoryBufferSink::GetUserEntries() const {
     std::vector<LogEntry> result;
     result.reserve(entries.size());
 
-    for (const auto& entry : entries) {
+    for (const auto &entry: entries) {
         if (entry.isUserFacing) {
             result.push_back(entry);
         }
@@ -257,10 +289,10 @@ Log::Log() : memoryBufferSink(nullptr) {
     sinks.push_back(std::move(memSink));
 
     LogEntry entry;
-    entry.level = LogLevel::Info;
+    entry.level     = LogLevel::Info;
     entry.timestamp = std::chrono::system_clock::now();
-    entry.function = "Log::Log";
-    entry.message = "Logging system initialized with " + std::to_string(sinks.size()) + " sinks";
+    entry.function  = "Log::Log";
+    entry.message   = "Logging system initialized with " + std::to_string(sinks.size()) + " sinks";
 
     SDL_Log("%s", entry.ToColoredString().c_str());
 }
@@ -272,10 +304,10 @@ Log::~Log() {
     memoryBufferSink = nullptr;
 
     LogEntry entry;
-    entry.level = LogLevel::Info;
+    entry.level     = LogLevel::Info;
     entry.timestamp = std::chrono::system_clock::now();
-    entry.function = "Log::~Log";
-    entry.message = "Logging system shut down";
+    entry.function  = "Log::~Log";
+    entry.message   = "Logging system shut down";
 
     SDL_Log("%s", entry.ToColoredString().c_str());
 }
@@ -293,7 +325,7 @@ void Log::_clearSinks() {
 
 void Log::_flushAll() {
     std::lock_guard<std::mutex> lock(sinkMutex);
-    for (auto& sink : sinks) {
+    for (auto &sink: sinks) {
         sink->Flush();
     }
 }
@@ -302,8 +334,8 @@ void Log::_setMinLevel(LogLevel level) {
     std::lock_guard<std::mutex> lock(sinkMutex);
 
     // Update SDL console sink min level
-    for (auto& sink : sinks) {
-        if (auto* sdlSink = dynamic_cast<SDLConsoleSink*>(sink.get())) {
+    for (auto &sink: sinks) {
+        if (auto *sdlSink = dynamic_cast<SDLConsoleSink *>(sink.get())) {
             sdlSink->SetMinLevel(level);
         }
     }
@@ -323,18 +355,18 @@ std::vector<LogEntry> Log::_getUserLines() {
     return {};
 }
 
-bool Log::_dumpToFile(const std::string& filename, LogLevel minLevel) {
+bool Log::_dumpToFile(const std::string &filename, LogLevel minLevel) {
     auto entries = _getLines(minLevel);
     if (entries.empty()) {
         return false;
     }
 
-    FILE* file = std::fopen(filename.c_str(), "w");
+    FILE *file = std::fopen(filename.c_str(), "w");
     if (!file) {
         return false;
     }
 
-    for (const auto& entry : entries) {
+    for (const auto &entry: entries) {
         std::fprintf(file, "%s\n", entry.ToString().c_str());
     }
 
@@ -342,7 +374,7 @@ bool Log::_dumpToFile(const std::string& filename, LogLevel minLevel) {
     return true;
 }
 
-std::string Log::ExtractFilename(const char* path) {
+std::string Log::ExtractFilename(const char *path) {
     std::string pathStr(path);
 
     // Find last slash or backslash
@@ -354,7 +386,7 @@ std::string Log::ExtractFilename(const char* path) {
     return pathStr;
 }
 
-std::string Log::CleanFunctionName(const char* funcName) {
+std::string Log::CleanFunctionName(const char *funcName) {
     std::string func(funcName);
 
     // GCC/Clang format: "returnType ClassName::methodName(params)"
@@ -407,10 +439,10 @@ std::string Log::CleanFunctionName(const char* funcName) {
     }
 }
 
-void Log::WriteToSinks(const LogEntry& entry) {
+void Log::WriteToSinks(const LogEntry &entry) {
     std::lock_guard<std::mutex> lock(sinkMutex);
 
-    for (auto& sink : sinks) {
+    for (auto &sink: sinks) {
         sink->Write(entry);
     }
 }
