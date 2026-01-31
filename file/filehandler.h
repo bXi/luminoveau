@@ -4,7 +4,7 @@
 #include <vector>
 #include <cstdint>
 
-#include <SDL3/sdl.h>
+#include <SDL3/SDL.h>
 
 struct PhysFSFileData {
     void* data;
