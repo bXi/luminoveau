@@ -34,11 +34,18 @@ union rect_generic {
     rect_generic(T _x, T _y, T _width, T _height) : x(_x), y(_y), width(_width), height(_height) {}
 
 
-    bool contains(const vd2d& _point) {
+    bool contains(const v2d_generic<T>& _point) {
 		return !(_point.x < this->pos.x ||
                  _point.y < this->pos.y ||
 			     _point.x > (this->pos.x + this->size.x) ||
                  _point.y > (this->pos.y + this->size.y));
+    }
+
+    bool intersects(const rect_generic<T>& other) const {
+        return !(this->pos.x + this->size.x < other.pos.x ||
+                 other.pos.x + other.size.x < this->pos.x ||
+                 this->pos.y + this->size.y < other.pos.y ||
+                 other.pos.y + other.size.y < this->pos.y);
     }
 
 #if __has_include("SDL3/SDL.h")
