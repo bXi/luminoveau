@@ -121,7 +121,9 @@ struct v2d_generic {
     T mag2() const { return x * x + y * y; }
 
     v2d_generic norm() const {
-        T r = 1 / mag();
+        T m = mag();
+        if (m == 0) return v2d_generic(0, 0);  // Handle zero vector
+        T r = 1 / m;
         return v2d_generic(x * r, y * r);
     }
 
@@ -320,7 +322,9 @@ struct v3d_generic {
     T mag2() const { return x * x + y * y + z * z; }
     
     v3d_generic norm() const {
-        T r = 1 / mag();
+        T m = mag();
+        if (m == 0) return v3d_generic(0, 0, 0);  // Handle zero vector
+        T r = 1 / m;
         return v3d_generic(x * r, y * r, z * r);
     }
 
