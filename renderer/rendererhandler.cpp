@@ -233,8 +233,77 @@ void Renderer::_initRendering() {
 }
 
 void Renderer::_close() {
+    if (!m_device) {
+        return; // Already closed or never initialized
+    }
+    
+    LOG_INFO("Closing renderer");
+    
+    // Wait for GPU to finish all work
+    SDL_WaitForGPUIdle(m_device);
+    
+    // Clean up pending screenshot data
+    if (_pendingScreenshotData.transferBuffer) {
+        SDL_ReleaseGPUTransferBuffer(m_device, _pendingScreenshotData.transferBuffer);
+        _pendingScreenshotData = {};
+    }
+    
+    // Release render passes and framebuffers
+    for (auto &[fbName, framebuffer]: frameBuffers) {
+        // Release all render passes
+        for (auto &[passname, renderpass]: framebuffer->renderpasses) {
+            renderpass->release(false);
+            delete renderpass;
+        }
+        framebuffer->renderpasses.clear();
+        
+        // Release framebuffer textures
+        if (framebuffer->fbContent) {
+            SDL_ReleaseGPUTexture(m_device, framebuffer->fbContent);
+        }
+        if (framebuffer->fbContentMSAA) {
+            SDL_ReleaseGPUTexture(m_device, framebuffer->fbContentMSAA);
+        }
+        if (framebuffer->fbDepthMSAA) {
+            SDL_ReleaseGPUTexture(m_device, framebuffer->fbDepthMSAA);
+        }
+        
+        delete framebuffer;
+    }
+    frameBuffers.clear();
+    
+    // Release samplers
+    for (auto& [mode, sampler] : _samplers) {
+        if (sampler) {
+            SDL_ReleaseGPUSampler(m_device, sampler);
+        }
+    }
+    _samplers.clear();
+    
+    // Release RTT pipeline and shaders
+    if (m_rendertotexturepipeline) {
+        SDL_ReleaseGPUGraphicsPipeline(m_device, m_rendertotexturepipeline);
+        m_rendertotexturepipeline = nullptr;
+    }
+    if (rtt_vertex_shader) {
+        SDL_ReleaseGPUShader(m_device, rtt_vertex_shader);
+        rtt_vertex_shader = nullptr;
+    }
+    if (rtt_fragment_shader) {
+        SDL_ReleaseGPUShader(m_device, rtt_fragment_shader);
+        rtt_fragment_shader = nullptr;
+    }
+    
     // Shutdown SDL_shadercross
     Shaders::Quit();
+    
+    // Release the GPU device
+    SDL_DestroyGPUDevice(m_device);
+    m_device = nullptr;
+    m_cmdbuf = nullptr;
+    swapchain_texture = nullptr;
+    
+    LOG_INFO("Renderer closed");
 }
 
 void Renderer::_updateCameraProjection() {

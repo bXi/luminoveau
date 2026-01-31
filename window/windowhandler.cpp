@@ -58,9 +58,25 @@ void Window::_close() {
 #ifdef LUMINOVEAU_WITH_RMLUI
     RmlUI::Shutdown();
 #endif
+
+#ifdef LUMINOVEAU_WITH_IMGUI
+    ImGui_ImplSDLGPU3_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
+#endif
+    
+    // Clean up renderer before destroying window
+    Renderer::Close();
+    
+    // Destroy the window
+    if (m_window) {
+        SDL_DestroyWindow(m_window);
+        m_window = nullptr;
+    }
     
     // SDL_QuitSubSystem is ref-counted
     Audio::Close();
+    
     SDL_Quit();
 }
 

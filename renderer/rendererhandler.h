@@ -71,6 +71,14 @@ public:
     static void InitRendering() { get()._initRendering(); }
 
     /**
+     * @brief Closes the rendering system and releases all GPU resources.
+     *
+     * Waits for GPU to complete all work, releases all render passes,
+     * framebuffers, samplers, shaders, and the GPU device.
+     */
+    static void Close() { get()._close(); }
+
+    /**
      * @brief Retrieves the SDL GPU device.
      *
      * @return Pointer to the SDL GPU device.
