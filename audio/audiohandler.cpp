@@ -135,6 +135,10 @@ void Audio::_init() {
 }
 
 void Audio::_close() {
+    if (!audioInit) {
+        return; // Audio was never initialized, nothing to clean up
+    }
+    
     _stopMusic();
 
     for (size_t i = 0; i < get()._sounds.size(); ++i) {
@@ -146,6 +150,8 @@ void Audio::_close() {
 
     ma_resource_manager_uninit(&resourceManager);
     ma_engine_uninit(&engine);
+    
+    audioInit = false;
 }
 
 void Audio::_setNumberOfChannels(int newNumberOfChannels) {
