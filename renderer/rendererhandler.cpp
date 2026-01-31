@@ -938,3 +938,124 @@ void Renderer::_setSampleCount(SDL_GPUSampleCount sampleCount) {
 
     _reset();
 }
+
+void Renderer::_createSpriteRenderTarget(const std::string& name, const SpriteRenderTargetConfig& config) {
+    // Create framebuffer first
+    std::string framebufferName = name + "_framebuffer";
+    _createFrameBuffer(framebufferName);
+    _setFramebufferRenderToScreen(framebufferName, config.renderToScreen);
+
+    // Convert BlendMode enum to SDL blend state
+    SDL_GPUColorTargetBlendState blendState;
+    switch (config.blendMode) {
+        case BlendMode::Default:
+            blendState = GPUstructs::defaultBlendState;
+            break;
+        case BlendMode::SrcAlpha:
+            blendState = GPUstructs::srcAlphaBlendState;
+            break;
+        case BlendMode::Additive:
+            blendState = {
+                .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+                .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                .color_blend_op = SDL_GPU_BLENDOP_ADD,
+                .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
+                .enable_blend = true,
+            };
+            break;
+        case BlendMode::None:
+            blendState = {
+                .src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ZERO,
+                .color_blend_op = SDL_GPU_BLENDOP_ADD,
+                .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO,
+                .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
+                .enable_blend = false,
+            };
+            break;
+    }
+
+    // Create and configure render pass
+    RenderPass* renderPass = new SpriteRenderPass(m_device);
+    static_cast<SpriteRenderPass*>(renderPass)->UpdateRenderPassBlendState(blendState);
+
+    // Initialize render pass
+    renderPass->init(
+        SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()),
+        Window::GetWidth(),
+        Window::GetHeight(),
+        name
+    );
+
+    // Configure load operation and clear color
+    renderPass->color_target_info_loadop = config.clearOnLoad ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_LOAD;
+    renderPass->color_target_info_clear_color = {
+        config.clearColor.r / 255.0f,
+        config.clearColor.g / 255.0f,
+        config.clearColor.b / 255.0f,
+        config.clearColor.a / 255.0f
+    };
+
+    // Attach to framebuffer
+    _attachRenderPassToFrameBuffer(renderPass, name, framebufferName);
+
+    LOG_INFO("Created sprite render target: {}", name.c_str());
+}
+
+void Renderer::_removeSpriteRenderTarget(const std::string& name, bool removeFramebuffer) {
+    std::string framebufferName = name + "_framebuffer";
+    
+    // Find and remove the render pass from the framebuffer
+    auto fbIt = std::find_if(frameBuffers.begin(), frameBuffers.end(), 
+        [&framebufferName](const auto& pair) {
+            return pair.first == framebufferName;
+        });
+    
+    if (fbIt != frameBuffers.end()) {
+        auto& renderpasses = fbIt->second->renderpasses;
+        auto passIt = std::find_if(renderpasses.begin(), renderpasses.end(),
+            [&name](const auto& pair) {
+                return pair.first == name;
+            });
+        
+        if (passIt != renderpasses.end()) {
+            // Release GPU resources
+            passIt->second->release();
+            
+            // Delete the render pass object
+            delete passIt->second;
+            
+            // Remove from vector
+            renderpasses.erase(passIt);
+            
+            LOG_INFO("Removed sprite render target: {}", name.c_str());
+        }
+        
+        // Optionally remove the framebuffer if requested
+        if (removeFramebuffer) {
+            // Release framebuffer GPU textures
+            if (fbIt->second->fbContent) {
+                SDL_ReleaseGPUTexture(m_device, fbIt->second->fbContent);
+            }
+            if (fbIt->second->fbContentMSAA) {
+                SDL_ReleaseGPUTexture(m_device, fbIt->second->fbContentMSAA);
+            }
+            if (fbIt->second->fbDepthMSAA) {
+                SDL_ReleaseGPUTexture(m_device, fbIt->second->fbDepthMSAA);
+            }
+            
+            // Delete framebuffer object
+            delete fbIt->second;
+            
+            // Remove from vector
+            frameBuffers.erase(fbIt);
+            
+            LOG_INFO("Removed framebuffer: {}", framebufferName.c_str());
+        }
+    } else {
+        LOG_WARNING("Sprite render target not found: {}", name.c_str());
+    }
+}

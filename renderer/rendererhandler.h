@@ -44,6 +44,20 @@ union SDL_Event;
 // Forward declare RenderPass before FrameBuffer uses it
 class RenderPass;
 
+enum class BlendMode {
+    Default,    // Standard alpha blending
+    SrcAlpha,   // Source alpha blending
+    Additive,   // Additive blending
+    None        // No blending
+};
+
+struct SpriteRenderTargetConfig {
+    BlendMode blendMode = BlendMode::SrcAlpha;
+    bool clearOnLoad = true;
+    Color clearColor = BLACK;
+    bool renderToScreen = false;
+};
+
 struct FrameBuffer {
     SDL_GPUTexture *fbContent = nullptr;          // Resolved non-MSAA texture (for screen display)
     SDL_GPUTexture *fbContentMSAA = nullptr;      // MSAA texture (for rendering when MSAA enabled)
@@ -307,6 +321,31 @@ public:
         get()._setSampleCount(sampleCount);
     }
 
+    /**
+     * @brief Creates a sprite render target with the specified configuration.
+     *
+     * This is a convenience function that creates a framebuffer, render pass,
+     * and configures it with the provided options in a single call.
+     *
+     * @param name Name of the render target.
+     * @param config Configuration options for the render target.
+     */
+    static void CreateSpriteRenderTarget(const std::string& name, const SpriteRenderTargetConfig& config = {}) {
+        get()._createSpriteRenderTarget(name, config);
+    }
+
+    /**
+     * @brief Removes a sprite render target created with CreateSpriteRenderTarget.
+     *
+     * Releases the render pass and optionally removes the associated framebuffer.
+     *
+     * @param name Name of the render target to remove.
+     * @param removeFramebuffer If true, also removes the framebuffer (default: true).
+     */
+    static void RemoveSpriteRenderTarget(const std::string& name, bool removeFramebuffer = true) {
+        get()._removeSpriteRenderTarget(name, removeFramebuffer);
+    }
+
 private:
     SDL_GPUDevice        *m_device = nullptr;
     SDL_GPUCommandBuffer *m_cmdbuf = nullptr;
@@ -370,6 +409,10 @@ private:
     FrameBuffer *_getFramebuffer(std::string fbname);
 
     void _setSampleCount(SDL_GPUSampleCount sampleCount);
+    
+    void _createSpriteRenderTarget(const std::string& name, const SpriteRenderTargetConfig& config);
+    
+    void _removeSpriteRenderTarget(const std::string& name, bool removeFramebuffer);
     
     void _processPendingScreenshot();
     
