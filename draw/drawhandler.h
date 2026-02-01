@@ -16,7 +16,10 @@
 
 #include "utils/constants.h"
 
+#include "assettypes/effect.h"
+
 #include <functional>
+#include <vector>
 
 struct Mode7Parameters {
     int h = 0;
@@ -313,6 +316,39 @@ public:
 
     static std::string GetTargetRenderPass() { return get()._getTargetRenderPass(); }
 
+    /**
+     * @brief Sets the active effect for subsequent draw calls.
+     * Replaces any previously set effect.
+     * 
+     * @param effect The effect to apply
+     */
+    static void SetEffect(const EffectAsset& effect) { get()._setEffect(effect); }
+
+    /**
+     * @brief Adds an additional effect to the effect stack.
+     * Effects are applied in the order they were added.
+     * 
+     * @param effect The effect to add to the stack
+     */
+    static void AddEffect(const EffectAsset& effect) { get()._addEffect(effect); }
+
+    /**
+     * @brief Removes a specific effect from the effect stack.
+     * 
+     * @param effect The effect to remove
+     */
+    static void RemoveEffect(const EffectAsset& effect) { get()._removeEffect(effect); }
+
+    /**
+     * @brief Clears all active effects.
+     */
+    static void ClearEffects() { get()._clearEffects(); }
+
+    /**
+     * @brief Gets the current effect stack (for internal use by Renderer).
+     */
+    static const std::vector<EffectAsset>& GetEffectStack() { return get()._effectStack; }
+
 private:
 
     void _drawPixel(const vi2d& pos, Color color);
@@ -374,6 +410,14 @@ private:
     std::string _getTargetRenderPass() { return get()._targetRenderPass; }
 
     std::string _targetRenderPass = "2dsprites";
+
+    // Effect system
+    std::vector<EffectAsset> _effectStack;
+    
+    void _setEffect(const EffectAsset& effect);
+    void _addEffect(const EffectAsset& effect);
+    void _removeEffect(const EffectAsset& effect);
+    void _clearEffects();
 
     // Pixel buffer system
     TextureAsset _pixelTexture;

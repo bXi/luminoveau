@@ -1,6 +1,32 @@
 #include "drawhandler.h"
 
 #include <utility>
+#include <algorithm>
+
+void Draw::_setEffect(const EffectAsset& effect) {
+    _effectStack.clear();
+    _effectStack.push_back(effect);
+}
+
+void Draw::_addEffect(const EffectAsset& effect) {
+    _effectStack.push_back(effect);
+}
+
+void Draw::_removeEffect(const EffectAsset& effect) {
+    // Remove by comparing shader pointers
+    _effectStack.erase(
+        std::remove_if(_effectStack.begin(), _effectStack.end(),
+            [&](const EffectAsset& e) {
+                return e.vertShader.shader == effect.vertShader.shader && 
+                       e.fragShader.shader == effect.fragShader.shader;
+            }),
+        _effectStack.end()
+    );
+}
+
+void Draw::_clearEffects() {
+    _effectStack.clear();
+}
 
 void Draw::_initPixelBuffer() {
     // Get desktop size to match framebuffer dimensions
@@ -260,6 +286,8 @@ void Draw::_drawTexture(TextureType texture, const vf2d& pos, const vf2d &size, 
 
         .pivot_x = 0.5f,
         .pivot_y = 0.5f,
+        
+        .effects = _effectStack,  // Capture current effect stack
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -301,6 +329,8 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &si
 
         .pivot_x = 0.5f,
         .pivot_y = 0.5f,
+        
+        .effects = _effectStack,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -339,6 +369,8 @@ void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, vf2d size, f
 
         .pivot_x = pivot.x,
         .pivot_y = pivot.y,
+        
+        .effects = _effectStack,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -384,6 +416,8 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, vf2d pos, vf2d siz
 
         .pivot_x = pivot.x,
         .pivot_y = pivot.x,
+        
+        .effects = _effectStack,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -446,6 +480,8 @@ void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color 
 
         .pivot_x = 0.5f,
         .pivot_y = 0.5f,
+        
+        .effects = _effectStack,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -485,6 +521,8 @@ void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
 
         .pivot_x = 0.5f,
         .pivot_y = 0.5f,
+        
+        .effects = _effectStack,
     };
 
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -658,6 +696,8 @@ void Draw::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
         
         .pivot_x = 0.0f,
         .pivot_y = 0.0f,
+        
+        .effects = _effectStack,
     };
     
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -772,6 +812,8 @@ void Draw::_drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mod
         
         .pivot_x = 0.0f,
         .pivot_y = 0.0f,
+        
+        .effects = _effectStack,
     };
     
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);
@@ -866,6 +908,8 @@ void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size,
         
         .pivot_x = 0.0f,
         .pivot_y = 0.0f,
+        
+        .effects = _effectStack,
     };
     
     Renderer::AddToRenderQueue(_targetRenderPass, renderable);

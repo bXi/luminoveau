@@ -17,6 +17,7 @@
 #include "renderer/rendererhandler.h"
 
 #include "assettypes/texture.h"
+#include "assettypes/effect.h"
 
 #include "assethandler/assethandler.h"
 #include "renderable.h"
@@ -110,6 +111,11 @@ class SpriteRenderPass : public RenderPass {
 
     SDL_GPUTransferBuffer* SpriteDataTransferBuffer;
     SDL_GPUBuffer* SpriteDataBuffer;
+    
+    // Surface dimensions (desktop size) for effect textures
+    uint32_t m_surface_width = 0;
+    uint32_t m_surface_height = 0;
+    SDL_GPUTextureFormat m_swapchain_format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
 
     // Original full-precision struct (64 bytes)
     struct SpriteInstance {
@@ -249,4 +255,17 @@ public:
     SDL_GPUColorTargetBlendState renderPassBlendState = GPUstructs::defaultBlendState;
 
     void createShaders();
+    
+    // Effect rendering support
+    TextureAsset effectTempA;  // Ping-pong texture A
+    TextureAsset effectTempB;  // Ping-pong texture B
+    SDL_GPUGraphicsPipeline* effectPipeline = nullptr;
+    SDL_GPUGraphicsPipeline* effectSpritePipeline = nullptr;  // Pipeline for rendering sprites to temp (no blending)
+    SDL_GPUShader* effectVertShader = nullptr;
+    
+    void createEffectResources();
+    void releaseEffectResources();
+    void applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std::vector<EffectAsset>& effects,
+                     SDL_GPUTexture* sourceTexture, SDL_GPUTexture* targetTexture, const glm::mat4& camera,
+                     SDL_GPUTextureFormat targetFormat);
 };

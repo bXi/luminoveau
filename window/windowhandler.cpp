@@ -65,6 +65,10 @@ void Window::_close() {
     ImGui::DestroyContext();
 #endif
     
+    // CRITICAL: Clean up assets BEFORE closing renderer/destroying device
+    // Otherwise shader modules are released after device destruction
+    AssetHandler::Cleanup();
+    
     // Clean up renderer before destroying window
     Renderer::Close();
     

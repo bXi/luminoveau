@@ -7,6 +7,8 @@
 #include <assettypes/sound.h>
 #include <assettypes/texture.h>
 #include <assettypes/model.h>
+#include <assettypes/effect.h>
+#include <assettypes/effecthandler.h>
 
 //Engine components
 #include <assethandler/assethandler.h>
