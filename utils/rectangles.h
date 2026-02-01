@@ -34,11 +34,15 @@ union rect_generic {
     rect_generic(T _x, T _y, T _width, T _height) : x(_x), y(_y), width(_width), height(_height) {}
 
 
-    bool contains(const v2d_generic<T>& _point) {
-		return !(_point.x < this->pos.x ||
-                 _point.y < this->pos.y ||
-			     _point.x > (this->pos.x + this->size.x) ||
-                 _point.y > (this->pos.y + this->size.y));
+    bool contains(const v2d_generic<T>& _point) const {
+        T px = _point.x;
+        T py = _point.y;
+        T rx = pos.x;
+        T ry = pos.y;
+        T rw = size.x;
+        T rh = size.y;
+        
+        return !(px < rx || py < ry || px > (rx + rw) || py > (ry + rh));
     }
 
     bool intersects(const rect_generic<T>& other) const {
