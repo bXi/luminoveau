@@ -119,10 +119,6 @@ void Model3DRenderPass::release(bool logRelease) {
 }
 
 void Model3DRenderPass::createShaders() {
-
-    LOG_INFO("Creating shaders - vert size: {}, frag size: {}",
-            Luminoveau::Shaders::Model3d_Vert_Size, Luminoveau::Shaders::Model3d_Frag_Size);
-
     // Select shader format based on build configuration
     SDL_GPUShaderFormat shaderFormat;
     #if defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
@@ -145,9 +141,6 @@ void Model3DRenderPass::createShaders() {
         .num_storage_buffers = 1,  // SceneUniforms at set 0
         .num_uniform_buffers = 0,  // Not using push constants
     };
-    
-    LOG_INFO("Vertex shader info - storage_buffers: {}, uniform_buffers: {}",
-            vertexShaderInfo.num_storage_buffers, vertexShaderInfo.num_uniform_buffers);
     
     vertex_shader = SDL_CreateGPUShader(m_gpu_device, &vertexShaderInfo);
     if (!vertex_shader) {

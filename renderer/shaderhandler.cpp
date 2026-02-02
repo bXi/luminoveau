@@ -161,7 +161,6 @@ bool Shaders::_loadCachedMetadata(const std::string &metadataKey, ShaderMetadata
 
 void Shaders::_saveCachedShader(const std::string &cacheKey, const std::vector<uint8_t> &data) {
     if (shaderCache) {
-        LOG_INFO("Adding shader to cache: {} ({} bytes)", cacheKey.c_str(), data.size());
         shaderCache->AddFile(cacheKey, data);
         // Save immediately - don't wait for shutdown
         if (shaderCache->SavePack()) {
@@ -178,7 +177,6 @@ void Shaders::_saveCachedMetadata(const std::string &metadataKey, const ShaderMe
     if (shaderCache) {
         std::string metadataStr = metadata.serialize();
         std::vector<uint8_t> metadataBytes(metadataStr.begin(), metadataStr.end());
-        LOG_INFO("Adding metadata to cache: {} ({} bytes)", metadataKey.c_str(), metadataBytes.size());
         shaderCache->AddFile(metadataKey, metadataBytes);
         // Save immediately - don't wait for shutdown
         if (shaderCache->SavePack()) {
