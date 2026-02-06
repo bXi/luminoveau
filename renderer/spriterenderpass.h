@@ -111,7 +111,9 @@ class SpriteRenderPass : public RenderPass {
 
     SDL_GPUTransferBuffer* SpriteDataTransferBuffer;
     SDL_GPUBuffer* SpriteDataBuffer;
-    
+
+std::unordered_map<uint32_t, SDL_GPUTexture*> m_additionalEffectTextures;
+
     // Surface dimensions (desktop size) for effect textures
     uint32_t m_surface_width = 0;
     uint32_t m_surface_height = 0;
@@ -250,6 +252,15 @@ public:
         renderPassBlendState = newstate;
     }
 
+    void SetAdditionalTexture(uint32_t binding, SDL_GPUTexture* texture) {
+        m_additionalEffectTextures[binding] = texture;
+    }
+
+    void ClearAdditionalTextures() {
+        m_additionalEffectTextures.clear();
+    }
+
+
     UniformBuffer uniformBuffer;
 
     SDL_GPUColorTargetBlendState renderPassBlendState = GPUstructs::defaultBlendState;
@@ -267,5 +278,5 @@ public:
     void releaseEffectResources();
     void applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std::vector<EffectAsset>& effects,
                      SDL_GPUTexture* sourceTexture, SDL_GPUTexture* targetTexture, const glm::mat4& camera,
-                     SDL_GPUTextureFormat targetFormat);
+                     SDL_GPUTextureFormat targetFormat, bool isFirstBatch);
 };

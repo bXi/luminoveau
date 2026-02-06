@@ -443,10 +443,6 @@ void SpriteRenderPass::render(
                 if (spriteIdx >= renderQueueCount || renderQueue[spriteIdx].effects.empty()) continue;
                 const auto& effects = renderQueue[spriteIdx].effects;
                 
-                #if !defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
-                SDL_PushGPUDebugGroup(cmd_buffer, "Render Sprite to Temp Texture");
-                #endif
-                
                 // Step 1: Render this batch to temp texture
                 SDL_GPUColorTargetInfo tempTarget = {
                     .texture = effectTempA.gpuTexture,
@@ -490,11 +486,7 @@ void SpriteRenderPass::render(
                 
                 SDL_EndGPURenderPass(tempPass);
                 
-                #if !defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
-                SDL_PopGPUDebugGroup(cmd_buffer);
-                #endif
-
-                applyEffects(cmd_buffer, effects, effectTempA.gpuTexture, target_texture, camera, m_swapchain_format);
+                applyEffects(cmd_buffer, effects, effectTempA.gpuTexture, target_texture, camera, m_swapchain_format, batchIdx == 0);
             }
         }
         
@@ -626,17 +618,10 @@ void SpriteRenderPass::releaseEffectResources() {
 
 void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std::vector<EffectAsset>& effects,
                                    SDL_GPUTexture* sourceTexture, SDL_GPUTexture* targetTexture, const glm::mat4& camera,
-                                   SDL_GPUTextureFormat targetFormat) {
+                                   SDL_GPUTextureFormat targetFormat, bool isFirstBatch) {
 
-    #if !defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
-    SDL_PushGPUDebugGroup(cmd_buffer, "Effect Compositing Pass");
-    #endif
-    
+
     if (effects.empty()) {
-        LOG_ERROR("applyEffects: effects is empty, returning early");
-        #if !defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
-        SDL_PopGPUDebugGroup(cmd_buffer);
-        #endif
         return;
     }
     
@@ -725,11 +710,6 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
         const auto& effect = effects[i];
         bool isLastEffect = (i == effects.size() - 1);
         
-        #if !defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
-        std::string debugName = "Effect " + std::to_string(i) + (isLastEffect ? " (Final Composite)" : "");
-        SDL_PushGPUDebugGroup(cmd_buffer, debugName.c_str());
-        #endif
-        
         // On last effect, write to final target instead of temp
         if (isLastEffect) {
             writeTex = targetTexture;
@@ -750,12 +730,12 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
             .mip_level = 0,
             .layer_or_depth_plane = 0,
             .clear_color = {0.0f, 0.0f, 0.0f, 0.0f},
-            .load_op = isLastEffect ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_DONT_CARE,  // Preserve existing content on final pass
+            .load_op = isLastEffect ? (isFirstBatch ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_LOAD) : SDL_GPU_LOADOP_CLEAR,  // Clear intermediate, preserve/clear final
             .store_op = SDL_GPU_STOREOP_STORE,
             .resolve_texture = nullptr,
             .resolve_mip_level = 0,
             .resolve_layer = 0,
-            .cycle = false
+            .cycle = false  // Don't cycle - we're explicitly ping-ponging between A/B
         };
         
         SDL_GPURenderPass* effectPass = SDL_BeginGPURenderPass(cmd_buffer, &colorTarget, 1, nullptr);
@@ -790,8 +770,18 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
                 .enable_color_write_mask = false,
             };
         } else {
-            // Intermediate pass - no blending needed
-            blendState = GPUstructs::defaultBlendState;
+            // Intermediate pass - no blending, direct write (ONE/ZERO)
+            blendState = {
+                .src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ZERO,
+                .color_blend_op = SDL_GPU_BLENDOP_ADD,
+                .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO,
+                .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
+                .color_write_mask = 0xF,
+                .enable_blend = true,
+                .enable_color_write_mask = false,
+            };
         }
         
         SDL_GPUColorTargetDescription colorTargetDesc = {
@@ -841,13 +831,33 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
 
         SDL_BindGPUGraphicsPipeline(effectPass, pipeline);
         
-        // Bind source texture
-        SDL_GPUTextureSamplerBinding texBinding = {
+        // Bind textures - source texture plus any additional effect textures
+        const auto& additionalTextures = Draw::GetEffectTextures();
+        std::vector<SDL_GPUTextureSamplerBinding> textureBindings;
+        
+        // Always bind source texture at binding 0
+        textureBindings.push_back({
             .texture = readTex,
             .sampler = Renderer::GetSampler(ScaleMode::NEAREST)
-        };
+        });
         
-        SDL_BindGPUFragmentSamplers(effectPass, 0, &texBinding, 1);
+        // Bind additional textures at their specified bindings
+        // Note: bindings must be sequential starting from 0
+        for (const auto& [binding, texture] : additionalTextures) {
+            // Resize vector if needed to accommodate the binding index
+            while (textureBindings.size() <= binding) {
+                // Fill gaps with the first texture as a placeholder
+                textureBindings.push_back(textureBindings[0]);
+            }
+            
+            // Set the texture at the specified binding
+            textureBindings[binding] = {
+                .texture = texture,
+                .sampler = Renderer::GetSampler(ScaleMode::NEAREST)
+            };
+        }
+        
+        SDL_BindGPUFragmentSamplers(effectPass, 0, textureBindings.data(), (uint32_t)textureBindings.size());
         
         // Always bind effect's uniform buffer - shader expects it even if empty
         // Push dummy data if no uniforms exist
@@ -875,11 +885,7 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
         
         // Clean up pipeline (TODO: cache these)
         SDL_ReleaseGPUGraphicsPipeline(Renderer::GetDevice(), pipeline);
-        
-        #if !defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
-        SDL_PopGPUDebugGroup(cmd_buffer);
-        #endif
-        
+
         // Ping-pong: read from where we just wrote, write to the other temp
         if (!isLastEffect) {
             readTex = writeTex;
@@ -892,10 +898,7 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
     SDL_ReleaseGPUBuffer(Renderer::GetDevice(), indexBuffer);
     SDL_ReleaseGPUTransferBuffer(Renderer::GetDevice(), vertexTransfer);
     SDL_ReleaseGPUTransferBuffer(Renderer::GetDevice(), indexTransfer);
-    
-    #if !defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
-    SDL_PopGPUDebugGroup(cmd_buffer);
-    #endif
+
 }
 
 void SpriteRenderPass::createShaders() {
