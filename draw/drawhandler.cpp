@@ -28,6 +28,16 @@ void Draw::_clearEffects() {
     _effectStack.clear();
 }
 
+void Draw::_setEffectTexture(uint32_t binding, const TextureAsset& texture) {
+    _effectTextures[binding] = texture.gpuTexture;
+}
+
+void Draw::_clearEffectTextures() {
+    _effectTextures.clear();
+}
+
+
+
 void Draw::_initPixelBuffer() {
     // Get desktop size to match framebuffer dimensions
     SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();

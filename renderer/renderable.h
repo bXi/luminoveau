@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <vector>
+#include <unordered_map>
 
 #include "assettypes/texture.h"
 #include "assettypes/effect.h"
@@ -26,4 +27,7 @@ struct Renderable {
     
     // Effects to apply to this sprite (captured when sprite is drawn)
     std::vector<EffectAsset> effects;
+    
+    // Additional textures for effects (captured when sprite is drawn)
+    std::unordered_map<uint32_t, SDL_GPUTexture*> effectTextures;
 };

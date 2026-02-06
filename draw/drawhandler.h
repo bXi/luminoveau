@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <vector>
+#include <unordered_map>
 
 struct Mode7Parameters {
     int h = 0;
@@ -345,9 +346,29 @@ public:
     static void ClearEffects() { get()._clearEffects(); }
 
     /**
+     * @brief Sets an additional texture binding for the current effect.
+     * Allows effects to access multiple input textures.
+     * 
+     * @param binding The binding index (0, 1, 2, etc.) corresponding to shader layout
+     * @param texture The texture to bind at this index
+     */
+    static void SetEffectTexture(uint32_t binding, const TextureAsset& texture) { get()._setEffectTexture(binding, texture); }
+
+    /**
+     * @brief Clears all additional effect texture bindings.
+     */
+    static void ClearEffectTextures() { get()._clearEffectTextures(); }
+
+    /**
      * @brief Gets the current effect stack (for internal use by Renderer).
      */
     static const std::vector<EffectAsset>& GetEffectStack() { return get()._effectStack; }
+
+    /**
+     * @brief Gets additional effect textures (for internal use by Renderer).
+     */
+    static const std::unordered_map<uint32_t, SDL_GPUTexture*>& GetEffectTextures() { return get()._effectTextures; }
+
 
 private:
 
@@ -413,11 +434,14 @@ private:
 
     // Effect system
     std::vector<EffectAsset> _effectStack;
+    std::unordered_map<uint32_t, SDL_GPUTexture*> _effectTextures;
     
     void _setEffect(const EffectAsset& effect);
     void _addEffect(const EffectAsset& effect);
     void _removeEffect(const EffectAsset& effect);
     void _clearEffects();
+    void _setEffectTexture(uint32_t binding, const TextureAsset& texture);
+    void _clearEffectTextures();
 
     // Pixel buffer system
     TextureAsset _pixelTexture;
