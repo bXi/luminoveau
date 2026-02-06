@@ -313,7 +313,16 @@ if(physfs_ADDED)
         target_sources(luminoveau PRIVATE
             "${physfs_SOURCE_DIR}/src/physfs_platform_apple.m"
         )
-        target_link_libraries(luminoveau PUBLIC "-framework IOKit" "-framework Foundation")
+        # Set ObjC compilation for the .m file
+        set_source_files_properties(
+            "${physfs_SOURCE_DIR}/src/physfs_platform_apple.m"
+            PROPERTIES LANGUAGE OBJC
+        )
+        target_link_libraries(luminoveau PUBLIC
+            "-framework IOKit"
+            "-framework Foundation"
+            "-framework CoreFoundation"
+        )
     endif()
     message(STATUS "Luminoveau: physfs configured")
 else()

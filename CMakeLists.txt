@@ -10,8 +10,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 project(Luminoveau
     VERSION 0.0.1
     DESCRIPTION "Luminoveau Game Engine Library"
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
+
+# Enable Objective-C on Apple platforms (needed for PhysFS platform code)
+if(APPLE)
+    enable_language(OBJC)
+    # Set minimum deployment target for macOS (M1 requires 11.0+)
+    if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS deployment target" FORCE)
+    endif()
+endif()
 
 # Configurable build options
 option(LUMINOVEAU_BUILD_IMGUI "Include ImGui support" OFF)
@@ -82,6 +91,9 @@ else()
     if(ANDROID)
         # Android cross-compilation - don't use march=native
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math -funroll-loops")
+    elseif(APPLE)
+        # Apple Clang on ARM64 - don't use -mtune=native (unsupported)
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -mcpu=native -ffast-math -funroll-loops")
     else()
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -mtune=native -ffast-math -funroll-loops")
     endif()
@@ -102,7 +114,11 @@ else()
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O1 -g")
     
     # GCC/Clang RelWithDebInfo
-    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3 -g -march=native -mtune=native -ffast-math")
+    if(APPLE)
+        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3 -g -mcpu=native -ffast-math")
+    else()
+        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3 -g -march=native -mtune=native -ffast-math")
+    endif()
 endif()
 
 # Including source and header file lists
@@ -149,7 +165,20 @@ if(ANDROID)
     # Android-specific settings
     target_compile_definitions(luminoveau PUBLIC __ANDROID__)
     target_link_libraries(luminoveau PUBLIC log android)  # Android system libraries
-elseif(UNIX AND NOT APPLE)
+elseif(APPLE)
+    # macOS frameworks needed by the engine and its dependencies
+    target_link_libraries(luminoveau PUBLIC
+        "-framework Cocoa"
+        "-framework Metal"
+        "-framework QuartzCore"
+        "-framework CoreAudio"
+        "-framework AudioToolbox"
+        "-framework CoreVideo"
+    )
+    # Enable RPATH for proper dylib resolution on macOS
+    set(CMAKE_MACOSX_RPATH ON)
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+elseif(UNIX)
     target_compile_options(luminoveau PUBLIC -static-libstdc++ -static-libgcc)
     target_link_options(luminoveau PUBLIC -static-libstdc++ -static-libgcc)
 endif()
@@ -170,6 +199,9 @@ include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 set(CMAKE_POLICY_WARNING_CMP0077 OFF)
 set(CMAKE_POLICY_WARNING_CMP0091 OFF)
+
+# Find Threads early so all dependencies (glslang, SDL3, etc.) share the same target
+find_package(Threads REQUIRED)
 
 # Including external CMake modules
 include(cmake/AssetPreparation.cmake)
