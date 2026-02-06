@@ -69,6 +69,9 @@ struct FrameBuffer {
     std::vector<std::pair<std::string, RenderPass *>> renderpasses;
 
     bool renderToScreen = false;
+
+    TextureAsset textureView;
+
 };
 
 /**

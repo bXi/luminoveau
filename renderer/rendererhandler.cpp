@@ -849,6 +849,11 @@ void Renderer::_createFrameBuffer(const std::string &fbname) {
         framebuffer->height = desktopHeight; // CRITICAL: Set height
         frameBuffers.emplace_back(fbname, framebuffer);
 
+        framebuffer->textureView.width  = desktopWidth;
+        framebuffer->textureView.height = desktopHeight;
+        framebuffer->textureView.gpuTexture = framebuffer->fbContent;
+        framebuffer->textureView.gpuSampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode());
+
         LOG_INFO("Created framebuffer: {} ({}x{})", fbname.c_str(), desktopWidth, desktopHeight);
     }
 }
