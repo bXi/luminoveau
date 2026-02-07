@@ -944,7 +944,31 @@ function Compile-AllShaders
             }
         }
 
-        # Add to compiled shaders if at least one backend succeeded
+        # Fill in any backend fields from existing .cpp files on disk
+        # This preserves backends compiled on other platforms (e.g., SPIRV/DXIL from Windows)
+        $backendSuffixes = @{
+            VertCppSPIRV    = "$($shaderDef.BaseName)_vert.spirv.cpp"
+            FragCppSPIRV    = "$($shaderDef.BaseName)_frag.spirv.cpp"
+            VertCppDXIL     = "$($shaderDef.BaseName)_vert.dxil.cpp"
+            FragCppDXIL     = "$($shaderDef.BaseName)_frag.dxil.cpp"
+            VertCppMETALLIB = "$($shaderDef.BaseName)_vert.metallib.cpp"
+            FragCppMETALLIB = "$($shaderDef.BaseName)_frag.metallib.cpp"
+        }
+
+        foreach ($field in $backendSuffixes.Keys)
+        {
+            if (-not $shaderInfo[$field])
+            {
+                $existingFile = Join-Path $OutputDir $backendSuffixes[$field]
+                if (Test-Path $existingFile)
+                {
+                    $shaderInfo[$field] = $backendSuffixes[$field]
+                    Write-Skip "  Keeping existing $($backendSuffixes[$field])"
+                }
+            }
+        }
+
+        # Add to compiled shaders if at least one backend exists
         if ($shaderInfo.VertCppSPIRV -or $shaderInfo.VertCppDXIL -or $shaderInfo.VertCppMETALLIB)
         {
             $compiledShaders += $shaderInfo
