@@ -36,45 +36,46 @@ void Renderer::_initRendering() {
     // Select shader format and driver based on build configuration
     SDL_GPUShaderFormat shaderFormat;
     const char* preferredDriver = nullptr;
-    
+
     // Create device with explicit driver selection
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, enableGPUDebug);
-    
+
     #if defined(__ANDROID__)
-        // Android: Force Vulkan (our shaders are SPIRV only)
+        // Android: Force Vulkan with reduced features for broader device compatibility
         shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;
-        preferredDriver = "vulkan";  // Force Vulkan - OpenGL ES won't work!
+        preferredDriver = "vulkan";
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
-        
-        // Disable optional Vulkan features for broader Android device compatibility
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_CLIP_DISTANCE_BOOLEAN, false);
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_DEPTH_CLAMPING_BOOLEAN, true);
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_INDIRECT_DRAW_FIRST_INSTANCE_BOOLEAN, false);
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_ANISOTROPY_BOOLEAN, false);
-
         LOG_INFO("Using SPIR-V shaders (Android - Vulkan with reduced features)");
+
     #elif defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
-        // Use DXIL SM6.0 for modern DirectX 12 (PC and Xbox One S)
-        shaderFormat = SDL_GPU_SHADERFORMAT_DXIL;  
-        preferredDriver = "direct3d12";  // Force DirectX 12
+        // DirectX 12 with DXIL SM6.0 (Windows)
+        shaderFormat = SDL_GPU_SHADERFORMAT_DXIL;
+        preferredDriver = "direct3d12";
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_DXIL_BOOLEAN, true);
         LOG_INFO("Using DXIL shaders (DirectX 12 SM6.0)");
+
     #elif defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+        // Metal (macOS/iOS) with pre-compiled metallib bytecode
         shaderFormat = SDL_GPU_SHADERFORMAT_METALLIB;
-        preferredDriver = "metal";  // Force Metal
+        preferredDriver = "metal";
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_METALLIB_BOOLEAN, true);
-        LOG_INFO("Using Metal shaders");
+        LOG_INFO("Using Metal shaders (metallib)");
+
     #else
-        // Default to SPIR-V (Vulkan)
+        // Default: Vulkan with SPIR-V
         shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;
-        preferredDriver = "vulkan";  // Force Vulkan
+        preferredDriver = "vulkan";
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
         LOG_INFO("Using SPIR-V shaders (Vulkan)");
     #endif
-    
+
     SDL_SetStringProperty(props, SDL_PROP_GPU_DEVICE_CREATE_NAME_STRING, preferredDriver);
-    
+
     m_device = SDL_CreateGPUDeviceWithProperties(props);
     SDL_DestroyProperties(props);
     if (!m_device) {
@@ -102,28 +103,35 @@ void Renderer::_initRendering() {
 
     fs = AssetHandler::CreateEmptyTexture({1, 1});
 
+    // spirv-cross renames "main" to "main0" in MSL (reserved keyword)
+    #if defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+        const char* shaderEntryPoint = "main0";
+    #else
+        const char* shaderEntryPoint = "main";
+    #endif
+
     SDL_GPUShaderCreateInfo rttVertexShaderInfo = {
         .code_size = Luminoveau::Shaders::FullscreenQuad_Vert_Size,
         .code = Luminoveau::Shaders::FullscreenQuad_Vert,
-        .entrypoint = "main",
-        .format = shaderFormat,  // Use selected format
+        .entrypoint = shaderEntryPoint,
+        .format = shaderFormat,
         .stage = SDL_GPU_SHADERSTAGE_VERTEX,
         .num_samplers = 0,
         .num_storage_textures = 0,
         .num_storage_buffers = 0,
-        .num_uniform_buffers = 1,  // CameraUniforms at space1
+        .num_uniform_buffers = 1,
     };
 
     SDL_GPUShaderCreateInfo rttFragmentShaderInfo = {
         .code_size = Luminoveau::Shaders::FullscreenQuad_Frag_Size,
         .code = Luminoveau::Shaders::FullscreenQuad_Frag,
-        .entrypoint = "main",
-        .format = shaderFormat,  // Use selected format
+        .entrypoint = shaderEntryPoint,
+        .format = shaderFormat,
         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
         .num_samplers = 1,
         .num_storage_textures = 0,
         .num_storage_buffers = 0,
-        .num_uniform_buffers = 0,  // No fragment uniforms
+        .num_uniform_buffers = 0,
     };
 
     rtt_vertex_shader   = SDL_CreateGPUShader(Renderer::GetDevice(), &rttVertexShaderInfo);
@@ -142,7 +150,7 @@ void Renderer::_initRendering() {
     const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
     int desktopWidth = displayMode ? displayMode->w : 3840;  // Fallback to 4K if can't get display
     int desktopHeight = displayMode ? displayMode->h : 2160;
-    
+
     LOG_INFO("Creating framebuffers at desktop size: {}x{}", desktopWidth, desktopHeight);
 
     // Add 3D model render pass (render first)
@@ -166,7 +174,7 @@ void Renderer::_initRendering() {
         SDL_SetGPUTextureName(Renderer::GetDevice(), _framebuffer->fbContent, Helpers::TextFormat("Renderer: framebuffer %s", _fbName.c_str()));
         for (auto &[passname, renderpass]: _framebuffer->renderpasses) {
             // Initialize render passes at desktop size, not window size
-            if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), 
+            if (!renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()),
                                   _framebuffer->width, _framebuffer->height,
                                   passname)) {
                 LOG_ERROR("Renderpass ({}) failed to init()", passname.c_str());
@@ -216,7 +224,7 @@ void Renderer::_initRendering() {
     };
 
     m_rendertotexturepipeline = SDL_CreateGPUGraphicsPipeline(Renderer::GetDevice(), &rtt_pipeline_create_info);
-    
+
     _whitePixelTexture = AssetHandler::CreateWhitePixel();
 
     #ifdef LUMINOVEAU_WITH_IMGUI
@@ -236,18 +244,18 @@ void Renderer::_close() {
     if (!m_device) {
         return; // Already closed or never initialized
     }
-    
+
     LOG_INFO("Closing renderer");
-    
+
     // Wait for GPU to finish all work
     SDL_WaitForGPUIdle(m_device);
-    
+
     // Clean up pending screenshot data
     if (_pendingScreenshotData.transferBuffer) {
         SDL_ReleaseGPUTransferBuffer(m_device, _pendingScreenshotData.transferBuffer);
         _pendingScreenshotData = {};
     }
-    
+
     // Release render passes and framebuffers
     for (auto &[fbName, framebuffer]: frameBuffers) {
         // Release all render passes
@@ -256,7 +264,7 @@ void Renderer::_close() {
             delete renderpass;
         }
         framebuffer->renderpasses.clear();
-        
+
         // Release framebuffer textures
         if (framebuffer->fbContent) {
             SDL_ReleaseGPUTexture(m_device, framebuffer->fbContent);
@@ -267,11 +275,11 @@ void Renderer::_close() {
         if (framebuffer->fbDepthMSAA) {
             SDL_ReleaseGPUTexture(m_device, framebuffer->fbDepthMSAA);
         }
-        
+
         delete framebuffer;
     }
     frameBuffers.clear();
-    
+
     // Release samplers
     for (auto& [mode, sampler] : _samplers) {
         if (sampler) {
@@ -279,7 +287,7 @@ void Renderer::_close() {
         }
     }
     _samplers.clear();
-    
+
     // Release RTT pipeline and shaders
     if (m_rendertotexturepipeline) {
         SDL_ReleaseGPUGraphicsPipeline(m_device, m_rendertotexturepipeline);
@@ -293,16 +301,16 @@ void Renderer::_close() {
         SDL_ReleaseGPUShader(m_device, rtt_fragment_shader);
         rtt_fragment_shader = nullptr;
     }
-    
+
     // Shutdown SDL_shadercross
     Shaders::Quit();
-    
+
     // Release the GPU device
     SDL_DestroyGPUDevice(m_device);
     m_device = nullptr;
     m_cmdbuf = nullptr;
     swapchain_texture = nullptr;
-    
+
     LOG_INFO("Renderer closed");
 }
 
@@ -314,7 +322,7 @@ void Renderer::_updateCameraProjection() {
 void Renderer::_onResize() {
     // Update camera projection
     _updateCameraProjection();
-    
+
     // Reset render passes to recreate window-sized textures
     _reset();
 }
@@ -336,10 +344,10 @@ void Renderer::_startFrame() const {
 void Renderer::_endFrame() {
     Draw::FlushPixels();
     Input::GetVirtualControls().Render(); //Draw as last thing
-    
+
     // Process any pending screenshot from previous frame
     _processPendingScreenshot();
-    
+
     m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
     if (!m_cmdbuf) {
         LOG_ERROR("Failed to acquire GPU command buffer: {}", SDL_GetError());
@@ -361,25 +369,25 @@ void Renderer::_endFrame() {
             // Render all passes to MSAA texture if enabled, otherwise directly to fbContent
             SDL_GPUTexture* renderTarget = useMSAA ? framebuffer->fbContentMSAA : framebuffer->fbContent;
             SDL_GPUTexture* depthTarget = useMSAA ? framebuffer->fbDepthMSAA : nullptr;
-            
+
             // Render all passes
             for (size_t i = 0; i < framebuffer->renderpasses.size(); i++) {
                 auto& [passname, renderpass] = framebuffer->renderpasses[i];
-                
+
                 // First pass should always clear, subsequent passes should load
                 if (i == 0) {
                     renderpass->color_target_info_loadop = SDL_GPU_LOADOP_CLEAR;
                 } else {
                     renderpass->color_target_info_loadop = SDL_GPU_LOADOP_LOAD;
                 }
-                
+
                 // Pass shared depth target
                 renderpass->renderTargetDepth = depthTarget;
-                
+
                 // Last pass should resolve MSAA to fbContent
                 bool isLastPass = (i == framebuffer->renderpasses.size() - 1);
                 renderpass->renderTargetResolve = (useMSAA && isLastPass) ? framebuffer->fbContent : nullptr;
-                
+
                 renderpass->render(m_cmdbuf, renderTarget, m_camera);
             }
         }
@@ -388,8 +396,8 @@ void Renderer::_endFrame() {
 
 #ifdef LUMINOVEAU_WITH_RMLUI
         // RmlUI rendering
-        RmlUI::Backend::BeginFrame(m_cmdbuf, swapchain_texture, 
-                                   static_cast<uint32_t>(Window::GetWidth()), 
+        RmlUI::Backend::BeginFrame(m_cmdbuf, swapchain_texture,
+                                   static_cast<uint32_t>(Window::GetWidth()),
                                    static_cast<uint32_t>(Window::GetHeight()));
         RmlUI::Render();
         RmlUI::Backend::EndFrame();
@@ -402,10 +410,10 @@ void Renderer::_endFrame() {
 #endif
         ImGui::Render();
         ImDrawData* draw_data = ImGui::GetDrawData();
-        
+
         // IMPORTANT: PrepareDrawData must be called BEFORE the render pass
         ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, m_cmdbuf);
-        
+
         {
             SDL_GPUColorTargetInfo color_target_info = {};
             color_target_info.texture              = swapchain_texture;
@@ -425,18 +433,18 @@ void Renderer::_endFrame() {
         SDL_PopGPUDebugGroup(m_cmdbuf);
 #endif
 #endif
-        
+
         // Handle screenshot capture - add copy pass to main command buffer BEFORE submit
         if (Window::HasPendingScreenshot()) {
             std::string filename = Window::GetAndClearPendingScreenshot();
-            
-            // Generate filename if not provided  
+
+            // Generate filename if not provided
             if (filename.empty()) {
                 auto now = std::chrono::system_clock::now();
                 auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
                 filename = Helpers::TextFormat("screenshot_%lld.png", timestamp);
             }
-            
+
             // Ensure PNG extension
             if (!filename.ends_with(".png")) {
                 if (filename.ends_with(".bmp")) {
@@ -445,22 +453,22 @@ void Renderer::_endFrame() {
                     filename += ".png";
                 }
             }
-            
+
             int width = Window::GetWidth(true);
             int height = Window::GetHeight(true);
             size_t dataSize = width * height * 4;
-            
+
             // Create transfer buffer
             SDL_GPUTransferBufferCreateInfo transferInfo = {
                 .usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD,
                 .size = (Uint32)dataSize
             };
-            
+
             SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(m_device, &transferInfo);
             if (transferBuffer) {
                 // Add copy pass to the MAIN command buffer (before submit)
                 SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(m_cmdbuf);
-                
+
                 SDL_GPUTextureRegion srcRegion = {
                     .texture = swapchain_texture,
                     .mip_level = 0,
@@ -470,28 +478,28 @@ void Renderer::_endFrame() {
                     .h = (Uint32)height,
                     .d = 1
                 };
-                
+
                 SDL_GPUTextureTransferInfo dstInfo = {
                     .transfer_buffer = transferBuffer,
                     .offset = 0,
                     .pixels_per_row = (Uint32)width,
                     .rows_per_layer = (Uint32)height
                 };
-                
+
                 SDL_DownloadFromGPUTexture(copyPass, &srcRegion, &dstInfo);
                 SDL_EndGPUCopyPass(copyPass);
-                
+
                 // Submit main command buffer (includes screenshot copy now)
                 // Don't wait - we'll process it on the next frame
                 SDL_SubmitGPUCommandBuffer(m_cmdbuf);
-                
+
                 // Store pending screenshot data for next frame processing
                 _pendingScreenshotData.filename = filename;
                 _pendingScreenshotData.transferBuffer = transferBuffer;
                 _pendingScreenshotData.width = width;
                 _pendingScreenshotData.height = height;
                 _pendingScreenshotData.dataSize = dataSize;
-                
+
                 // Reset state after submit
                 for (auto &[fbName, framebuffer]: frameBuffers) {
                     for (auto &[passname, renderpass]: framebuffer->renderpasses) {
@@ -526,10 +534,10 @@ void Renderer::_processPendingScreenshot() {
     if (!_pendingScreenshotData.transferBuffer) {
         return;
     }
-    
+
     // Wait for GPU to finish the copy from previous frame
     SDL_WaitForGPUIdle(m_device);
-    
+
     // Map and read data
     void* gpuData = SDL_MapGPUTransferBuffer(m_device, _pendingScreenshotData.transferBuffer, false);
     if (gpuData) {
@@ -537,13 +545,13 @@ void Renderer::_processPendingScreenshot() {
         unsigned char* pixelCopy = (unsigned char*)malloc(_pendingScreenshotData.dataSize);
         if (pixelCopy) {
             memcpy(pixelCopy, gpuData, _pendingScreenshotData.dataSize);
-            
+
             // Capture data for thread (copy by value)
             std::string filename = _pendingScreenshotData.filename;
             int width = _pendingScreenshotData.width;
             int height = _pendingScreenshotData.height;
             size_t dataSize = _pendingScreenshotData.dataSize;
-            
+
             // Get pixel format now (can't access SDL state from thread)
             SDL_GPUTextureFormat gpuFormat = SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow());
             SDL_PixelFormat pixelFormat;
@@ -552,29 +560,29 @@ void Renderer::_processPendingScreenshot() {
             } else {
                 pixelFormat = SDL_PIXELFORMAT_RGBA32;  // Fallback to RGBA
             }
-            
+
             // Spawn thread to save PNG in background
             std::thread([pixelCopy, filename, width, height, dataSize, pixelFormat]() {
                 SDL_Surface* surface = SDL_CreateSurface(width, height, pixelFormat);
                 if (surface) {
                     memcpy(surface->pixels, pixelCopy, dataSize);
-                    
+
                     if (IMG_SavePNG(surface, filename.c_str())) {
                         LOG_INFO("Screenshot saved: {}", filename);
                     } else {
                         LOG_ERROR("Failed to save screenshot: {}", SDL_GetError());
                     }
-                    
+
                     SDL_DestroySurface(surface);
                 }
-                
+
                 free(pixelCopy);  // Thread owns this memory now
             }).detach();  // Detach so thread runs independently
         }
-        
+
         SDL_UnmapGPUTransferBuffer(m_device, _pendingScreenshotData.transferBuffer);
     }
-    
+
     // Cleanup transfer buffer
     SDL_ReleaseGPUTransferBuffer(m_device, _pendingScreenshotData.transferBuffer);
     _pendingScreenshotData = {};  // Clear pending screenshot data
@@ -582,7 +590,7 @@ void Renderer::_processPendingScreenshot() {
 
 void Renderer::_reset() {
     LOG_INFO("Resetting render passes with MSAA={}", static_cast<int>(currentSampleCount));
-    
+
     // Get desktop size for render pass re-initialization
     SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
@@ -640,7 +648,7 @@ void Renderer::_reset() {
 
             SDL_WaitForGPUIdle(m_device);
 
-            bool initSuccess = renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), 
+            bool initSuccess = renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()),
                                   desktopWidth, desktopHeight,
                                   passname, true);  // Force logging during reset
             if (!initSuccess) {
@@ -648,7 +656,7 @@ void Renderer::_reset() {
             }
         }
     }
-    
+
     LOG_INFO("Reset complete");
 }
 
@@ -683,7 +691,7 @@ void Renderer::_addShaderPass(const std::string &passname, const ShaderAsset &ve
     int desktopWidth = displayMode ? displayMode->w : 3840;
     int desktopHeight = displayMode ? displayMode->h : 2160;
 
-    bool succes = shaderPass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()), 
+    bool succes = shaderPass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()),
                                    desktopWidth, desktopHeight,
                                    passname);
     if (succes) {
@@ -709,7 +717,7 @@ void Renderer::_addShaderPass(const std::string &passname, const ShaderAsset &ve
 void Renderer::_removeShaderPass(const std::string &passname) {
     bool found = false;
     RenderPass* passToDelete = nullptr;
-    
+
     // Find and remove the pass from all framebuffers
     for (auto &[fbName, framebuffer]: frameBuffers) {
         auto it = std::find_if(framebuffer->renderpasses.begin(), framebuffer->renderpasses.end(),
@@ -724,13 +732,13 @@ void Renderer::_removeShaderPass(const std::string &passname) {
             LOG_INFO("Removed shader pass '{}' from framebuffer '{}'", passname, fbName);
         }
     }
-    
+
     // Release GPU resources and delete the pass
     if (passToDelete) {
         passToDelete->release(true);  // Log the release
         delete passToDelete;
     }
-    
+
     if (!found) {
         LOG_WARNING("Shader pass '{}' not found for removal", passname);
     }
@@ -768,7 +776,7 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
     };
 
     SDL_GPURenderPass *renderPass = SDL_BeginGPURenderPass(cmd_buffer, &sdlGpuColorTargetInfo, 1, nullptr);
-    
+
     SDL_BindGPUGraphicsPipeline(renderPass, m_rendertotexturepipeline);
 
     glm::mat4 model = glm::mat4(
@@ -842,7 +850,7 @@ void Renderer::_createFrameBuffer(const std::string &fbname) {
         const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
         int desktopWidth = displayMode ? displayMode->w : 3840;
         int desktopHeight = displayMode ? displayMode->h : 2160;
-        
+
         auto *framebuffer = new FrameBuffer;
         framebuffer->fbContent = AssetHandler::CreateEmptyTexture({(float)desktopWidth, (float)desktopHeight}).gpuTexture;
         framebuffer->width = desktopWidth;   // CRITICAL: Set width
@@ -1012,33 +1020,33 @@ void Renderer::_createSpriteRenderTarget(const std::string& name, const SpriteRe
 
 void Renderer::_removeSpriteRenderTarget(const std::string& name, bool removeFramebuffer) {
     std::string framebufferName = name + "_framebuffer";
-    
+
     // Find and remove the render pass from the framebuffer
-    auto fbIt = std::find_if(frameBuffers.begin(), frameBuffers.end(), 
+    auto fbIt = std::find_if(frameBuffers.begin(), frameBuffers.end(),
         [&framebufferName](const auto& pair) {
             return pair.first == framebufferName;
         });
-    
+
     if (fbIt != frameBuffers.end()) {
         auto& renderpasses = fbIt->second->renderpasses;
         auto passIt = std::find_if(renderpasses.begin(), renderpasses.end(),
             [&name](const auto& pair) {
                 return pair.first == name;
             });
-        
+
         if (passIt != renderpasses.end()) {
             // Release GPU resources
             passIt->second->release();
-            
+
             // Delete the render pass object
             delete passIt->second;
-            
+
             // Remove from vector
             renderpasses.erase(passIt);
-            
+
             LOG_INFO("Removed sprite render target: {}", name.c_str());
         }
-        
+
         // Optionally remove the framebuffer if requested
         if (removeFramebuffer) {
             // Release framebuffer GPU textures
@@ -1051,13 +1059,13 @@ void Renderer::_removeSpriteRenderTarget(const std::string& name, bool removeFra
             if (fbIt->second->fbDepthMSAA) {
                 SDL_ReleaseGPUTexture(m_device, fbIt->second->fbDepthMSAA);
             }
-            
+
             // Delete framebuffer object
             delete fbIt->second;
-            
+
             // Remove from vector
             frameBuffers.erase(fbIt);
-            
+
             LOG_INFO("Removed framebuffer: {}", framebufferName.c_str());
         }
     } else {

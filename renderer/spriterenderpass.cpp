@@ -912,10 +912,17 @@ void SpriteRenderPass::createShaders() {
         shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;  // Default: Vulkan
     #endif
 
+    // spirv-cross renames "main" to "main0" in MSL (reserved keyword)
+    #if defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+        const char* entryPoint = "main0";
+    #else
+        const char* entryPoint = "main";
+    #endif
+
     SDL_GPUShaderCreateInfo vertexShaderInfo = {
         .code_size = Luminoveau::Shaders::Sprite_Vert_Size,
         .code = Luminoveau::Shaders::Sprite_Vert,
-        .entrypoint = "main",
+        .entrypoint = entryPoint,
         .format = shaderFormat,  // Use selected format
         .stage = SDL_GPU_SHADERSTAGE_VERTEX,
         .num_samplers = 0,
@@ -933,7 +940,7 @@ void SpriteRenderPass::createShaders() {
     SDL_GPUShaderCreateInfo fragmentShaderInfo = {
         .code_size = Luminoveau::Shaders::Sprite_Frag_Size,
         .code = Luminoveau::Shaders::Sprite_Frag,
-        .entrypoint = "main",
+        .entrypoint = entryPoint,
         .format = shaderFormat,  // Use selected format
         .stage = SDL_GPU_SHADERSTAGE_FRAGMENT,
         .num_samplers = 1,

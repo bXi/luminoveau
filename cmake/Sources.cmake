@@ -1,6 +1,48 @@
 # Defining source files for the Luminoveau library
 
-# Include auto-generated shader sources
+# ============================================================================
+# GPU Backend Selection (platform defaults)
+# ============================================================================
+# Maps platform to shader format used by Sources.Shaders.cmake:
+#   macOS/iOS    -> METALLIB  (Metal)
+#   Windows      -> SPIRV     (Vulkan, override with -DLUMINOVEAU_GPU_BACKEND=DXIL for DX12)
+#   Android      -> SPIRV     (Vulkan)
+#   Linux        -> SPIRV     (Vulkan)
+#   Emscripten   -> (not yet supported)
+#   All others   -> SPIRV     (Vulkan)
+#
+# The shader format directly determines the graphics driver:
+#   SPIRV     -> Vulkan
+#   DXIL      -> DirectX 12
+#   METALLIB  -> Metal
+
+if(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
+    if(APPLE)
+        set(LUMINOVEAU_GPU_BACKEND "METALLIB" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)" FORCE)
+    else()
+        set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)" FORCE)
+    endif()
+else()
+    # Validate stale or invalid cache values
+    if(NOT LUMINOVEAU_GPU_BACKEND MATCHES "^(SPIRV|DXIL|METALLIB)$")
+        message(WARNING "Invalid cached LUMINOVEAU_GPU_BACKEND='${LUMINOVEAU_GPU_BACKEND}', resetting to platform default")
+        if(APPLE)
+            set(LUMINOVEAU_GPU_BACKEND "METALLIB" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)" FORCE)
+        else()
+            set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)" FORCE)
+        endif()
+    endif()
+endif()
+
+# Platform sanity checks
+if(LUMINOVEAU_GPU_BACKEND STREQUAL "METALLIB" AND NOT APPLE)
+    message(FATAL_ERROR "METALLIB backend is only supported on Apple platforms")
+endif()
+if(LUMINOVEAU_GPU_BACKEND STREQUAL "DXIL" AND NOT WIN32)
+    message(FATAL_ERROR "DXIL backend is only supported on Windows")
+endif()
+
+# Include auto-generated shader sources (sets LUMINOVEAU_SHADER_SOURCES and compile define)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Sources.Shaders.cmake")
     include(cmake/Sources.Shaders.cmake)
 else()

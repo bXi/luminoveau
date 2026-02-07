@@ -159,11 +159,18 @@ bool ShaderRenderPass::init(
         #else
             shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;  // Default: Vulkan
         #endif
+
+        // spirv-cross renames "main" to "main0" in MSL (reserved keyword)
+        #if defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+            const char* builtinEntryPoint = "main0";
+        #else
+            const char* builtinEntryPoint = "main";
+        #endif
         
         SDL_GPUShaderCreateInfo vertexShaderInfo = {
             .code_size            = Luminoveau::Shaders::FullscreenQuad_Vert_Size,
             .code                 = Luminoveau::Shaders::FullscreenQuad_Vert,
-            .entrypoint           = "main",
+            .entrypoint           = builtinEntryPoint,
             .format               = shaderFormat,  // Use selected format
             .stage                = SDL_GPU_SHADERSTAGE_VERTEX,
             .num_samplers         = 0,
@@ -185,11 +192,18 @@ bool ShaderRenderPass::init(
         #else
             shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;  // Default: Vulkan
         #endif
+
+        // spirv-cross renames "main" to "main0" in MSL (reserved keyword)
+        #if defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+            const char* builtinEntryPoint = "main0";
+        #else
+            const char* builtinEntryPoint = "main";
+        #endif
         
         SDL_GPUShaderCreateInfo fragmentShaderInfo = {
             .code_size            = Luminoveau::Shaders::FullscreenQuad_Frag_Size,
             .code                 = Luminoveau::Shaders::FullscreenQuad_Frag,
-            .entrypoint           = "main",
+            .entrypoint           = builtinEntryPoint,
             .format               = shaderFormat,  // Use selected format
             .stage                = SDL_GPU_SHADERSTAGE_FRAGMENT,
             .num_samplers         = 1,
