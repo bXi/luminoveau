@@ -8,28 +8,30 @@
 #include <sstream>
 #include <iomanip>
 
+#include "picosha2.h"
+
 // Simple text serialization for ShaderMetadata
 std::string ShaderMetadata::serialize() const {
     std::ostringstream oss;
-    
+
     oss << "source_hash=" << source_hash << "\n";
     oss << "shader_format=" << static_cast<int>(shader_format) << "\n";
     oss << "num_samplers=" << num_samplers << "\n";
     oss << "num_uniform_buffers=" << num_uniform_buffers << "\n";
     oss << "num_storage_buffers=" << num_storage_buffers << "\n";
     oss << "num_storage_textures=" << num_storage_textures << "\n";
-    
+
     // Write sampler names
     for (size_t i = 0; i < sampler_names.size(); ++i) {
         oss << "sampler_" << i << "=" << sampler_names[i] << "\n";
     }
-    
+
     // Write uniforms
     for (const auto& [name, offset] : uniform_offsets) {
         oss << "uniform_" << name << "_offset=" << offset << "\n";
         oss << "uniform_" << name << "_size=" << uniform_sizes.at(name) << "\n";
     }
-    
+
     return oss.str();
 }
 
@@ -37,14 +39,14 @@ ShaderMetadata ShaderMetadata::deserialize(const std::string& data) {
     ShaderMetadata metadata;
     std::istringstream iss(data);
     std::string line;
-    
+
     while (std::getline(iss, line)) {
         size_t pos = line.find('=');
         if (pos == std::string::npos) continue;
-        
+
         std::string key = line.substr(0, pos);
         std::string value = line.substr(pos + 1);
-        
+
         if (key == "source_hash") {
             metadata.source_hash = value;
         } else if (key == "shader_format") {
@@ -69,7 +71,7 @@ ShaderMetadata ShaderMetadata::deserialize(const std::string& data) {
             metadata.uniform_sizes[uniform_name] = std::stoul(value);
         }
     }
-    
+
     return metadata;
 }
 
@@ -79,7 +81,7 @@ void Shaders::_init() {
         LOG_CRITICAL("Failed to initialize SDL_shadercross: {}", SDL_GetError());
     }
     LOG_INFO("SDL_shadercross initialized successfully");
-    
+
     // Load shader cache resource pack
     shaderCache = new ResourcePack("shader.cache", "luminoveau_shaders");
     if (!shaderCache->Loaded()) {
@@ -101,19 +103,14 @@ void Shaders::_quit() {
     }
     delete shaderCache;
     shaderCache = nullptr;
-    
+
     SDL_ShaderCross_Quit();
     LOG_INFO("SDL_shadercross shut down");
 }
 
 std::string Shaders::_computeSourceHash(const std::string &source) {
-    // Simple hash using std::hash
-    std::hash<std::string> hasher;
-    size_t hash = hasher(source);
-    
-    std::ostringstream oss;
-    oss << std::hex << std::setfill('0') << std::setw(16) << hash;
-    return oss.str();
+
+    return picosha2::hash256_hex_string(source);
 }
 
 std::string Shaders::_getCachePath(const std::string &filename, const std::string &extension) {
@@ -132,7 +129,7 @@ bool Shaders::_loadCachedShader(const std::string &cacheKey, std::vector<uint8_t
     if (!shaderCache || !shaderCache->HasFile(cacheKey)) {
         return false;
     }
-    
+
     try {
         auto buffer = shaderCache->GetFileBuffer(cacheKey);
         outData.assign(buffer.vMemory.begin(), buffer.vMemory.end());
@@ -147,7 +144,7 @@ bool Shaders::_loadCachedMetadata(const std::string &metadataKey, ShaderMetadata
     if (!shaderCache || !shaderCache->HasFile(metadataKey)) {
         return false;
     }
-    
+
     try {
         auto buffer = shaderCache->GetFileBuffer(metadataKey);
         std::string metadataStr(buffer.vMemory.begin(), buffer.vMemory.end());
@@ -191,41 +188,41 @@ void Shaders::_saveCachedMetadata(const std::string &metadataKey, const ShaderMe
 
 ShaderMetadata Shaders::_extractMetadataFromSPIRV(const std::vector<uint32_t> &spirv) {
     ShaderMetadata metadata;
-    
+
     try {
         spirv_cross::Compiler compiler(spirv);
         auto resources = compiler.get_shader_resources();
-        
+
         // Extract sampler names
         for (const auto &sampler : resources.sampled_images) {
             const std::string &samplerName = compiler.get_name(sampler.id);
             metadata.sampler_names.push_back(samplerName);
         }
         metadata.num_samplers = static_cast<uint32_t>(metadata.sampler_names.size());
-        
+
         // Extract uniform buffer info
         for (const auto &uniform : resources.uniform_buffers) {
             auto &bufferType = compiler.get_type(uniform.base_type_id);
-            
+
             for (size_t i = 0; i < bufferType.member_types.size(); ++i) {
                 const std::string &memberName = compiler.get_member_name(uniform.base_type_id, i);
                 size_t memberSize = compiler.get_declared_struct_member_size(bufferType, i);
                 size_t memberOffset = compiler.type_struct_member_offset(bufferType, i);
-                
+
                 metadata.uniform_offsets[memberName] = memberOffset;
                 metadata.uniform_sizes[memberName] = memberSize;
             }
         }
         metadata.num_uniform_buffers = static_cast<uint32_t>(resources.uniform_buffers.size());
-        
+
         // Count storage buffers and textures
         metadata.num_storage_buffers = static_cast<uint32_t>(resources.storage_buffers.size());
         metadata.num_storage_textures = static_cast<uint32_t>(resources.storage_images.size());
-        
+
     } catch (const std::exception &e) {
         LOG_ERROR("SPIRV reflection failed: {}", e.what());
     }
-    
+
     return metadata;
 }
 
@@ -235,9 +232,9 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
     if (cacheIt != shaderDataCache.end()) {
         return cacheIt->second;
     }
-    
+
     PhysFSFileData filedata;
-    
+
     // Determine shader stage from filename
     EShLanguage shaderStage;
     if (filename.find(".vert") != std::string::npos) {
@@ -249,15 +246,15 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
     } else {
         LOG_CRITICAL("Could not determine shader stage from filename: {}", filename);
     }
-    
+
     // We cache SPIRV and cross-compile at runtime
     // (SDL_shadercross doesn't expose DXIL bytecode extraction)
     auto formats = SDL_GetGPUShaderFormats(Renderer::GetDevice());
     SDL_GPUShaderFormat runtimeFormat;
     std::string formatExt = ".spv";  // Always cache SPIRV
-    
+
     const char* driver = SDL_GetGPUDeviceDriver(Renderer::GetDevice());
-    
+
     if (strcmp(driver, "direct3d12") == 0 || strcmp(driver, "direct3d11") == 0) {
         runtimeFormat = (formats & SDL_GPU_SHADERFORMAT_DXIL) ? SDL_GPU_SHADERFORMAT_DXIL : SDL_GPU_SHADERFORMAT_DXBC;
     } else if (strcmp(driver, "metal") == 0) {
@@ -265,76 +262,76 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
     } else {
         runtimeFormat = SDL_GPU_SHADERFORMAT_SPIRV;
     }
-    
+
     // Try to load from cache
     std::string cachePath = _getCachePath(filename, formatExt);
     std::string metadataPath = _getMetadataPath(filename);
-    
+
     std::vector<uint8_t> cachedData;
     ShaderMetadata cachedMetadata;
-    
+
     if (_loadCachedShader(cachePath, cachedData) && _loadCachedMetadata(metadataPath, cachedMetadata)) {
         // Load source to verify hash
         auto sourceFile = FileHandler::GetFileFromPhysFS(filename);
         std::string source(static_cast<char*>(sourceFile.data), sourceFile.fileSize);
         std::string sourceHash = _computeSourceHash(source);
-        
+
         if (sourceHash == cachedMetadata.source_hash) {
             LOG_INFO("Loaded cached shader: {}", filename.c_str());
             filedata.fileDataVector = std::move(cachedData);
             filedata.data = filedata.fileDataVector.data();
             filedata.fileSize = filedata.fileDataVector.size();
-            
+
             // Store in memory cache and metadata cache
             shaderDataCache[filename] = filedata;
             metadataCache[filename] = cachedMetadata;
-            
+
             return filedata;
         } else {
             LOG_INFO("Cache invalid for {} (source changed), recompiling", filename.c_str());
         }
     }
-    
+
     // Cache miss or invalid - compile from source
     LOG_INFO("Compiling shader: {}", filename.c_str());
-    
+
     // Load GLSL source
     auto sourceFile = FileHandler::GetFileFromPhysFS(filename);
     std::string source(static_cast<char*>(sourceFile.data), sourceFile.fileSize);
-    
+
     // Compile GLSL -> SPIRV
     auto spirvBlob = _compileGLSLtoSPIRV(source, shaderStage);
     if (spirvBlob.empty()) {
         LOG_CRITICAL("failed to compile shader to SPIRV: {}", filename);
     }
-    
+
     // Extract metadata from SPIRV
     ShaderMetadata metadata = _extractMetadataFromSPIRV(spirvBlob);
     metadata.source_hash = _computeSourceHash(source);
     metadata.shader_format = runtimeFormat;
-    
+
     // Cache SPIRV bytecode
     std::vector<uint8_t> spirvBytes(
         reinterpret_cast<const uint8_t*>(spirvBlob.data()),
         reinterpret_cast<const uint8_t*>(spirvBlob.data() + spirvBlob.size())
     );
-    
+
     // Save to cache
     _saveCachedShader(cachePath, spirvBytes);
     _saveCachedMetadata(metadataPath, metadata);
-    
+
     // Store metadata in memory
     metadataCache[filename] = metadata;
-    
+
     LOG_INFO("Compiled and cached shader: {} ({} bytes)", filename.c_str(), spirvBytes.size());
-    
+
     filedata.fileDataVector = std::move(spirvBytes);
     filedata.data = filedata.fileDataVector.data();
     filedata.fileSize = filedata.fileDataVector.size();
-    
+
     // Store in memory cache
     shaderDataCache[filename] = filedata;
-    
+
     return filedata;
 }
 
@@ -344,25 +341,25 @@ ShaderMetadata Shaders::_getShaderMetadata(const std::string &filename) {
     if (it != metadataCache.end()) {
         return it->second;
     }
-    
+
     // Try to load from disk cache
     std::string metadataPath = _getMetadataPath(filename);
     ShaderMetadata metadata;
-    
+
     if (_loadCachedMetadata(metadataPath, metadata)) {
         metadataCache[filename] = metadata;
         return metadata;
     }
-    
+
     // If not cached, compile the shader (which will generate metadata)
     _getShader(filename);
-    
+
     // Metadata should now be in cache
     it = metadataCache.find(filename);
     if (it != metadataCache.end()) {
         return it->second;
     }
-    
+
     // Fallback: return empty metadata
     LOG_WARNING("Could not get metadata for {}", filename.c_str());
     return ShaderMetadata();
@@ -378,7 +375,7 @@ SDL_GPUShader* Shaders::CreateGPUShader(SDL_GPUDevice* device, const std::string
     // Load SPIRV shader data from cache
     PhysFSFileData shaderData = GetShader(filename);
     ShaderMetadata metadata = GetShaderMetadata(filename);
-    
+
     // Convert SDL_GPUShaderStage to SDL_ShaderCross_ShaderStage
     SDL_ShaderCross_ShaderStage crossStage;
     if (stage == SDL_GPU_SHADERSTAGE_VERTEX) {
@@ -389,7 +386,7 @@ SDL_GPUShader* Shaders::CreateGPUShader(SDL_GPUDevice* device, const std::string
         LOG_ERROR("Unsupported shader stage");
         return nullptr;
     }
-    
+
     // Create SPIRV info struct
     SDL_ShaderCross_SPIRV_Info spirvInfo = {
         .bytecode = static_cast<const Uint8*>(shaderData.data),
@@ -398,7 +395,7 @@ SDL_GPUShader* Shaders::CreateGPUShader(SDL_GPUDevice* device, const std::string
         .shader_stage = crossStage,
         .props = 0
     };
-    
+
     // Create resource info struct from metadata
     SDL_ShaderCross_GraphicsShaderResourceInfo resourceInfo = {
         .num_samplers = metadata.num_samplers,
@@ -406,7 +403,7 @@ SDL_GPUShader* Shaders::CreateGPUShader(SDL_GPUDevice* device, const std::string
         .num_storage_buffers = metadata.num_storage_buffers,
         .num_uniform_buffers = metadata.num_uniform_buffers
     };
-    
+
     // Cross-compile SPIRV to backend format and create shader
     SDL_GPUShader* shader = SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(
         device,
@@ -414,37 +411,37 @@ SDL_GPUShader* Shaders::CreateGPUShader(SDL_GPUDevice* device, const std::string
         &resourceInfo,
         0
     );
-    
+
     if (!shader) {
         LOG_ERROR("Failed to create GPU shader for {}: {}", filename.c_str(), SDL_GetError());
     }
-    
+
     return shader;
 }
 
 ShaderAsset Shaders::CreateShaderAsset(SDL_GPUDevice* device, const std::string& filename, SDL_GPUShaderStage stage) {
     ShaderAsset asset = {};
-    
+
     // Load shader data and metadata
     PhysFSFileData shaderData = GetShader(filename);
     ShaderMetadata metadata = GetShaderMetadata(filename);
-    
+
     // Store filename and file data
     asset.shaderFilename = filename;
     asset.fileData = shaderData.fileDataVector;
-    
+
     // Store resource counts
     asset.samplerCount = metadata.num_samplers;
     asset.uniformBufferCount = metadata.num_uniform_buffers;
     asset.storageBufferCount = metadata.num_storage_buffers;
     asset.storageTextureCount = metadata.num_storage_textures;
-    
+
     // Create the GPU shader with correct format
     asset.shader = CreateGPUShader(device, filename, stage);
-    
+
     LOG_INFO("Created ShaderAsset for {} (format={}, samplers={})",
             filename.c_str(), metadata.shader_format, asset.samplerCount);
-    
+
     return asset;
 }
 
@@ -481,7 +478,7 @@ std::vector<uint32_t> Shaders::_compileGLSLtoSPIRV(const std::string& source, ES
     std::vector<uint32_t> spirv;
     glslang::GlslangToSpv(*program.getIntermediate(shaderStage), spirv);
     glslang::FinalizeProcess();
-    
+
     return spirv;
 }
 

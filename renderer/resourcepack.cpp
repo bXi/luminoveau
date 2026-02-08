@@ -92,12 +92,31 @@ bool Shaders::ResourcePack::LoadPack() {
         mapFiles[sFileName] = e;
     }
 
-    // Don't close base file! we will provide a stream
-    // pointer when the file is requested
+    // Open the base file for reading cached data in GetFileBuffer
+    baseFile.open(_fileName, std::ifstream::binary);
+    if (!baseFile.is_open()) {
+        LOG_ERROR("ResourcePack: failed to open base file for reading: {}", _fileName);
+        return false;
+    }
+
     return true;
 }
 
 bool Shaders::ResourcePack::SavePack() {
+    // Promote all File-type entries to ByteArray before writing.
+    // Opening the output file truncates it, which invalidates baseFile reads.
+    for (auto &[name, entry] : mapFiles) {
+        if (entry.eType == eResourceType::File && baseFile.is_open() && entry.nOffset > 0) {
+            entry.aBytes.resize(entry.nSize);
+            baseFile.seekg(entry.nOffset);
+            baseFile.read(reinterpret_cast<char*>(entry.aBytes.data()), entry.nSize);
+            entry.eType = eResourceType::ByteArray;
+        }
+    }
+
+    // Close before truncating - we've loaded everything we need
+    if (baseFile.is_open()) baseFile.close();
+
     // Create/Overwrite the resource file
     std::ofstream ofs(_fileName, std::ofstream::binary);
     if (!ofs.is_open()) return false;
@@ -124,17 +143,15 @@ bool Shaders::ResourcePack::SavePack() {
     for (auto &e: mapFiles) {
         // Store beginning of file offset within resource pack file
         e.second.nOffset = (uint32_t) offset;
-            std::vector<uint8_t> vBuffer(e.second.nSize);
+        std::vector<uint8_t> vBuffer(e.second.nSize);
 
-        if (e.second.eType == eResourceType::File) {
-            // Load the file to be added
-            std::ifstream        i(e.first, std::ifstream::binary);
-            i.read((char *) vBuffer.data(), e.second.nSize);
-            i.close();
-        } else if (e.second.eType == eResourceType::ByteArray) {
-            // Load the file to be added
+        if (e.second.eType == eResourceType::ByteArray) {
             vBuffer = e.second.aBytes;
-
+        } else {
+            // Filesystem file (original AddFile(path) usage)
+            std::ifstream i(e.first, std::ifstream::binary);
+            i.read(reinterpret_cast<char*>(vBuffer.data()), e.second.nSize);
+            i.close();
         }
 
         // Write the loaded file into resource pack file
@@ -170,6 +187,11 @@ bool Shaders::ResourcePack::SavePack() {
     ofs.write((char *) &nIndexStringLen, sizeof(uint32_t));
     ofs.write(sIndexString.data(), nIndexStringLen);
     ofs.close();
+
+    // Reopen base file for reading - offsets were updated by save
+    if (baseFile.is_open()) baseFile.close();
+    baseFile.open(_fileName, std::ifstream::binary);
+
     return true;
 }
 
