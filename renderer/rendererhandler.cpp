@@ -333,6 +333,7 @@ void Renderer::_clearBackground(Color color) {
 }
 
 void Renderer::_startFrame() const {
+    if (!m_device) return;  // Device already destroyed (shutdown)
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     ImGui_ImplSDL3_NewFrame();
@@ -342,6 +343,8 @@ void Renderer::_startFrame() const {
 }
 
 void Renderer::_endFrame() {
+    if (!m_device) return;  // Device already destroyed (shutdown)
+
     Draw::FlushPixels();
     Input::GetVirtualControls().Render(); //Draw as last thing
 

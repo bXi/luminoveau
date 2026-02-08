@@ -54,7 +54,20 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 #endif
 }
 
+void Window::_requestClose() {
+    if (_inFrame) {
+        // Mid-frame: defer actual close until EndFrame completes
+        _pendingClose = true;
+        EngineState::_shouldQuit = true;
+    } else {
+        // Outside frame (e.g. after game loop): close immediately
+        _close();
+    }
+}
+
 void Window::_close() {
+    if (!m_window) return;  // Already closed
+
 #ifdef LUMINOVEAU_WITH_RMLUI
     RmlUI::Shutdown();
 #endif
@@ -292,6 +305,7 @@ void Window::_setSize(int width, int height) {
 }
 
 void Window::_startFrame() {
+    _inFrame = true;
     Lerp::updateLerps();
 
     Window::HandleInput();
@@ -323,7 +337,14 @@ void Window::_endFrame() {
 
     Renderer::EndFrame();
 
+    _inFrame = false;
 
+    // Deferred close: if user called Window::Close() during update/draw,
+    // perform the actual teardown now that the frame is fully submitted
+    if (_pendingClose) {
+        _pendingClose = false;
+        _close();
+    }
 }
 
 SDL_Window *Window::_getWindow() {

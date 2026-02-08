@@ -80,8 +80,12 @@ public:
 
     /**
      * @brief Closes the application window.
+     * 
+     * If called during a frame (e.g. from update logic), the actual cleanup
+     * is deferred until EndFrame() completes. This prevents GPU operations
+     * from running after the device is destroyed.
      */
-    static void Close() { get()._close(); }
+    static void Close() { get()._requestClose(); }
 
     /**
      * @brief Retrieves the SDL window object.
@@ -266,6 +270,7 @@ private:
 
     void _setTitle(const std::string &title);
 
+    void _requestClose();
     void _close();
 
     void _toggleFullscreen();
@@ -304,6 +309,8 @@ private:
     int  _lastWindowHeight = 0;
     bool _maximized        = false;
     
+    bool _inFrame = false;
+    bool _pendingClose = false;
     bool _pendingScreenshot = false;
     std::string _pendingScreenshotFilename;
 

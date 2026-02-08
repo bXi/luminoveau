@@ -238,6 +238,11 @@ Texture AssetHandler::_getTexture(const std::string &fileName) {
 
 TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
 
+    if (!Renderer::GetDevice()) {
+        LOG_WARNING("Skipping texture load after shutdown: {}", fileName);
+        return {};
+    }
+
     TextureAsset texture;
 
     auto filedata = FileHandler::ReadFile(fileName);
