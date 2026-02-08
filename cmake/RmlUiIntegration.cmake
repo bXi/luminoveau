@@ -13,14 +13,18 @@ if(LUMINOVEAU_BUILD_RMLUI)
     # Define SDL version for RmlUi
     set(RMLUI_SDL_VERSION_MAJOR 3)
 
+    lumi_msg("Fetching RmlUi")
     CPMAddPackage(
         NAME RmlUi
         GITHUB_REPOSITORY mikke89/RmlUi
         GIT_TAG master
+        EXCLUDE_FROM_ALL YES
         OPTIONS
             "BUILD_SHARED_LIBS OFF"
             "RMLUI_FONT_ENGINE freetype"
             "RMLUI_SAMPLES OFF"
+            "RMLUI_TESTS OFF"
+            "RMLUI_INSTALL OFF"
             "RMLUI_BACKEND SDL_GPU"
             "RMLUI_THIRDPARTY_CONTAINERS ON"
             "RMLUI_CUSTOM_RTTI OFF"
@@ -71,10 +75,8 @@ if(LUMINOVEAU_BUILD_RMLUI)
             )
         endif()
 
-        message(STATUS "RmlUi integration enabled for luminoveau")
-        message(STATUS "  - Font engine: freetype")
-        message(STATUS "  - Debugger: ${CMAKE_BUILD_TYPE} builds only")
+        lumi_done("RmlUi")
     else()
-        message(WARNING "Failed to fetch RmlUi package. RmlUi integration disabled")
+        lumi_warn("RmlUi - fetch failed")
     endif()
 endif()

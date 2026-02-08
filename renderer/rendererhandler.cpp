@@ -350,12 +350,12 @@ void Renderer::_endFrame() {
 
     m_cmdbuf = SDL_AcquireGPUCommandBuffer(m_device);
     if (!m_cmdbuf) {
-        LOG_ERROR("Failed to acquire GPU command buffer: {}", SDL_GetError());
+        LOG_WARNING("Failed to acquire GPU command buffer: {}", SDL_GetError());
         return;
     }
 
     if (!SDL_WaitAndAcquireGPUSwapchainTexture(m_cmdbuf, Window::GetWindow(), &swapchain_texture, nullptr, nullptr)) {
-        LOG_ERROR("Failed to acquire GPU swapchain texture: {}", SDL_GetError());
+        LOG_WARNING("Failed to acquire GPU swapchain texture: {}", SDL_GetError());
         return;
     }
 

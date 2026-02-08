@@ -10,10 +10,12 @@ endif()
 # Checking if ImGui integration is enabled
 if(LUMINOVEAU_BUILD_IMGUI)
 
+    lumi_msg("Fetching ImGui")
     CPMAddPackage(
         NAME Imgui
         GITHUB_REPOSITORY ocornut/imgui
         GIT_TAG 7b3ad4a
+        EXCLUDE_FROM_ALL YES
         OPTIONS
             "IMGUI_BUILD_SDL3_BACKEND OFF"
     )
@@ -52,8 +54,8 @@ if(LUMINOVEAU_BUILD_IMGUI)
             )
         endif()
 
-        message(STATUS "ImGui integration enabled for luminoveau")
+        lumi_done("ImGui")
     else()
-        message(WARNING "Failed to fetch ImGui package. ImGui integration disabled")
+        lumi_warn("ImGui - fetch failed")
     endif()
 endif()

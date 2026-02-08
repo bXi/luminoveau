@@ -63,7 +63,7 @@ if(EXISTS "${STEAM_SDK_HEADER}")
     # Adding compile definition to enable Steam functionality
     target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_STEAM)
 
-    message(STATUS "Luminoveau: Steam SDK detected and integrated")
+    lumi_done("Steam SDK")
 else()
-    message(STATUS "Luminoveau: Steam SDK not found (missing '${STEAM_SDK_HEADER}')")
+    lumi_msg("Steam SDK not found")
 endif()

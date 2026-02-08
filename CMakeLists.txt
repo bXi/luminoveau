@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Branded build output (must be before project() so we can suppress compiler detection)
+include(cmake/LumiMessage.cmake)
+set(CMAKE_MESSAGE_LOG_LEVEL "WARNING")
+
 # Defining project metadata
 project(Luminoveau
     VERSION 0.0.1
@@ -62,7 +66,7 @@ if(ANDROID)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld")
     
-    message(STATUS "Android build detected - using lld linker")
+    lumi_done("Android lld linker")
 endif()
 
 # ============================================================================
@@ -105,9 +109,9 @@ else()
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto")
         set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -flto")
         set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -flto")
-        message(STATUS "LTO enabled for Release build")
+        lumi_done("LTO enabled")
     else()
-        message(STATUS "LTO not supported, skipping: ${LTO_ERROR}")
+        lumi_msg("LTO not supported, skipping")
     endif()
     
     # GCC/Clang Debug optimizations (O1 for speed, -g for debugging)
@@ -134,9 +138,9 @@ if(LUMINOVEAU_ENABLE_LOGGING)
             log/loghandler.cpp
             log/loghandler.h
         )
-        message(STATUS "Luminoveau: Logging support enabled")
+        lumi_done("Logging support")
     else()
-        message(WARNING "Logging support requested but loghandler files not found")
+        lumi_warn("Logging - loghandler files not found")
     endif()
 endif()
 
@@ -206,10 +210,16 @@ find_package(Threads REQUIRED)
 # Including external CMake modules
 include(cmake/AssetPreparation.cmake)
 include(cmake/SteamDetection.cmake)
+
+# Group all dependency targets under "Dependencies" folder in IDE
+# Suppress all dependency output (STATUS + NOTICE) - lumi_msg/lumi_done bypass this
+set(CMAKE_FOLDER "Dependencies")
 include(cmake/DependencySetup.cmake)
 include(cmake/ImGuiIntegration.cmake)
 include(cmake/RmlUiIntegration.cmake)
 include(cmake/DownloadDXC.cmake)
+# Restore - Luminoveau's own targets should not be grouped under Dependencies
+unset(CMAKE_FOLDER)
 
 # Android: Fix linker flags again after dependencies (they may override)
 if(ANDROID)
@@ -264,3 +274,6 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/LuminoveauConfigVersion.cmake"
     DESTINATION lib/cmake/Luminoveau
 )
+
+# Restore log level so the parent project's messages are not suppressed
+unset(CMAKE_MESSAGE_LOG_LEVEL)

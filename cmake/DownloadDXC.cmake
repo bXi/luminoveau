@@ -18,11 +18,9 @@ if(WIN32)
         set(DXC_OUTPUT_DIR "${CMAKE_BINARY_DIR}")
     endif()
     
-    message(STATUS "DXC DLLs will be placed in: ${CMAKE_BINARY_DIR}")
-    
     # Download DXC zip if not already downloaded
     if(NOT EXISTS ${DXC_ZIP_PATH})
-        message(STATUS "Downloading DXC from ${DXC_URL}")
+        lumi_msg("Downloading DXC")
         file(MAKE_DIRECTORY ${DXC_DOWNLOAD_DIR})
         file(DOWNLOAD 
             ${DXC_URL}
@@ -40,11 +38,8 @@ if(WIN32)
             return()
         endif()
     else()
-        message(STATUS "Using cached DXC download")
+        lumi_msg("DXC cached")
     endif()
-    
-    # Extract the DLLs we need
-    message(STATUS "Extracting DXC DLLs...")
     
     # Extract entire zip to temp directory
     execute_process(
@@ -117,7 +112,5 @@ if(WIN32)
         endforeach()
     endif()
     
-    message(STATUS "DirectXShaderCompiler DLLs will be copied at build time")
-else()
-    message(STATUS "Not on Windows, skipping DXC download")
+    lumi_done("DXC")
 endif()

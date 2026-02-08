@@ -701,7 +701,7 @@ if(NOT LUMINOVEAU_GPU_BACKEND MATCHES "^(SPIRV|DXIL|METALLIB)$")
     message(FATAL_ERROR "Invalid LUMINOVEAU_GPU_BACKEND: `${LUMINOVEAU_GPU_BACKEND}. Must be SPIRV, DXIL, or METALLIB")
 endif()
 
-message(STATUS "Luminoveau GPU Backend: `${LUMINOVEAU_GPU_BACKEND}")
+lumi_done("GPU Backend: `${LUMINOVEAU_GPU_BACKEND}")
 
 # Select shader files based on backend
 if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")

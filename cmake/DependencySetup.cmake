@@ -1,6 +1,10 @@
 # DependencySetup.cmake
 # Configures external dependencies for the Luminoveau library using CPM, including GLM,
-# SPIRV-Cross, glslang, SDL3, SDL3_ttf, harfbuzz, freetype, and physfs, with platform-specific settings.
+# SPIRV-Cross, glslang, SDL3, SDL3_image, SDL_shadercross, freetype, MSDF-atlas-gen, and physfs,
+# with platform-specific settings.
+#
+# All dependencies use EXCLUDE_FROM_ALL to keep their targets out of the default build.
+# Library targets remain fully linkable - only tests, examples, and CLI tools are excluded.
 
 # Ensuring CPM is available
 if(NOT COMMAND CPMAddPackage)
@@ -28,10 +32,12 @@ else()
 endif()
 
 # Fetching GLM
+lumi_msg("Fetching GLM")
 CPMAddPackage(
     NAME glm
     GITHUB_REPOSITORY g-truc/glm
     GIT_TAG 69b130c
+    EXCLUDE_FROM_ALL YES
     OPTIONS
         "GLM_ENABLE_FAST_MATH ON"
         "GLM_BUILD_TESTS OFF"
@@ -48,37 +54,45 @@ if(glm_ADDED)
         GLM_FORCE_EXPLICIT_CTOR
         GLM_FORCE_SIZE_T_LENGTH
     )
-    message(STATUS "Luminoveau: GLM configured")
+    lumi_done("GLM")
 else()
-    message(WARNING "Failed to fetch GLM. Some functionality may be unavailable")
+    lumi_warn("GLM - fetch failed")
 endif()
 
-# Fetching fmt (for logging with source_location support)
+# Fetching fmt
+lumi_msg("Fetching fmt")
 CPMAddPackage(
     NAME fmt
     GITHUB_REPOSITORY fmtlib/fmt
     GIT_TAG 10.2.1
+    EXCLUDE_FROM_ALL YES
     OPTIONS
         "FMT_INSTALL OFF"
         "FMT_TEST OFF"
         "FMT_DOC OFF"
+        "FMT_FUZZ OFF"
 )
 if(fmt_ADDED)
     target_link_libraries(luminoveau PUBLIC fmt::fmt)
-    message(STATUS "Luminoveau: fmt configured")
+    lumi_done("fmt")
 else()
-    message(WARNING "Failed to fetch fmt")
+    lumi_warn("fmt - fetch failed")
 endif()
 
 # Fetching glslang (disabling unwanted components)
 set(ENABLE_OPT OFF CACHE BOOL "Disable glslang optimizations" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "Disable glslang tests" FORCE)
-set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "Disable glslang binaries" FORCE)
+set(ENABLE_CTEST OFF CACHE BOOL "Disable glslang CTest" FORCE)
+set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "Disable glslang CLI tools" FORCE)
+set(ENABLE_GLSLANG_INSTALL OFF CACHE BOOL "Disable glslang install" FORCE)
+set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "Skip glslang install" FORCE)
 
+lumi_msg("Fetching glslang")
 CPMAddPackage(
     NAME glslang
     GITHUB_REPOSITORY KhronosGroup/glslang
     GIT_TAG e435148
+    EXCLUDE_FROM_ALL YES
 )
 if(glslang_ADDED)
     if(NOT EXISTS "${glslang_SOURCE_DIR}")
@@ -86,23 +100,26 @@ if(glslang_ADDED)
     endif()
     target_include_directories(luminoveau SYSTEM PUBLIC "${glslang_SOURCE_DIR}")
     target_link_libraries(luminoveau PUBLIC glslang SPIRV)
-    message(STATUS "Luminoveau: glslang configured")
+    lumi_done("glslang")
 else()
-    message(WARNING "Failed to fetch glslang. Shader compilation may be unavailable")
+    lumi_warn("glslang - fetch failed")
 endif()
 
 # Fetching SDL3
 # Disable examples, tests, and test applications to avoid unnecessary builds
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "Disable SDL test library" FORCE)
 set(SDL_TESTS OFF CACHE BOOL "Disable SDL tests" FORCE)
+set(SDL_EXAMPLES OFF CACHE BOOL "Disable SDL examples" FORCE)
 set(SDL_INSTALL_TESTS OFF CACHE BOOL "Disable SDL test installation" FORCE)
 set(SDL_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL installation" FORCE)
 set(SDL3_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL3 installation" FORCE)
 
+lumi_msg("Fetching SDL3")
 CPMAddPackage(
     NAME SDL3
     GITHUB_REPOSITORY libsdl-org/SDL
     GIT_TAG a962f40
+    EXCLUDE_FROM_ALL YES
 )
 if(SDL3_ADDED)
     if(NOT EXISTS "${SDL3_SOURCE_DIR}/include")
@@ -114,9 +131,10 @@ if(SDL3_ADDED)
     else()
         target_link_libraries(luminoveau PUBLIC SDL3::SDL3-static)
     endif()
-    message(STATUS "Luminoveau: SDL3 configured")
+    lumi_done("SDL3")
 else()
-    message(FATAL_ERROR "Failed to fetch SDL3. SDL3 is a required dependency")
+    lumi_fail("SDL3 - required dependency")
+    message(FATAL_ERROR "Failed to fetch SDL3")
 endif()
 
 # Fetching SDL3_image
@@ -124,12 +142,16 @@ set(SDL3IMAGE_INSTALL OFF CACHE BOOL "Disable SDL3_image installation" FORCE)
 set(SDL3IMAGE_DEPS_SHARED OFF CACHE BOOL "Use static dependencies" FORCE)
 set(SDL3IMAGE_VENDORED ON CACHE BOOL "Use vendored dependencies" FORCE)
 set(SDL3IMAGE_BUILD_SHARED_LIBS OFF CACHE BOOL "Build static SDL3_image" FORCE)
+set(SDL3IMAGE_SAMPLES OFF CACHE BOOL "Disable SDL3_image samples" FORCE)
+set(SDL3IMAGE_TESTS OFF CACHE BOOL "Disable SDL3_image tests" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
 
+lumi_msg("Fetching SDL3_image")
 CPMAddPackage(
     NAME SDL3_image
     GITHUB_REPOSITORY libsdl-org/SDL_image
     GIT_TAG cc0b1ff
+    EXCLUDE_FROM_ALL YES
 )
 if(SDL3_image_ADDED)
     if(NOT EXISTS "${SDL3_image_SOURCE_DIR}/include")
@@ -137,9 +159,9 @@ if(SDL3_image_ADDED)
     endif()
     target_include_directories(luminoveau SYSTEM PUBLIC "${SDL3_image_SOURCE_DIR}/include")
     target_link_libraries(luminoveau PUBLIC SDL3_image::SDL3_image-static)
-    message(STATUS "Luminoveau: SDL3_image configured")
+    lumi_done("SDL3_image")
 else()
-    message(WARNING "Failed to fetch SDL3_image. Image loading may be limited")
+    lumi_warn("SDL3_image - fetch failed")
 endif()
 
 # Fetching SDL_shadercross (shader translation library)
@@ -147,14 +169,17 @@ endif()
 set(SDLSHADERCROSS_SHARED OFF CACHE BOOL "Build static SDL_shadercross library" FORCE)
 set(SDLSHADERCROSS_STATIC ON CACHE BOOL "Build static SDL_shadercross library" FORCE)
 set(SDLSHADERCROSS_CLI OFF CACHE BOOL "Disable SDL_shadercross CLI" FORCE)
+set(SDLSHADERCROSS_INSTALL OFF CACHE BOOL "Disable SDL_shadercross install" FORCE)
 set(SDLSHADERCROSS_VENDORED ON CACHE BOOL "Use vendored dependencies (required)" FORCE)
 set(SDLSHADERCROSS_SPIRVCROSS_SHARED OFF CACHE BOOL "Build SPIRV-Cross statically into SDL_shadercross" FORCE)
 set(SDLSHADERCROSS_DXC OFF CACHE BOOL "Disable DXC compilation (use runtime DLLs instead)" FORCE)
 
+lumi_msg("Fetching SDL_shadercross")
 CPMAddPackage(
     NAME SDL_shadercross
     GITHUB_REPOSITORY libsdl-org/SDL_shadercross
     GIT_TAG main
+    EXCLUDE_FROM_ALL YES
 )
 if(SDL_shadercross_ADDED)
     # Force SDL_shadercross to compile with C17 instead of C23 to avoid bool/NULL conversion issues
@@ -174,22 +199,24 @@ if(SDL_shadercross_ADDED)
         spirv-cross-glsl
     )
     
-    message(STATUS "Luminoveau: SDL_shadercross configured with static SPIRV-Cross")
+    lumi_done("SDL_shadercross")
 else()
-    message(WARNING "Failed to fetch SDL_shadercross. Runtime shader compilation may be unavailable")
+    lumi_warn("SDL_shadercross - fetch failed")
 endif()
 
 # Fetching freetype (required by MSDF-atlas-gen's msdfgen)
 if (NOT ANDROID)
+lumi_msg("Fetching freetype")
 CPMAddPackage(
     NAME freetype
     GITHUB_REPOSITORY freetype/freetype
     GIT_TAG b1f4785
+    EXCLUDE_FROM_ALL YES
     OPTIONS
         "FT_DISABLE_ZLIB ON"
         "FT_DISABLE_BZIP2 ON"
         "FT_DISABLE_PNG ON"
-        "FT_DISABLE_HARFBUZZ ON"  # Disable for first pass to avoid circular dependency
+        "FT_DISABLE_HARFBUZZ ON"
         "FT_DISABLE_BROTLI ON"
 )
 if(freetype_ADDED)
@@ -205,9 +232,9 @@ if(freetype_ADDED)
     if(NOT TARGET freetype::freetype)
         add_library(freetype::freetype ALIAS freetype)
     endif()
-    message(STATUS "Luminoveau: freetype configured")
+    lumi_done("freetype")
 else()
-    message(WARNING "Failed to fetch freetype. Font rendering may be unavailable")
+    lumi_warn("freetype - fetch failed")
 endif()
 
 # NOTE: HarfBuzz is no longer needed - MSDF-atlas-gen doesn't require it
@@ -232,21 +259,25 @@ set(MSDF_ATLAS_USE_SKIA OFF CACHE BOOL "" FORCE)
 set(MSDF_ATLAS_MSDFGEN_EXTERNAL OFF CACHE BOOL "" FORCE)
 
     # tinyxml2
+    lumi_msg("Fetching tinyxml2")
     set(tinyxml2_BUILD_TESTING OFF)
     FetchContent_Declare(
         tinyxml2
         GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git
         GIT_TAG 10.0.0
+        EXCLUDE_FROM_ALL
     )
     FetchContent_MakeAvailable(tinyxml2)
 
     set_target_properties(tinyxml2 PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    lumi_done("tinyxml2")
 
-
+lumi_msg("Fetching MSDF-atlas-gen")
 CPMAddPackage(
     NAME MSDF-atlas-gen
     GITHUB_REPOSITORY Chlumsky/msdf-atlas-gen
     GIT_TAG c76a323
+    EXCLUDE_FROM_ALL YES
 )
 if(MSDF-atlas-gen_ADDED)
     if(NOT EXISTS "${MSDF-atlas-gen_SOURCE_DIR}")
@@ -255,9 +286,9 @@ if(MSDF-atlas-gen_ADDED)
     
     target_include_directories(luminoveau SYSTEM PUBLIC "${MSDF-atlas-gen_SOURCE_DIR}")
     target_link_libraries(luminoveau PUBLIC msdf-atlas-gen)
-    message(STATUS "Luminoveau: MSDF-atlas-gen configured")
+    lumi_done("MSDF-atlas-gen")
 else()
-    message(WARNING "Failed to fetch MSDF-atlas-gen. Text rendering may be unavailable")
+    lumi_warn("MSDF-atlas-gen - fetch failed")
 endif()
 
 
@@ -267,10 +298,12 @@ set(PHYSFS_BUILD_TEST OFF CACHE BOOL "Disable physfs tests" FORCE)
 set(PHYSFS_BUILD_DOCS OFF CACHE BOOL "Disable physfs documentation" FORCE)
 set(PHYSFS_DISABLE_INSTALL ON CACHE BOOL "Disable physfs installation" FORCE)
 
+lumi_msg("Fetching physfs")
 CPMAddPackage(
     NAME physfs
     GITHUB_REPOSITORY icculus/physfs
     GIT_TAG 7726d18
+    EXCLUDE_FROM_ALL YES
 )
 if(physfs_ADDED)
     if(NOT EXISTS "${physfs_SOURCE_DIR}/src")
@@ -324,7 +357,7 @@ if(physfs_ADDED)
             "-framework CoreFoundation"
         )
     endif()
-    message(STATUS "Luminoveau: physfs configured")
+    lumi_done("physfs")
 else()
-    message(WARNING "Failed to fetch physfs. File system access may be unavailable")
+    lumi_warn("physfs - fetch failed")
 endif()
