@@ -17,7 +17,7 @@ if(LUMINOVEAU_BUILD_RMLUI)
     CPMAddPackage(
         NAME RmlUi
         GITHUB_REPOSITORY mikke89/RmlUi
-        GIT_TAG master
+        GIT_TAG a60d823
         EXCLUDE_FROM_ALL YES
         OPTIONS
             "BUILD_SHARED_LIBS OFF"
