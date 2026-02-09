@@ -182,6 +182,8 @@ elseif(APPLE)
     # Enable RPATH for proper dylib resolution on macOS
     set(CMAKE_MACOSX_RPATH ON)
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+    # Xcode scheme configuration helper
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/XcodeConfiguration.cmake)
 elseif(UNIX)
     target_compile_options(luminoveau PUBLIC -static-libstdc++ -static-libgcc)
     target_link_options(luminoveau PUBLIC -static-libstdc++ -static-libgcc)
@@ -254,6 +256,7 @@ install(FILES ${LUMINOVEAU_HEADERS}
 # Install CMake helper scripts
 install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CopyRuntimeDLLs.cmake"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/XcodeConfiguration.cmake"
     DESTINATION lib/cmake/Luminoveau
 )
 
