@@ -362,8 +362,9 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
         ma_resource_manager_register_encoded_data(Audio::GetAudioEngine()->pResourceManager, fileName.c_str(), filedata.data, filedata.fileSize);
 
         ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
-                                                   MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr,
-                                                   _sound.sound);
+                                                   MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC,
+                                                   Audio::GetChannelGroup(AudioChannel::SFX),
+                                                   nullptr, _sound.sound);
 
         if (result != MA_SUCCESS) {
             free(filedata.data);  // Free on error
@@ -396,8 +397,9 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
         ma_resource_manager_register_encoded_data(Audio::GetAudioEngine()->pResourceManager, fileName.c_str(), filedata.data, filedata.fileSize);
 
         ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
-                                                   MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC, nullptr, nullptr,
-                                                   _music.music);
+                                                   MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC,
+                                                   Audio::GetChannelGroup(AudioChannel::Music),
+                                                   nullptr, _music.music);
 
         if (result != MA_SUCCESS) {
             free(filedata.data);  // Free on error

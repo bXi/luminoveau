@@ -9,6 +9,7 @@
 #include <assettypes/model.h>
 #include <assettypes/effect.h>
 #include <assettypes/effecthandler.h>
+#include <assettypes/pcmsound.h>
 
 //Engine components
 #include <assethandler/assethandler.h>
