@@ -305,29 +305,34 @@ ma_sound_group* Audio::_getChannelGroup(AudioChannel channel) {
 
 PCMSound Audio::_createPCMGenerator(const PCMFormat& format, PCMGenerateCallback callback, void* userData) {
     PCMSound pcm{};
+    pcm.impl = new PCMSound::Internal{};
 
     // Set up the custom data source
-    pcm.dataSource.callback   = callback;
-    pcm.dataSource.userData   = userData;
-    pcm.dataSource.channels   = format.channels;
-    pcm.dataSource.sampleRate = format.sampleRate;
+    pcm.impl->dataSource.callback   = callback;
+    pcm.impl->dataSource.userData   = userData;
+    pcm.impl->dataSource.channels   = format.channels;
+    pcm.impl->dataSource.sampleRate = format.sampleRate;
 
     ma_data_source_config dsConfig = ma_data_source_config_init();
     dsConfig.vtable = &pcmDataSourceVtable;
 
-    ma_result result = ma_data_source_init(&dsConfig, &pcm.dataSource.base);
+    ma_result result = ma_data_source_init(&dsConfig, &pcm.impl->dataSource.base);
     if (result != MA_SUCCESS) {
         LOG_CRITICAL("Failed to init PCM data source");
+        delete pcm.impl;
+        pcm.impl = nullptr;
         return pcm;
     }
 
     // Create a ma_sound from the data source (don't start yet)
-    result = ma_sound_init_from_data_source(&engine, &pcm.dataSource.base,
+    result = ma_sound_init_from_data_source(&engine, &pcm.impl->dataSource.base,
                                             MA_SOUND_FLAG_NO_SPATIALIZATION,
-                                            nullptr, &pcm.sound);
+                                            nullptr, &pcm.impl->sound);
     if (result != MA_SUCCESS) {
-        ma_data_source_uninit(&pcm.dataSource.base);
+        ma_data_source_uninit(&pcm.impl->dataSource.base);
         LOG_CRITICAL("Failed to init PCM sound from data source");
+        delete pcm.impl;
+        pcm.impl = nullptr;
         return pcm;
     }
 
@@ -336,34 +341,37 @@ PCMSound Audio::_createPCMGenerator(const PCMFormat& format, PCMGenerateCallback
 }
 
 void Audio::_playPCMSound(PCMSound& sound, AudioChannel channel) {
-    if (!sound.initialized) return;
+    if (!sound.initialized || !sound.impl) return;
 
     // Route through the requested channel group
     if (channel != AudioChannel::Master) {
         int idx = channelIndex(channel);
         if (idx >= 0 && idx < NUM_GROUPS && _channels[idx].initialized) {
-            ma_node_attach_output_bus(&sound.sound, 0, &_channels[idx].group, 0);
+            ma_node_attach_output_bus(&sound.impl->sound, 0, &_channels[idx].group, 0);
         }
     }
 
-    ma_sound_set_looping(&sound.sound, true); // Generators run continuously
-    ma_sound_start(&sound.sound);
+    ma_sound_set_looping(&sound.impl->sound, true); // Generators run continuously
+    ma_sound_start(&sound.impl->sound);
 }
 
 void Audio::_stopPCMSound(PCMSound& sound) {
-    if (!sound.initialized) return;
-    ma_sound_stop(&sound.sound);
+    if (!sound.initialized || !sound.impl) return;
+    ma_sound_stop(&sound.impl->sound);
 }
 
 void Audio::_destroyPCMSound(PCMSound& sound) {
-    if (!sound.initialized) return;
+    if (!sound.initialized || !sound.impl) return;
 
-    if (ma_sound_is_playing(&sound.sound)) {
-        ma_sound_stop(&sound.sound);
+    if (ma_sound_is_playing(&sound.impl->sound)) {
+        ma_sound_stop(&sound.impl->sound);
     }
 
-    ma_sound_uninit(&sound.sound);
-    ma_data_source_uninit(&sound.dataSource.base);
+    ma_sound_uninit(&sound.impl->sound);
+    ma_data_source_uninit(&sound.impl->dataSource.base);
+
+    delete sound.impl;
+    sound.impl = nullptr;
     sound.initialized = false;
 }
 

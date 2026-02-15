@@ -67,10 +67,17 @@ struct LumiEffectNode {
  * Created with Audio::CreatePCMGenerator(). The callback runs continuously
  * on the audio thread once started with Audio::PlayPCMSound(). Use atomics
  * in your userData struct to control parameters from the game thread.
+ *
+ * This is a lightweight handle (pointer wrapper) that is safe to copy, move,
+ * and return by value. The ma_sound + data source live on the heap so internal
+ * pointers remain stable.
  */
 struct PCMSoundAsset {
-    ma_sound         sound;
-    LumiPCMDataSource dataSource;
+    struct Internal {
+        ma_sound          sound;
+        LumiPCMDataSource dataSource;
+    };
+    Internal* impl = nullptr;
     bool initialized = false;
 };
 
