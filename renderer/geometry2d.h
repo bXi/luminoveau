@@ -81,10 +81,11 @@ namespace Geometry2DFactory {
     
     /**
      * @brief Creates a unit rounded rectangle geometry (0,0) to (1,1) with rounded corners
-     * @param cornerRadius Radius of the rounded corners (0.0 to 0.5)
+     * @param cornerRadiusX Normalized radius along X axis (0.0 to 0.5)
+     * @param cornerRadiusY Normalized radius along Y axis (0.0 to 0.5)
      * @param cornerSegments Number of segments per corner arc
      */
-    Geometry2D* CreateRoundedRect(float cornerRadius = 0.1f, int cornerSegments = 8);
+    Geometry2D* CreateRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments = 8);
     
     /**
      * @brief Releases all cached geometries

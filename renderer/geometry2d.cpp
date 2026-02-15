@@ -229,11 +229,12 @@ namespace Geometry2DFactory {
         return circle;
     }
     
-    Geometry2D* CreateRoundedRect(float cornerRadius, int cornerSegments) {
-        // Clamp corner radius to valid range
-        cornerRadius = std::max(0.0f, std::min(0.5f, cornerRadius));
+    Geometry2D* CreateRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments) {
+        // Clamp corner radii to valid range
+        cornerRadiusX = std::max(0.0f, std::min(0.5f, cornerRadiusX));
+        cornerRadiusY = std::max(0.0f, std::min(0.5f, cornerRadiusY));
         
-        std::string key = "roundrect_" + std::to_string(cornerRadius) + "_" + std::to_string(cornerSegments);
+        std::string key = "roundrect_" + std::to_string(cornerRadiusX) + "_" + std::to_string(cornerRadiusY) + "_" + std::to_string(cornerSegments);
         auto it = geometryCache.find(key);
         if (it != geometryCache.end()) {
             return it->second;
@@ -246,37 +247,38 @@ namespace Geometry2DFactory {
         roundedRect->vertices.push_back({0.5f, 0.5f, 0.5f, 0.5f});
         
         // Generate perimeter vertices (clockwise from top-left)
+        // Uses separate X/Y radii so corners stay circular after non-uniform scaling
         std::vector<Vertex2D> perimeter;
         
         // Top-left corner arc (180° to 270°)
         for (int i = 0; i <= cornerSegments; i++) {
             float angle = PI + (PI * 0.5f) * (float)i / (float)cornerSegments;
-            float x = cornerRadius + std::cos(angle) * cornerRadius;
-            float y = cornerRadius + std::sin(angle) * cornerRadius;
+            float x = cornerRadiusX + std::cos(angle) * cornerRadiusX;
+            float y = cornerRadiusY + std::sin(angle) * cornerRadiusY;
             perimeter.push_back({x, y, x, y});
         }
         
         // Top-right corner arc (270° to 360°)
         for (int i = 0; i <= cornerSegments; i++) {
             float angle = PI * 1.5f + (PI * 0.5f) * (float)i / (float)cornerSegments;
-            float x = (1.0f - cornerRadius) + std::cos(angle) * cornerRadius;
-            float y = cornerRadius + std::sin(angle) * cornerRadius;
+            float x = (1.0f - cornerRadiusX) + std::cos(angle) * cornerRadiusX;
+            float y = cornerRadiusY + std::sin(angle) * cornerRadiusY;
             perimeter.push_back({x, y, x, y});
         }
         
         // Bottom-right corner arc (0° to 90°)
         for (int i = 0; i <= cornerSegments; i++) {
             float angle = 0.0f + (PI * 0.5f) * (float)i / (float)cornerSegments;
-            float x = (1.0f - cornerRadius) + std::cos(angle) * cornerRadius;
-            float y = (1.0f - cornerRadius) + std::sin(angle) * cornerRadius;
+            float x = (1.0f - cornerRadiusX) + std::cos(angle) * cornerRadiusX;
+            float y = (1.0f - cornerRadiusY) + std::sin(angle) * cornerRadiusY;
             perimeter.push_back({x, y, x, y});
         }
         
         // Bottom-left corner arc (90° to 180°)
         for (int i = 0; i <= cornerSegments; i++) {
             float angle = PI * 0.5f + (PI * 0.5f) * (float)i / (float)cornerSegments;
-            float x = cornerRadius + std::cos(angle) * cornerRadius;
-            float y = (1.0f - cornerRadius) + std::sin(angle) * cornerRadius;
+            float x = cornerRadiusX + std::cos(angle) * cornerRadiusX;
+            float y = (1.0f - cornerRadiusY) + std::sin(angle) * cornerRadiusY;
             perimeter.push_back({x, y, x, y});
         }
         

@@ -223,10 +223,99 @@ void Draw::_drawCircle(vf2d pos, float radius, Color color, int segments = 32) {
 }
 
 void Draw::_drawRectangleRounded(vf2d pos, const vf2d &size, float radius, Color color) {
-    LUMI_UNUSED(size, radius, color);
-    if (Camera::IsActive()) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Clamp radius to not exceed half of either dimension
+    radius = std::min(radius, std::min(size.x, size.y) / 2.0f);
+    
+    // Apply camera transformation
+    bool cameraWasActive = Camera::IsActive();
+    if (cameraWasActive) {
         pos = Camera::ToScreenSpace(pos);
         radius *= Camera::GetScale();
+        // Scale size manually so we can deactivate camera for _drawLine
+        vf2d scaledSize = size * Camera::GetScale();
+        Camera::Deactivate();
+        
+        float r = radius;
+        
+        // Straight edges
+        _drawLine({pos.x + r, pos.y},                    {pos.x + scaledSize.x - r, pos.y}, color);                    // Top
+        _drawLine({pos.x + scaledSize.x, pos.y + r},     {pos.x + scaledSize.x, pos.y + scaledSize.y - r}, color);     // Right
+        _drawLine({pos.x + scaledSize.x - r, pos.y + scaledSize.y}, {pos.x + r, pos.y + scaledSize.y}, color);         // Bottom
+        _drawLine({pos.x, pos.y + scaledSize.y - r},     {pos.x, pos.y + r}, color);                                   // Left
+        
+        // Corner arcs (8 segments each)
+        int seg = 8;
+        vf2d tl = {pos.x + r, pos.y + r};
+        for (int i = 0; i < seg; i++) {
+            float a0 = PI + (PI * 0.5f) * (float)i / (float)seg;
+            float a1 = PI + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+            _drawLine({tl.x + std::cos(a0) * r, tl.y + std::sin(a0) * r},
+                      {tl.x + std::cos(a1) * r, tl.y + std::sin(a1) * r}, color);
+        }
+        vf2d tr = {pos.x + scaledSize.x - r, pos.y + r};
+        for (int i = 0; i < seg; i++) {
+            float a0 = PI * 1.5f + (PI * 0.5f) * (float)i / (float)seg;
+            float a1 = PI * 1.5f + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+            _drawLine({tr.x + std::cos(a0) * r, tr.y + std::sin(a0) * r},
+                      {tr.x + std::cos(a1) * r, tr.y + std::sin(a1) * r}, color);
+        }
+        vf2d br = {pos.x + scaledSize.x - r, pos.y + scaledSize.y - r};
+        for (int i = 0; i < seg; i++) {
+            float a0 = (PI * 0.5f) * (float)i / (float)seg;
+            float a1 = (PI * 0.5f) * (float)(i + 1) / (float)seg;
+            _drawLine({br.x + std::cos(a0) * r, br.y + std::sin(a0) * r},
+                      {br.x + std::cos(a1) * r, br.y + std::sin(a1) * r}, color);
+        }
+        vf2d bl = {pos.x + r, pos.y + scaledSize.y - r};
+        for (int i = 0; i < seg; i++) {
+            float a0 = PI * 0.5f + (PI * 0.5f) * (float)i / (float)seg;
+            float a1 = PI * 0.5f + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+            _drawLine({bl.x + std::cos(a0) * r, bl.y + std::sin(a0) * r},
+                      {bl.x + std::cos(a1) * r, bl.y + std::sin(a1) * r}, color);
+        }
+        
+        Camera::Activate();
+        return;
+    }
+    
+    // No camera path
+    float r = radius;
+    
+    _drawLine({pos.x + r, pos.y},              {pos.x + size.x - r, pos.y}, color);              // Top
+    _drawLine({pos.x + size.x, pos.y + r},     {pos.x + size.x, pos.y + size.y - r}, color);     // Right
+    _drawLine({pos.x + size.x - r, pos.y + size.y}, {pos.x + r, pos.y + size.y}, color);         // Bottom
+    _drawLine({pos.x, pos.y + size.y - r},     {pos.x, pos.y + r}, color);                       // Left
+    
+    int seg = 8;
+    vf2d tl = {pos.x + r, pos.y + r};
+    for (int i = 0; i < seg; i++) {
+        float a0 = PI + (PI * 0.5f) * (float)i / (float)seg;
+        float a1 = PI + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+        _drawLine({tl.x + std::cos(a0) * r, tl.y + std::sin(a0) * r},
+                  {tl.x + std::cos(a1) * r, tl.y + std::sin(a1) * r}, color);
+    }
+    vf2d tr = {pos.x + size.x - r, pos.y + r};
+    for (int i = 0; i < seg; i++) {
+        float a0 = PI * 1.5f + (PI * 0.5f) * (float)i / (float)seg;
+        float a1 = PI * 1.5f + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+        _drawLine({tr.x + std::cos(a0) * r, tr.y + std::sin(a0) * r},
+                  {tr.x + std::cos(a1) * r, tr.y + std::sin(a1) * r}, color);
+    }
+    vf2d br = {pos.x + size.x - r, pos.y + size.y - r};
+    for (int i = 0; i < seg; i++) {
+        float a0 = (PI * 0.5f) * (float)i / (float)seg;
+        float a1 = (PI * 0.5f) * (float)(i + 1) / (float)seg;
+        _drawLine({br.x + std::cos(a0) * r, br.y + std::sin(a0) * r},
+                  {br.x + std::cos(a1) * r, br.y + std::sin(a1) * r}, color);
+    }
+    vf2d bl = {pos.x + r, pos.y + size.y - r};
+    for (int i = 0; i < seg; i++) {
+        float a0 = PI * 0.5f + (PI * 0.5f) * (float)i / (float)seg;
+        float a1 = PI * 0.5f + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+        _drawLine({bl.x + std::cos(a0) * r, bl.y + std::sin(a0) * r},
+                  {bl.x + std::cos(a1) * r, bl.y + std::sin(a1) * r}, color);
     }
 }
 
@@ -457,12 +546,13 @@ void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color 
         size *= Camera::GetScale();
     }
     
-    // Calculate normalized corner radius (0.0 to 0.5)
-    float normalizedRadius = radius / std::min(size.x, size.y);
-    normalizedRadius = std::min(0.5f, normalizedRadius);
+    // Normalize radius separately per axis so corners stay circular
+    // after the geometry is scaled non-uniformly to (size.x, size.y)
+    float normalizedRadiusX = std::min(0.5f, radius / size.x);
+    float normalizedRadiusY = std::min(0.5f, radius / size.y);
     
     // Get the rounded rectangle geometry with 8 segments per corner
-    Geometry2D* geom = Renderer::GetRoundedRectGeometry(normalizedRadius, 8);
+    Geometry2D* geom = Renderer::GetRoundedRectGeometry(normalizedRadiusX, normalizedRadiusY, 8);
     
     // Create renderable using the geometry
     Renderable renderable = {
