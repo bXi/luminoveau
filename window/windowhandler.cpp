@@ -155,10 +155,18 @@ void Window::_processEvent(SDL_Event* event) {
             EngineState::_shouldQuit = true;
             break;
         case SDL_EventType::SDL_EVENT_KEY_DOWN:
+#ifdef SDL_MAIN_USE_CALLBACKS
+            _bufferedKeysDown.push_back(event->key.scancode);
+#else
             Input::get().currentKeyboardState[event->key.scancode] = 1;
+#endif
             break;
         case SDL_EventType::SDL_EVENT_KEY_UP:
+#ifdef SDL_MAIN_USE_CALLBACKS
+            _bufferedKeysUp.push_back(event->key.scancode);
+#else
             Input::get().currentKeyboardState[event->key.scancode] = 0;
+#endif
             break;
         case SDL_EventType::SDL_EVENT_MOUSE_WHEEL:
             Input::UpdateScroll(event->wheel.integer_y);
@@ -251,9 +259,14 @@ void Window::_handleInput() {
 #else
 // SDL3 callback mode - handles events one at a time
 void Window::_handleInput() {
-    // In callback mode, events are handled individually via ProcessEvent()
-    // This function only needs to update Input state
+    // Snapshot previous state BEFORE applying this frame's buffered events
     Input::Update();
+
+    // Now apply the buffered keyboard events from ProcessEvent()
+    Input::UpdateInputs(_bufferedKeysDown, true);
+    Input::UpdateInputs(_bufferedKeysUp, false);
+    _bufferedKeysDown.clear();
+    _bufferedKeysUp.clear();
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) {
