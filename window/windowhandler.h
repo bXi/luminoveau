@@ -353,12 +353,10 @@ private:
 
     bool _sizeDirty = false;
 
-#ifdef SDL_MAIN_USE_CALLBACKS
-    // Buffer keyboard events in callback mode so they're applied AFTER
+    // Buffer keyboard events so they're applied AFTER
     // Input::Update() snapshots previousKeyboardState
     std::vector<Uint8> _bufferedKeysDown;
     std::vector<Uint8> _bufferedKeysUp;
-#endif
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     void SetupImGuiStyle();

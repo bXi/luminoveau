@@ -155,18 +155,10 @@ void Window::_processEvent(SDL_Event* event) {
             EngineState::_shouldQuit = true;
             break;
         case SDL_EventType::SDL_EVENT_KEY_DOWN:
-#ifdef SDL_MAIN_USE_CALLBACKS
             _bufferedKeysDown.push_back(event->key.scancode);
-#else
-            Input::get().currentKeyboardState[event->key.scancode] = 1;
-#endif
             break;
         case SDL_EventType::SDL_EVENT_KEY_UP:
-#ifdef SDL_MAIN_USE_CALLBACKS
             _bufferedKeysUp.push_back(event->key.scancode);
-#else
-            Input::get().currentKeyboardState[event->key.scancode] = 0;
-#endif
             break;
         case SDL_EventType::SDL_EVENT_MOUSE_WHEEL:
             Input::UpdateScroll(event->wheel.integer_y);
@@ -228,27 +220,19 @@ void Window::_processEvent(SDL_Event* event) {
 #ifndef SDL_MAIN_USE_CALLBACKS
 // Traditional main() loop mode - polls events in batch
 void Window::_handleInput() {
+    // Snapshot previous state BEFORE applying this frame's events
     Input::Update();
 
     SDL_Event event;
-
-    std::vector<Uint8> newKeysDown;
-    std::vector<Uint8> newKeysUp;
-
     while (SDL_PollEvent(&event)) {
-        // Handle key events separately for batch processing
-        if (event.type == SDL_EVENT_KEY_DOWN) {
-            newKeysDown.push_back(event.key.scancode);
-        } else if (event.type == SDL_EVENT_KEY_UP) {
-            newKeysUp.push_back(event.key.scancode);
-        }
-
-        _processEvent(&event);
+        _processEvent(&event); // Buffers key events
     }
 
-    // Batch update keyboard state
-    Input::UpdateInputs(newKeysDown, true);
-    Input::UpdateInputs(newKeysUp, false);
+    // Apply buffered keyboard events after Update() snapshot
+    Input::UpdateInputs(_bufferedKeysDown, true);
+    Input::UpdateInputs(_bufferedKeysUp, false);
+    _bufferedKeysDown.clear();
+    _bufferedKeysUp.clear();
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) {
