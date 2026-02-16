@@ -55,7 +55,7 @@ AssetHandler::AssetHandler() {
     
     msdf_atlas::TightAtlasPacker packer;
     packer.setDimensionsConstraint(msdf_atlas::DimensionsConstraint::SQUARE);
-    packer.setMinimumScale(96.0);  // High-res atlas
+    packer.setMinimumScale(64.0);  // Match generatedSize
     packer.setPixelRange(4.0);
     packer.setMiterLimit(1.0);
     packer.pack(defaultFont.glyphs->data(), defaultFont.glyphs->size());

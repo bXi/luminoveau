@@ -33,20 +33,16 @@ Output main(Input input)
         // Median of 3 channels gives the signed distance
         float sd = median(msd.r, msd.g, msd.b);
         
-        // Calculate adaptive smoothing based on screen-space derivatives
-        float smoothing = fwidth(sd) * 0.5;
-        
-        // Use slightly wider threshold (0.515 instead of 0.5) for better small text rendering
-        // Reference: https://www.redblobgames.com/x/2403-distance-field-fonts/
-        float threshold = 0.515;
-        
-        // Reconstruct sharp edge using smoothstep
-        float alpha = smoothstep(threshold - smoothing, threshold + smoothing, sd);
-        
-        // Apply gamma correction (1.5) for more natural font weight
-        // Compromise between gamma 1.0 (too thin) and 2.2 (too thick on non-gamma-correct displays)
-        const float gamma = 1.5;
-        alpha = pow(alpha, 1.0 / gamma);
+        // Compute screen pixel range using Chlumsky's method
+        // pxRange (4.0) / atlas texture dimensions gives the distance field range in UV space.
+        // Dividing by fwidth(uv) converts that to screen pixels.
+        uint texW, texH;
+        SpriteTexture.GetDimensions(texW, texH);
+        float2 msdfUnit = 4.0 / float2(texW, texH);
+        float sigDist = sd - 0.5;
+        float screenPxRange = max(dot(msdfUnit, 0.5 / fwidth(input.Texcoord)), 1.0);
+        float screenPxDistance = screenPxRange * sigDist;
+        float alpha = saturate(screenPxDistance + 0.5);
         
         // Apply tint color with computed alpha
         output.Color = float4(input.Color.rgb, alpha * input.Color.a);
