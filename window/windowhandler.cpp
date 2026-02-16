@@ -29,6 +29,11 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 
     SDL_Init(SDL_INIT_VIDEO);
 
+    // Always enable high-DPI so the GPU renders at full physical resolution
+    // on Retina/HiDPI displays. Without this, the swapchain stays at logical
+    // size and SDL_GetWindowSizeInPixels() == SDL_GetWindowSize().
+    flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
+
     auto window = SDL_CreateWindow(title.c_str(), width, height, flags);
     if (window) {
         m_window = window;
@@ -40,6 +45,9 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     ImGui::CreateContext();
     SetupImGuiStyle();
 #endif
+
+    // Query HiDPI display scale factor
+    _updateDisplayScale();
 
     Renderer::InitRendering();
 
@@ -181,6 +189,11 @@ void Window::_processEvent(SDL_Event* event) {
             Input::HandleTouchEvent(event);
             break;
         }
+        case SDL_EventType::SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED: {
+            _updateDisplayScale();
+            _sizeDirty = true;
+            break;
+        }
         case SDL_EventType::SDL_EVENT_WINDOW_MAXIMIZED: {
             _maximized = true;
             break;
@@ -264,8 +277,12 @@ bool Window::_isFullscreen() {
 vf2d Window::_getSize(bool getRealSize) {
     int w, h;
 
+#ifdef LUMI_USE_PHYSICAL_PIXELS
+    // Physical pixel mode: always return actual device pixels
+    SDL_GetWindowSizeInPixels(m_window, &w, &h);
+#else
+    // Virtual pixel mode (default): return logical points
     if (_isFullscreen()) {
-
         const SDL_DisplayMode *dm;
 
         int windowX = 10;
@@ -282,9 +299,9 @@ vf2d Window::_getSize(bool getRealSize) {
         w = dm->w;
         h = dm->h;
     } else {
-        // Get the size of the window's client area
         SDL_GetWindowSize(m_window, &w, &h);
     }
+#endif
 
     if (!getRealSize && EngineState::_scaleFactor > 1) {
         w /= EngineState::_scaleFactor;
@@ -292,6 +309,21 @@ vf2d Window::_getSize(bool getRealSize) {
     }
 
     return {(float) w, (float) h};
+}
+
+vf2d Window::_getPhysicalSize() {
+    int w, h;
+    SDL_GetWindowSizeInPixels(m_window, &w, &h);
+    return {(float) w, (float) h};
+}
+
+void Window::_updateDisplayScale() {
+    if (!m_window) return;
+    float scale = SDL_GetWindowDisplayScale(m_window);
+    if (scale > 0.0f) {
+        EngineState::_displayScale = scale;
+    }
+    LOG_INFO("Display scale: {}", EngineState::_displayScale);
 }
 
 void Window::_setSize(int width, int height) {

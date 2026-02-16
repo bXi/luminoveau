@@ -126,28 +126,59 @@ public:
     static void SetScaledSize(int width, int height, int scale = 0) { get()._setScaledSize(width, height, scale); }
 
     /**
-     * @brief Retrieves the size of the window.
+     * @brief Retrieves the size of the window in logical (virtual) pixels.
      *
-     * @param getRealSize Flag indicating whether to retrieve the real size (not scaled).
+     * @param getRealSize Flag indicating whether to retrieve the real size (not divided by user scale).
      * @return The size of the window.
      */
     static vf2d GetSize(bool getRealSize = false) { return get()._getSize(getRealSize); }
 
     /**
-     * @brief Retrieves the width of the window.
+     * @brief Retrieves the width of the window in logical (virtual) pixels.
      *
-     * @param getRealSize Flag indicating whether to retrieve the real size (not scaled).
+     * @param getRealSize Flag indicating whether to retrieve the real size (not divided by user scale).
      * @return The width of the window.
      */
     static int GetWidth(bool getRealSize = false) { return (int) get()._getSize(getRealSize).x; }
 
     /**
-     * @brief Retrieves the height of the window.
+     * @brief Retrieves the height of the window in logical (virtual) pixels.
      *
-     * @param getRealSize Flag indicating whether to retrieve the real size (not scaled).
+     * @param getRealSize Flag indicating whether to retrieve the real size (not divided by user scale).
      * @return The height of the window.
      */
     static int GetHeight(bool getRealSize = false) { return (int) get()._getSize(getRealSize).y; }
+
+    /**
+     * @brief Retrieves the size of the window in physical (device) pixels.
+     *
+     * On HiDPI/Retina displays, this returns the actual framebuffer pixel dimensions
+     * which may be 2x or 3x the logical size. Used internally by the renderer.
+     *
+     * @return The physical pixel size of the window.
+     */
+    static vf2d GetPhysicalSize() { return get()._getPhysicalSize(); }
+
+    /**
+     * @brief Retrieves the width of the window in physical (device) pixels.
+     * @return The physical pixel width of the window.
+     */
+    static int GetPhysicalWidth() { return (int) get()._getPhysicalSize().x; }
+
+    /**
+     * @brief Retrieves the height of the window in physical (device) pixels.
+     * @return The physical pixel height of the window.
+     */
+    static int GetPhysicalHeight() { return (int) get()._getPhysicalSize().y; }
+
+    /**
+     * @brief Gets the HiDPI display scale factor.
+     *
+     * Returns the ratio of physical to logical pixels (e.g. 2.0 on Retina displays).
+     *
+     * @return The display scale factor.
+     */
+    static float GetDisplayScale() { return EngineState::_displayScale; }
 
     /**
      * @brief Starts a new frame for rendering.
@@ -278,6 +309,10 @@ private:
     bool _isFullscreen();
 
     vf2d _getSize(bool getRealSize = false);
+
+    vf2d _getPhysicalSize();
+
+    void _updateDisplayScale();
 
     void _handleInput();
 

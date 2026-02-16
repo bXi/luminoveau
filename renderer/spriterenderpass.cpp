@@ -336,8 +336,8 @@ void SpriteRenderPass::render(
         
         SDL_GPUViewport viewport = {
             .x = 0, .y = 0,
-            .w = (float)Window::GetWidth(),
-            .h = (float)Window::GetHeight(),
+            .w = (float)Window::GetPhysicalWidth(),
+            .h = (float)Window::GetPhysicalHeight(),
             .min_depth = 0.0f, .max_depth = 1.0f
         };
         SDL_SetGPUViewport(render_pass, &viewport);
@@ -403,7 +403,7 @@ void SpriteRenderPass::render(
                     currentPass = SDL_BeginGPURenderPass(cmd_buffer, &colorTarget, 1, nullptr);
                     
                     SDL_GPUViewport viewport = {.x = 0, .y = 0,
-                        .w = (float)Window::GetWidth(), .h = (float)Window::GetHeight(),
+                        .w = (float)Window::GetPhysicalWidth(), .h = (float)Window::GetPhysicalHeight(),
                         .min_depth = 0.0f, .max_depth = 1.0f};
                     SDL_SetGPUViewport(currentPass, &viewport);
                     if (_scissorEnabled) {
@@ -459,9 +459,9 @@ void SpriteRenderPass::render(
                 
                 SDL_GPURenderPass* tempPass = SDL_BeginGPURenderPass(cmd_buffer, &tempTarget, 1, nullptr);
                 
-                // Viewport matches window size within desktop-sized texture
+                // Viewport matches physical pixel size within desktop-sized texture
                 SDL_GPUViewport viewport = {.x = 0, .y = 0,
-                    .w = (float)Window::GetWidth(), .h = (float)Window::GetHeight(),
+                    .w = (float)Window::GetPhysicalWidth(), .h = (float)Window::GetPhysicalHeight(),
                     .min_depth = 0.0f, .max_depth = 1.0f};
                 SDL_SetGPUViewport(tempPass, &viewport);
                 SDL_BindGPUGraphicsPipeline(tempPass, effectSpritePipeline);  // Use no-blend pipeline!
@@ -631,9 +631,9 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
         float u, v;    // Texcoord
     };
     
-    // Calculate UV scale - temp textures are desktop-sized but only window portion is rendered
-    float uvScaleX = (float)Window::GetWidth() / (float)m_surface_width;
-    float uvScaleY = (float)Window::GetHeight() / (float)m_surface_height;
+    // Calculate UV scale - temp textures are desktop-sized but only the physical pixel portion is rendered
+    float uvScaleX = (float)Window::GetPhysicalWidth() / (float)m_surface_width;
+    float uvScaleY = (float)Window::GetPhysicalHeight() / (float)m_surface_height;
     
     // Note: V coordinate flipped (0 at bottom, uvScaleY at top) to account for texture orientation
     Vertex quadVertices[] = {
@@ -740,12 +740,12 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
         
         SDL_GPURenderPass* effectPass = SDL_BeginGPURenderPass(cmd_buffer, &colorTarget, 1, nullptr);
         
-        // CRITICAL: Set viewport for the effect pass!
+        // CRITICAL: Set viewport for the effect pass (physical pixels)
         SDL_GPUViewport viewport = {
             .x = 0,
             .y = 0,
-            .w = (float)Window::GetWidth(),
-            .h = (float)Window::GetHeight(),
+            .w = (float)Window::GetPhysicalWidth(),
+            .h = (float)Window::GetPhysicalHeight(),
             .min_depth = 0.0f,
             .max_depth = 1.0f
         };

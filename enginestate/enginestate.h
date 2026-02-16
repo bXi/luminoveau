@@ -5,8 +5,9 @@
 namespace EngineState {
 
     //from Window::
-    inline int  _scaleFactor      = 1;
-    inline bool _shouldQuit       = false;
+    inline int   _scaleFactor      = 1;
+    inline float _displayScale     = 1.0f;  // HiDPI scale factor (e.g. 2.0 on Retina)
+    inline bool  _shouldQuit       = false;
     inline int  _frameCount       = 0;
     inline bool _debugMenuVisible = false;
 

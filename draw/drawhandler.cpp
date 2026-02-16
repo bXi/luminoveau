@@ -39,11 +39,11 @@ void Draw::_clearEffectTextures() {
 
 
 void Draw::_initPixelBuffer() {
-    // Get desktop size to match framebuffer dimensions
+    // Get desktop size in physical pixels to match framebuffer dimensions
     SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode* displayMode = SDL_GetCurrentDisplayMode(primaryDisplay);
-    _pixelBufferWidth = displayMode ? displayMode->w : 3840;  // Fallback to 4K if can't get display
-    _pixelBufferHeight = displayMode ? displayMode->h : 2160;
+    _pixelBufferWidth = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
+    _pixelBufferHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
 
     LOG_INFO("initializing pixel buffer at desktop size: {}x{}", _pixelBufferWidth, _pixelBufferHeight);
 

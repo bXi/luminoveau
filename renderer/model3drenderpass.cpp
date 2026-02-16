@@ -505,12 +505,12 @@ void Model3DRenderPass::render(
     
     render_pass = SDL_BeginGPURenderPass(cmd_buffer, &colorTarget, 1, &depthTarget);
     
-    // Set viewport to window size (not desktop size)
+    // Set viewport to physical pixel size (GPU renders at device resolution)
     SDL_GPUViewport viewport = {
         .x = 0.0f,
         .y = 0.0f,
-        .w = static_cast<float>(Window::GetWidth()),
-        .h = static_cast<float>(Window::GetHeight()),
+        .w = static_cast<float>(Window::GetPhysicalWidth()),
+        .h = static_cast<float>(Window::GetPhysicalHeight()),
         .min_depth = 0.0f,
         .max_depth = 1.0f
     };

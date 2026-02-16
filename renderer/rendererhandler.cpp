@@ -145,11 +145,13 @@ void Renderer::_initRendering() {
 
     auto *framebuffer = new FrameBuffer;
 
-    // Get the primary display's size for creating desktop-sized framebuffers
+    // Get the primary display's size in PHYSICAL pixels for creating framebuffers
+    // On HiDPI/Retina displays, w * pixel_density gives the actual device resolution
+    // while w/h alone give logical points (which would be too small for the framebuffer)
     SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
-    int desktopWidth = displayMode ? displayMode->w : 3840;  // Fallback to 4K if can't get display
-    int desktopHeight = displayMode ? displayMode->h : 2160;
+    int desktopWidth = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
+    int desktopHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
 
     LOG_INFO("Creating framebuffers at desktop size: {}x{}", desktopWidth, desktopHeight);
 
@@ -457,8 +459,9 @@ void Renderer::_endFrame() {
                 }
             }
 
-            int width = Window::GetWidth(true);
-            int height = Window::GetHeight(true);
+            // Swapchain texture is at physical pixel dimensions
+            int width = Window::GetPhysicalWidth();
+            int height = Window::GetPhysicalHeight();
             size_t dataSize = width * height * 4;
 
             // Create transfer buffer
@@ -594,11 +597,11 @@ void Renderer::_processPendingScreenshot() {
 void Renderer::_reset() {
     LOG_INFO("Resetting render passes with MSAA={}", static_cast<int>(currentSampleCount));
 
-    // Get desktop size for render pass re-initialization
+    // Get desktop size in physical pixels for render pass re-initialization
     SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
-    int desktopWidth = displayMode ? displayMode->w : 3840;
-    int desktopHeight = displayMode ? displayMode->h : 2160;
+    int desktopWidth = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
+    int desktopHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
 
     bool useMSAA = (currentSampleCount > SDL_GPU_SAMPLECOUNT_1);
     SDL_GPUTextureFormat swapchainFormat = SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow());
@@ -688,11 +691,11 @@ void Renderer::_addShaderPass(const std::string &passname, const ShaderAsset &ve
     shaderPass->vertShader = vertShader;
     shaderPass->fragShader = fragShader;
 
-    // Get desktop size for shader pass initialization
+    // Get desktop size in physical pixels for shader pass initialization
     SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
-    int desktopWidth = displayMode ? displayMode->w : 3840;
-    int desktopHeight = displayMode ? displayMode->h : 2160;
+    int desktopWidth = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
+    int desktopHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
 
     bool succes = shaderPass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()),
                                    desktopWidth, desktopHeight,
@@ -789,9 +792,9 @@ void Renderer::renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer) {
         0.0f,               0.0f,              0.0f,  1.0f     // Column 3
     );
 
-    // Calculate UV coordinates to sample only the window-sized portion of the desktop-sized texture
-    float uMax = (float)Window::GetWidth() / (float)framebufferObj->width;
-    float vMax = (float)Window::GetHeight() / (float)framebufferObj->height;
+    // Calculate UV coordinates to sample only the physically-rendered portion of the desktop-sized texture
+    float uMax = (float)Window::GetPhysicalWidth() / (float)framebufferObj->width;
+    float vMax = (float)Window::GetPhysicalHeight() / (float)framebufferObj->height;
 
     Uniforms rtt_uniforms{
         .camera = m_camera,
@@ -848,11 +851,11 @@ void Renderer::_createFrameBuffer(const std::string &fbname) {
     });
 
     if (it == frameBuffers.end()) {
-        // Get desktop size for framebuffer texture
+        // Get desktop size in physical pixels for framebuffer texture
         SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
         const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
-        int desktopWidth = displayMode ? displayMode->w : 3840;
-        int desktopHeight = displayMode ? displayMode->h : 2160;
+        int desktopWidth = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
+        int desktopHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
 
         auto *framebuffer = new FrameBuffer;
         framebuffer->fbContent = AssetHandler::CreateEmptyTexture({(float)desktopWidth, (float)desktopHeight}).gpuTexture;
@@ -998,11 +1001,17 @@ void Renderer::_createSpriteRenderTarget(const std::string& name, const SpriteRe
     RenderPass* renderPass = new SpriteRenderPass(m_device);
     static_cast<SpriteRenderPass*>(renderPass)->UpdateRenderPassBlendState(blendState);
 
-    // Initialize render pass
+    // Get desktop size in physical pixels for render pass initialization
+    SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
+    int desktopWidth = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
+    int desktopHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
+
+    // Initialize render pass at desktop size, not window size
     renderPass->init(
         SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()),
-        Window::GetWidth(),
-        Window::GetHeight(),
+        desktopWidth,
+        desktopHeight,
         name
     );
 
