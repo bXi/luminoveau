@@ -71,6 +71,8 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
 
         double al, ab, ar, at;  // atlas bounds
         glyph.getQuadAtlasBounds(al, ab, ar, at);
+        // Inset by 0.5px to avoid sampling the neighbouring glyph's edge
+        al += 0.5; ab += 0.5; ar -= 0.5; at -= 0.5;
 
         // Scale plane bounds from em-square to pixel space
         pl *= font.generatedSize;
