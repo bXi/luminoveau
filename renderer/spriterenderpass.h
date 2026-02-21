@@ -23,6 +23,7 @@
 #include "renderable.h"
 
 #include "renderpass.h"
+#include "buffer/buffermanager.h"
 
 struct TaskBase {
     virtual ~TaskBase() = default;
@@ -207,8 +208,7 @@ std::unordered_map<uint32_t, SDL_GPUTexture*> m_additionalEffectTextures;
 
 public:
 
-    std::vector<Renderable> renderQueue;
-    size_t renderQueueCount = 0;
+    Buffer<Renderable>* renderQueue = nullptr;
 
 public:
     SpriteRenderPass(const SpriteRenderPass &) = delete;
@@ -234,13 +234,11 @@ public:
     ) override;
 
     void addToRenderQueue(const Renderable &renderable) override {
-        renderQueue[renderQueueCount] = renderable;
-        renderQueueCount++;
+        renderQueue->Add(renderable);
     }
 
     void resetRenderQueue() override {
-        // Just reset counter - keep allocated memory
-        renderQueueCount = 0;
+        renderQueue->Reset();
     }
 
     UniformBuffer &getUniformBuffer() override {

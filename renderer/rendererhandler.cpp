@@ -512,6 +512,7 @@ void Renderer::_endFrame() {
                         renderpass->resetRenderQueue();
                     }
                 }
+                Draw::ResetEffectStore();
                 m_cmdbuf = nullptr;
                 return;  // Early return - already submitted
             } else {
@@ -532,6 +533,7 @@ void Renderer::_endFrame() {
             renderpass->resetRenderQueue();
         }
     }
+    Draw::ResetEffectStore();
     m_cmdbuf = nullptr;
 }
 
@@ -930,6 +932,19 @@ SDL_GPURenderPass* Renderer::_getRenderPass(const std::string& passname) {
 
     return foundPass;
 
+}
+
+RenderPass* Renderer::_findRenderPass(const std::string& passname) {
+    for (auto &[fbName, framebuffer]: frameBuffers) {
+        auto it = std::find_if(framebuffer->renderpasses.begin(), framebuffer->renderpasses.end(),
+                               [&passname](const std::pair<std::string, RenderPass *> &entry) {
+                                   return entry.first == passname;
+                               });
+        if (it != framebuffer->renderpasses.end()) {
+            return it->second;
+        }
+    }
+    return nullptr;
 }
 
 void Renderer::_setScissorMode(const std::string& passname, const rectf& cliprect) {

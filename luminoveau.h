@@ -11,6 +11,10 @@
 #include <assettypes/effecthandler.h>
 #include <assettypes/pcmsound.h>
 
+//Buffer management
+#include <buffer/buffer.h>
+#include <buffer/buffermanager.h>
+
 //Engine components
 #include <assethandler/assethandler.h>
 #include <audio/audiohandler.h>

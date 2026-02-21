@@ -2,16 +2,10 @@
 
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
-#include <vector>
-#include <unordered_map>
 
 #include "assettypes/texture.h"
-#include "assettypes/effect.h"
 #include "renderer/geometry2d.h"
 #include "utils/colors.h"
-struct SpriteInstance {
-
-};
 
 struct Renderable {
     TextureAsset texture;
@@ -25,9 +19,6 @@ struct Renderable {
     float pivot_x, pivot_y;
     bool isSDF = false;  // True for SDF text, false for regular sprites
     
-    // Effects to apply to this sprite (captured when sprite is drawn)
-    std::vector<EffectAsset> effects;
-    
-    // Additional textures for effects (captured when sprite is drawn)
-    std::unordered_map<uint32_t, SDL_GPUTexture*> effectTextures;
+    // Index into Draw's effect store (-1 = no effects)
+    int32_t effectIndex = -1;
 };

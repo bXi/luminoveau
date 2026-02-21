@@ -246,6 +246,16 @@ public:
     }
 
     /**
+     * @brief Finds a RenderPass object by name. Used for caching direct pointers.
+     *
+     * @param passname Name of the render pass.
+     * @return Pointer to the RenderPass, or nullptr if not found.
+     */
+    static RenderPass* FindRenderPass(const std::string& passname) {
+        return get()._findRenderPass(passname);
+    }
+
+    /**
      * @brief Enables scissor testing for a render pass with the specified clip rectangle.
      *
      * @param passname Name of the render pass.
@@ -390,6 +400,8 @@ private:
     void _setFramebufferRenderToScreen(const std::string &fbName, bool render);
 
     SDL_GPURenderPass *_getRenderPass(const std::string &passname);
+
+    RenderPass* _findRenderPass(const std::string& passname);
 
     void _setScissorMode(const std::string &passname, const rectf &cliprect);
 

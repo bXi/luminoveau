@@ -369,6 +369,16 @@ public:
      */
     static const std::unordered_map<uint32_t, SDL_GPUTexture*>& GetEffectTextures() { return get()._effectTextures; }
 
+    /**
+     * @brief Gets the effect store for the current frame (for internal use by render passes).
+     */
+    static const std::vector<std::vector<EffectAsset>>& GetEffectStore() { return get()._effectStore; }
+
+    /**
+     * @brief Resets the per-frame effect store. Called at frame start.
+     */
+    static void ResetEffectStore() { get()._effectStore.clear(); get()._currentEffectIndex = -1; get()._effectStackDirty = true; }
+
 
 private:
 
@@ -426,15 +436,35 @@ private:
 
     void _resetTargetRenderPass() { get()._setTargetRenderPass("2dsprites"); }
 
-    void _setTargetRenderPass(const std::string& newTargetRenderPass) { get()._targetRenderPass = newTargetRenderPass; }
+    void _setTargetRenderPass(const std::string& newTargetRenderPass) {
+        get()._targetRenderPass = newTargetRenderPass;
+        get()._cachedRenderPass = Renderer::FindRenderPass(newTargetRenderPass);
+    }
 
     std::string _getTargetRenderPass() { return get()._targetRenderPass; }
 
+    // Resolve cached pointer lazily (for first frame before SetTargetRenderPass is called)
+    RenderPass* _getTargetPass() {
+        if (!_cachedRenderPass) {
+            _cachedRenderPass = Renderer::FindRenderPass(_targetRenderPass);
+        }
+        return _cachedRenderPass;
+    }
+
     std::string _targetRenderPass = "2dsprites";
+    RenderPass* _cachedRenderPass = nullptr;
 
     // Effect system
     std::vector<EffectAsset> _effectStack;
     std::unordered_map<uint32_t, SDL_GPUTexture*> _effectTextures;
+    
+    // Effect store - small side-channel for per-frame effect data
+    // Avoids copying effect vectors into every Renderable
+    std::vector<std::vector<EffectAsset>> _effectStore;
+    int32_t _currentEffectIndex = -1;  // Cached index for current _effectStack
+    bool _effectStackDirty = true;     // True when _effectStack changed since last index lookup
+    
+    int32_t _getOrCreateEffectIndex();
     
     void _setEffect(const EffectAsset& effect);
     void _addEffect(const EffectAsset& effect);

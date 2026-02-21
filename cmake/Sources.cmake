@@ -64,6 +64,9 @@ set(LUMINOVEAU_SOURCES
     input/inputhandler.cpp
     input/virtualcontrols.cpp
 
+    # Buffer management
+    buffer/buffermanager.cpp
+
     # Drawing
     draw/drawhandler.cpp
 
@@ -131,6 +134,10 @@ set(LUMINOVEAU_HEADERS
     input/inputdevice.h
     input/inputhandler.h
     input/virtualcontrols.h
+
+    # Buffer management
+    buffer/buffer.h
+    buffer/buffermanager.h
 
     # Drawing
     draw/drawhandler.h

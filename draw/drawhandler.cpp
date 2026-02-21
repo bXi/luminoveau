@@ -3,13 +3,29 @@
 #include <utility>
 #include <algorithm>
 
+int32_t Draw::_getOrCreateEffectIndex() {
+    if (_effectStack.empty()) return -1;
+    
+    // If stack hasn't changed since last lookup, reuse cached index
+    if (!_effectStackDirty) return _currentEffectIndex;
+    
+    // Store the effect stack and cache the index
+    _currentEffectIndex = static_cast<int32_t>(_effectStore.size());
+    _effectStore.push_back(_effectStack);
+    _effectStackDirty = false;
+    
+    return _currentEffectIndex;
+}
+
 void Draw::_setEffect(const EffectAsset& effect) {
     _effectStack.clear();
     _effectStack.push_back(effect);
+    _effectStackDirty = true;
 }
 
 void Draw::_addEffect(const EffectAsset& effect) {
     _effectStack.push_back(effect);
+    _effectStackDirty = true;
 }
 
 void Draw::_removeEffect(const EffectAsset& effect) {
@@ -22,10 +38,12 @@ void Draw::_removeEffect(const EffectAsset& effect) {
             }),
         _effectStack.end()
     );
+    _effectStackDirty = true;
 }
 
 void Draw::_clearEffects() {
     _effectStack.clear();
+    _effectStackDirty = true;
 }
 
 void Draw::_setEffectTexture(uint32_t binding, const TextureAsset& texture) {
@@ -386,10 +404,10 @@ void Draw::_drawTexture(TextureType texture, const vf2d& pos, const vf2d &size, 
         .pivot_x = 0.5f,
         .pivot_y = 0.5f,
         
-        .effects = _effectStack,  // Capture current effect stack
+        .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+    _getTargetPass()->addToRenderQueue(renderable);
 }
 
 void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &size, const rectf &src, Color color) {
@@ -429,10 +447,10 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &si
         .pivot_x = 0.5f,
         .pivot_y = 0.5f,
         
-        .effects = _effectStack,
+        .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+    _getTargetPass()->addToRenderQueue(renderable);
 }
 
 void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, vf2d size, float angle, const vf2d& pivot, Color color) {
@@ -469,10 +487,10 @@ void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, vf2d size, f
         .pivot_x = pivot.x,
         .pivot_y = pivot.y,
         
-        .effects = _effectStack,
+        .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+    _getTargetPass()->addToRenderQueue(renderable);
 }
 
 void Draw::_drawRotatedTexturePart(Draw::TextureType texture, vf2d pos, vf2d size, const rectf &src, float angle, const vf2d& pivot, Color color) {
@@ -516,10 +534,10 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, vf2d pos, vf2d siz
         .pivot_x = pivot.x,
         .pivot_y = pivot.x,
         
-        .effects = _effectStack,
+        .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+    _getTargetPass()->addToRenderQueue(renderable);
 }
 
 void Draw::_setScissorMode(const rectf& area) {
@@ -581,10 +599,10 @@ void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color 
         .pivot_x = 0.5f,
         .pivot_y = 0.5f,
         
-        .effects = _effectStack,
+        .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+    _getTargetPass()->addToRenderQueue(renderable);
 }
 
 void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
@@ -622,10 +640,10 @@ void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
         .pivot_x = 0.5f,
         .pivot_y = 0.5f,
         
-        .effects = _effectStack,
+        .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+    _getTargetPass()->addToRenderQueue(renderable);
 }
 
 void Draw::_drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
@@ -797,10 +815,10 @@ void Draw::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
         .pivot_x = 0.0f,
         .pivot_y = 0.0f,
         
-        .effects = _effectStack,
+        .effectIndex = _getOrCreateEffectIndex(),
     };
     
-    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+    _getTargetPass()->addToRenderQueue(renderable);
     
     // Note: Memory leak here - triangleGeom is not freed
     // This is acceptable for temporary geometry that gets cleaned up at frame end
@@ -913,10 +931,10 @@ void Draw::_drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mod
         .pivot_x = 0.0f,
         .pivot_y = 0.0f,
         
-        .effects = _effectStack,
+        .effectIndex = _getOrCreateEffectIndex(),
     };
     
-    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+    _getTargetPass()->addToRenderQueue(renderable);
 }
 
 void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size, 
@@ -1009,8 +1027,8 @@ void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size,
         .pivot_x = 0.0f,
         .pivot_y = 0.0f,
         
-        .effects = _effectStack,
+        .effectIndex = _getOrCreateEffectIndex(),
     };
     
-    Renderer::AddToRenderQueue(_targetRenderPass, renderable);
+    _getTargetPass()->addToRenderQueue(renderable);
 }

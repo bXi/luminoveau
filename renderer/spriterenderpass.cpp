@@ -83,7 +83,7 @@ bool SpriteRenderPass::init(
     };
     m_depth_texture.gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &depth_create_info);
 
-    renderQueue.resize(MAX_SPRITES);
+    renderQueue = BufferManager::Create<Renderable>(passname + "_renderQueue", MAX_SPRITES);
 
     createShaders();
     createEffectResources();
@@ -193,8 +193,8 @@ void SpriteRenderPass::render(
     
     // Check if ANY sprite in the queue has effects
     bool hasAnyEffects = false;
-    for (uint32_t i = 0; i < renderQueueCount; i++) {
-        if (!renderQueue[i].effects.empty()) {
+    for (uint32_t i = 0; i < renderQueue->Count(); i++) {
+        if ((*renderQueue)[i].effectIndex >= 0) {
             hasAnyEffects = true;
             break;
         }
@@ -210,31 +210,33 @@ void SpriteRenderPass::render(
     // Copy and compress from renderQueue to transfer buffer
     // Convert float32 to float16 and pack pairs into uint32
     
+    size_t spriteCount = renderQueue->Count();
     size_t thread_count = thread_pool.get_thread_count();
-    size_t chunk_size = renderQueueCount / thread_count + 1;
+    size_t chunk_size = spriteCount / thread_count + 1;
     
-    for (size_t start = 0; start < renderQueueCount; start += chunk_size) {
-        size_t end = std::min(start + chunk_size, renderQueueCount);
+    for (size_t start = 0; start < spriteCount; start += chunk_size) {
+        size_t end = std::min(start + chunk_size, spriteCount);
         thread_pool.enqueue([this, dataPtr, start, end]() {
             for (size_t i = start; i < end; ++i) {
+                const auto& sprite = (*renderQueue)[i];
                 // Validate and sanitize input values
-                float x = renderQueue[i].x;
-                float y = renderQueue[i].y;
-                float z = renderQueue[i].z;
-                float rotation = renderQueue[i].rotation;
-                float tex_u = fast_clamp(renderQueue[i].tex_u, 0.0f, 1.0f);
-                float tex_v = fast_clamp(renderQueue[i].tex_v, 0.0f, 1.0f);
-                float tex_w = fast_clamp(renderQueue[i].tex_w, 0.0f, 1.0f);
-                float tex_h = fast_clamp(renderQueue[i].tex_h, 0.0f, 1.0f);
-                float r = fast_clamp(renderQueue[i].r, 0.0f, 1.0f);
-                float g = fast_clamp(renderQueue[i].g, 0.0f, 1.0f);
-                float b = fast_clamp(renderQueue[i].b, 0.0f, 1.0f);
-                float a = fast_clamp(renderQueue[i].a, 0.0f, 1.0f);
-                float w = fast_max(renderQueue[i].w, 0.001f);  // Prevent zero size
-                float h = fast_max(renderQueue[i].h, 0.001f);
-                float pivot_x = renderQueue[i].pivot_x;
-                float pivot_y = renderQueue[i].pivot_y;
-                bool isSDF = renderQueue[i].isSDF;
+                float x = sprite.x;
+                float y = sprite.y;
+                float z = sprite.z;
+                float rotation = sprite.rotation;
+                float tex_u = fast_clamp(sprite.tex_u, 0.0f, 1.0f);
+                float tex_v = fast_clamp(sprite.tex_v, 0.0f, 1.0f);
+                float tex_w = fast_clamp(sprite.tex_w, 0.0f, 1.0f);
+                float tex_h = fast_clamp(sprite.tex_h, 0.0f, 1.0f);
+                float r = fast_clamp(sprite.r, 0.0f, 1.0f);
+                float g = fast_clamp(sprite.g, 0.0f, 1.0f);
+                float b = fast_clamp(sprite.b, 0.0f, 1.0f);
+                float a = fast_clamp(sprite.a, 0.0f, 1.0f);
+                float w = fast_max(sprite.w, 0.001f);  // Prevent zero size
+                float h = fast_max(sprite.h, 0.001f);
+                float pivot_x = sprite.pivot_x;
+                float pivot_y = sprite.pivot_y;
+                bool isSDF = sprite.isSDF;
                 
                 // Pack each pair of floats into a single uint32
                 dataPtr[i].pos_xy = pack_half2(x, y);
@@ -264,21 +266,22 @@ void SpriteRenderPass::render(
     batchHasEffects.reserve(64);
 
     size_t      currentOffset = 0;
-    for (size_t i             = 0; i < renderQueueCount; ++i) {
-        bool geometryChanged = (i > 0 && renderQueue[i].geometry != renderQueue[i - 1].geometry);
-        bool textureChanged = (i > 0 && renderQueue[i].texture.gpuTexture != renderQueue[i - 1].texture.gpuTexture);
-        bool effectsChanged = (i > 0 && renderQueue[i].effects.size() != renderQueue[i - 1].effects.size());
+    for (size_t i             = 0; i < spriteCount; ++i) {
+        const auto& cur = (*renderQueue)[i];
+        bool geometryChanged = (i > 0 && cur.geometry != (*renderQueue)[i - 1].geometry);
+        bool textureChanged = (i > 0 && cur.texture.gpuTexture != (*renderQueue)[i - 1].texture.gpuTexture);
+        bool effectsChanged = (i > 0 && cur.effectIndex != (*renderQueue)[i - 1].effectIndex);
         
         if (i == 0 || geometryChanged || textureChanged || effectsChanged) {
             // Start a new batch when geometry, texture, or effects change
             Batch batch;
             batch.offset  = currentOffset;
             batch.count   = 1;
-            batch.geometry = renderQueue[i].geometry;
-            batch.texture = renderQueue[i].texture.gpuTexture;
-            batch.sampler = renderQueue[i].texture.gpuSampler;
+            batch.geometry = cur.geometry;
+            batch.texture = cur.texture.gpuTexture;
+            batch.sampler = cur.texture.gpuSampler;
             batches.push_back(batch);
-            batchHasEffects.push_back(!renderQueue[i].effects.empty());
+            batchHasEffects.push_back(cur.effectIndex >= 0);
         } else {
             // Continue the current batch
             batches.back().count++;
@@ -288,7 +291,7 @@ void SpriteRenderPass::render(
     // Data already copied directly to transfer buffer by thread pool
     SDL_UnmapGPUTransferBuffer(m_gpu_device, SpriteDataTransferBuffer);
 
-    if (renderQueueCount > 0) {
+    if (spriteCount > 0) {
         SDL_GPUCopyPass *copyPass = SDL_BeginGPUCopyPass(cmd_buffer);
 
         SDL_GPUTransferBufferLocation transferBufferLocation = {
@@ -299,7 +302,7 @@ void SpriteRenderPass::render(
         SDL_GPUBufferRegion bufferRegion = {
             .buffer = SpriteDataBuffer,
             .offset = 0,
-            .size = static_cast<Uint32>(renderQueueCount * sizeof(CompactSpriteInstance))
+            .size = static_cast<Uint32>(spriteCount * sizeof(CompactSpriteInstance))
         };
 
         SDL_UploadToGPUBuffer(
@@ -440,8 +443,11 @@ void SpriteRenderPass::render(
                 
                 // Get effects from first sprite in batch
                 size_t spriteIdx = batch.offset;
-                if (spriteIdx >= renderQueueCount || renderQueue[spriteIdx].effects.empty()) continue;
-                const auto& effects = renderQueue[spriteIdx].effects;
+                int32_t effectIdx = (*renderQueue)[spriteIdx].effectIndex;
+                if (spriteIdx >= spriteCount || effectIdx < 0) continue;
+                const auto& effectStore = Draw::GetEffectStore();
+                if (effectIdx >= (int32_t)effectStore.size()) continue;
+                const auto& effects = effectStore[effectIdx];
                 
                 // Step 1: Render this batch to temp texture
                 SDL_GPUColorTargetInfo tempTarget = {
