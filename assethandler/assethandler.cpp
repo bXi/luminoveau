@@ -42,7 +42,7 @@ AssetHandler::AssetHandler() {
     
     msdf_atlas::FontGeometry fontGeometry(defaultFont.glyphs);
     msdf_atlas::Charset charset;
-    for (unicode_t cp = 0x20; cp <= 0x17F; ++cp) charset.add(cp);  // ASCII + Latin-1 + Latin Extended-A
+    for (uint32_t cp = 0x20; cp <= 0x17F; ++cp) charset.add(cp);  // ASCII + Latin-1 + Latin Extended-A
     fontGeometry.loadCharset(defaultFont.fontHandle, 1.0, charset);
     
     // Get font metrics
@@ -453,7 +453,7 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
     
     msdf_atlas::FontGeometry fontGeometry(_font.glyphs);
     msdf_atlas::Charset charset;
-    for (unicode_t cp = 0x20; cp <= 0x17F; ++cp) charset.add(cp);  // ASCII + Latin-1 + Latin Extended-A
+    for (uint32_t cp = 0x20; cp <= 0x17F; ++cp) charset.add(cp);  // ASCII + Latin-1 + Latin Extended-A
     fontGeometry.loadCharset(_font.fontHandle, 1.0, charset);
     
     // Get font metrics
