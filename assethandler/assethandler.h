@@ -22,6 +22,7 @@
 #include "assettypes/model.h"
 
 #include "file/filehandler.h"
+#include "utils/resourcepack.h"
 
 // Forward declarations for cleanup
 namespace msdfgen {
@@ -247,6 +248,15 @@ private:
 
     // Thread safety
     std::mutex assetMutex;
+
+    // Font cache
+    ResourcePack* _fontCache = nullptr;
+    void _initFontCache();
+    void _saveFontCache();
+    bool _loadFontFromCache(const std::string& fileName, int fontSize, FontAsset& outFont, const std::string& precomputedHash = "");
+    void _saveFontToCache(const std::string& fileName, const FontAsset& font, const std::vector<unsigned char>& rgbaData, const std::string& precomputedHash = "");
+    std::string _computeFontCacheKey(const std::string& fileName);
+    std::string _computeFontCacheKeyFromData(const void* data, size_t size);
 
     // Cleanup
     void _cleanup();

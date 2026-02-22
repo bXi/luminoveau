@@ -93,8 +93,10 @@ set(LUMINOVEAU_SOURCES
     renderer/model3drenderpass.cpp
     renderer/shaderrenderpass.cpp
     renderer/shaderhandler.cpp
-    renderer/resourcepack.cpp
     renderer/geometry2d.cpp
+
+    # Utilities
+    utils/resourcepack.cpp
 
     # Logging
     log/loghandler.cpp
@@ -191,6 +193,7 @@ set(LUMINOVEAU_HEADERS
     utils/quadtree.h
     utils/rectangles.h
     utils/vectors.h
+    utils/resourcepack.h
     utils/scene3d.h
 
     # Window management

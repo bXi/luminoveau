@@ -2,8 +2,6 @@
 #include "draw/drawhandler.h"
 #include <algorithm>
 
-#include <msdf-atlas-gen/msdf-atlas-gen.h>
-
 // Helper function to decode UTF-8 character
 static uint32_t decodeUTF8(const std::string& str, size_t& pos) {
     unsigned char c = str[pos++];
@@ -23,6 +21,7 @@ static uint32_t decodeUTF8(const std::string& str, size_t& pos) {
     
     return codepoint;
 }
+
 void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color, float renderSize) {
 
     vf2d newPos = pos;
@@ -58,21 +57,20 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
 
         // Look up glyph
         auto it = font.glyphMap->find(codepoint);
-        if (it == font.glyphMap->end()) continue;  // Glyph not in atlas, skip
+        if (it == font.glyphMap->end()) continue;
 
-        const msdf_atlas::GlyphGeometry &glyph = (*font.glyphs)[it->second];
+        const CachedGlyph &glyph = (*font.glyphs)[it->second];
 
-        // Get glyph metrics
-        double advance = glyph.getAdvance();
+        double advance = glyph.advance;
 
-        // Get bounding boxes (these are in normalized em-square coordinates)
-        double pl, pb, pr, pt;  // plane bounds
-        glyph.getQuadPlaneBounds(pl, pb, pr, pt);
+        // Plane bounds (em-square coordinates)
+        double pl = glyph.pl, pb = glyph.pb, pr = glyph.pr, pt = glyph.pt;
 
-        double al, ab, ar, at;  // atlas bounds
-        glyph.getQuadAtlasBounds(al, ab, ar, at);
-        // Inset by 0.5px to avoid sampling the neighbouring glyph's edge
-        al += 0.5; ab += 0.5; ar -= 0.5; at -= 0.5;
+        // Atlas bounds with 0.5px inset to avoid sampling neighbour
+        double al = glyph.al + 0.5;
+        double ab = glyph.ab + 0.5;
+        double ar = glyph.ar - 0.5;
+        double at = glyph.at - 0.5;
 
         // Scale plane bounds from em-square to pixel space
         pl *= font.generatedSize;
@@ -85,7 +83,7 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
         Renderable ren = {
             .texture = {
                 .gpuTexture = font.atlasTexture,
-                .gpuSampler = Renderer::GetSampler(ScaleMode::LINEAR),  // MSDF requires linear filtering
+                .gpuSampler = Renderer::GetSampler(ScaleMode::LINEAR),
             },
             .geometry = Renderer::GetQuadGeometry(),
 
@@ -127,7 +125,6 @@ int Text::_measureText(Font font, std::string textToDraw, float renderSize) {
 vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw, float renderSize) {
     if (textToDraw.empty()) return {0, 0};
 
-    // Determine scale factor for MSDF rendering
     float scale = 1.0f;
     if (renderSize < 0.0f) {
         if (font.defaultRenderSize > 0 && font.generatedSize > 0) {
@@ -137,42 +134,31 @@ vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw, float 
         scale = renderSize / static_cast<float>(font.generatedSize);
     }
 
-    // Use proper ascender from font metrics
     double ascender_px = font.ascender * font.generatedSize;
 
     float cursorX = 0.0f;
-    float maxRight = 0.0f;  // Track rightmost pixel edge
+    float maxRight = 0.0f;
 
     for (size_t i = 0; i < textToDraw.length(); ) {
         uint32_t codepoint = decodeUTF8(textToDraw, i);
 
-        // Look up glyph
         auto it = font.glyphMap->find(codepoint);
-        if (it == font.glyphMap->end()) continue;  // Glyph not in atlas, skip
+        if (it == font.glyphMap->end()) continue;
 
-        const msdf_atlas::GlyphGeometry &glyph = (*font.glyphs)[it->second];
+        const CachedGlyph &glyph = (*font.glyphs)[it->second];
 
-        // Get glyph metrics
-        double advance = glyph.getAdvance();
+        double advance = glyph.advance;
+        double pr = glyph.pr;
         
-        // Get plane bounds to check rightmost edge
-        double pl, pb, pr, pt;
-        glyph.getQuadPlaneBounds(pl, pb, pr, pt);
-        
-        // Scale to pixel space
-        pl *= font.generatedSize;
         pr *= font.generatedSize;
         advance *= font.generatedSize;
         
-        // Check if this glyph's right edge extends beyond what we've seen
         float glyphRight = static_cast<float>((cursorX + pr) * scale);
         maxRight = std::max(maxRight, glyphRight);
 
         cursorX += advance;
     }
     
-    // Use the rightmost edge, but ensure it's at least as wide as cursor position
-    // (in case last glyph has negative right bearing)
     float finalWidth = std::max(maxRight, cursorX * scale);
 
     return {finalWidth, static_cast<float>(ascender_px * scale)};
@@ -181,15 +167,12 @@ vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw, float 
 TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color color) {
     LUMI_UNUSED(color);
     if (textToDraw.empty()) {
-        // In this case we return space so we still render something for when the user uses
-        // the height of the returned texture to position multiple lines of text.
         textToDraw = " ";
     };
 
     auto size = _getRenderedTextSize(font, textToDraw);
 
     TextureAsset tex;
-
     tex.width  = size.x;
     tex.height = size.y;
 
@@ -199,7 +182,6 @@ TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color c
 void Text::_drawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color, float renderSize) {
     if (textToDraw.empty() || maxWidth <= 0) return;
 
-    // Determine scale factor
     float scale = 1.0f;
     if (renderSize < 0.0f) {
         if (font.defaultRenderSize > 0 && font.generatedSize > 0) {
@@ -209,7 +191,6 @@ void Text::_drawWrappedText(Font font, vf2d pos, std::string textToDraw, float m
         scale = renderSize / static_cast<float>(font.generatedSize);
     }
 
-    // Calculate line height from font metrics (not individual line measurements)
     float lineHeight = static_cast<float>(font.lineHeight * font.generatedSize * scale);
 
     std::stringstream ss(textToDraw);

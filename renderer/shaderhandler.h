@@ -15,6 +15,7 @@
 #include <SDL3_shadercross/SDL_shadercross.h>
 
 #include "assethandler/assethandler.h"
+#include "utils/resourcepack.h"
 
 // Simple text-based shader metadata structure
 struct ShaderMetadata {
@@ -83,64 +84,6 @@ private:
     
     void _saveCachedShader(const std::string &cachePath, const std::vector<uint8_t> &data);
     void _saveCachedMetadata(const std::string &metadataPath, const ShaderMetadata &metadata);
-
-    struct ResourceBuffer : public std::streambuf {
-        ResourceBuffer() = default;  // Default constructor for in-memory buffers
-        ResourceBuffer(std::ifstream &ifs, uint32_t offset, uint32_t size);
-        
-        // Setup buffer pointers for in-memory data
-        void SetupMemoryBuffer() {
-            setg(
-                reinterpret_cast<char*>(vMemory.data()),
-                reinterpret_cast<char*>(vMemory.data()),
-                reinterpret_cast<char*>(vMemory.data() + vMemory.size())
-            );
-        }
-
-        std::vector<uint8_t> vMemory;
-    };
-
-    class ResourcePack : public std::streambuf {
-    public:
-        ResourcePack(std::string sFile, std::string sKey);
-
-        ~ResourcePack();
-
-        bool AddFile(const std::string &sFile);
-
-        bool AddFile(const std::string &sFile, std::vector<unsigned char> bytes);
-
-        bool HasFile(const std::string &sFile);
-
-        bool LoadPack();
-
-        bool SavePack();
-
-        ResourceBuffer GetFileBuffer(const std::string &sFile);
-
-        bool Loaded();
-
-    private:
-        enum class eResourceType {
-            File,
-            ByteArray
-        };
-
-        struct sResourceFile {
-            uint32_t                   nSize;
-            uint32_t                   nOffset;
-            eResourceType              eType  = eResourceType::File;
-            std::vector<unsigned char> aBytes = {};
-        };
-        std::string                          _fileName;
-        std::string                          _key;
-        std::map<std::string, sResourceFile> mapFiles;
-        std::ifstream                        baseFile;
-
-        std::vector<char> scramble(const std::vector<char> &data, const std::string &key);
-
-        std::string makeposix(const std::string &path);
-    };
 
     // Cache storage
     std::unordered_map<std::string, ShaderMetadata> metadataCache;
