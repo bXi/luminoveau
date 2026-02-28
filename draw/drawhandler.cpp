@@ -108,8 +108,10 @@ void Draw::_flushPixels() {
     // Track it so we can release it at frame end
     _pixelFrameTextures.push_back(gpuTex);
 
-    // Upload CPU buffer into the new texture
-    void* mappedData = SDL_MapGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer, false);
+    // Upload CPU buffer into the new texture.
+    // cycle=true lets SDL allocate a fresh backing buffer if this one is still
+    // in flight from a previous flush this frame, avoiding transfer buffer stomping.
+    void* mappedData = SDL_MapGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer, true);
     if (!mappedData) {
         LOG_ERROR("failed to map transfer buffer: {}", SDL_GetError());
         return;
