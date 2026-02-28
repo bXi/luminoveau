@@ -167,14 +167,25 @@ void Draw::_flushPixels() {
 }
 
 void Draw::_releaseFramePixelTextures() {
-    for (SDL_GPUTexture* tex : _pixelFrameTextures) {
+    // Release the PREVIOUS frame's textures - by the time this is called,
+    // SDL_WaitAndAcquireGPUSwapchainTexture has already blocked, guaranteeing
+    // the GPU has finished rendering with those textures (frames_in_flight = 1).
+    for (SDL_GPUTexture* tex : _pixelPrevFrameTextures) {
         SDL_ReleaseGPUTexture(Renderer::GetDevice(), tex);
     }
+    // Rotate: current frame's textures become next frame's "previous"
+    _pixelPrevFrameTextures = std::move(_pixelFrameTextures);
     _pixelFrameTextures.clear();
 }
 
 void Draw::_cleanupPixelBuffer() {
-    _releaseFramePixelTextures();
+    // Release both lists on shutdown - GPU is idle at this point
+    for (SDL_GPUTexture* tex : _pixelFrameTextures)
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), tex);
+    for (SDL_GPUTexture* tex : _pixelPrevFrameTextures)
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), tex);
+    _pixelFrameTextures.clear();
+    _pixelPrevFrameTextures.clear();
     if (_pixelTransferBuffer) {
         SDL_ReleaseGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer);
         _pixelTransferBuffer = nullptr;
@@ -839,7 +850,7 @@ void Draw::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color c
 
 void Draw::_drawPixel(const vi2d& pos, Color color) {
     // Lazy initialize pixel buffer on first use
-    if (!_pixelTransferBuffers[0]) {
+    if (!_pixelTransferBuffer) {
         _initPixelBuffer();
     }
     

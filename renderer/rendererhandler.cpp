@@ -364,6 +364,10 @@ void Renderer::_endFrame() {
         return;
     }
 
+    // GPU has now finished the previous frame (frames_in_flight=1 forced the wait above).
+    // Safe to release pixel textures that were queued for rendering last frame.
+    Draw::ReleaseFramePixelTextures();
+
     if (swapchain_texture) {
 
         SDL_SetGPUTextureName(Renderer::GetDevice(), swapchain_texture, "Renderer: swapchain_texture");
@@ -513,7 +517,6 @@ void Renderer::_endFrame() {
                     }
                 }
                 Draw::ResetEffectStore();
-                Draw::ReleaseFramePixelTextures();
                 m_cmdbuf = nullptr;
                 return;  // Early return - already submitted
             } else {
@@ -535,7 +538,6 @@ void Renderer::_endFrame() {
         }
     }
     Draw::ResetEffectStore();
-    Draw::ReleaseFramePixelTextures();
     m_cmdbuf = nullptr;
 }
 

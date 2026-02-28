@@ -480,7 +480,8 @@ private:
 
     // Pixel buffer system
     SDL_GPUTransferBuffer* _pixelTransferBuffer = nullptr;  // Single reusable upload buffer
-    std::vector<SDL_GPUTexture*> _pixelFrameTextures;       // All textures allocated this frame, released at frame end
+    std::vector<SDL_GPUTexture*> _pixelFrameTextures;        // Textures allocated this frame
+    std::vector<SDL_GPUTexture*> _pixelPrevFrameTextures;    // Textures from previous frame, safe to release
     bool _pixelsDirty = false;
     uint32_t _pixelBufferWidth = 0;
     uint32_t _pixelBufferHeight = 0;
