@@ -379,6 +379,11 @@ public:
      */
     static void ResetEffectStore() { get()._effectStore.clear(); get()._currentEffectIndex = -1; get()._effectStackDirty = true; }
 
+    /**
+     * @brief Releases all pixel textures allocated during this frame. Called automatically by Renderer::EndFrame.
+     */
+    static void ReleaseFramePixelTextures() { get()._releaseFramePixelTextures(); }
+
 
 private:
 
@@ -474,16 +479,17 @@ private:
     void _clearEffectTextures();
 
     // Pixel buffer system
-    TextureAsset _pixelTexture;
-    SDL_GPUTransferBuffer* _pixelTransferBuffer = nullptr;
+    SDL_GPUTransferBuffer* _pixelTransferBuffer = nullptr;  // Single reusable upload buffer
+    std::vector<SDL_GPUTexture*> _pixelFrameTextures;       // All textures allocated this frame, released at frame end
     bool _pixelsDirty = false;
     uint32_t _pixelBufferWidth = 0;
     uint32_t _pixelBufferHeight = 0;
     std::vector<uint32_t> _pixelBufferData;  // RGBA8888 format
-    
+
     void _initPixelBuffer();
     void _flushPixels();
     void _cleanupPixelBuffer();
+    void _releaseFramePixelTextures();  // Call at frame end
 
 //Singleton part
 public:

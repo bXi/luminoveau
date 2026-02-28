@@ -513,6 +513,7 @@ void Renderer::_endFrame() {
                     }
                 }
                 Draw::ResetEffectStore();
+                Draw::ReleaseFramePixelTextures();
                 m_cmdbuf = nullptr;
                 return;  // Early return - already submitted
             } else {
@@ -534,6 +535,7 @@ void Renderer::_endFrame() {
         }
     }
     Draw::ResetEffectStore();
+    Draw::ReleaseFramePixelTextures();
     m_cmdbuf = nullptr;
 }
 
