@@ -91,8 +91,8 @@ bool ShaderRenderPass::init(
 
     // resultTexture is WINDOW-SIZED for shader output
     // User shaders expect to sample and output at window resolution
-    resultTexture = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture;
-    inputTexture = AssetHandler::CreateEmptyTexture(Window::GetSize()).gpuTexture; 
+    resultTexture = AssetHandler::CreateEmptyTexture(Window::GetPhysicalSize()).gpuTexture;
+    inputTexture = AssetHandler::CreateEmptyTexture(Window::GetPhysicalSize()).gpuTexture; 
 
     SDL_SetGPUTextureName(Renderer::GetDevice(), resultTexture, Helpers::TextFormat("ShaderRenderPass: %s resultTexture", passname.c_str()));
 
@@ -294,8 +294,8 @@ void ShaderRenderPass::render(
         SDL_GPURenderPass *copy_pass = SDL_BeginGPURenderPass(cmd_buffer, copy_target_info.data(), 1, nullptr);
         SDL_GPUViewport viewport = {
             .x = 0, .y = 0,
-            .w = (float)Window::GetWidth(),
-            .h = (float)Window::GetHeight(),
+            .w = (float)Window::GetPhysicalWidth(),
+            .h = (float)Window::GetPhysicalHeight(),
             .min_depth = 0.0f,
             .max_depth = 1.0f
         };
@@ -311,8 +311,8 @@ void ShaderRenderPass::render(
         );
         
         // Calculate UV coordinates to sample window region from desktop framebuffer
-        float uMax = (float)Window::GetWidth() / (float)m_desktop_width;
-        float vMax = (float)Window::GetHeight() / (float)m_desktop_height;
+        float uMax = (float)Window::GetPhysicalWidth() / (float)m_desktop_width;
+        float vMax = (float)Window::GetPhysicalHeight() / (float)m_desktop_height;
         
         struct Uniforms {
             glm::mat4 camera;
@@ -373,8 +373,8 @@ void ShaderRenderPass::render(
         SDL_GPUViewport viewport = {
             .x = 0,
             .y = 0,
-            .w = (float)Window::GetWidth(),
-            .h = (float)Window::GetHeight(),
+            .w = (float)Window::GetPhysicalWidth(),
+            .h = (float)Window::GetPhysicalHeight(),
             .min_depth = 0.0f,
             .max_depth = 1.0f
         };
@@ -419,7 +419,7 @@ void ShaderRenderPass::render(
 
         uniformBuffer["tintColor"] = Color(WHITE).asVec4();
 
-        uniformBuffer["iResolution"] = glm::vec3{(float) Window::GetWidth(), (float) Window::GetHeight(), 0.0f};
+        uniformBuffer["iResolution"] = glm::vec3{(float) Window::GetPhysicalWidth(), (float) Window::GetPhysicalHeight(), 0.0f};
         uniformBuffer["iTime"]       = (float) Window::GetRunTime();
         uniformBuffer["iTimeDelta"]  = (float) (Window::GetFrameTime() * 1.0f);
         uniformBuffer["iFrame"]      = (float) EngineState::_frameCount;
@@ -484,8 +484,8 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
         SDL_GPUViewport viewport = {
             .x = 0,
             .y = 0,
-            .w = (float)Window::GetWidth(),
-            .h = (float)Window::GetHeight(),
+            .w = (float)Window::GetPhysicalWidth(),
+            .h = (float)Window::GetPhysicalHeight(),
             .min_depth = 0.0f,
             .max_depth = 1.0f
         };
