@@ -23,6 +23,7 @@ static uint32_t decodeUTF8(const std::string& str, size_t& pos) {
 }
 
 void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color, float renderSize) {
+    Draw::FlushPixels();  // Preserve layering order with pixel draws
 
     vf2d newPos = pos;
 
