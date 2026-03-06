@@ -25,7 +25,7 @@ struct Color {
      * @param blue The blue component (0-255).
      * @param alpha The alpha component (0-255).
      */
-    Color()
+    constexpr Color()
         : r(0), g(0), b(0), a(0) {}
 
     /**
@@ -36,7 +36,7 @@ struct Color {
      * @param blue The blue component (0-255).
      * @param alpha The alpha component (0-255).
      */
-    Color(unsigned int red, unsigned int green, unsigned int blue, unsigned int alpha)
+    constexpr Color(unsigned int red, unsigned int green, unsigned int blue, unsigned int alpha)
         : r(red), g(green), b(blue), a(alpha) {}
 
     /**
@@ -44,12 +44,11 @@ struct Color {
      *
      * @param colorCode The color code in the format 0xAARRGGBB.
      */
-    Color(uint32_t colorCode) {
-        r = (colorCode >> 24) & 0xFF; // Extract Red component
-        g = (colorCode >> 16) & 0xFF; // Extract Green component
-        b = (colorCode >> 8) & 0xFF;  // Extract Blue component
-        a = colorCode & 0xFF;         // Extract Alpha component
-    }
+    constexpr Color(uint32_t colorCode)
+        : r((colorCode >> 24) & 0xFF)
+        , g((colorCode >> 16) & 0xFF)
+        , b((colorCode >>  8) & 0xFF)
+        , a( colorCode        & 0xFF) {}
 
     /**
      * @brief Creates a color from floating-point values.
