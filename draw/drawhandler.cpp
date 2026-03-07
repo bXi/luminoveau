@@ -2,6 +2,7 @@
 
 #include <utility>
 #include <algorithm>
+#include <cmath>
 
 int32_t Draw::_getOrCreateEffectIndex() {
     if (_effectStack.empty()) return -1;
@@ -681,9 +682,14 @@ rectf Draw::_doCamera(const vf2d &pos, const vf2d &size) {
     rectf dstRect;
 
     if (Camera::IsActive()) {
-        // Convert world space coordinates to screen space
-        dstRect.pos  = Camera::ToScreenSpace(pos);
-        dstRect.size = Camera::ToScreenSpace(pos + size) - dstRect.pos;
+        // Convert world space coordinates to screen space, then snap both
+        // corners to pixel boundaries so adjacent tiles share exact edges.
+        vf2d screenPos = Camera::ToScreenSpace(pos);
+        vf2d screenEnd = Camera::ToScreenSpace(pos + size);
+        dstRect.pos.x  = std::floor(screenPos.x);
+        dstRect.pos.y  = std::floor(screenPos.y);
+        dstRect.size.x = std::floor(screenEnd.x) - dstRect.pos.x;
+        dstRect.size.y = std::floor(screenEnd.y) - dstRect.pos.y;
 
     } else {
         // Camera is not active, render directly in screen space
