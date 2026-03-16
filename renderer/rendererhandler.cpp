@@ -1042,7 +1042,9 @@ void Renderer::_createSpriteRenderTarget(const std::string& name, const SpriteRe
         SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()),
         rpWidth,
         rpHeight,
-        name
+        name,
+        true,
+        config.maxSprites
     );
 
     // Configure load operation and clear color

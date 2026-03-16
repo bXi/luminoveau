@@ -65,8 +65,7 @@ public:
     // Add an item - placement new, returns pointer to the new slot
     T* Add() {
         if (m_count >= m_capacity) {
-            LOG_ERROR("Buffer '{}': capacity exceeded ({} items)", m_name, m_capacity);
-            return nullptr; // LOG_ERROR throws, but just in case
+            grow();
         }
 
         T* slot = m_data + m_count;
@@ -83,8 +82,7 @@ public:
     // Add by copying an existing item
     T* Add(const T& item) {
         if (m_count >= m_capacity) {
-            LOG_ERROR("Buffer '{}': capacity exceeded ({} items)", m_name, m_capacity);
-            return nullptr;
+            grow();
         }
 
         T* slot = m_data + m_count;
@@ -144,6 +142,39 @@ public:
     BufferType Type() const override { return m_type; }
 
 private:
+    void grow() {
+        size_t newCapacity = m_capacity * 2;
+        LOG_WARNING("Buffer '{}': capacity exceeded ({} items), growing to {} — increase initial capacity to avoid this",
+            m_name, m_capacity, newCapacity);
+
+#ifdef _WIN32
+        T* newData = static_cast<T*>(_aligned_malloc(newCapacity * sizeof(T), 16));
+#else
+        T* newData = static_cast<T*>(std::aligned_alloc(16, newCapacity * sizeof(T)));
+#endif
+        if (!newData) {
+            LOG_CRITICAL("Buffer '{}': failed to allocate {} bytes during grow", m_name, newCapacity * sizeof(T));
+        }
+
+        // Relocate existing items
+        if constexpr (std::is_trivially_copyable_v<T>) {
+            std::memcpy(newData, m_data, m_count * sizeof(T));
+        } else {
+            for (size_t i = 0; i < m_count; i++) {
+                new (newData + i) T(std::move(m_data[i]));
+                m_data[i].~T();
+            }
+        }
+
+#ifdef _WIN32
+        _aligned_free(m_data);
+#else
+        std::free(m_data);
+#endif
+        m_data     = newData;
+        m_capacity = newCapacity;
+    }
+
     T* m_data = nullptr;
     size_t m_count = 0;
     size_t m_capacity = 0;

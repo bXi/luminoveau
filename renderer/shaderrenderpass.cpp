@@ -75,7 +75,8 @@ void ShaderRenderPass::_loadSamplerNamesFromShader(const std::vector<uint8_t> &s
 }
 
 bool ShaderRenderPass::init(
-    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit) {
+    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit,
+    size_t /*capacity*/) {
 
     passname = std::move(name);
 

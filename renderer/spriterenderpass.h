@@ -225,7 +225,8 @@ public:
 
     [[nodiscard]] bool init(
         SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width,
-        uint32_t surface_height, std::string name, bool logInit = true
+        uint32_t surface_height, std::string name, bool logInit = true,
+        size_t capacity = 0
     ) override;
 
     void release(bool logRelease = true) override;

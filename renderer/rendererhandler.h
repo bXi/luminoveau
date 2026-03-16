@@ -56,8 +56,9 @@ struct SpriteRenderTargetConfig {
     bool clearOnLoad = true;
     Color clearColor = BLACK;
     bool renderToScreen = false;
-    uint32_t width = 0;   // 0 = use desktop size (default)
-    uint32_t height = 0;  // 0 = use desktop size (default)
+    uint32_t width = 0;      // 0 = use desktop size (default)
+    uint32_t height = 0;     // 0 = use desktop size (default)
+    size_t maxSprites = 0;   // 0 = use MAX_SPRITES default
 };
 
 struct FrameBuffer {

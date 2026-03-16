@@ -59,7 +59,8 @@ void SpriteRenderPass::release(bool logRelease) {
 }
 
 bool SpriteRenderPass::init(
-    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit) {
+    SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit,
+    size_t capacity) {
     passname = std::move(name);
     
     // Store surface dimensions and format for effect textures
@@ -83,7 +84,7 @@ bool SpriteRenderPass::init(
     };
     m_depth_texture.gpuTexture = SDL_CreateGPUTexture(Renderer::GetDevice(), &depth_create_info);
 
-    renderQueue = BufferManager::Create<Renderable>(passname + "_renderQueue", MAX_SPRITES);
+    renderQueue = BufferManager::Create<Renderable>(passname + "_renderQueue", capacity > 0 ? capacity : MAX_SPRITES);
 
     createShaders();
     createEffectResources();
