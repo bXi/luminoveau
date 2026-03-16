@@ -57,6 +57,11 @@ private:
 
     template<typename T>
     Buffer<T>* _create(const std::string& name, size_t capacity, BufferType type) {
+        for (auto& existing : m_buffers) {
+            if (existing->Name() == name) {
+                return static_cast<Buffer<T>*>(existing.get());
+            }
+        }
         auto buffer = std::make_unique<Buffer<T>>(name, capacity, type);
         auto* ptr = buffer.get();
         m_buffers.push_back(std::move(buffer));
