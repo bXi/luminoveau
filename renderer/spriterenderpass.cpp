@@ -492,7 +492,10 @@ void SpriteRenderPass::render(
                 
                 SDL_EndGPURenderPass(tempPass);
                 
-                applyEffects(cmd_buffer, effects, effectTempA.gpuTexture, target_texture, camera, m_swapchain_format, batchIdx == 0);
+                const auto& effectTextureStore = Draw::GetEffectTextureStore();
+                const std::unordered_map<uint32_t, SDL_GPUTexture*> emptyTextures;
+                const auto& storedTextures = (effectIdx < (int32_t)effectTextureStore.size()) ? effectTextureStore[effectIdx] : emptyTextures;
+                applyEffects(cmd_buffer, effects, effectTempA.gpuTexture, target_texture, camera, m_swapchain_format, batchIdx == 0, storedTextures);
             }
         }
         
@@ -624,7 +627,8 @@ void SpriteRenderPass::releaseEffectResources() {
 
 void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std::vector<EffectAsset>& effects,
                                    SDL_GPUTexture* sourceTexture, SDL_GPUTexture* targetTexture, const glm::mat4& camera,
-                                   SDL_GPUTextureFormat targetFormat, bool isFirstBatch) {
+                                   SDL_GPUTextureFormat targetFormat, bool isFirstBatch,
+                                   const std::unordered_map<uint32_t, SDL_GPUTexture*>& effectTextures) {
 
 
     if (effects.empty()) {
@@ -838,7 +842,6 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
         SDL_BindGPUGraphicsPipeline(effectPass, pipeline);
         
         // Bind textures - source texture plus any additional effect textures
-        const auto& additionalTextures = Draw::GetEffectTextures();
         std::vector<SDL_GPUTextureSamplerBinding> textureBindings;
         
         // Always bind source texture at binding 0
@@ -849,7 +852,7 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
         
         // Bind additional textures at their specified bindings
         // Note: bindings must be sequential starting from 0
-        for (const auto& [binding, texture] : additionalTextures) {
+        for (const auto& [binding, texture] : effectTextures) {
             // Resize vector if needed to accommodate the binding index
             while (textureBindings.size() <= binding) {
                 // Fill gaps with the first texture as a placeholder

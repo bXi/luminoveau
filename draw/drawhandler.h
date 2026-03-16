@@ -373,11 +373,12 @@ public:
      * @brief Gets the effect store for the current frame (for internal use by render passes).
      */
     static const std::vector<std::vector<EffectAsset>>& GetEffectStore() { return get()._effectStore; }
+    static const std::vector<std::unordered_map<uint32_t, SDL_GPUTexture*>>& GetEffectTextureStore() { return get()._effectTextureStore; }
 
     /**
      * @brief Resets the per-frame effect store. Called at frame start.
      */
-    static void ResetEffectStore() { get()._effectStore.clear(); get()._currentEffectIndex = -1; get()._effectStackDirty = true; }
+    static void ResetEffectStore() { get()._effectStore.clear(); get()._effectTextureStore.clear(); get()._currentEffectIndex = -1; get()._effectStackDirty = true; }
 
     /**
      * @brief Releases all pixel textures allocated during this frame. Called automatically by Renderer::EndFrame.
@@ -466,6 +467,7 @@ private:
     // Effect store - small side-channel for per-frame effect data
     // Avoids copying effect vectors into every Renderable
     std::vector<std::vector<EffectAsset>> _effectStore;
+    std::vector<std::unordered_map<uint32_t, SDL_GPUTexture*>> _effectTextureStore;
     int32_t _currentEffectIndex = -1;  // Cached index for current _effectStack
     bool _effectStackDirty = true;     // True when _effectStack changed since last index lookup
     

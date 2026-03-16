@@ -851,30 +851,36 @@ FrameBuffer *Renderer::_getFramebuffer(std::string fbname) {
     return framebuffer;
 }
 
-void Renderer::_createFrameBuffer(const std::string &fbname) {
+void Renderer::_createFrameBuffer(const std::string &fbname, uint32_t width, uint32_t height) {
     auto it = std::find_if(frameBuffers.begin(), frameBuffers.end(), [&fbname](const auto &pair) {
         return pair.first == fbname;
     });
 
     if (it == frameBuffers.end()) {
-        // Get desktop size in physical pixels for framebuffer texture
-        SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
-        const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
-        int desktopWidth = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
-        int desktopHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
+        // Use provided size if non-zero, otherwise fall back to desktop size
+        int fbWidth, fbHeight;
+        if (width > 0 && height > 0) {
+            fbWidth  = (int)width;
+            fbHeight = (int)height;
+        } else {
+            SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
+            const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
+            fbWidth  = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
+            fbHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
+        }
 
         auto *framebuffer = new FrameBuffer;
-        framebuffer->fbContent = AssetHandler::CreateEmptyTexture({(float)desktopWidth, (float)desktopHeight}).gpuTexture;
-        framebuffer->width = desktopWidth;   // CRITICAL: Set width
-        framebuffer->height = desktopHeight; // CRITICAL: Set height
+        framebuffer->fbContent = AssetHandler::CreateEmptyTexture({(float)fbWidth, (float)fbHeight}).gpuTexture;
+        framebuffer->width = fbWidth;
+        framebuffer->height = fbHeight;
         frameBuffers.emplace_back(fbname, framebuffer);
 
-        framebuffer->textureView.width  = desktopWidth;
-        framebuffer->textureView.height = desktopHeight;
+        framebuffer->textureView.width  = fbWidth;
+        framebuffer->textureView.height = fbHeight;
         framebuffer->textureView.gpuTexture = framebuffer->fbContent;
         framebuffer->textureView.gpuSampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode());
 
-        LOG_INFO("Created framebuffer: {} ({}x{})", fbname.c_str(), desktopWidth, desktopHeight);
+        LOG_INFO("Created framebuffer: {} ({}x{})", fbname.c_str(), fbWidth, fbHeight);
     }
 }
 
@@ -978,9 +984,9 @@ void Renderer::_setSampleCount(SDL_GPUSampleCount sampleCount) {
 }
 
 void Renderer::_createSpriteRenderTarget(const std::string& name, const SpriteRenderTargetConfig& config) {
-    // Create framebuffer first
+    // Create framebuffer first (use config size if specified, else desktop default)
     std::string framebufferName = name + "_framebuffer";
-    _createFrameBuffer(framebufferName);
+    _createFrameBuffer(framebufferName, config.width, config.height);
     _setFramebufferRenderToScreen(framebufferName, config.renderToScreen);
 
     // Convert BlendMode enum to SDL blend state
@@ -1020,17 +1026,22 @@ void Renderer::_createSpriteRenderTarget(const std::string& name, const SpriteRe
     RenderPass* renderPass = new SpriteRenderPass(m_device);
     static_cast<SpriteRenderPass*>(renderPass)->UpdateRenderPassBlendState(blendState);
 
-    // Get desktop size in physical pixels for render pass initialization
-    SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
-    const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
-    int desktopWidth = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
-    int desktopHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
+    // Determine render pass size — use config size if specified, else desktop size
+    int rpWidth, rpHeight;
+    if (config.width > 0 && config.height > 0) {
+        rpWidth  = (int)config.width;
+        rpHeight = (int)config.height;
+    } else {
+        SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
+        const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
+        rpWidth  = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
+        rpHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
+    }
 
-    // Initialize render pass at desktop size, not window size
     renderPass->init(
         SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()),
-        desktopWidth,
-        desktopHeight,
+        rpWidth,
+        rpHeight,
         name
     );
 

@@ -13,6 +13,7 @@ int32_t Draw::_getOrCreateEffectIndex() {
     // Store the effect stack and cache the index
     _currentEffectIndex = static_cast<int32_t>(_effectStore.size());
     _effectStore.push_back(_effectStack);
+    _effectTextureStore.push_back(_effectTextures);
     _effectStackDirty = false;
     
     return _currentEffectIndex;

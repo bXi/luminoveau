@@ -56,6 +56,8 @@ struct SpriteRenderTargetConfig {
     bool clearOnLoad = true;
     Color clearColor = BLACK;
     bool renderToScreen = false;
+    uint32_t width = 0;   // 0 = use desktop size (default)
+    uint32_t height = 0;  // 0 = use desktop size (default)
 };
 
 struct FrameBuffer {
@@ -395,7 +397,7 @@ private:
 
     void _updateCameraProjection();
 
-    void _createFrameBuffer(const std::string &fbname);
+    void _createFrameBuffer(const std::string &fbname, uint32_t width = 0, uint32_t height = 0);
 
     void _setFramebufferRenderToScreen(const std::string &fbName, bool render);
 
