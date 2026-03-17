@@ -375,9 +375,11 @@ void Renderer::_endFrame() {
         bool useMSAA = (currentSampleCount > SDL_GPU_SAMPLECOUNT_1);
 
         for (auto &[fbName, framebuffer]: frameBuffers) {
-            // Render all passes to MSAA texture if enabled, otherwise directly to fbContent
-            SDL_GPUTexture* renderTarget = useMSAA ? framebuffer->fbContentMSAA : framebuffer->fbContent;
-            SDL_GPUTexture* depthTarget = useMSAA ? framebuffer->fbDepthMSAA : nullptr;
+            // Render all passes to MSAA texture if enabled and available, otherwise directly to fbContent.
+            // Custom render targets (effect buffers) have no MSAA texture and render directly to fbContent.
+            bool useThisMSAA = useMSAA && framebuffer->fbContentMSAA != nullptr;
+            SDL_GPUTexture* renderTarget = useThisMSAA ? framebuffer->fbContentMSAA : framebuffer->fbContent;
+            SDL_GPUTexture* depthTarget  = useThisMSAA ? framebuffer->fbDepthMSAA   : nullptr;
 
             // Render all passes
             for (size_t i = 0; i < framebuffer->renderpasses.size(); i++) {
@@ -393,9 +395,9 @@ void Renderer::_endFrame() {
                 // Pass shared depth target
                 renderpass->renderTargetDepth = depthTarget;
 
-                // Last pass should resolve MSAA to fbContent
+                // Last pass should resolve MSAA to fbContent (only for framebuffers that have MSAA)
                 bool isLastPass = (i == framebuffer->renderpasses.size() - 1);
-                renderpass->renderTargetResolve = (useMSAA && isLastPass) ? framebuffer->fbContent : nullptr;
+                renderpass->renderTargetResolve = (useThisMSAA && isLastPass) ? framebuffer->fbContent : nullptr;
 
                 renderpass->render(m_cmdbuf, renderTarget, m_camera);
             }
