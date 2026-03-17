@@ -11,7 +11,8 @@ bool Model3DRenderPass::init(
     uint32_t height,
     std::string name,
     bool logInit,
-    size_t /*capacity*/
+    size_t /*capacity*/,
+    bool /*forceNoMSAA*/
 ) {
     passname = name;
     surface_width = width;

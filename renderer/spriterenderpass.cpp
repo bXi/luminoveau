@@ -60,7 +60,8 @@ void SpriteRenderPass::release(bool logRelease) {
 
 bool SpriteRenderPass::init(
     SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit,
-    size_t capacity) {
+    size_t capacity, bool forceNoMSAA) {
+    m_noMSAA = forceNoMSAA;
     passname = std::move(name);
     
     // Store surface dimensions and format for effect textures
@@ -68,7 +69,7 @@ bool SpriteRenderPass::init(
     m_surface_height = surface_height;
     m_swapchain_format = swapchain_texture_format;
 
-    SDL_GPUSampleCount sampleCount = Renderer::GetSampleCount();
+    SDL_GPUSampleCount sampleCount = m_noMSAA ? SDL_GPU_SAMPLECOUNT_1 : Renderer::GetSampleCount();
 
     // Don't create MSAA textures - use shared framebuffer MSAA texture
     // Create local depth texture with D32_FLOAT to match pipeline
@@ -504,8 +505,29 @@ void SpriteRenderPass::render(
         if (currentPass) {
             SDL_EndGPURenderPass(currentPass);
         }
+
+        // The effects path opens/closes its own render passes with STOREOP_STORE,
+        // so the normal renderTargetResolve mechanism is never triggered.
+        // Manually resolve fbContentMSAA → fbContent here if needed.
+        if (shouldResolve) {
+            SDL_GPUColorTargetInfo resolveInfo = {
+                .texture               = target_texture,
+                .mip_level             = 0,
+                .layer_or_depth_plane  = 0,
+                .clear_color           = {0.0f, 0.0f, 0.0f, 0.0f},
+                .load_op               = SDL_GPU_LOADOP_LOAD,
+                .store_op              = SDL_GPU_STOREOP_RESOLVE,
+                .resolve_texture       = renderTargetResolve,
+                .resolve_mip_level     = 0,
+                .resolve_layer         = 0,
+                .cycle                 = false,
+                .cycle_resolve_texture = false,
+            };
+            SDL_GPURenderPass* resolvePass = SDL_BeginGPURenderPass(cmd_buffer, &resolveInfo, 1, nullptr);
+            SDL_EndGPURenderPass(resolvePass);
+        }
     }
-    
+
 #ifdef LUMIDEBUG
     SDL_PopGPUDebugGroup(cmd_buffer);
 #endif
@@ -812,6 +834,12 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
             .instance_step_rate = 0
         };
         
+        // Final composite pass targets fbContentMSAA when MSAA is on — pipeline must match.
+        // Intermediate passes always target 1x temp textures.
+        SDL_GPUSampleCount pipelineSampleCount = (isLastEffect && !m_noMSAA)
+            ? Renderer::GetSampleCount()
+            : SDL_GPU_SAMPLECOUNT_1;
+
         SDL_GPUGraphicsPipelineCreateInfo pipelineInfo = {
             .vertex_shader = vertShader,
             .fragment_shader = fragShader,
@@ -823,7 +851,7 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
             },
             .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
             .rasterizer_state = GPUstructs::defaultRasterizerState,
-            .multisample_state = {.sample_count = SDL_GPU_SAMPLECOUNT_1, .sample_mask = 0, .enable_mask = false},
+            .multisample_state = {.sample_count = pipelineSampleCount, .sample_mask = 0, .enable_mask = false},
             .depth_stencil_state = {.enable_depth_test = false, .enable_depth_write = false, .enable_stencil_test = false},
             .target_info = {
                 .color_target_descriptions = &colorTargetDesc,

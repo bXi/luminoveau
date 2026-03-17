@@ -42,6 +42,10 @@ public:
     SDL_FColor color_target_info_clear_color = {0.0, 0.0, 0.0, 0.0};
     SDL_GPUTexture* renderTargetDepth = nullptr;  // Shared MSAA depth texture (set by renderer)
     SDL_GPUTexture* renderTargetResolve = nullptr;  // Resolve target for MSAA (set by renderer, only for last pass)
+
+    // Override to true if this pass reads from fbContent instead of rendering to the passed target.
+    // The renderer will then resolve MSAA on the pass BEFORE this one, so fbContent is up-to-date.
+    virtual bool needsResolvedInput() const { return false; }
     RenderPass(const RenderPass&) = delete;
     RenderPass& operator=(const RenderPass&) = delete;
     RenderPass(RenderPass&&) = delete;
@@ -53,7 +57,7 @@ public:
     virtual bool init(
         SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width,
         uint32_t surface_height, std::string name, bool logInit = true,
-        size_t capacity = 0
+        size_t capacity = 0, bool forceNoMSAA = false
     ) = 0;
 
     virtual void release(bool logRelease = true) = 0;

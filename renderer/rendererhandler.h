@@ -72,6 +72,7 @@ struct FrameBuffer {
     std::vector<std::pair<std::string, RenderPass *>> renderpasses;
 
     bool renderToScreen = false;
+    bool noMSAA = false; // true for custom effect render targets that always render to 1x textures
 
     TextureAsset textureView;
 

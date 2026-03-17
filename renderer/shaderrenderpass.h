@@ -70,7 +70,7 @@ public:
     [[nodiscard]] bool init(
         SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width,
         uint32_t surface_height, std::string name, bool logInit = true,
-        size_t capacity = 0
+        size_t capacity = 0, bool forceNoMSAA = false
     ) override;
 
     void release(bool logRelease = true) override;
@@ -88,5 +88,8 @@ public:
     void resetRenderQueue() override {
         renderQueue.clear();
     }
+
+    // ShaderRenderPass reads from fbContent; require the previous pass to resolve MSAA first.
+    bool needsResolvedInput() const override { return true; }
 
 };

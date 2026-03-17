@@ -119,6 +119,7 @@ std::unordered_map<uint32_t, SDL_GPUTexture*> m_additionalEffectTextures;
     // Surface dimensions (desktop size) for effect textures
     uint32_t m_surface_width = 0;
     uint32_t m_surface_height = 0;
+    bool m_noMSAA = false;
     SDL_GPUTextureFormat m_swapchain_format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
 
     // Original full-precision struct (64 bytes)
@@ -226,7 +227,7 @@ public:
     [[nodiscard]] bool init(
         SDL_GPUTextureFormat swapchain_texture_format, uint32_t surface_width,
         uint32_t surface_height, std::string name, bool logInit = true,
-        size_t capacity = 0
+        size_t capacity = 0, bool forceNoMSAA = false
     ) override;
 
     void release(bool logRelease = true) override;

@@ -395,9 +395,13 @@ void Renderer::_endFrame() {
                 // Pass shared depth target
                 renderpass->renderTargetDepth = depthTarget;
 
-                // Last pass should resolve MSAA to fbContent (only for framebuffers that have MSAA)
+                // Resolve MSAA to fbContent for:
+                // - the last pass (normal case), OR
+                // - any pass whose successor reads from fbContent directly (e.g. ShaderRenderPass)
                 bool isLastPass = (i == framebuffer->renderpasses.size() - 1);
-                renderpass->renderTargetResolve = (useThisMSAA && isLastPass) ? framebuffer->fbContent : nullptr;
+                bool nextNeedsResolved = useThisMSAA && !isLastPass &&
+                    framebuffer->renderpasses[i + 1].second->needsResolvedInput();
+                renderpass->renderTargetResolve = (useThisMSAA && (isLastPass || nextNeedsResolved)) ? framebuffer->fbContent : nullptr;
 
                 renderpass->render(m_cmdbuf, renderTarget, m_camera);
             }
@@ -626,8 +630,9 @@ void Renderer::_reset() {
             framebuffer->fbDepthMSAA = nullptr;
         }
 
-        // Create new MSAA textures if MSAA is enabled
-        if (useMSAA) {
+        // Create new MSAA textures if MSAA is enabled and this framebuffer supports it.
+        // Custom effect render targets (noMSAA=true) always render to plain 1x textures.
+        if (useMSAA && !framebuffer->noMSAA) {
             SDL_GPUTextureCreateInfo msaaColorInfo = {
                 .type = SDL_GPU_TEXTURETYPE_2D,
                 .format = swapchainFormat,
@@ -664,7 +669,7 @@ void Renderer::_reset() {
 
             bool initSuccess = renderpass->init(SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()),
                                   desktopWidth, desktopHeight,
-                                  passname, true);  // Force logging during reset
+                                  passname, true, 0, framebuffer->noMSAA);
             if (!initSuccess) {
                 LOG_ERROR("Renderpass ({}) failed to init()", passname.c_str());
             }
@@ -991,6 +996,11 @@ void Renderer::_createSpriteRenderTarget(const std::string& name, const SpriteRe
     _createFrameBuffer(framebufferName, config.width, config.height);
     _setFramebufferRenderToScreen(framebufferName, config.renderToScreen);
 
+    // Custom render targets never use MSAA — they are intermediate effect buffers
+    // that always render to plain 1x textures.
+    auto* fb = _getFramebuffer(framebufferName);
+    if (fb) fb->noMSAA = true;
+
     // Convert BlendMode enum to SDL blend state
     SDL_GPUColorTargetBlendState blendState;
     switch (config.blendMode) {
@@ -1046,7 +1056,8 @@ void Renderer::_createSpriteRenderTarget(const std::string& name, const SpriteRe
         rpHeight,
         name,
         true,
-        config.maxSprites
+        config.maxSprites,
+        true  // forceNoMSAA: custom render targets always render to 1x textures
     );
 
     // Configure load operation and clear color
