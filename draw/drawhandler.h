@@ -352,7 +352,7 @@ public:
      * @param binding The binding index (0, 1, 2, etc.) corresponding to shader layout
      * @param texture The texture to bind at this index
      */
-    static void SetEffectTexture(uint32_t binding, const TextureAsset& texture) { get()._setEffectTexture(binding, texture); }
+    static void SetEffectTexture(uint32_t binding, const TextureAsset& texture, ScaleMode scaleMode = ScaleMode::NEAREST) { get()._setEffectTexture(binding, texture, scaleMode); }
 
     /**
      * @brief Clears all additional effect texture bindings.
@@ -367,13 +367,13 @@ public:
     /**
      * @brief Gets additional effect textures (for internal use by Renderer).
      */
-    static const std::unordered_map<uint32_t, SDL_GPUTexture*>& GetEffectTextures() { return get()._effectTextures; }
+    static const std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>>& GetEffectTextures() { return get()._effectTextures; }
 
     /**
      * @brief Gets the effect store for the current frame (for internal use by render passes).
      */
     static const std::vector<std::vector<EffectAsset>>& GetEffectStore() { return get()._effectStore; }
-    static const std::vector<std::unordered_map<uint32_t, SDL_GPUTexture*>>& GetEffectTextureStore() { return get()._effectTextureStore; }
+    static const std::vector<std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>>>& GetEffectTextureStore() { return get()._effectTextureStore; }
 
     /**
      * @brief Resets the per-frame effect store. Called at frame start.
@@ -462,12 +462,12 @@ private:
 
     // Effect system
     std::vector<EffectAsset> _effectStack;
-    std::unordered_map<uint32_t, SDL_GPUTexture*> _effectTextures;
-    
+    std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>> _effectTextures;
+
     // Effect store - small side-channel for per-frame effect data
     // Avoids copying effect vectors into every Renderable
     std::vector<std::vector<EffectAsset>> _effectStore;
-    std::vector<std::unordered_map<uint32_t, SDL_GPUTexture*>> _effectTextureStore;
+    std::vector<std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>>> _effectTextureStore;
     int32_t _currentEffectIndex = -1;  // Cached index for current _effectStack
     bool _effectStackDirty = true;     // True when _effectStack changed since last index lookup
     
@@ -477,7 +477,7 @@ private:
     void _addEffect(const EffectAsset& effect);
     void _removeEffect(const EffectAsset& effect);
     void _clearEffects();
-    void _setEffectTexture(uint32_t binding, const TextureAsset& texture);
+    void _setEffectTexture(uint32_t binding, const TextureAsset& texture, ScaleMode scaleMode);
     void _clearEffectTextures();
 
     // Pixel buffer system

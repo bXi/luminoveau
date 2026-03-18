@@ -280,5 +280,5 @@ public:
     void applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std::vector<EffectAsset>& effects,
                      SDL_GPUTexture* sourceTexture, SDL_GPUTexture* targetTexture, const glm::mat4& camera,
                      SDL_GPUTextureFormat targetFormat, bool isFirstBatch,
-                     const std::unordered_map<uint32_t, SDL_GPUTexture*>& effectTextures);
+                     const std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>>& effectTextures);
 };

@@ -495,7 +495,7 @@ void SpriteRenderPass::render(
                 SDL_EndGPURenderPass(tempPass);
                 
                 const auto& effectTextureStore = Draw::GetEffectTextureStore();
-                const std::unordered_map<uint32_t, SDL_GPUTexture*> emptyTextures;
+                const std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>> emptyTextures;
                 const auto& storedTextures = (effectIdx < (int32_t)effectTextureStore.size()) ? effectTextureStore[effectIdx] : emptyTextures;
                 applyEffects(cmd_buffer, effects, effectTempA.gpuTexture, target_texture, camera, m_swapchain_format, batchIdx == 0, storedTextures);
             }
@@ -651,7 +651,7 @@ void SpriteRenderPass::releaseEffectResources() {
 void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std::vector<EffectAsset>& effects,
                                    SDL_GPUTexture* sourceTexture, SDL_GPUTexture* targetTexture, const glm::mat4& camera,
                                    SDL_GPUTextureFormat targetFormat, bool isFirstBatch,
-                                   const std::unordered_map<uint32_t, SDL_GPUTexture*>& effectTextures) {
+                                   const std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>>& effectTextures) {
 
 
     if (effects.empty()) {
@@ -888,10 +888,10 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
                 textureBindings.push_back(textureBindings[0]);
             }
             
-            // Set the texture at the specified binding
+            // Set the texture at the specified binding using its per-binding sampler mode.
             textureBindings[binding] = {
-                .texture = texture,
-                .sampler = Renderer::GetSampler(ScaleMode::NEAREST)
+                .texture = texture.first,
+                .sampler = Renderer::GetSampler(texture.second)
             };
         }
         

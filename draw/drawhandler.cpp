@@ -48,8 +48,8 @@ void Draw::_clearEffects() {
     _effectStackDirty = true;
 }
 
-void Draw::_setEffectTexture(uint32_t binding, const TextureAsset& texture) {
-    _effectTextures[binding] = texture.gpuTexture;
+void Draw::_setEffectTexture(uint32_t binding, const TextureAsset& texture, ScaleMode scaleMode) {
+    _effectTextures[binding] = { texture.gpuTexture, scaleMode };
 }
 
 void Draw::_clearEffectTextures() {
