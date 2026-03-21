@@ -92,6 +92,7 @@ public:
      * @return The created empty texture.
      */
     static TextureAsset CreateEmptyTexture(const vf2d &size) { return get()._createEmptyTexture(size); }
+    static TextureAsset CreateEmptyTexture(const vf2d &size, SDL_GPUTextureFormat format) { return get()._createEmptyTexture(size, format); }
 
     /**
      * @brief Retrieves a map of all loaded textures.
@@ -210,6 +211,7 @@ private:
     ScaleMode _getDefaultTextureScaleMode();
 
     TextureAsset _createEmptyTexture(const vf2d &size);
+    TextureAsset _createEmptyTexture(const vf2d &size, SDL_GPUTextureFormat format);
 
     void _saveTextureAsPNG(Texture texture, const char *fileName);
 

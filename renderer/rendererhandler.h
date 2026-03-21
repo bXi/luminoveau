@@ -59,6 +59,9 @@ struct SpriteRenderTargetConfig {
     uint32_t width = 0;      // 0 = use desktop size (default)
     uint32_t height = 0;     // 0 = use desktop size (default)
     size_t maxSprites = 0;   // 0 = use MAX_SPRITES default
+    // INVALID = use swapchain format. Set to e.g.
+    // SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT for higher-precision targets.
+    SDL_GPUTextureFormat format = SDL_GPU_TEXTUREFORMAT_INVALID;
 };
 
 struct FrameBuffer {
@@ -400,6 +403,7 @@ private:
     void _updateCameraProjection();
 
     void _createFrameBuffer(const std::string &fbname, uint32_t width = 0, uint32_t height = 0);
+    void _createFrameBuffer(const std::string &fbname, uint32_t width, uint32_t height, SDL_GPUTextureFormat format);
 
     void _setFramebufferRenderToScreen(const std::string &fbName, bool render);
 

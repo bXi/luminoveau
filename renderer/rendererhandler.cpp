@@ -891,6 +891,38 @@ void Renderer::_createFrameBuffer(const std::string &fbname, uint32_t width, uin
     }
 }
 
+void Renderer::_createFrameBuffer(const std::string &fbname, uint32_t width, uint32_t height, SDL_GPUTextureFormat format) {
+    auto it = std::find_if(frameBuffers.begin(), frameBuffers.end(), [&fbname](const auto &pair) {
+        return pair.first == fbname;
+    });
+
+    if (it == frameBuffers.end()) {
+        int fbWidth, fbHeight;
+        if (width > 0 && height > 0) {
+            fbWidth  = (int)width;
+            fbHeight = (int)height;
+        } else {
+            SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
+            const SDL_DisplayMode* displayMode = SDL_GetDesktopDisplayMode(primaryDisplay);
+            fbWidth  = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
+            fbHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
+        }
+
+        auto *framebuffer = new FrameBuffer;
+        framebuffer->fbContent = AssetHandler::CreateEmptyTexture({(float)fbWidth, (float)fbHeight}, format).gpuTexture;
+        framebuffer->width = fbWidth;
+        framebuffer->height = fbHeight;
+        frameBuffers.emplace_back(fbname, framebuffer);
+
+        framebuffer->textureView.width  = fbWidth;
+        framebuffer->textureView.height = fbHeight;
+        framebuffer->textureView.gpuTexture = framebuffer->fbContent;
+        framebuffer->textureView.gpuSampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode());
+
+        LOG_INFO("Created framebuffer: {} ({}x{}, custom format)", fbname.c_str(), fbWidth, fbHeight);
+    }
+}
+
 void Renderer::_setFramebufferRenderToScreen(const std::string& fbName, bool render) {
     auto* framebuffer = _getFramebuffer(fbName);
     if (framebuffer) {
@@ -993,7 +1025,10 @@ void Renderer::_setSampleCount(SDL_GPUSampleCount sampleCount) {
 void Renderer::_createSpriteRenderTarget(const std::string& name, const SpriteRenderTargetConfig& config) {
     // Create framebuffer first (use config size if specified, else desktop default)
     std::string framebufferName = name + "_framebuffer";
-    _createFrameBuffer(framebufferName, config.width, config.height);
+    if (config.format != SDL_GPU_TEXTUREFORMAT_INVALID)
+        _createFrameBuffer(framebufferName, config.width, config.height, config.format);
+    else
+        _createFrameBuffer(framebufferName, config.width, config.height);
     _setFramebufferRenderToScreen(framebufferName, config.renderToScreen);
 
     // Custom render targets never use MSAA — they are intermediate effect buffers
@@ -1051,7 +1086,9 @@ void Renderer::_createSpriteRenderTarget(const std::string& name, const SpriteRe
     }
 
     renderPass->init(
-        SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()),
+        config.format != SDL_GPU_TEXTUREFORMAT_INVALID
+            ? config.format
+            : SDL_GetGPUSwapchainTextureFormat(m_device, Window::GetWindow()),
         rpWidth,
         rpHeight,
         name,
