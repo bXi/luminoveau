@@ -32,6 +32,7 @@ option(LUMINOVEAU_BUILD_RMLUI "Include RmlUi support" OFF)
 option(LUMINOVEAU_ENABLE_LOGGING "Include logging support" ON)
 option(LUMINOVEAU_ENABLE_WARNINGS "Enable all compiler warnings" OFF)
 option(LUMINOVEAU_BUILD_TESTS "Build test suite" OFF)
+option(LUMINOVEAU_USE_CALLBACKS "Use SDL3 callback-based main loop instead of traditional main()" OFF)
 
 # Setting build type if not specified
 if(NOT CMAKE_BUILD_TYPE)
@@ -130,6 +131,15 @@ include(cmake/Sources.cmake)
 
 # Adding the main library
 add_library(luminoveau STATIC ${LUMINOVEAU_SOURCES})
+
+# Callback-based main loop support
+if(LUMINOVEAU_USE_CALLBACKS)
+    target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_USE_CALLBACKS)
+    # INTERFACE: compiled into the executable that links luminoveau, not into the library itself.
+    # This ensures WinMain (provided by SDL_main.h) ends up in the final binary.
+    target_sources(luminoveau INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/app/lumi_main.cpp")
+    lumi_done("SDL3 callback main loop")
+endif()
 
 # Conditionally adding logging support
 if(LUMINOVEAU_ENABLE_LOGGING)

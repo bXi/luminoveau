@@ -199,3 +199,7 @@ set(LUMINOVEAU_HEADERS
     # Window management
     window/windowhandler.h
 )
+
+# app/lumi_main.cpp is intentionally excluded from LUMINOVEAU_SOURCES.
+# It is added as an INTERFACE source in CMakeLists.txt so it compiles
+# into the executable rather than the static library.

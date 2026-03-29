@@ -43,3 +43,8 @@
 #include <rmlui/rmluihandler.h>
 #endif
 
+//Callback-based main loop
+#ifdef LUMINOVEAU_USE_CALLBACKS
+#include <app/app.h>
+#endif
+
