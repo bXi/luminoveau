@@ -68,7 +68,7 @@ bool Model3DRenderPass::init(
     createPipeline(swapchain_texture_format);
     
     if (logInit) {
-        LOG_INFO("Initialized 3D model render pass with MSAA={}", static_cast<int>(sampleCount));
+        LOG_INFO("Render pass initialized: 3d (MSAA={})", static_cast<int>(sampleCount));
     }
     
     return true;
@@ -275,7 +275,6 @@ void Model3DRenderPass::createPipeline(SDL_GPUTextureFormat swapchain_format) {
         .props = 0,
     };
     
-    LOG_INFO("Creating pipeline with sample_count={}", static_cast<int>(pipelineInfo.multisample_state.sample_count));
     
     m_pipeline = SDL_CreateGPUGraphicsPipeline(m_gpu_device, &pipelineInfo);
     if (!m_pipeline) {

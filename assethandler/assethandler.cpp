@@ -28,7 +28,6 @@ AssetHandler::AssetHandler() {
     _initFontCache();
     
     // Load default font using MSDF from embedded data
-    LOG_INFO("Loading default MSDF font");
     
     // Compute hash of embedded font data for cache validation
     std::string embeddedHash = _computeFontCacheKeyFromData(DroidSansMono_ttf, DroidSansMono_ttf_len);
@@ -144,7 +143,6 @@ AssetHandler::AssetHandler() {
         _saveFontToCache("__default_font__", defaultFont, rgbaData, embeddedHash);
     }
     
-    LOG_INFO("Default MSDF font loaded ({} glyphs)", defaultFont.glyphs->size());
 };
 
 void AssetHandler::_cleanup() {

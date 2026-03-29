@@ -84,7 +84,6 @@ void Renderer::_initRendering() {
         return;
     }
 
-    LOG_INFO("Using graphics backend: {}", SDL_GetGPUDeviceDriver(m_device));
 
     if (!SDL_ClaimWindowForGPUDevice(m_device, Window::GetWindow())) {
         LOG_ERROR("Failed to claim window for GPU device: {}", SDL_GetError());
@@ -141,7 +140,6 @@ void Renderer::_initRendering() {
         LOG_CRITICAL("Failed to create RTT shaders: {}", SDL_GetError());
         return;
     }
-    LOG_INFO("RTT shaders created successfully");
 
     auto *framebuffer = new FrameBuffer;
 

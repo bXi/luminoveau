@@ -288,13 +288,6 @@ Log::Log() : memoryBufferSink(nullptr) {
     memoryBufferSink = memSink.get();
     sinks.push_back(std::move(memSink));
 
-    LogEntry entry;
-    entry.level     = LogLevel::Info;
-    entry.timestamp = std::chrono::system_clock::now();
-    entry.function  = "Log::Log";
-    entry.message   = "Logging system initialized with " + std::to_string(sinks.size()) + " sinks";
-
-    SDL_Log("%s", entry.ToColoredString().c_str());
 }
 
 // Log destructor - auto-cleanup on program exit
@@ -302,19 +295,12 @@ Log::~Log() {
     _flushAll();
     sinks.clear();
     memoryBufferSink = nullptr;
-
-    LogEntry entry;
-    entry.level     = LogLevel::Info;
-    entry.timestamp = std::chrono::system_clock::now();
-    entry.function  = "Log::~Log";
-    entry.message   = "Logging system shut down";
-
-    SDL_Log("%s", entry.ToColoredString().c_str());
 }
 
 void Log::_addSink(std::unique_ptr<LogSink> sink) {
     std::lock_guard<std::mutex> lock(sinkMutex);
     sinks.push_back(std::move(sink));
+    LOG_INFO("Log sink added ({} total)", sinks.size());
 }
 
 void Log::_clearSinks() {

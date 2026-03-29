@@ -180,7 +180,7 @@ bool SpriteRenderPass::init(
     }
 
     if (logInit) {
-        LOG_INFO("Created graphics pipeline: {}", passname.c_str());
+        LOG_INFO("Render pass initialized: {}", passname.c_str());
     }
 
     return true;

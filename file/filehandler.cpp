@@ -35,7 +35,7 @@ void FileHandler::_ensurePhysFS() {
 bool FileHandler::_initPhysFS() {
     // Guard against double initialization
     if (_physfsInitialized) {
-        LOG_INFO("PhysFS already initialized, skipping");
+        LOG_DEBUG("PhysFS already initialized, skipping");
         return true;
     }
     if (PHYSFS_init(nullptr) == 0) {

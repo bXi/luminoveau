@@ -63,6 +63,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 }
 
 void Window::_requestClose() {
+    LOG_INFO("Shutting down");
     if (_inFrame) {
         // Mid-frame: defer actual close until EndFrame completes
         _pendingClose = true;
@@ -320,7 +321,6 @@ void Window::_updateDisplayScale() {
     if (scale > 0.0f) {
         EngineState::_displayScale = scale;
     }
-    LOG_INFO("Display scale: {}", EngineState::_displayScale);
 }
 
 void Window::_setSize(int width, int height) {
