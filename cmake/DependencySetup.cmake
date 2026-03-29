@@ -113,6 +113,7 @@ set(SDL_EXAMPLES OFF CACHE BOOL "Disable SDL examples" FORCE)
 set(SDL_INSTALL_TESTS OFF CACHE BOOL "Disable SDL test installation" FORCE)
 set(SDL_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL installation" FORCE)
 set(SDL3_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL3 installation" FORCE)
+set(SDL_AUDIO OFF CACHE BOOL "Disable SDL audio (Luminoveau uses miniaudio)" FORCE)
 
 lumi_msg("Fetching SDL3")
 CPMAddPackage(
