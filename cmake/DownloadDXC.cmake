@@ -1,8 +1,8 @@
 # DownloadDXC.cmake
 # Automatically downloads DirectXShaderCompiler DLLs for runtime DXIL compilation
 
-# Only download on Windows
-if(WIN32)
+# Only relevant when using the DXIL (DirectX 12) backend on Windows
+if(WIN32 AND LUMINOVEAU_GPU_BACKEND STREQUAL "DXIL")
     set(DXC_VERSION "v1.8.2407")
     set(DXC_ZIP_NAME "dxc_2024_07_31.zip")
     set(DXC_URL "https://github.com/microsoft/DirectXShaderCompiler/releases/download/${DXC_VERSION}/${DXC_ZIP_NAME}")

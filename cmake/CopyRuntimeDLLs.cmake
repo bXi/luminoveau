@@ -13,25 +13,24 @@ if(WIN32)
         message(STATUS "Luminoveau: Will copy runtime DLLs to: ${DLL_DEST_DIR}")
     endif()
     
-    # Create target that copies all DLLs to destination
-    add_custom_target(luminoveau_copy_dlls ALL
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${DLL_DEST_DIR}"
-        # Copy DXC DLLs from download directory
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_BINARY_DIR}/dxc_download/bin/x64/dxcompiler.dll"
-            "${DLL_DEST_DIR}/dxcompiler.dll"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_BINARY_DIR}/dxc_download/bin/x64/dxil.dll"
-            "${DLL_DEST_DIR}/dxil.dll"
-        COMMENT "Copying Luminoveau runtime DLLs"
-        VERBATIM
-    )
-    
-    # Add dependency on DXC download
-    if(TARGET copy_dxc_dlls)
-        add_dependencies(luminoveau_copy_dlls copy_dxc_dlls)
+    # DXC DLLs are only needed for the DXIL (DirectX 12) backend
+    if(LUMINOVEAU_GPU_BACKEND STREQUAL "DXIL")
+        add_custom_target(luminoveau_copy_dlls ALL
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${DLL_DEST_DIR}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_BINARY_DIR}/dxc_download/bin/x64/dxcompiler.dll"
+                "${DLL_DEST_DIR}/dxcompiler.dll"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_BINARY_DIR}/dxc_download/bin/x64/dxil.dll"
+                "${DLL_DEST_DIR}/dxil.dll"
+            COMMENT "Copying Luminoveau runtime DLLs"
+            VERBATIM
+        )
+
+        if(TARGET copy_dxc_dlls)
+            add_dependencies(luminoveau_copy_dlls copy_dxc_dlls)
+        endif()
+
+        add_dependencies(luminoveau luminoveau_copy_dlls)
     endif()
-    
-    # Make luminoveau depend on DLL copying so it always happens
-    add_dependencies(luminoveau luminoveau_copy_dlls)
 endif()
