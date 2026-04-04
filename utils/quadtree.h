@@ -176,13 +176,16 @@ public:
 
         rectf screenBoundary = _boundary.getRectangle();
 
-        screenBoundary.width *= Configuration::tileWidth;
-        screenBoundary.height *= Configuration::tileHeight;
+        int TW = 32;
+        int TH = 32;
 
-        screenBoundary.x *= Configuration::tileWidth;
-        screenBoundary.y *= Configuration::tileHeight;
+        screenBoundary.width *= TW;
+        screenBoundary.height *= TH;
 
-        Render2D::DrawRectangle({screenBoundary.x, screenBoundary.y}, {screenBoundary.width, screenBoundary.height}, col);
+        screenBoundary.x *= TW;
+        screenBoundary.y *= TH;
+
+        Draw::Rectangle({screenBoundary.x, screenBoundary.y}, {screenBoundary.width, screenBoundary.height}, col);
 
         if (northWest != NULL) {
             northWest->draw(RED);
@@ -199,7 +202,7 @@ public:
         screenBoundary.x += x;
         screenBoundary.y += y;
 
-        Render2D::DrawRectangle({screenBoundary.x, screenBoundary.y}, {screenBoundary.width, screenBoundary.height}, col);
+        Draw::Rectangle({screenBoundary.x, screenBoundary.y}, {screenBoundary.width, screenBoundary.height}, col);
 
         if (northWest != NULL) {
             northWest->draw(x, y, RED);
