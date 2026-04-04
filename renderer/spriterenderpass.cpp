@@ -228,8 +228,8 @@ void SpriteRenderPass::render(
                 float rotation = sprite.rotation;
                 float tex_u = fast_clamp(sprite.tex_u, 0.0f, 1.0f);
                 float tex_v = fast_clamp(sprite.tex_v, 0.0f, 1.0f);
-                float tex_w = fast_clamp(sprite.tex_w, 0.0f, 1.0f);
-                float tex_h = fast_clamp(sprite.tex_h, 0.0f, 1.0f);
+                float tex_w = fast_clamp(sprite.tex_w, -1.0f, 1.0f);
+                float tex_h = fast_clamp(sprite.tex_h, -1.0f, 1.0f);
                 float r = fast_clamp(sprite.r, 0.0f, 1.0f);
                 float g = fast_clamp(sprite.g, 0.0f, 1.0f);
                 float b = fast_clamp(sprite.b, 0.0f, 1.0f);

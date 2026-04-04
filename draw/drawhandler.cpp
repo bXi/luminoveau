@@ -431,12 +431,17 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &si
     _flushPixels();  // Auto-flush before drawing
     
     SDL_FRect dstRect = _doCamera(pos, size);
+    bool flipH = src.width  < 0.f;
+    bool flipV = src.height < 0.f;
     SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
 
     float u0 = (srcRect.x / (float) texture.getSize().x);
     float v0 = (srcRect.y / (float) texture.getSize().y);
     float u1 = ((srcRect.x + srcRect.w) / (float) texture.getSize().x);
     float v1 = ((srcRect.y + srcRect.h) / (float) texture.getSize().y);
+
+    if (flipH) std::swap(u0, u1);
+    if (flipV) std::swap(v0, v1);
 
     Renderable renderable = {
         .texture = texture,
