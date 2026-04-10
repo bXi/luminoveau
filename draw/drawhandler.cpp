@@ -724,7 +724,10 @@ void Draw::_drawThickLine(vf2d start, vf2d end, Color color, float width) {
 
     // Early exit for (nearly) zero-length lines
     const float EPS = 1e-6f;
-    if (std::fabs(line.x) < EPS && std::fabs(line.y) < EPS) return;
+    if (std::fabs(line.x) < EPS && std::fabs(line.y) < EPS) {
+        if (cameraWasActive) Camera::Activate();  // Restore camera state before early return
+        return;
+    }
 
     float length = std::hypot(line.x, line.y);
     float angle = std::atan2(line.y, line.x);  // Keep in radians
