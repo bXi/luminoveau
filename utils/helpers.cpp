@@ -513,13 +513,12 @@ bool Helpers::randomChance(const float required) {
 }
 
 int Helpers::GetRandomValue(int min, int max) {
-
-    std::random_device rd; // obtain a random number from hardware
-    std::mt19937 gen(rd()); // seed the generator
-    std::uniform_int_distribution<> distr(min, max); // define the range
-
+    static std::mt19937 gen = []() {
+        std::random_device rd;
+        return std::mt19937(rd());
+    }();
+    std::uniform_int_distribution<> distr(min, max);
     return distr(gen);
-
 }
 
 
