@@ -804,8 +804,9 @@ void Draw::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
     if (size.x < 0.001f) size.x = 0.001f;
     if (size.y < 0.001f) size.y = 0.001f;
     
-    // Create temporary geometry
+    // Create temporary geometry — tracked for deletion at frame end
     Geometry2D* triangleGeom = new Geometry2D();
+    _frameGeometry.push_back(triangleGeom);
     
     // Create normalized vertices (0-1 range relative to bounding box)
     triangleGeom->vertices.push_back(Vertex2D{(v1.x - minX) / size.x, (v1.y - minY) / size.y, 0.0f, 0.0f});
@@ -850,9 +851,6 @@ void Draw::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
     
     _getTargetPass()->addToRenderQueue(renderable);
     
-    // Note: Memory leak here - triangleGeom is not freed
-    // This is acceptable for temporary geometry that gets cleaned up at frame end
-    // A better solution would be to cache common triangle geometries
 }
 
 void Draw::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
@@ -919,8 +917,9 @@ void Draw::_drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mod
     vf2d bottomLeft = ScreenToMode7UV({dstRect.pos.x, dstRect.pos.y + dstRect.size.y}, params, texture);
     vf2d bottomRight = ScreenToMode7UV(dstRect.pos + dstRect.size, params, texture);
     
-    // Create custom geometry with transformed UVs
+    // Create custom geometry with transformed UVs — tracked for deletion at frame end
     Geometry2D* mode7Geom = new Geometry2D();
+    _frameGeometry.push_back(mode7Geom);
     mode7Geom->name = "Mode7Quad";
     
     // Vertices in normalized quad space (0-1)
@@ -980,8 +979,9 @@ void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size,
     
     int numScanlines = (int)dstRect.size.y;
     
-    // Create geometry with horizontal strips
+    // Create geometry with horizontal strips — tracked for deletion at frame end
     Geometry2D* scanlineGeom = new Geometry2D();
+    _frameGeometry.push_back(scanlineGeom);
     scanlineGeom->name = "Mode7Scanline";
     
     // Generate vertices for each scanline strip

@@ -9,6 +9,7 @@
 #include "assethandler/assethandler.h"
 #include "window/windowhandler.h"
 #include "renderer/rendererhandler.h"
+#include "renderer/geometry2d.h"
 
 #include "utils/vectors.h"
 #include "utils/colors.h"
@@ -378,7 +379,7 @@ public:
     /**
      * @brief Resets the per-frame effect store. Called at frame start.
      */
-    static void ResetEffectStore() { get()._effectStore.clear(); get()._effectTextureStore.clear(); get()._currentEffectIndex = -1; get()._effectStackDirty = true; }
+    static void ResetEffectStore() { get()._effectStore.clear(); get()._effectTextureStore.clear(); get()._currentEffectIndex = -1; get()._effectStackDirty = true; get()._releaseFrameGeometry(); }
 
     /**
      * @brief Releases all pixel textures allocated during this frame. Called automatically by Renderer::EndFrame.
@@ -479,6 +480,10 @@ private:
     void _clearEffects();
     void _setEffectTexture(uint32_t binding, const TextureAsset& texture, ScaleMode scaleMode);
     void _clearEffectTextures();
+
+    // Per-frame dynamically allocated geometry (e.g. TriangleFilled) — freed at frame end
+    std::vector<Geometry2D*> _frameGeometry;
+    void _releaseFrameGeometry() { for (auto* g : _frameGeometry) { g->Release(Renderer::GetDevice()); delete g; } _frameGeometry.clear(); }
 
     // Pixel buffer system
     SDL_GPUTransferBuffer* _pixelTransferBuffer = nullptr;  // Single reusable upload buffer

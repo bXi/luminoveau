@@ -305,6 +305,14 @@ void Renderer::_close() {
     // Shutdown SDL_shadercross
     Shaders::Quit();
 
+    // Release all asset GPU resources (textures, fonts, shaders) before device destruction.
+    // AssetHandler is a singleton whose destructor runs after main() returns (after SDL_DestroyGPUDevice),
+    // so we must explicitly flush it here while the device is still alive.
+    AssetHandler::Cleanup();
+
+    // Release cached geometry GPU buffers (vertex + index) before device destruction
+    Geometry2DFactory::ReleaseAll(m_device);
+
     // Release the GPU device
     SDL_DestroyGPUDevice(m_device);
     m_device = nullptr;
