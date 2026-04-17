@@ -10,6 +10,7 @@
 #include <assettypes/effect.h>
 #include <assettypes/effecthandler.h>
 #include <assettypes/pcmsound.h>
+#include <assettypes/computepipeline.h>
 
 //Buffer management
 #include <buffer/buffer.h>
@@ -23,6 +24,7 @@
 #include <input/inputhandler.h>
 #include <renderer/rendererhandler.h>
 #include <renderer/shaderhandler.h>
+#include <renderer/computehandler.h>
 #include <text/texthandler.h>
 #include <window/windowhandler.h>
 

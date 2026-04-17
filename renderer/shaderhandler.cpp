@@ -1,6 +1,7 @@
 #include "shaderhandler.h"
 #include "rendererhandler.h"
 #include "../assettypes/shader.h"
+#include "../assettypes/computepipeline.h"
 #include "../log/loghandler.h"
 
 #include <fstream>
@@ -441,6 +442,56 @@ ShaderAsset Shaders::CreateShaderAsset(SDL_GPUDevice* device, const std::string&
 
     LOG_INFO("Created ShaderAsset for {} (format={}, samplers={})",
             filename.c_str(), metadata.shader_format, asset.samplerCount);
+
+    return asset;
+}
+
+ComputePipelineAsset Shaders::CreateComputePipeline(SDL_GPUDevice* device, const std::string& filename) {
+    PhysFSFileData shaderData = GetShader(filename);
+    if (!shaderData.data || shaderData.fileSize == 0) {
+        LOG_ERROR("Failed to load compute shader: {}", filename);
+        return {};
+    }
+
+    const Uint8* spirvBytes  = static_cast<const Uint8*>(shaderData.data);
+    const size_t spirvSize   = static_cast<size_t>(shaderData.fileSize);
+
+    SDL_ShaderCross_ComputePipelineMetadata* metadata =
+        SDL_ShaderCross_ReflectComputeSPIRV(spirvBytes, spirvSize, 0);
+    if (!metadata) {
+        LOG_ERROR("Failed to reflect compute shader {}: {}", filename, SDL_GetError());
+        return {};
+    }
+
+    SDL_ShaderCross_SPIRV_Info spirvInfo = {
+        .bytecode     = spirvBytes,
+        .bytecode_size = spirvSize,
+        .entrypoint   = "main",
+        .shader_stage = SDL_SHADERCROSS_SHADERSTAGE_COMPUTE,
+        .props        = 0
+    };
+
+    ComputePipelineAsset asset;
+    asset.filename                        = filename;
+    asset.threadcount_x                   = metadata->threadcount_x;
+    asset.threadcount_y                   = metadata->threadcount_y;
+    asset.threadcount_z                   = metadata->threadcount_z;
+    asset.num_samplers                    = metadata->num_samplers;
+    asset.num_readonly_storage_textures   = metadata->num_readonly_storage_textures;
+    asset.num_readwrite_storage_textures  = metadata->num_readwrite_storage_textures;
+    asset.num_readonly_storage_buffers    = metadata->num_readonly_storage_buffers;
+    asset.num_readwrite_storage_buffers   = metadata->num_readwrite_storage_buffers;
+    asset.num_uniform_buffers             = metadata->num_uniform_buffers;
+
+    asset.pipeline = SDL_ShaderCross_CompileComputePipelineFromSPIRV(device, &spirvInfo, metadata, 0);
+    SDL_free(metadata);
+
+    if (!asset.pipeline) {
+        LOG_ERROR("Failed to create compute pipeline {}: {}", filename, SDL_GetError());
+    } else {
+        LOG_INFO("Created compute pipeline: {} (threads: {}x{}x{})",
+                 filename, asset.threadcount_x, asset.threadcount_y, asset.threadcount_z);
+    }
 
     return asset;
 }

@@ -20,6 +20,7 @@
 #include "assettypes/sound.h"
 #include "assettypes/texture.h"
 #include "assettypes/model.h"
+#include "assettypes/computepipeline.h"
 
 #include "file/filehandler.h"
 #include "utils/resourcepack.h"
@@ -151,6 +152,19 @@ public:
         return get()._getShader(fileName);
     }
 
+    /**
+     * @brief Loads and caches a compute pipeline from a .comp GLSL file.
+     *
+     * The pipeline is compiled and reflected on first call; subsequent calls
+     * return the cached asset by reference.
+     *
+     * @param fileName Path to the .comp shader file.
+     * @return Reference to the cached ComputePipelineAsset.
+     */
+    static ComputePipelineAsset& GetComputePipeline(const char *fileName) {
+        return get()._getComputePipeline(fileName);
+    }
+
     static TextureAsset CreateDepthTarget(SDL_GPUDevice *device, uint32_t width, uint32_t height) {
         return get()._createDepthTarget(device, width, height);
     }
@@ -237,14 +251,18 @@ private:
 
     Shader _getShader(const std::string &fileName);
 
+    // Compute pipelines
+
+    ComputePipelineAsset& _getComputePipeline(const std::string &fileName);
 
     //Containers
 
-    std::unordered_map<std::string, FontAsset>    _fonts;
-    std::unordered_map<std::string, MusicAsset>   _musics;
-    std::unordered_map<std::string, ShaderAsset>  _shaders;
-    std::unordered_map<std::string, SoundAsset>   _sounds;
-    std::unordered_map<std::string, TextureAsset> _textures;
+    std::unordered_map<std::string, FontAsset>             _fonts;
+    std::unordered_map<std::string, MusicAsset>            _musics;
+    std::unordered_map<std::string, ShaderAsset>           _shaders;
+    std::unordered_map<std::string, SoundAsset>            _sounds;
+    std::unordered_map<std::string, TextureAsset>          _textures;
+    std::unordered_map<std::string, ComputePipelineAsset>  _computePipelines;
 
     ScaleMode defaultMode = ScaleMode::NEAREST;
 

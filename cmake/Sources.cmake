@@ -93,6 +93,7 @@ set(LUMINOVEAU_SOURCES
     renderer/model3drenderpass.cpp
     renderer/shaderrenderpass.cpp
     renderer/shaderhandler.cpp
+    renderer/computehandler.cpp
     renderer/geometry2d.cpp
 
     # Utilities
@@ -168,6 +169,7 @@ set(LUMINOVEAU_HEADERS
     assettypes/shader.h
     assettypes/sound.h
     assettypes/texture.h
+    assettypes/computepipeline.h
 
     # Renderer
     renderer/sdl_gpu_structs.h
@@ -177,6 +179,7 @@ set(LUMINOVEAU_HEADERS
     renderer/model3drenderpass.h
     renderer/shaderrenderpass.h
     renderer/shaderhandler.h
+    renderer/computehandler.h
     renderer/geometry2d.h
 
     # Logging

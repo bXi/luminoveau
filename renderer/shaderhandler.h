@@ -15,6 +15,7 @@
 #include <SDL3_shadercross/SDL_shadercross.h>
 
 #include "assethandler/assethandler.h"
+#include "assettypes/computepipeline.h"
 #include "utils/resourcepack.h"
 
 // Simple text-based shader metadata structure
@@ -56,6 +57,9 @@ public:
     
     // Helper to create complete ShaderAsset from filename
     static ShaderAsset CreateShaderAsset(SDL_GPUDevice* device, const std::string& filename, SDL_GPUShaderStage stage);
+
+    // Create a compute pipeline from a .comp GLSL file
+    static ComputePipelineAsset CreateComputePipeline(SDL_GPUDevice* device, const std::string& filename);
 
 private:
 

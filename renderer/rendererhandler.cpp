@@ -17,6 +17,7 @@
 #include "model3drenderpass.h"
 #include "shaderrenderpass.h"
 #include "shaderhandler.h"
+#include "computehandler.h"
 
 #include <SDL3_image/SDL_image.h>
 
@@ -377,6 +378,11 @@ void Renderer::_endFrame() {
     if (swapchain_texture) {
 
         SDL_SetGPUTextureName(Renderer::GetDevice(), swapchain_texture, "Renderer: swapchain_texture");
+
+        // Execute all compute dispatches queued this frame before any render passes,
+        // so their outputs are ready to sample in the same frame.
+        Compute::_ExecuteQueued(m_cmdbuf);
+        Compute::_Reset();
 
         bool useMSAA = (currentSampleCount > SDL_GPU_SAMPLECOUNT_1);
 

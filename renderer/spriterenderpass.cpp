@@ -787,21 +787,40 @@ void SpriteRenderPass::applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std:
         // Create pipeline for this effect's shaders
         // TODO: Cache pipelines per effect to avoid recreation every frame
         
-        // Use alpha blending when compositing to final target
+        // Use alpha blending when compositing to final target.
+        // Custom render targets (m_noMSAA=true) use direct write (ONE/ZERO) so that
+        // effect shaders which store non-opacity data in the alpha channel (e.g. the
+        // HRC extend/merge passes store transmittance) are not silently premultiplied
+        // by their own alpha before being written to the buffer.
         SDL_GPUColorTargetBlendState blendState;
         if (isLastEffect) {
-            // Final pass - blend with what's already on target
-            blendState = {
-                .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
-                .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                .color_blend_op = SDL_GPU_BLENDOP_ADD,
-                .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
-                .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
-                .color_write_mask = 0xF,
-                .enable_blend = true,
-                .enable_color_write_mask = false,
-            };
+            if (m_noMSAA) {
+                // Custom render target — write the fragment output verbatim.
+                blendState = {
+                    .src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                    .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ZERO,
+                    .color_blend_op = SDL_GPU_BLENDOP_ADD,
+                    .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                    .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO,
+                    .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
+                    .color_write_mask = 0xF,
+                    .enable_blend = false,
+                    .enable_color_write_mask = false,
+                };
+            } else {
+                // Primary framebuffer — blend effect output over existing scene content.
+                blendState = {
+                    .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+                    .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+                    .color_blend_op = SDL_GPU_BLENDOP_ADD,
+                    .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                    .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+                    .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
+                    .color_write_mask = 0xF,
+                    .enable_blend = true,
+                    .enable_color_write_mask = false,
+                };
+            }
         } else {
             // Intermediate pass - no blending, direct write (ONE/ZERO)
             blendState = {
