@@ -84,7 +84,7 @@ private:
 
 namespace Particles {
 
-    static constexpr uint32_t MAX_PARTICLES = 500'0000;
+    static constexpr uint32_t MAX_PARTICLES = 50'000'000;
     static constexpr uint32_t MAX_SYSTEMS   = 64;
 
     // --- Lifecycle ---
@@ -110,6 +110,10 @@ namespace Particles {
 
     /// Reposition the spawn origin (e.g., to follow an entity).
     void SetPosition(const ParticleSystemHandle& handle, glm::vec3 worldPos);
+
+    /// Update system parameters in real-time without recreating the system.
+    /// maxParticles cannot be changed. Start/Stop state is preserved.
+    void UpdateConfig(const ParticleSystemHandle& handle, const ParticleSystemConfig& cfg);
 
     // --- Per-frame ---
 

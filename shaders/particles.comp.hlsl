@@ -8,20 +8,28 @@ struct GPUParticle {
     float4 velAndMaxLife;   // xyz = velocity,  w = maxLife
     uint   systemID;
     float  respawnTimer;
-    float  _pad0;
-    float  _pad1;
+    float  startSize;       // size at birth (pixels)
+    float  endSize;         // size at death (pixels)
 };
 
 struct GPUParticleSystem {
     float4 spawnPos;        // xyz = origin, w = spawn radius
     float4 spawnVel;        // xyz = base vel, w = velocity spread
     float4 gravityAndDrag;  // xyz = gravity,  w = drag coefficient
-    float4 colorStart;
-    float4 colorEnd;
+    float4 colors[4];
+    float4 colorPositions;  // t-position per stop; -1 = unused
+    float  sizeStartMin;
+    float  sizeStartMax;
+    float  sizeEndMin;
+    float  sizeEndMax;
+    float  sizeStartBias;
+    float  sizeEndBias;
+    float  lifetimeMin;
+    float  lifetimeMax;
+    float  lifetimeBias;
     float  emitRate;
-    float  lifetime;
     uint   flags;           // bit 0 = emitting
-    float  size;
+    uint   shapeType;
 };
 
 // set=0: read-only system data
@@ -39,7 +47,7 @@ cbuffer ComputeUniforms : register(b0, space2)
     uint  _pad;
 };
 
-// ── Simple deterministic hash (Wang hash) ────────────────────────────────────
+// ── Deterministic hash (Wang hash) → float in [0, 1) ─────────────────────────
 
 float hash(uint seed)
 {
@@ -49,6 +57,12 @@ float hash(uint seed)
     seed *= 0x27d4eb2du;
     seed = seed ^ (seed >> 15u);
     return float(seed & 0x7FFFFFFFu) / float(0x7FFFFFFFu);
+}
+
+// Biased sample: bias=1 is uniform, bias>1 skews toward min (t→0), bias<1 toward max
+float biasedSample(uint seed, float bias)
+{
+    return pow(hash(seed), max(bias, 1e-5));
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -91,23 +105,39 @@ void main(uint3 dispatchID : SV_DispatchThreadID)
 
             if (respawnTimer <= 0.0)
             {
-                // Spawn
                 uint seed = idx * 1973u ^ uint(time * 1000.0) * 9277u ^ 17389u;
 
-                float angle    = hash(seed)      * 6.2831853;
-                float r        = hash(seed + 1u) * sys.spawnPos.w;
-                float3 spawnPos = sys.spawnPos.xyz + float3(cos(angle) * r, sin(angle) * r, 0.0);
+                // Spawn position (circular disc)
+                float spawnAngle = hash(seed)      * 6.2831853;
+                float spawnR     = hash(seed + 1u) * sys.spawnPos.w;
+                float3 spawnPos  = sys.spawnPos.xyz
+                                 + float3(cos(spawnAngle) * spawnR,
+                                          sin(spawnAngle) * spawnR,
+                                          0.0);
 
-                float spread   = sys.spawnVel.w;
+                // Initial velocity (circular spread)
                 float velAngle = hash(seed + 2u) * 6.2831853;
-                float velMag   = hash(seed + 3u) * spread;
-                float3 randVel = float3(cos(velAngle) * velMag, sin(velAngle) * velMag, 0.0);
+                float velMag   = hash(seed + 3u) * sys.spawnVel.w;
+                float3 randVel = float3(cos(velAngle) * velMag,
+                                        sin(velAngle) * velMag,
+                                        0.0);
 
-                float maxLife = sys.lifetime;
+                // Variable lifetime with bias
+                float maxLife = lerp(sys.lifetimeMin, sys.lifetimeMax,
+                                     biasedSample(seed + 4u, sys.lifetimeBias));
+
+                // Variable start size with bias
+                float startSize = lerp(sys.sizeStartMin, sys.sizeStartMax,
+                                       biasedSample(seed + 5u, sys.sizeStartBias));
+
+                // Variable end size with bias
+                float endSize = lerp(sys.sizeEndMin, sys.sizeEndMax,
+                                     biasedSample(seed + 6u, sys.sizeEndBias));
 
                 particles[idx].posAndLife    = float4(spawnPos, maxLife);
                 particles[idx].velAndMaxLife = float4(sys.spawnVel.xyz + randVel, maxLife);
-                // Delay next respawn by 1/emitRate so consecutive slots spread out
+                particles[idx].startSize     = startSize;
+                particles[idx].endSize       = endSize;
                 particles[idx].respawnTimer  = (sys.emitRate > 0.0)
                                                ? (1.0 / sys.emitRate)
                                                : 1e6;

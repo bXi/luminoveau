@@ -207,16 +207,27 @@ ParticleSystemHandle CreateSystem(const ParticleSystemConfig& cfg) {
 
     // Fill GPU system struct
     GPUParticleSystem& sys  = s_systemData[handle.systemIndex];
-    sys.spawnPos       = glm::vec4(cfg.spawnPosition,  cfg.spawnRadius);
-    sys.spawnVel       = glm::vec4(cfg.spawnVelocity,  cfg.velocitySpread);
-    sys.gravityAndDrag = glm::vec4(cfg.gravity,        cfg.drag);
-    sys.colorStart     = cfg.colorStart;
-    sys.colorEnd       = cfg.colorEnd;
-    sys.emitRate       = cfg.emitRate;
-    sys.lifetime       = cfg.lifetime;
-    sys.flags          = 0; // not emitting yet
-    sys.size           = cfg.size;
-    s_systemDirty      = true;
+    sys.spawnPos         = glm::vec4(cfg.spawnPosition, cfg.spawnRadius);
+    sys.spawnVel         = glm::vec4(cfg.spawnVelocity, cfg.velocitySpread);
+    sys.gravityAndDrag   = glm::vec4(cfg.gravity,       cfg.drag);
+    sys.colors[0]        = cfg.colors[0];
+    sys.colors[1]        = cfg.colors[1];
+    sys.colors[2]        = cfg.colors[2];
+    sys.colors[3]        = cfg.colors[3];
+    sys.colorPositions   = cfg.colorPositions;
+    sys.sizeStartMin     = cfg.sizeStartMin;
+    sys.sizeStartMax     = cfg.sizeStartMax;
+    sys.sizeEndMin       = cfg.sizeEndMin;
+    sys.sizeEndMax       = cfg.sizeEndMax;
+    sys.sizeStartBias    = cfg.sizeStartBias;
+    sys.sizeEndBias      = cfg.sizeEndBias;
+    sys.lifetimeMin      = cfg.lifetimeMin;
+    sys.lifetimeMax      = cfg.lifetimeMax;
+    sys.lifetimeBias     = cfg.lifetimeBias;
+    sys.emitRate         = cfg.emitRate;
+    sys.flags            = 0; // not emitting yet
+    sys.shapeType        = static_cast<uint32_t>(cfg.shape);
+    s_systemDirty        = true;
 
     // Initialise particle slots: staggered respawn timers so emission is smooth
     // from frame 1. All particles start dead with a timer = index / emitRate.
@@ -226,11 +237,11 @@ ParticleSystemHandle CreateSystem(const ParticleSystemConfig& cfg) {
         std::vector<GPUParticle> init(n);
         for (uint32_t i = 0; i < n; ++i) {
             init[i].posAndLife    = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f); // dead
-            init[i].velAndMaxLife = glm::vec4(0.0f, 0.0f, 0.0f, cfg.lifetime);
+            init[i].velAndMaxLife = glm::vec4(0.0f, 0.0f, 0.0f, cfg.lifetimeMax);
             init[i].systemID      = handle.systemIndex;
             init[i].respawnTimer  = static_cast<float>(i) / rate;
-            init[i]._pad0 = 0.0f;
-            init[i]._pad1 = 0.0f;
+            init[i].startSize     = cfg.sizeStartMin;
+            init[i].endSize       = cfg.sizeEndMin;
         }
 
         SDL_GPUDevice* device = Renderer::GetDevice();
@@ -311,6 +322,37 @@ void SetPosition(const ParticleSystemHandle& handle, glm::vec3 worldPos) {
     s_systemData[handle.systemIndex].spawnPos.x = worldPos.x;
     s_systemData[handle.systemIndex].spawnPos.y = worldPos.y;
     s_systemData[handle.systemIndex].spawnPos.z = worldPos.z;
+    s_systemDirty = true;
+}
+
+void UpdateConfig(const ParticleSystemHandle& handle, const ParticleSystemConfig& cfg) {
+    if (!handle.valid) return;
+
+    GPUParticleSystem& sys   = s_systemData[handle.systemIndex];
+    uint32_t preservedFlags  = sys.flags;           // keep Start/Stop state
+    glm::vec3 preservedPos   = glm::vec3(sys.spawnPos); // keep SetPosition value
+
+    sys.spawnPos         = glm::vec4(preservedPos,        cfg.spawnRadius);
+    sys.spawnVel         = glm::vec4(cfg.spawnVelocity,   cfg.velocitySpread);
+    sys.gravityAndDrag   = glm::vec4(cfg.gravity,         cfg.drag);
+    sys.colors[0]        = cfg.colors[0];
+    sys.colors[1]        = cfg.colors[1];
+    sys.colors[2]        = cfg.colors[2];
+    sys.colors[3]        = cfg.colors[3];
+    sys.colorPositions   = cfg.colorPositions;
+    sys.sizeStartMin     = cfg.sizeStartMin;
+    sys.sizeStartMax     = cfg.sizeStartMax;
+    sys.sizeEndMin       = cfg.sizeEndMin;
+    sys.sizeEndMax       = cfg.sizeEndMax;
+    sys.sizeStartBias    = cfg.sizeStartBias;
+    sys.sizeEndBias      = cfg.sizeEndBias;
+    sys.lifetimeMin      = cfg.lifetimeMin;
+    sys.lifetimeMax      = cfg.lifetimeMax;
+    sys.lifetimeBias     = cfg.lifetimeBias;
+    sys.emitRate         = cfg.emitRate;
+    sys.flags            = preservedFlags;
+    sys.shapeType        = static_cast<uint32_t>(cfg.shape);
+
     s_systemDirty = true;
 }
 
