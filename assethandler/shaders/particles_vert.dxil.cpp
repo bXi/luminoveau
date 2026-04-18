@@ -1,7 +1,6 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: E:\luminoveau\assethandler\shaders\particles_vert.dxil
+// Source: luminoveau\assethandler\shaders\particles_vert.dxil
 // Backend: DXIL
-// Generated: 2026-04-18 10:01:07
 
 #include <cstdint>
 #include <cstddef>

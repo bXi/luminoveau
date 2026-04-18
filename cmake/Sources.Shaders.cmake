@@ -1,5 +1,4 @@
 # Auto-generated shader sources - DO NOT EDIT
-# Generated: 2026-04-18 09:04:23
 # Available backends: spirv, dxil
 
 # Set default GPU backend if not specified

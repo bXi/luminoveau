@@ -1,7 +1,6 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: E:\luminoveau\assethandler\shaders\model3d_vert.spv
+// Source: luminoveau\assethandler\shaders\model3d_vert.spv
 // Backend: SPIR-V
-// Generated: 2026-01-19 11:31:04
 
 #include <cstdint>
 #include <cstddef>

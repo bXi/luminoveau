@@ -581,6 +581,10 @@ function Generate-CppFile
     $bytes = [System.IO.File]::ReadAllBytes($BinaryFile)
     $length = $bytes.Length
 
+    # Make the source path relative to the repo root's parent so it's machine-independent
+    $repoParent = Split-Path $ProjectRoot -Parent
+    $relativeSource = [System.IO.Path]::GetRelativePath($repoParent, $BinaryFile)
+
     # Format bytes as C++ array
     $byteArray = ""
     for ($i = 0; $i -lt $bytes.Length; $i += 12)
@@ -602,9 +606,8 @@ function Generate-CppFile
     # Symbol names are the SAME across backends - CMake selects which .cpp to compile
     $cppContent = @"
 // Auto-generated shader binary - DO NOT EDIT
-// Source: $BinaryFile
+// Source: $relativeSource
 // Backend: $Backend
-// Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 
 #include <cstdint>
 #include <cstddef>
@@ -621,26 +624,23 @@ extern const size_t ${SymbolName}_Size = $length;
 } // namespace Luminoveau
 "@
 
-    # Check if file exists and content is identical
+    # Normalise to LF so line-ending differences (autocrlf, editors) never cause spurious rewrites
+    $cppContent = $cppContent -replace "`r`n", "`n" -replace "`r", "`n"
+
     $shouldWrite = $true
     if (Test-Path $OutputFile)
     {
-        $existingContent = [System.IO.File]::ReadAllText($OutputFile)
-
-        # Compare everything except the "Generated:" timestamp line
-        $existingWithoutTimestamp = ($existingContent -split "`n" | Where-Object { $_ -notmatch '^// Generated:' }) -join "`n"
-        $newWithoutTimestamp = ($cppContent -split "`n" | Where-Object { $_ -notmatch '^// Generated:' }) -join "`n"
-
-        if ($existingWithoutTimestamp -eq $newWithoutTimestamp)
+        $existingContent = ([System.IO.File]::ReadAllText($OutputFile)) -replace "`r`n", "`n" -replace "`r", "`n"
+        if ($existingContent -eq $cppContent)
         {
             $shouldWrite = $false
-            Write-Info "Skipped $OutputFile (unchanged)"
+            Write-Skip "  Unchanged $([System.IO.Path]::GetFileName($OutputFile))"
         }
     }
 
     if ($shouldWrite)
     {
-        [System.IO.File]::WriteAllText($OutputFile, $cppContent)
+        [System.IO.File]::WriteAllText($OutputFile, $cppContent, [System.Text.UTF8Encoding]::new($false))
         Write-Success "Generated $OutputFile ($length bytes)"
     }
 }
@@ -656,7 +656,6 @@ function Generate-HeaderFile
 
     $headerContent = @"
 // Auto-generated shader header - DO NOT EDIT
-// Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 //
 // This file provides a unified interface to all compiled shaders.
 // The actual backend (SPIR-V, DXIL, Metal) is determined at compile time
@@ -699,24 +698,22 @@ namespace Shaders {
 } // namespace Luminoveau
 "@
 
-    # Check if file exists and content is identical (ignoring timestamp)
+    $headerContent = $headerContent -replace "`r`n", "`n" -replace "`r", "`n"
+
     $shouldWrite = $true
     if (Test-Path $HeaderOutputPath)
     {
-        $existingContent = [System.IO.File]::ReadAllText($HeaderOutputPath)
-        $existingWithoutTimestamp = ($existingContent -split "`n" | Where-Object { $_ -notmatch '^// Generated:' }) -join "`n"
-        $newWithoutTimestamp = ($headerContent -split "`n" | Where-Object { $_ -notmatch '^// Generated:' }) -join "`n"
-
-        if ($existingWithoutTimestamp -eq $newWithoutTimestamp)
+        $existingContent = ([System.IO.File]::ReadAllText($HeaderOutputPath)) -replace "`r`n", "`n" -replace "`r", "`n"
+        if ($existingContent -eq $headerContent)
         {
             $shouldWrite = $false
-            Write-Info "Skipped $HeaderOutputPath (unchanged)"
+            Write-Skip "  Unchanged $([System.IO.Path]::GetFileName($HeaderOutputPath))"
         }
     }
 
     if ($shouldWrite)
     {
-        [System.IO.File]::WriteAllText($HeaderOutputPath, $headerContent)
+        [System.IO.File]::WriteAllText($HeaderOutputPath, $headerContent, [System.Text.UTF8Encoding]::new($false))
         Write-Success "Generated $HeaderOutputPath"
     }
 }
@@ -734,7 +731,6 @@ function Generate-CMakeFile
     # Generate conditional CMake file that selects backend at build time
     $cmakeContent = @"
 # Auto-generated shader sources - DO NOT EDIT
-# Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 # Available backends: $Backend
 
 # Set default GPU backend if not specified
@@ -825,24 +821,22 @@ source_group("Generated\\Shaders" FILES `${LUMINOVEAU_SHADER_SOURCES})
 add_compile_definitions(LUMINOVEAU_SHADER_BACKEND_`${LUMINOVEAU_GPU_BACKEND})
 "@
 
-    # Check if file exists and content is identical (ignoring timestamp)
+    $cmakeContent = $cmakeContent -replace "`r`n", "`n" -replace "`r", "`n"
+
     $shouldWrite = $true
     if (Test-Path $CMakeOutputPath)
     {
-        $existingContent = [System.IO.File]::ReadAllText($CMakeOutputPath)
-        $existingWithoutTimestamp = ($existingContent -split "`n" | Where-Object { $_ -notmatch '^# Generated:' }) -join "`n"
-        $newWithoutTimestamp = ($cmakeContent -split "`n" | Where-Object { $_ -notmatch '^# Generated:' }) -join "`n"
-
-        if ($existingWithoutTimestamp -eq $newWithoutTimestamp)
+        $existingContent = ([System.IO.File]::ReadAllText($CMakeOutputPath)) -replace "`r`n", "`n" -replace "`r", "`n"
+        if ($existingContent -eq $cmakeContent)
         {
             $shouldWrite = $false
-            Write-Info "Skipped $CMakeOutputPath (unchanged)"
+            Write-Skip "  Unchanged $([System.IO.Path]::GetFileName($CMakeOutputPath))"
         }
     }
 
     if ($shouldWrite)
     {
-        [System.IO.File]::WriteAllText($CMakeOutputPath, $cmakeContent)
+        [System.IO.File]::WriteAllText($CMakeOutputPath, $cmakeContent, [System.Text.UTF8Encoding]::new($false))
         Write-Success "Generated $CMakeOutputPath"
     }
 }
