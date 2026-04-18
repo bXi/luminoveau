@@ -61,6 +61,10 @@ public:
     // Create a compute pipeline from a .comp GLSL file
     static ComputePipelineAsset CreateComputePipeline(SDL_GPUDevice* device, const std::string& filename);
 
+    // Create a compute pipeline from pre-compiled SPIR-V bytes (e.g. embedded engine shaders).
+    // SDL_ShaderCross reflects the SPIRV and cross-compiles to the platform's native format.
+    static ComputePipelineAsset CreateComputePipelineFromBytes(SDL_GPUDevice* device, const uint8_t* spirvBytes, size_t spirvSize);
+
 private:
 
     void _init();

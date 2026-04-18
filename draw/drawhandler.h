@@ -18,6 +18,7 @@
 #include "utils/constants.h"
 
 #include "assettypes/effect.h"
+#include "assettypes/particlesystem.h"
 
 #include <functional>
 #include <vector>
@@ -385,6 +386,17 @@ public:
      * @brief Releases all pixel textures allocated during this frame. Called automatically by Renderer::EndFrame.
      */
     static void ReleaseFramePixelTextures() { get()._releaseFramePixelTextures(); }
+
+    /**
+     * @brief Queue a particle system for rendering this frame.
+     *
+     * The system is rendered by the ParticleRenderPass registered in its
+     * framebuffer, at the position in the pass list where that pass sits.
+     * Call Particles::Update(dt) once per frame before calling Draw::Particles.
+     *
+     * @param handle Handle returned by Particles::CreateSystem().
+     */
+    static void Particles(const ParticleSystemHandle& handle);
 
 
 private:

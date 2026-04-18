@@ -11,6 +11,7 @@
 #include <assettypes/effecthandler.h>
 #include <assettypes/pcmsound.h>
 #include <assettypes/computepipeline.h>
+#include <assettypes/particlesystem.h>
 
 //Buffer management
 #include <buffer/buffer.h>
@@ -25,6 +26,7 @@
 #include <renderer/rendererhandler.h>
 #include <renderer/shaderhandler.h>
 #include <renderer/computehandler.h>
+#include <renderer/particlerenderer.h>
 #include <text/texthandler.h>
 #include <window/windowhandler.h>
 

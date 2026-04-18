@@ -37,6 +37,7 @@ $ErrorActionPreference = "Stop"
 # Shader profiles (HLSL Shader Model 6.0)
 $VertexProfile = "vs_6_0"
 $FragmentProfile = "ps_6_0"
+$ComputeProfile = "cs_6_0"
 
 # Metal Shading Language version (2.1 = macOS 10.14+, covers M1 and later)
 $MetalLanguageVersion = "2.1"
@@ -192,6 +193,37 @@ function Discover-Shaders
     Write-Host "`nDiscovered $($shaderPairs.Count) shader pair(s)`n" -ForegroundColor White
 
     return $shaderPairs
+}
+
+function Discover-ComputeShaders
+{
+    Write-Header "Discovering Compute Shaders"
+
+    $computeShaders = @()
+
+    $compFiles = Get-ChildItem -Path $ShaderSourceDir -Filter "*.comp.hlsl"
+
+    foreach ($compFile in $compFiles)
+    {
+        $baseName = $compFile.Name -replace '\.comp\.hlsl$', ''
+
+        $symbolName = ($baseName -split '_' | ForEach-Object {
+                $_.Substring(0,1).ToUpper() + $_.Substring(1).ToLower()
+            }) -join ''
+
+        $computeShaders += @{
+            Name = $symbolName
+            BaseName = $baseName
+            CompFile = $compFile.Name
+            CompSymbol = "${symbolName}_Comp"
+        }
+
+        Write-Success "Found compute shader: $baseName -> ${symbolName}_Comp"
+    }
+
+    Write-Host "`nDiscovered $($computeShaders.Count) compute shader(s)`n" -ForegroundColor White
+
+    return $computeShaders
 }
 
 # ============================================================================
@@ -615,7 +647,10 @@ extern const size_t ${SymbolName}_Size = $length;
 
 function Generate-HeaderFile
 {
-    param([array]$CompiledShaders)
+    param(
+        [array]$CompiledShaders,
+        [array]$CompiledCompute
+    )
 
     Write-Header "Generating Unified Header"
 
@@ -645,6 +680,16 @@ namespace Shaders {
     extern const size_t $($shader.VertSymbol)_Size;
     extern const uint8_t $($shader.FragSymbol)[];
     extern const size_t $($shader.FragSymbol)_Size;
+
+"@
+    }
+
+    foreach ($compute in $CompiledCompute)
+    {
+        $headerContent += @"
+    // $($compute.Name) Compute Shader (always SPIR-V - SDL_ShaderCross handles cross-compilation)
+    extern const uint8_t $($compute.CompSymbol)[];
+    extern const size_t $($compute.CompSymbol)_Size;
 
 "@
     }
@@ -680,6 +725,7 @@ function Generate-CMakeFile
 {
     param(
         [array]$CompiledShaders,
+        [array]$CompiledCompute,
         [string]$Backend
     )
 
@@ -753,6 +799,24 @@ if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
 else()
     message(FATAL_ERROR "No shader files available for backend: `${LUMINOVEAU_GPU_BACKEND}")
 endif()
+
+# Compute shaders are always SPIR-V: SDL_ShaderCross handles cross-compilation at runtime
+set(LUMINOVEAU_COMPUTE_SHADER_SOURCES
+"@
+
+    foreach ($compute in $CompiledCompute)
+    {
+        if ($compute.CompCppSPIRV)
+        {
+            $cmakeContent += "`n    assethandler/shaders/$($compute.CompCppSPIRV)"
+        }
+    }
+
+    $cmakeContent += @"
+
+)
+
+list(APPEND LUMINOVEAU_SHADER_SOURCES `${LUMINOVEAU_COMPUTE_SHADER_SOURCES})
 
 # Group shader files in IDE
 source_group("Generated\\Shaders" FILES `${LUMINOVEAU_SHADER_SOURCES})
@@ -975,11 +1039,61 @@ function Compile-AllShaders
         }
     }
 
-    # Generate header and cmake files
-    if ($compiledShaders.Count -gt 0)
+    # ── Compute shaders (always compiled to SPIR-V; SDL_ShaderCross cross-compiles at runtime) ──
+
+    $computeDefs = Discover-ComputeShaders
+    $compiledCompute = @()
+
+    foreach ($computeDef in $computeDefs)
     {
-        Generate-HeaderFile -CompiledShaders $compiledShaders
-        Generate-CMakeFile -CompiledShaders $compiledShaders -Backend ($backendsToCompile -join ", ")
+        if ($Shader -and $computeDef.Name -ne $Shader -and $computeDef.BaseName -ne $Shader)
+        {
+            continue
+        }
+
+        Write-Header "Compiling $($computeDef.Name) Compute Shader"
+
+        $compSource = Join-Path $ShaderSourceDir $computeDef.CompFile
+
+        $computeInfo = @{
+            Name        = $computeDef.Name
+            BaseName    = $computeDef.BaseName
+            CompSymbol  = $computeDef.CompSymbol
+            CompCppSPIRV = ""
+        }
+
+        # Compute shaders are always compiled to SPIR-V
+        $compSpv = Join-Path $OutputDir "$($computeDef.BaseName)_comp.spv"
+        $compSuccess = Compile-SPIRV -SourceFile $compSource -OutputFile $compSpv -Profile $ComputeProfile -ShaderName "$($computeDef.Name) Compute"
+
+        if ($compSuccess)
+        {
+            $computeInfo.CompCppSPIRV = "$($computeDef.BaseName)_comp.spirv.cpp"
+            Generate-CppFile -BinaryFile $compSpv -OutputFile (Join-Path $OutputDir $computeInfo.CompCppSPIRV) -SymbolName $computeInfo.CompSymbol -Backend "SPIR-V"
+        }
+
+        # Keep existing .cpp if we didn't compile (e.g. -Shader filter skipped this)
+        if (-not $computeInfo.CompCppSPIRV)
+        {
+            $existingFile = Join-Path $OutputDir "$($computeDef.BaseName)_comp.spirv.cpp"
+            if (Test-Path $existingFile)
+            {
+                $computeInfo.CompCppSPIRV = "$($computeDef.BaseName)_comp.spirv.cpp"
+                Write-Skip "  Keeping existing $($computeInfo.CompCppSPIRV)"
+            }
+        }
+
+        if ($computeInfo.CompCppSPIRV)
+        {
+            $compiledCompute += $computeInfo
+        }
+    }
+
+    # Generate header and cmake files
+    if ($compiledShaders.Count -gt 0 -or $compiledCompute.Count -gt 0)
+    {
+        Generate-HeaderFile -CompiledShaders $compiledShaders -CompiledCompute $compiledCompute
+        Generate-CMakeFile -CompiledShaders $compiledShaders -CompiledCompute $compiledCompute -Backend ($backendsToCompile -join ", ")
 
         # Clean up intermediate binary files
         Write-Info "Cleaning up intermediate binary files..."
@@ -1000,7 +1114,8 @@ function Compile-AllShaders
         }
 
         Write-Header "Compilation Complete"
-        Write-Success "Compiled $($compiledShaders.Count) shader(s) for backends: $($backendsToCompile -join ', ')"
+        Write-Success "Compiled $($compiledShaders.Count) shader pair(s) and $($compiledCompute.Count) compute shader(s)"
+        Write-Success "Backends: $($backendsToCompile -join ', ')"
     } else
     {
         Write-Error-Custom "No shaders were compiled successfully"

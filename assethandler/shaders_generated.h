@@ -1,5 +1,5 @@
 // Auto-generated shader header - DO NOT EDIT
-// Generated: 2026-02-08 13:52:49
+// Generated: 2026-04-18 09:04:23
 //
 // This file provides a unified interface to all compiled shaders.
 // The actual backend (SPIR-V, DXIL, Metal) is determined at compile time
@@ -22,10 +22,18 @@ namespace Shaders {
     extern const size_t Model3d_Vert_Size;
     extern const uint8_t Model3d_Frag[];
     extern const size_t Model3d_Frag_Size;
+    // Particles Shaders
+    extern const uint8_t Particles_Vert[];
+    extern const size_t Particles_Vert_Size;
+    extern const uint8_t Particles_Frag[];
+    extern const size_t Particles_Frag_Size;
     // Sprite Shaders
     extern const uint8_t Sprite_Vert[];
     extern const size_t Sprite_Vert_Size;
     extern const uint8_t Sprite_Frag[];
     extern const size_t Sprite_Frag_Size;
+    // Particles Compute Shader (always SPIR-V - SDL_ShaderCross handles cross-compilation)
+    extern const uint8_t Particles_Comp[];
+    extern const size_t Particles_Comp_Size;
 } // namespace Shaders
 } // namespace Luminoveau

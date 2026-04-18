@@ -18,6 +18,7 @@
 #include "shaderrenderpass.h"
 #include "shaderhandler.h"
 #include "computehandler.h"
+#include "particlerenderer.h"
 
 #include <SDL3_image/SDL_image.h>
 
@@ -228,6 +229,8 @@ void Renderer::_initRendering() {
 
     _whitePixelTexture = AssetHandler::CreateWhitePixel();
 
+    Particles::Init();
+
     #ifdef LUMINOVEAU_WITH_IMGUI
     ImGui_ImplSDL3_InitForSDLGPU(Window::GetWindow());
 
@@ -247,6 +250,11 @@ void Renderer::_close() {
     }
 
     LOG_INFO("Closing renderer");
+
+    // Shut down particle system before GPU resources are released.
+    // Particles::Quit() removes its render pass from all framebuffers so the
+    // release loop below won't encounter a dangling pointer.
+    Particles::Quit();
 
     // Wait for GPU to finish all work
     SDL_WaitForGPUIdle(m_device);
@@ -379,8 +387,9 @@ void Renderer::_endFrame() {
 
         SDL_SetGPUTextureName(Renderer::GetDevice(), swapchain_texture, "Renderer: swapchain_texture");
 
-        // Execute all compute dispatches queued this frame before any render passes,
-        // so their outputs are ready to sample in the same frame.
+        // Upload any modified particle system data, then run all compute dispatches.
+        // Both happen before render passes so results are ready to sample this frame.
+        Particles::_PrepareFrame(m_cmdbuf);
         Compute::_ExecuteQueued(m_cmdbuf);
         Compute::_Reset();
 

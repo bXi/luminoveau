@@ -1,4 +1,5 @@
 #include "drawhandler.h"
+#include "renderer/particlerenderer.h"
 
 #include <utility>
 #include <algorithm>
@@ -1061,4 +1062,11 @@ void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size,
     };
     
     _getTargetPass()->addToRenderQueue(renderable);
+}
+
+
+void Draw::Particles(const ParticleSystemHandle& handle) {
+    // Forward to the global Particles namespace which queues the draw
+    // for the ParticleRenderPass registered in the current framebuffer.
+    ::Particles::QueueDraw(handle);
 }

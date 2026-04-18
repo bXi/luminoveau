@@ -23,6 +23,7 @@ AssetHandler::AssetHandler() {
     _musics.reserve(50);
     _fonts.reserve(50);
     _shaders.reserve(50);
+    _computePipelines.reserve(20);
 
     // Initialize font cache
     _initFontCache();
@@ -637,6 +638,19 @@ Shader AssetHandler::_getShader(const std::string &fileName) {
     } else {
         return _shaders[fileName];
     }
+}
+
+ComputePipelineAsset& AssetHandler::_getComputePipeline(const std::string& fileName) {
+    std::lock_guard<std::mutex> lock(assetMutex);
+
+    auto it = _computePipelines.find(fileName);
+    if (it != _computePipelines.end()) {
+        return it->second;
+    }
+
+    LOG_INFO("loading compute pipeline: {}", fileName.c_str());
+    _computePipelines[fileName] = Shaders::CreateComputePipeline(Renderer::GetDevice(), fileName);
+    return _computePipelines[fileName];
 }
 
 bool AssetHandler::_copy_to_texture(

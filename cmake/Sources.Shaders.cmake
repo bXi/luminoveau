@@ -1,6 +1,6 @@
 # Auto-generated shader sources - DO NOT EDIT
-# Generated: 2026-02-07 21:23:11
-# Available backends: metallib
+# Generated: 2026-04-18 09:04:23
+# Available backends: spirv, dxil
 
 # Set default GPU backend if not specified
 if(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
@@ -21,6 +21,8 @@ if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
         assethandler/shaders/fullscreen_quad_frag.spirv.cpp
         assethandler/shaders/model3d_vert.spirv.cpp
         assethandler/shaders/model3d_frag.spirv.cpp
+        assethandler/shaders/particles_vert.spirv.cpp
+        assethandler/shaders/particles_frag.spirv.cpp
         assethandler/shaders/sprite_vert.spirv.cpp
         assethandler/shaders/sprite_frag.spirv.cpp
     )
@@ -31,6 +33,8 @@ elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "DXIL")
         assethandler/shaders/fullscreen_quad_frag.dxil.cpp
         assethandler/shaders/model3d_vert.dxil.cpp
         assethandler/shaders/model3d_frag.dxil.cpp
+        assethandler/shaders/particles_vert.dxil.cpp
+        assethandler/shaders/particles_frag.dxil.cpp
         assethandler/shaders/sprite_vert.dxil.cpp
         assethandler/shaders/sprite_frag.dxil.cpp
     )
@@ -47,6 +51,13 @@ elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "METALLIB")
 else()
     message(FATAL_ERROR "No shader files available for backend: ${LUMINOVEAU_GPU_BACKEND}")
 endif()
+
+# Compute shaders are always SPIR-V: SDL_ShaderCross handles cross-compilation at runtime
+set(LUMINOVEAU_COMPUTE_SHADER_SOURCES
+    assethandler/shaders/particles_comp.spirv.cpp
+)
+
+list(APPEND LUMINOVEAU_SHADER_SOURCES ${LUMINOVEAU_COMPUTE_SHADER_SOURCES})
 
 # Group shader files in IDE
 source_group("Generated\\Shaders" FILES ${LUMINOVEAU_SHADER_SOURCES})
