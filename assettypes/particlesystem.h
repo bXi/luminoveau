@@ -53,6 +53,7 @@ enum class ParticleShape : uint32_t {
     Square     = 2,   // solid square billboard
     SoftSquare = 3,   // square with softened edges
     Ring       = 4,   // hollow circle / donut
+    Textured   = 5,   // sample a per-system texture; set via ParticleSystemConfig::texture
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -124,6 +125,18 @@ struct ParticleSystemConfig {
     float     sizeEndBias    = 1.0f;
 
     ParticleShape shape      = ParticleShape::SoftCircle;
+
+    // When true the system is rendered with standard alpha blending
+    // (SRC_ALPHA, ONE_MINUS_SRC_ALPHA) instead of additive.  Combine with
+    // shape = Square and size = 1 to render each particle as a single opaque pixel.
+    bool          pixelMode  = false;
+
+    // Optional texture — when set, overrides shape with Textured rendering.
+    // The colour gradient acts as a per-particle tint multiplied over the image.
+    // Point to a TextureAsset's gpuTexture / gpuSampler, or set sampler to nullptr
+    // to let the particle system pick a linear sampler automatically.
+    SDL_GPUTexture* texture  = nullptr;
+    SDL_GPUSampler* sampler  = nullptr;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -135,4 +148,12 @@ struct ParticleSystemHandle {
     uint32_t particleOffset = 0;
     uint32_t maxParticles   = 0;
     bool     valid          = false;
+};
+
+/// Opaque handle to a user-supplied compute pipeline used as a custom particle
+/// update. Create with Particles::CreateCustomCompute(), destroy with
+/// Particles::DestroyCustomCompute(). Can be shared across multiple systems.
+struct ParticleComputeHandle {
+    uint32_t index = 0;
+    bool     valid = false;
 };

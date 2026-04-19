@@ -30,9 +30,25 @@ static SDL_GPUTransferBuffer* s_systemUploadBuf = nullptr; // CPU→GPU transfer
 static ComputePipelineAsset s_computePipeline;
 
 // --- CPU-side system data ---
-static GPUParticleSystem s_systemData[MAX_SYSTEMS] = {};
-static bool              s_systemUsed[MAX_SYSTEMS] = {};
+static GPUParticleSystem s_systemData[MAX_SYSTEMS]    = {};
+static bool              s_systemUsed[MAX_SYSTEMS]    = {};
+static SDL_GPUTexture*   s_systemTextures[MAX_SYSTEMS] = {};
+static SDL_GPUSampler*   s_systemSamplers[MAX_SYSTEMS] = {};
 static bool              s_systemDirty = false;
+
+// --- Per-system render flags ---
+static bool s_systemPixelMode[MAX_SYSTEMS] = {};
+
+// --- Custom compute pool ---
+static constexpr uint32_t INVALID_CUSTOM_COMPUTE = UINT32_MAX;
+static ComputePipelineAsset s_customComputePool[MAX_CUSTOM_COMPUTES] = {};
+static bool                 s_customComputeUsed[MAX_CUSTOM_COMPUTES] = {};
+// Per-system index into the pool (INVALID_CUSTOM_COMPUTE = none)
+static uint32_t             s_systemCustomCompute[MAX_SYSTEMS]       = {};
+
+// --- Fallback resources for non-textured draws ---
+static SDL_GPUTexture* s_whiteTexture  = nullptr;
+static SDL_GPUSampler* s_linearSampler = nullptr;
 
 // --- Particle slot allocator ---
 static uint32_t s_nextParticleSlot = 0;
@@ -119,6 +135,49 @@ void Init() {
         SDL_ReleaseGPUTransferBuffer(device, zeroTB);
     }
 
+    // Create 1×1 white fallback texture for non-textured draws
+    {
+        SDL_GPUTextureCreateInfo texInfo = {
+            .type              = SDL_GPU_TEXTURETYPE_2D,
+            .format            = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+            .usage             = SDL_GPU_TEXTUREUSAGE_SAMPLER,
+            .width             = 1,
+            .height            = 1,
+            .layer_count_or_depth = 1,
+            .num_levels        = 1,
+            .props             = 0,
+        };
+        s_whiteTexture = SDL_CreateGPUTexture(device, &texInfo);
+
+        uint32_t whitePixel = 0xFFFFFFFFu;
+        SDL_GPUTransferBufferCreateInfo tbInfo = {
+            .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+            .size  = sizeof(whitePixel),
+            .props = 0,
+        };
+        SDL_GPUTransferBuffer* wtb = SDL_CreateGPUTransferBuffer(device, &tbInfo);
+        void* wm = SDL_MapGPUTransferBuffer(device, wtb, false);
+        SDL_memcpy(wm, &whitePixel, sizeof(whitePixel));
+        SDL_UnmapGPUTransferBuffer(device, wtb);
+
+        SDL_GPUCommandBuffer* wcmd = SDL_AcquireGPUCommandBuffer(device);
+        SDL_GPUCopyPass* wcp = SDL_BeginGPUCopyPass(wcmd);
+        SDL_GPUTextureTransferInfo wsrc = {
+            .transfer_buffer = wtb, .offset = 0, .pixels_per_row = 0, .rows_per_layer = 0
+        };
+        SDL_GPUTextureRegion wdst = {
+            .texture = s_whiteTexture, .w = 1, .h = 1, .d = 1
+        };
+        SDL_UploadToGPUTexture(wcp, &wsrc, &wdst, false);
+        SDL_EndGPUCopyPass(wcp);
+        SDL_SubmitGPUCommandBuffer(wcmd);
+        SDL_WaitForGPUIdle(device);
+        SDL_ReleaseGPUTransferBuffer(device, wtb);
+    }
+
+    // Linear sampler for textured particles
+    s_linearSampler = SDL_CreateGPUSampler(device, &GPUstructs::linearSamplerCreateInfo);
+
     // Load compute pipeline from embedded engine SPIRV
     s_computePipeline = Shaders::CreateComputePipelineFromBytes(
         device,
@@ -128,6 +187,9 @@ void Init() {
     // Create and attach the render pass to the primary framebuffer
     s_renderPass = new ParticleRenderPass(device);
     AttachToFramebuffer("primaryFramebuffer");
+
+    std::fill(std::begin(s_systemCustomCompute), std::end(s_systemCustomCompute),
+              INVALID_CUSTOM_COMPUTE);
 
     LOG_INFO("Particles: initialized (max particles: {}, max systems: {})",
              MAX_PARTICLES, MAX_SYSTEMS);
@@ -157,9 +219,19 @@ void Quit() {
         s_computePipeline = {};
     }
 
+    for (uint32_t i = 0; i < MAX_CUSTOM_COMPUTES; ++i) {
+        if (s_customComputeUsed[i] && s_customComputePool[i].pipeline) {
+            SDL_ReleaseGPUComputePipeline(device, s_customComputePool[i].pipeline);
+            s_customComputePool[i] = {};
+            s_customComputeUsed[i] = false;
+        }
+    }
+
     if (s_particleBuf)     { SDL_ReleaseGPUBuffer(device, s_particleBuf);     s_particleBuf     = nullptr; }
     if (s_systemBuf)       { SDL_ReleaseGPUBuffer(device, s_systemBuf);       s_systemBuf       = nullptr; }
     if (s_systemUploadBuf) { SDL_ReleaseGPUTransferBuffer(device, s_systemUploadBuf); s_systemUploadBuf = nullptr; }
+    if (s_whiteTexture)    { SDL_ReleaseGPUTexture(device, s_whiteTexture);   s_whiteTexture    = nullptr; }
+    if (s_linearSampler)   { SDL_ReleaseGPUSampler(device, s_linearSampler);  s_linearSampler   = nullptr; }
 
     // Reset CPU-side state so Init() can be called again cleanly.
     s_nextParticleSlot = 0;
@@ -169,8 +241,14 @@ void Quit() {
     s_updateQueued     = false;
     std::fill(std::begin(s_systemUsed),          std::end(s_systemUsed),          false);
     std::fill(std::begin(s_systemData),          std::end(s_systemData),          GPUParticleSystem{});
+    std::fill(std::begin(s_systemTextures),      std::end(s_systemTextures),      nullptr);
+    std::fill(std::begin(s_systemSamplers),      std::end(s_systemSamplers),      nullptr);
+    std::fill(std::begin(s_systemPixelMode),     std::end(s_systemPixelMode),     false);
     std::fill(std::begin(s_slotParticleOffset),  std::end(s_slotParticleOffset),  0u);
     std::fill(std::begin(s_slotParticleCount),   std::end(s_slotParticleCount),   0u);
+    std::fill(std::begin(s_systemCustomCompute), std::end(s_systemCustomCompute), INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(s_customComputeUsed),   std::end(s_customComputeUsed),   false);
+    std::fill(std::begin(s_customComputePool),   std::end(s_customComputePool),   ComputePipelineAsset{});
 
     LOG_INFO("Particles: shut down");
 }
@@ -224,22 +302,32 @@ ParticleSystemHandle CreateSystem(const ParticleSystemConfig& cfg) {
     sys.lifetimeMin      = cfg.lifetimeMin;
     sys.lifetimeMax      = cfg.lifetimeMax;
     sys.lifetimeBias     = cfg.lifetimeBias;
-    sys.emitRate         = cfg.emitRate;
+    // Store emitRate scaled by particle count so the per-particle timer
+    // interval (1/storedRate = N/emitRate) gives emitRate spawns/second system-wide.
+    sys.emitRate         = (cfg.maxParticles > 0)
+                               ? (cfg.emitRate / static_cast<float>(cfg.maxParticles))
+                               : cfg.emitRate;
     sys.flags            = 0; // not emitting yet
-    sys.shapeType        = static_cast<uint32_t>(cfg.shape);
+    sys.shapeType        = cfg.texture
+                               ? static_cast<uint32_t>(ParticleShape::Textured)
+                               : static_cast<uint32_t>(cfg.shape);
+    s_systemTextures[handle.systemIndex]  = cfg.texture;
+    s_systemSamplers[handle.systemIndex]  = cfg.sampler;
+    s_systemPixelMode[handle.systemIndex] = cfg.pixelMode;
     s_systemDirty        = true;
 
     // Initialise particle slots: staggered respawn timers so emission is smooth
     // from frame 1. All particles start dead with a timer = index / emitRate.
     {
-        const uint32_t n      = cfg.maxParticles;
-        const float    rate   = (cfg.emitRate > 0.0f) ? cfg.emitRate : 1.0f;
+        const uint32_t n = cfg.maxParticles;
         std::vector<GPUParticle> init(n);
         for (uint32_t i = 0; i < n; ++i) {
             init[i].posAndLife    = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f); // dead
             init[i].velAndMaxLife = glm::vec4(0.0f, 0.0f, 0.0f, cfg.lifetimeMax);
             init[i].systemID      = handle.systemIndex;
-            init[i].respawnTimer  = static_cast<float>(i) / rate;
+            // Stagger as a normalised fraction [0, 1) so particles are uniformly
+            // spread across one respawn period from the very first frame.
+            init[i].respawnTimer  = (n > 1) ? (static_cast<float>(i) / static_cast<float>(n)) : 0.0f;
             init[i].startSize     = cfg.sizeStartMin;
             init[i].endSize       = cfg.sizeEndMin;
         }
@@ -282,9 +370,13 @@ void DestroySystem(ParticleSystemHandle& handle) {
     if (!handle.valid) return;
 
     uint32_t idx = handle.systemIndex;
-    s_systemUsed[idx] = false;
-    s_systemData[idx] = {};
-    s_systemDirty = true;
+    s_systemUsed[idx]          = false;
+    s_systemData[idx]          = {};
+    s_systemTextures[idx]      = nullptr;
+    s_systemSamplers[idx]      = nullptr;
+    s_systemPixelMode[idx]     = false;
+    s_systemCustomCompute[idx] = INVALID_CUSTOM_COMPUTE;
+    s_systemDirty              = true;
 
     // Reclaim particle slots: walk the bump pointer back as far as possible.
     // This fully handles the common cases (destroy last, destroy all).
@@ -349,10 +441,89 @@ void UpdateConfig(const ParticleSystemHandle& handle, const ParticleSystemConfig
     sys.lifetimeMin      = cfg.lifetimeMin;
     sys.lifetimeMax      = cfg.lifetimeMax;
     sys.lifetimeBias     = cfg.lifetimeBias;
-    sys.emitRate         = cfg.emitRate;
+    sys.emitRate         = (handle.maxParticles > 0)
+                               ? (cfg.emitRate / static_cast<float>(handle.maxParticles))
+                               : cfg.emitRate;
     sys.flags            = preservedFlags;
-    sys.shapeType        = static_cast<uint32_t>(cfg.shape);
+    sys.shapeType        = cfg.texture
+                               ? static_cast<uint32_t>(ParticleShape::Textured)
+                               : static_cast<uint32_t>(cfg.shape);
+    s_systemTextures[handle.systemIndex]  = cfg.texture;
+    s_systemSamplers[handle.systemIndex]  = cfg.sampler;
+    s_systemPixelMode[handle.systemIndex] = cfg.pixelMode;
 
+    s_systemDirty = true;
+}
+
+void SetTexture(const ParticleSystemHandle& handle,
+                SDL_GPUTexture* texture, SDL_GPUSampler* sampler) {
+    if (!handle.valid) return;
+    s_systemTextures[handle.systemIndex] = texture;
+    s_systemSamplers[handle.systemIndex] = sampler;
+    s_systemData[handle.systemIndex].shapeType = texture
+        ? static_cast<uint32_t>(ParticleShape::Textured)
+        : static_cast<uint32_t>(ParticleShape::SoftCircle); // revert to default shape
+    s_systemDirty = true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom compute
+// ─────────────────────────────────────────────────────────────────────────────
+
+ParticleComputeHandle CreateCustomCompute(const std::string& shaderPath) {
+    // Find a free pool slot
+    for (uint32_t i = 0; i < MAX_CUSTOM_COMPUTES; ++i) {
+        if (s_customComputeUsed[i]) continue;
+
+        ComputePipelineAsset pipeline = Shaders::CreateComputePipeline(
+            Renderer::GetDevice(), shaderPath);
+        if (!pipeline.pipeline) {
+            LOG_ERROR("Particles: failed to create custom compute from '{}'", shaderPath);
+            return {};
+        }
+
+        s_customComputePool[i] = pipeline;
+        s_customComputeUsed[i] = true;
+        LOG_INFO("Particles: created custom compute [{}] from '{}'", i, shaderPath);
+        return { i, true };
+    }
+
+    LOG_ERROR("Particles: no free custom compute slots (MAX_CUSTOM_COMPUTES = {})",
+              MAX_CUSTOM_COMPUTES);
+    return {};
+}
+
+void DestroyCustomCompute(ParticleComputeHandle& handle) {
+    if (!handle.valid) return;
+
+    // Clear from any system currently using it
+    for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
+        if (s_systemCustomCompute[i] == handle.index) {
+            s_systemCustomCompute[i]  = INVALID_CUSTOM_COMPUTE;
+            s_systemData[i].flags    &= ~2u; // clear custom-compute bit
+            s_systemDirty             = true;
+        }
+    }
+
+    SDL_ReleaseGPUComputePipeline(Renderer::GetDevice(),
+                                   s_customComputePool[handle.index].pipeline);
+    s_customComputePool[handle.index] = {};
+    s_customComputeUsed[handle.index] = false;
+    handle = {};
+}
+
+void SetCustomCompute(const ParticleSystemHandle& system,
+                      const ParticleComputeHandle& compute) {
+    if (!system.valid || !compute.valid) return;
+    s_systemCustomCompute[system.systemIndex] = compute.index;
+    s_systemData[system.systemIndex].flags   |= 2u; // skip built-in update
+    s_systemDirty = true;
+}
+
+void ClearCustomCompute(const ParticleSystemHandle& system) {
+    if (!system.valid) return;
+    s_systemCustomCompute[system.systemIndex]  = INVALID_CUSTOM_COMPUTE;
+    s_systemData[system.systemIndex].flags    &= ~2u;
     s_systemDirty = true;
 }
 
@@ -381,17 +552,50 @@ void Update(float deltaTime) {
     Compute::BindReadBuffer(0, s_systemBuf);
     Compute::BindReadWriteBuffer(0, s_particleBuf);
     Compute::PushUniform(0, uniforms);
-    Compute::DispatchAuto(total);  // groups = ceil(total / threadcount_x)
+    Compute::DispatchAuto(total);  // built-in: skips systems with custom compute flag
+
+    // Dispatch custom compute pipelines (one per system that has one assigned)
+    struct CustomUniforms {
+        uint32_t particleOffset;
+        uint32_t particleCount;
+        float    deltaTime;
+        float    time;
+    };
+    for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
+        if (!s_systemUsed[i]) continue;
+        uint32_t ci = s_systemCustomCompute[i];
+        if (ci == INVALID_CUSTOM_COMPUTE) continue;
+
+        CustomUniforms cu = {
+            s_slotParticleOffset[i],
+            s_slotParticleCount[i],
+            deltaTime,
+            s_accumTime
+        };
+        Compute::SetPipeline(s_customComputePool[ci]);
+        Compute::BindReadBuffer(0, s_systemBuf);
+        Compute::BindReadWriteBuffer(0, s_particleBuf);
+        Compute::PushUniform(0, cu);
+        Compute::DispatchAuto(s_slotParticleCount[i]);
+    }
 }
 
 void QueueDraw(const ParticleSystemHandle& handle) {
     if (!handle.valid || !s_renderPass) return;
-    s_renderPass->addDraw({handle.particleOffset, handle.maxParticles});
+    s_renderPass->addDraw({
+        handle.particleOffset,
+        handle.maxParticles,
+        s_systemTextures[handle.systemIndex],
+        s_systemSamplers[handle.systemIndex],
+        s_systemPixelMode[handle.systemIndex],
+    });
 }
 
-SDL_GPUBuffer* GetParticleBuffer() { return s_particleBuf; }
-SDL_GPUBuffer* GetSystemBuffer()   { return s_systemBuf; }
-ParticleRenderPass* GetRenderPass() { return s_renderPass; }
+SDL_GPUBuffer*      GetParticleBuffer() { return s_particleBuf; }
+SDL_GPUBuffer*      GetSystemBuffer()   { return s_systemBuf; }
+ParticleRenderPass* GetRenderPass()     { return s_renderPass; }
+SDL_GPUTexture*     GetWhiteTexture()   { return s_whiteTexture; }
+SDL_GPUSampler*     GetLinearSampler()  { return s_linearSampler; }
 
 void AttachToFramebuffer(const std::string& fbName) {
     FrameBuffer* fb = Renderer::GetFramebuffer(fbName);
@@ -481,7 +685,7 @@ bool ParticleRenderPass::init(SDL_GPUTextureFormat swapchainFormat,
         .entrypoint        = entryPoint,
         .format            = shaderFormat,
         .stage             = SDL_GPU_SHADERSTAGE_FRAGMENT,
-        .num_samplers      = 0,
+        .num_samplers      = 1,  // gTexture + gSampler (white pixel when no texture set)
         .num_storage_textures = 0,
         .num_storage_buffers  = 0,
         .num_uniform_buffers  = 0,
@@ -494,7 +698,7 @@ bool ParticleRenderPass::init(SDL_GPUTextureFormat swapchainFormat,
     }
 
     // Additive blending — particles glow
-    SDL_GPUColorTargetBlendState blendState = {
+    SDL_GPUColorTargetBlendState additiveBlend = {
         .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
         .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,           // additive
         .color_blend_op        = SDL_GPU_BLENDOP_ADD,
@@ -504,9 +708,24 @@ bool ParticleRenderPass::init(SDL_GPUTextureFormat swapchainFormat,
         .enable_blend          = true,
     };
 
-    SDL_GPUColorTargetDescription colorTargetDesc = {
+    // Standard alpha blending — pixel mode (overwrites cleanly at alpha = 1)
+    SDL_GPUColorTargetBlendState standardBlend = {
+        .src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+        .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+        .color_blend_op        = SDL_GPU_BLENDOP_ADD,
+        .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+        .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO,
+        .alpha_blend_op        = SDL_GPU_BLENDOP_ADD,
+        .enable_blend          = true,
+    };
+
+    SDL_GPUColorTargetDescription additiveTargetDesc = {
         .format      = swapchainFormat,
-        .blend_state = blendState,
+        .blend_state = additiveBlend,
+    };
+    SDL_GPUColorTargetDescription standardTargetDesc = {
+        .format      = swapchainFormat,
+        .blend_state = standardBlend,
     };
 
     SDL_GPUGraphicsPipelineCreateInfo pipelineInfo = {
@@ -532,7 +751,7 @@ bool ParticleRenderPass::init(SDL_GPUTextureFormat swapchainFormat,
             .enable_stencil_test = false,
         },
         .target_info = {
-            .color_target_descriptions = &colorTargetDesc,
+            .color_target_descriptions = &additiveTargetDesc,
             .num_color_targets         = 1,
             .depth_stencil_format      = SDL_GPU_TEXTUREFORMAT_INVALID,
             .has_depth_stencil_target  = false,
@@ -546,15 +765,24 @@ bool ParticleRenderPass::init(SDL_GPUTextureFormat swapchainFormat,
         return false;
     }
 
+    // Pixel pipeline — identical but with standard alpha blend
+    pipelineInfo.target_info.color_target_descriptions = &standardTargetDesc;
+    m_pixelPipeline = SDL_CreateGPUGraphicsPipeline(m_gpu_device, &pipelineInfo);
+    if (!m_pixelPipeline) {
+        LOG_ERROR("ParticleRenderPass: failed to create pixel pipeline: {}", SDL_GetError());
+        return false;
+    }
+
     if (logInit) LOG_INFO("ParticleRenderPass '{}' initialized", passname);
     return true;
 }
 
 void ParticleRenderPass::release(bool logRelease) {
-    if (m_pipeline)  { SDL_ReleaseGPUGraphicsPipeline(m_gpu_device, m_pipeline);  m_pipeline  = nullptr; }
-    if (m_vertShader){ SDL_ReleaseGPUShader(m_gpu_device, m_vertShader);           m_vertShader = nullptr; }
-    if (m_fragShader){ SDL_ReleaseGPUShader(m_gpu_device, m_fragShader);           m_fragShader = nullptr; }
-    if (logRelease)  LOG_INFO("ParticleRenderPass '{}' released", passname);
+    if (m_pipeline)      { SDL_ReleaseGPUGraphicsPipeline(m_gpu_device, m_pipeline);      m_pipeline      = nullptr; }
+    if (m_pixelPipeline) { SDL_ReleaseGPUGraphicsPipeline(m_gpu_device, m_pixelPipeline); m_pixelPipeline = nullptr; }
+    if (m_vertShader)    { SDL_ReleaseGPUShader(m_gpu_device, m_vertShader);               m_vertShader    = nullptr; }
+    if (m_fragShader)    { SDL_ReleaseGPUShader(m_gpu_device, m_fragShader);               m_fragShader    = nullptr; }
+    if (logRelease)      LOG_INFO("ParticleRenderPass '{}' released", passname);
 }
 
 void ParticleRenderPass::render(SDL_GPUCommandBuffer* cmdBuf,
@@ -563,13 +791,12 @@ void ParticleRenderPass::render(SDL_GPUCommandBuffer* cmdBuf,
     if (m_drawQueue.empty()) return;
 
     SDL_GPUColorTargetInfo colorInfo = {
-        .texture   = target,
-        .load_op   = SDL_GPU_LOADOP_LOAD,   // always composite on top
-        .store_op  = SDL_GPU_STOREOP_STORE,
+        .texture  = target,
+        .load_op  = SDL_GPU_LOADOP_LOAD,
+        .store_op = SDL_GPU_STOREOP_STORE,
     };
 
     SDL_GPURenderPass* rp = SDL_BeginGPURenderPass(cmdBuf, &colorInfo, 1, nullptr);
-    SDL_BindGPUGraphicsPipeline(rp, m_pipeline);
 
     // Bind particle + system buffers to vertex storage slots 0 and 1
     SDL_GPUBuffer* storageBufs[2] = {
@@ -600,7 +827,23 @@ void ParticleRenderPass::render(SDL_GPUCommandBuffer* cmdBuf,
     } vu = { correctedCamera, {camW, camH}, {} };
     SDL_PushGPUVertexUniformData(cmdBuf, 0, &vu, sizeof(vu));
 
+    SDL_GPUGraphicsPipeline* activePipeline = nullptr;
+
     for (const auto& cmd : m_drawQueue) {
+        // Switch pipeline only when the blend mode changes
+        SDL_GPUGraphicsPipeline* needed = cmd.pixelMode ? m_pixelPipeline : m_pipeline;
+        if (needed != activePipeline) {
+            SDL_BindGPUGraphicsPipeline(rp, needed);
+            activePipeline = needed;
+        }
+
+        // Bind texture + sampler (white pixel fallback when no texture is set)
+        SDL_GPUTextureSamplerBinding samplerBinding = {
+            .texture = cmd.texture ? cmd.texture : Particles::GetWhiteTexture(),
+            .sampler = cmd.sampler ? cmd.sampler : Particles::GetLinearSampler(),
+        };
+        SDL_BindGPUFragmentSamplers(rp, 0, &samplerBinding, 1);
+
         // 6 vertices per quad; first_instance = particleOffset offsets gl_InstanceIndex
         SDL_DrawGPUPrimitives(rp, 6, cmd.maxParticles, 0, cmd.particleOffset);
     }

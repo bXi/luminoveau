@@ -376,6 +376,15 @@ void Renderer::_endFrame() {
 
     if (!SDL_WaitAndAcquireGPUSwapchainTexture(m_cmdbuf, Window::GetWindow(), &swapchain_texture, nullptr, nullptr)) {
         LOG_WARNING("Failed to acquire GPU swapchain texture: {}", SDL_GetError());
+        SDL_SubmitGPUCommandBuffer(m_cmdbuf);
+        m_cmdbuf = nullptr;
+        Compute::_Reset();
+        for (auto &[fbName, framebuffer]: frameBuffers) {
+            for (auto &[passname, renderpass]: framebuffer->renderpasses) {
+                renderpass->resetRenderQueue();
+            }
+        }
+        Draw::ResetEffectStore();
         return;
     }
 
@@ -551,7 +560,9 @@ void Renderer::_endFrame() {
             }
         }
     } else {
-        // don't have a swapchain. just end imgui
+        // Swapchain not available (minimized / occluded) — skip rendering but
+        // flush the compute queue so dispatches don't accumulate across frames.
+        Compute::_Reset();
         #ifdef LUMINOVEAU_WITH_IMGUI
         ImGui::EndFrame();
         #endif

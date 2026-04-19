@@ -79,6 +79,10 @@ void main(uint3 dispatchID : SV_DispatchThreadID)
     float  respawnTimer  = particles[idx].respawnTimer;
 
     GPUParticleSystem sys = systems[sysID];
+
+    // bit 1 = custom compute pipeline handles this system — skip built-in logic
+    if ((sys.flags & 2u) != 0u) return;
+
     bool isEmitting = (sys.flags & 1u) != 0u;
 
     if (posAndLife.w > 0.0)
@@ -101,7 +105,11 @@ void main(uint3 dispatchID : SV_DispatchThreadID)
         // ── Dead: count down respawn timer ────────────────────────────────────
         if (isEmitting)
         {
-            respawnTimer -= deltaTime;
+            // respawnTimer is a normalised fraction [0,1] of one respawn period.
+            // Decrement by (dt * storedRate) where storedRate = emitRate/N.
+            // Changing emitRate immediately changes the decrement speed — no
+            // burst, no scatter, smooth live updates in both directions.
+            respawnTimer -= deltaTime * sys.emitRate;
 
             if (respawnTimer <= 0.0)
             {
@@ -138,9 +146,7 @@ void main(uint3 dispatchID : SV_DispatchThreadID)
                 particles[idx].velAndMaxLife = float4(sys.spawnVel.xyz + randVel, maxLife);
                 particles[idx].startSize     = startSize;
                 particles[idx].endSize       = endSize;
-                particles[idx].respawnTimer  = (sys.emitRate > 0.0)
-                                               ? (1.0 / sys.emitRate)
-                                               : 1e6;
+                particles[idx].respawnTimer  = 1.0; // reset to full period fraction
             }
             else
             {

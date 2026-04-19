@@ -283,11 +283,15 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
             filedata.data = filedata.fileDataVector.data();
             filedata.fileSize = filedata.fileDataVector.size();
 
-            // Store in memory cache and metadata cache
+            // Store in memory cache and metadata cache.
+            // After the copy into the map, fix the cache entry's data pointer so it
+            // points to the map entry's own fileDataVector (not the local's, which
+            // will be destroyed on return).
             shaderDataCache[filename] = filedata;
+            shaderDataCache[filename].data = shaderDataCache[filename].fileDataVector.data();
             metadataCache[filename] = cachedMetadata;
 
-            return filedata;
+            return shaderDataCache[filename];
         } else {
             LOG_INFO("Cache invalid for {} (source changed), recompiling", filename.c_str());
         }
@@ -330,10 +334,12 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
     filedata.data = filedata.fileDataVector.data();
     filedata.fileSize = filedata.fileDataVector.size();
 
-    // Store in memory cache
+    // Store in memory cache, then fix the cache entry's data pointer to its own
+    // fileDataVector (not the local's, which is destroyed on return).
     shaderDataCache[filename] = filedata;
+    shaderDataCache[filename].data = shaderDataCache[filename].fileDataVector.data();
 
-    return filedata;
+    return shaderDataCache[filename];
 }
 
 ShaderMetadata Shaders::_getShaderMetadata(const std::string &filename) {

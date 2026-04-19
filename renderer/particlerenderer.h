@@ -22,9 +22,11 @@
 class ParticleRenderPass : public RenderPass {
 public:
     struct DrawCmd {
-        uint32_t particleOffset;
-        uint32_t maxParticles;
-        // systemIndex is not needed here; particle data carries systemID
+        uint32_t        particleOffset;
+        uint32_t        maxParticles;
+        SDL_GPUTexture* texture;    // null → bind white pixel fallback
+        SDL_GPUSampler* sampler;    // null → bind internal linear sampler
+        bool            pixelMode;  // true → standard alpha blend; false → additive
     };
 
     explicit ParticleRenderPass(SDL_GPUDevice* device);
@@ -45,9 +47,10 @@ public:
     void addDraw(const DrawCmd& cmd) { m_drawQueue.push_back(cmd); }
 
 private:
-    SDL_GPUGraphicsPipeline* m_pipeline   = nullptr;
-    SDL_GPUShader*           m_vertShader = nullptr;
-    SDL_GPUShader*           m_fragShader = nullptr;
+    SDL_GPUGraphicsPipeline* m_pipeline      = nullptr; // additive blend
+    SDL_GPUGraphicsPipeline* m_pixelPipeline = nullptr; // standard alpha blend (pixel mode)
+    SDL_GPUShader*           m_vertShader    = nullptr;
+    SDL_GPUShader*           m_fragShader    = nullptr;
 
     std::vector<DrawCmd> m_drawQueue;
     UniformBuffer        m_dummyUniforms;
@@ -84,8 +87,9 @@ private:
 
 namespace Particles {
 
-    static constexpr uint32_t MAX_PARTICLES = 50'000'000;
-    static constexpr uint32_t MAX_SYSTEMS   = 64;
+    static constexpr uint32_t MAX_PARTICLES      = 50'000'000;
+    static constexpr uint32_t MAX_SYSTEMS        = 64;
+    static constexpr uint32_t MAX_CUSTOM_COMPUTES = 32;
 
     // --- Lifecycle ---
 
@@ -111,6 +115,40 @@ namespace Particles {
     /// Reposition the spawn origin (e.g., to follow an entity).
     void SetPosition(const ParticleSystemHandle& handle, glm::vec3 worldPos);
 
+    /// Assign a texture to the system at runtime (overrides shape with Textured).
+    /// Pass nullptr for texture to revert to the config's shape.
+    void SetTexture(const ParticleSystemHandle& handle,
+                    SDL_GPUTexture* texture, SDL_GPUSampler* sampler = nullptr);
+
+    // --- Custom compute ---
+
+    /// Compile a compute shader from shaderPath and return a reusable handle.
+    /// The shader replaces the built-in update for any system it is assigned to.
+    ///
+    /// Required HLSL binding layout:
+    ///   StructuredBuffer<GPUParticleSystem>  systems   : register(t0, space0);
+    ///   RWStructuredBuffer<GPUParticle>      particles : register(u0, space1);
+    ///   cbuffer Uniforms : register(b0, space2) {
+    ///       uint  particleOffset;  // first particle index in the global buffer
+    ///       uint  particleCount;   // particles owned by this system
+    ///       float deltaTime;
+    ///       float time;
+    ///   };
+    ///
+    /// In main(): use (particleOffset + dispatchID.x) as the global particle index.
+    ParticleComputeHandle CreateCustomCompute(const std::string& shaderPath);
+
+    /// Release the GPU pipeline created by CreateCustomCompute().
+    /// Automatically clears the pipeline from any system it was assigned to.
+    void DestroyCustomCompute(ParticleComputeHandle& handle);
+
+    /// Replace the built-in update for a system with a custom compute pipeline.
+    void SetCustomCompute(const ParticleSystemHandle& system,
+                          const ParticleComputeHandle& compute);
+
+    /// Revert a system to the built-in update logic.
+    void ClearCustomCompute(const ParticleSystemHandle& system);
+
     /// Update system parameters in real-time without recreating the system.
     /// maxParticles cannot be changed. Start/Stop state is preserved.
     void UpdateConfig(const ParticleSystemHandle& handle, const ParticleSystemConfig& cfg);
@@ -129,6 +167,8 @@ namespace Particles {
     SDL_GPUBuffer*      GetParticleBuffer();
     SDL_GPUBuffer*      GetSystemBuffer();
     ParticleRenderPass* GetRenderPass();
+    SDL_GPUTexture*     GetWhiteTexture();   // 1×1 white fallback for non-textured draws
+    SDL_GPUSampler*     GetLinearSampler();  // default sampler for textured draws
 
     // --- Internal: called by Renderer::_endFrame() before compute ---
     void _PrepareFrame(SDL_GPUCommandBuffer* cmdBuf);
