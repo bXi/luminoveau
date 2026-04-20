@@ -353,7 +353,8 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
     SDL_GPUTextureCreateInfo sdlGpuTextureCreateInfo = {
         .type = SDL_GPU_TEXTURETYPE_2D,
         .format = swapchainFormat,
-        .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER
+               | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE,
         .width = static_cast<Uint32>(size.x),
         .height = static_cast<Uint32>(size.y),
         .layer_count_or_depth = 1,
@@ -376,7 +377,8 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size, SDL_GPUTextureF
     SDL_GPUTextureCreateInfo sdlGpuTextureCreateInfo = {
         .type = SDL_GPU_TEXTURETYPE_2D,
         .format = format,
-        .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER
+               | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE,
         .width = static_cast<Uint32>(size.x),
         .height = static_cast<Uint32>(size.y),
         .layer_count_or_depth = 1,
