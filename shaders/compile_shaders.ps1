@@ -754,8 +754,8 @@ if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
     {
         if ($shader.VertCppSPIRV)
         {
-            $cmakeContent += "`n        assets/shaders/$($shader.VertCppSPIRV)"
-            $cmakeContent += "`n        assets/shaders/$($shader.FragCppSPIRV)"
+            $cmakeContent += "`n        src/assets/shaders/$($shader.VertCppSPIRV)"
+            $cmakeContent += "`n        src/assets/shaders/$($shader.FragCppSPIRV)"
         }
     }
 
@@ -769,8 +769,8 @@ if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
     {
         if ($shader.VertCppDXIL)
         {
-            $cmakeContent += "`n        assets/shaders/$($shader.VertCppDXIL)"
-            $cmakeContent += "`n        assets/shaders/$($shader.FragCppDXIL)"
+            $cmakeContent += "`n        src/assets/shaders/$($shader.VertCppDXIL)"
+            $cmakeContent += "`n        src/assets/shaders/$($shader.FragCppDXIL)"
         }
     }
 
@@ -784,8 +784,8 @@ if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
     {
         if ($shader.VertCppMETALLIB)
         {
-            $cmakeContent += "`n        assets/shaders/$($shader.VertCppMETALLIB)"
-            $cmakeContent += "`n        assets/shaders/$($shader.FragCppMETALLIB)"
+            $cmakeContent += "`n        src/assets/shaders/$($shader.VertCppMETALLIB)"
+            $cmakeContent += "`n        src/assets/shaders/$($shader.FragCppMETALLIB)"
         }
     }
 
@@ -804,7 +804,7 @@ set(LUMINOVEAU_COMPUTE_SHADER_SOURCES
     {
         if ($compute.CompCppSPIRV)
         {
-            $cmakeContent += "`n    assets/shaders/$($compute.CompCppSPIRV)"
+            $cmakeContent += "`n    src/assets/shaders/$($compute.CompCppSPIRV)"
         }
     }
 
