@@ -16,36 +16,36 @@ lumi_done("GPU Backend: ${LUMINOVEAU_GPU_BACKEND}")
 # Select shader files based on backend
 if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
     set(LUMINOVEAU_SHADER_SOURCES
-        assethandler/shaders/fullscreen_quad_vert.spirv.cpp
-        assethandler/shaders/fullscreen_quad_frag.spirv.cpp
-        assethandler/shaders/model3d_vert.spirv.cpp
-        assethandler/shaders/model3d_frag.spirv.cpp
-        assethandler/shaders/particles_vert.spirv.cpp
-        assethandler/shaders/particles_frag.spirv.cpp
-        assethandler/shaders/sprite_vert.spirv.cpp
-        assethandler/shaders/sprite_frag.spirv.cpp
+        src/assets/shaders/fullscreen_quad_vert.spirv.cpp
+        src/assets/shaders/fullscreen_quad_frag.spirv.cpp
+        src/assets/shaders/model3d_vert.spirv.cpp
+        src/assets/shaders/model3d_frag.spirv.cpp
+        src/assets/shaders/particles_vert.spirv.cpp
+        src/assets/shaders/particles_frag.spirv.cpp
+        src/assets/shaders/sprite_vert.spirv.cpp
+        src/assets/shaders/sprite_frag.spirv.cpp
     )
 elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "DXIL")
     set(LUMINOVEAU_SHADER_SOURCES
 
-        assethandler/shaders/fullscreen_quad_vert.dxil.cpp
-        assethandler/shaders/fullscreen_quad_frag.dxil.cpp
-        assethandler/shaders/model3d_vert.dxil.cpp
-        assethandler/shaders/model3d_frag.dxil.cpp
-        assethandler/shaders/particles_vert.dxil.cpp
-        assethandler/shaders/particles_frag.dxil.cpp
-        assethandler/shaders/sprite_vert.dxil.cpp
-        assethandler/shaders/sprite_frag.dxil.cpp
+        src/assets/shaders/fullscreen_quad_vert.dxil.cpp
+        src/assets/shaders/fullscreen_quad_frag.dxil.cpp
+        src/assets/shaders/model3d_vert.dxil.cpp
+        src/assets/shaders/model3d_frag.dxil.cpp
+        src/assets/shaders/particles_vert.dxil.cpp
+        src/assets/shaders/particles_frag.dxil.cpp
+        src/assets/shaders/sprite_vert.dxil.cpp
+        src/assets/shaders/sprite_frag.dxil.cpp
     )
 elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "METALLIB")
     set(LUMINOVEAU_SHADER_SOURCES
 
-        assethandler/shaders/fullscreen_quad_vert.metallib.cpp
-        assethandler/shaders/fullscreen_quad_frag.metallib.cpp
-        assethandler/shaders/model3d_vert.metallib.cpp
-        assethandler/shaders/model3d_frag.metallib.cpp
-        assethandler/shaders/sprite_vert.metallib.cpp
-        assethandler/shaders/sprite_frag.metallib.cpp
+        src/assets/shaders/fullscreen_quad_vert.metallib.cpp
+        src/assets/shaders/fullscreen_quad_frag.metallib.cpp
+        src/assets/shaders/model3d_vert.metallib.cpp
+        src/assets/shaders/model3d_frag.metallib.cpp
+        src/assets/shaders/sprite_vert.metallib.cpp
+        src/assets/shaders/sprite_frag.metallib.cpp
     )
 else()
     message(FATAL_ERROR "No shader files available for backend: ${LUMINOVEAU_GPU_BACKEND}")
@@ -53,7 +53,7 @@ endif()
 
 # Compute shaders are always SPIR-V: SDL_ShaderCross handles cross-compilation at runtime
 set(LUMINOVEAU_COMPUTE_SHADER_SOURCES
-    assethandler/shaders/particles_comp.spirv.cpp
+    src/assets/shaders/particles_comp.spirv.cpp
 )
 
 list(APPEND LUMINOVEAU_SHADER_SOURCES ${LUMINOVEAU_COMPUTE_SHADER_SOURCES})

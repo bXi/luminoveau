@@ -1,21 +1,4 @@
-# Defining source files for the Luminoveau library
-
-# ============================================================================
-# GPU Backend Selection (platform defaults)
-# ============================================================================
-# Maps platform to shader format used by Sources.Shaders.cmake:
-#   macOS/iOS    -> METALLIB  (Metal)
-#   Windows      -> SPIRV     (Vulkan, override with -DLUMINOVEAU_GPU_BACKEND=DXIL for DX12)
-#   Android      -> SPIRV     (Vulkan)
-#   Linux        -> SPIRV     (Vulkan)
-#   Emscripten   -> (not yet supported)
-#   All others   -> SPIRV     (Vulkan)
-#
-# The shader format directly determines the graphics driver:
-#   SPIRV     -> Vulkan
-#   DXIL      -> DirectX 12
-#   METALLIB  -> Metal
-
+# ── GPU backend selection ─────────────────────────────────────────────────────
 if(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
     if(APPLE)
         set(LUMINOVEAU_GPU_BACKEND "METALLIB" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)" FORCE)
@@ -23,18 +6,16 @@ if(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
         set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)" FORCE)
     endif()
 else()
-    # Validate stale or invalid cache values
     if(NOT LUMINOVEAU_GPU_BACKEND MATCHES "^(SPIRV|DXIL|METALLIB)$")
-        message(WARNING "Invalid cached LUMINOVEAU_GPU_BACKEND='${LUMINOVEAU_GPU_BACKEND}', resetting to platform default")
+        message(WARNING "Invalid LUMINOVEAU_GPU_BACKEND='${LUMINOVEAU_GPU_BACKEND}', resetting to platform default")
         if(APPLE)
-            set(LUMINOVEAU_GPU_BACKEND "METALLIB" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)" FORCE)
+            set(LUMINOVEAU_GPU_BACKEND "METALLIB" CACHE STRING "" FORCE)
         else()
-            set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)" FORCE)
+            set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "" FORCE)
         endif()
     endif()
 endif()
 
-# Platform sanity checks
 if(LUMINOVEAU_GPU_BACKEND STREQUAL "METALLIB" AND NOT APPLE)
     message(FATAL_ERROR "METALLIB backend is only supported on Apple platforms")
 endif()
@@ -42,170 +23,170 @@ if(LUMINOVEAU_GPU_BACKEND STREQUAL "DXIL" AND NOT WIN32)
     message(FATAL_ERROR "DXIL backend is only supported on Windows")
 endif()
 
-# Include auto-generated shader sources (sets LUMINOVEAU_SHADER_SOURCES and compile define)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Sources.Shaders.cmake")
     include(cmake/Sources.Shaders.cmake)
 else()
-    message(FATAL_ERROR "Shader sources file not found: cmake/Sources.Shaders.cmake\nPlease run shaders/compile_shaders.ps1 to generate shader binaries.")
+    message(FATAL_ERROR "Shader sources not found. Run shaders/compile_shaders.ps1 first.")
 endif()
 
 set(LUMINOVEAU_SOURCES
-    # Audio module
-    audio/audiohandler.cpp
+    # Platform
+    src/platform/audio/audio.cpp
+    src/platform/input/inputdevice.cpp
+    src/platform/input/input.cpp
+    src/platform/input/virtualcontrols.cpp
+    src/platform/window/window.cpp
 
-    # Text handling
-    text/texthandler.cpp
+    # Core
+    src/core/eventbus/eventbus.cpp
+    src/core/settings/settingshandler.cpp
+    src/core/state/state.cpp
+    src/core/log/loghandler.cpp
 
-    # Event bus
-    eventbus/eventbushandler.cpp
+    # File
+    src/file/filehandler.cpp
+    src/file/resourcepack.cpp
 
-    # Input handling
-    input/inputdevice.cpp
-    input/inputhandler.cpp
-    input/virtualcontrols.cpp
+    # Math
+    src/math/rectangles.cpp
+    src/math/vectors.cpp
 
-    # Buffer management
-    buffer/buffermanager.cpp
+    # Util
+    src/util/helpers.cpp
+    src/util/lerp.cpp
 
-    # Drawing
-    draw/drawhandler.cpp
+    # GPU
+    src/gpu/backends/sdl/SdlGpuBackend.cpp
+    src/gpu/backends/sdl/sdlgpu.cpp
+    src/gpu/geometry/geometry2d.cpp
+    src/gpu/buffer/buffermanager.cpp
 
-    # Settings
-    settings/settingshandler.cpp
+    # Renderer
+    src/renderer/renderer.cpp
+    src/renderer/passes/spriterenderpass.cpp
+    src/renderer/passes/model3drenderpass.cpp
+    src/renderer/passes/shaderrenderpass.cpp
+    src/renderer/shaderhandler.cpp
+    src/renderer/computehandler.cpp
 
-    # State management
-    state/state.cpp
+    # Assets
+    src/assets/assethandler.cpp
+    src/assets/DroidSansMono.cpp
 
-    # Asset handling
-    assethandler/assethandler.cpp
-    assethandler/DroidSansMono.cpp
+    # Scene
+    src/scene/scene3d.cpp
 
-    # File handling
-    file/filehandler.cpp
+    # Draw
+    src/draw/texthandler.cpp
+    src/draw/particles.cpp
+    src/draw/draw.cpp
 
     # Shaders (auto-generated)
     ${LUMINOVEAU_SHADER_SOURCES}
 
-    # Renderer
-    renderer/sdl_gpu_structs.cpp
-    renderer/rendererhandler.cpp
-    renderer/spriterenderpass.cpp
-    renderer/model3drenderpass.cpp
-    renderer/shaderrenderpass.cpp
-    renderer/shaderhandler.cpp
-    renderer/computehandler.cpp
-    renderer/particlerenderer.cpp
-    renderer/geometry2d.cpp
-
-    # Utilities
-    utils/resourcepack.cpp
-
-    # Logging
-    log/loghandler.cpp
-
-    # Utilities
-    utils/helpers.cpp
-    utils/lerp.cpp
-    utils/rectangles.cpp
-    utils/vectors.cpp
-    utils/scene3d.cpp
-
-    # Window management
-    window/windowhandler.cpp
-
-    # External sources
-    extern/miniaudio.cpp
+    # External
+    src/extern/miniaudio.cpp
 )
 
-# Defining header files for installation and inclusion
 set(LUMINOVEAU_HEADERS
     luminoveau.h
 
-    # Audio module
-    audio/audiohandler.h
+    # Interfaces
+    src/interfaces/IRenderer.h
+    src/interfaces/IAudio.h
+    src/interfaces/IInput.h
+    src/interfaces/IWindow.h
+    src/interfaces/IFileSystem.h
 
-    # Engine state
-    enginestate/enginestate.h
+    # Math
+    src/math/angles.h
+    src/math/constants.h
+    src/math/easings.h
+    src/math/rectangles.h
+    src/math/vectors.h
 
-    # Text handling
-    text/texthandler.h
+    # Types
+    src/types/color.h
 
-    # Event bus
-    eventbus/eventbushandler.h
+    # Util
+    src/util/helpers.h
+    src/util/lerp.h
+    src/util/quadtree.h
 
-    # Input handling
-    input/inputconstants.h
-    input/inputdevice.h
-    input/inputhandler.h
-    input/virtualcontrols.h
+    # GPU buffer
+    src/gpu/buffer/uniformobject.h
 
-    # Buffer management
-    buffer/buffer.h
-    buffer/buffermanager.h
+    # GPU
+    src/gpu/types.h
+    src/gpu/IGpu.h
+    src/gpu/presets.h
+    src/gpu/IBackendAccess.h
+    src/gpu/renderpass.h
+    src/gpu/renderable.h
+    src/gpu/geometry/geometry2d.h
+    src/gpu/buffer/buffer.h
+    src/gpu/buffer/buffermanager.h
 
-    # Drawing
-    draw/drawhandler.h
+    # GPU backends
+    src/gpu/backends/sdl/SdlGpuBackend.h
+    src/gpu/backends/sdl/SdlGpuHandles.h
+    src/gpu/backends/sdl/sdlgpu.h
+    src/gpu/backends/gl/OpenGLGpuBackend.h
+    src/gpu/backends/sw/SoftwareGpuBackend.h
 
-    # Settings
-    settings/mini.h
-    settings/settingshandler.h
-
-    # State management
-    state/basestate.h
-    state/state.h
-
-    # Asset handling
-    assethandler/assethandler.h
-
-    # File handling
-    file/filehandler.h
-
-    # Shaders (auto-generated)
-    assethandler/shaders_generated.h
-
-    # Asset types
-    assettypes/font.h
-    assettypes/model.h
-    assettypes/music.h
-    assettypes/shader.h
-    assettypes/sound.h
-    assettypes/texture.h
-    assettypes/computepipeline.h
-    assettypes/particlesystem.h
+    # Assets
+    src/assets/assethandler.h
+    src/assets/shaders_generated.h
+    src/assets/texture/texture.h
+    src/assets/shader/shader.h
+    src/assets/font/font.h
+    src/assets/audio/sound.h
+    src/assets/audio/music.h
+    src/assets/audio/pcmsound.h
+    src/assets/model/model.h
+    src/assets/effect/effect.h
+    src/assets/effect/effecthandler.h
+    src/assets/compute/computepipeline.h
 
     # Renderer
-    renderer/sdl_gpu_structs.h
-    renderer/rendererhandler.h
-    renderer/renderpass.h
-    renderer/spriterenderpass.h
-    renderer/model3drenderpass.h
-    renderer/shaderrenderpass.h
-    renderer/shaderhandler.h
-    renderer/computehandler.h
-    renderer/particlerenderer.h
-    renderer/geometry2d.h
+    src/renderer/renderer.h
+    src/renderer/shaderhandler.h
+    src/renderer/computehandler.h
+    src/renderer/passes/spriterenderpass.h
+    src/renderer/passes/model3drenderpass.h
+    src/renderer/passes/shaderrenderpass.h
 
-    # Logging
-    log/loghandler.h
+    # Core
+    src/core/eventbus/eventbus.h
+    src/core/enginestate/enginestate.h
+    src/core/settings/settingshandler.h
+    src/core/settings/mini.h
+    src/core/state/state.h
+    src/core/state/basestate.h
+    src/core/log/loghandler.h
 
-    # Utilities
-    utils/camera.h
-    utils/camera3d.h
-    utils/colors.h
-    utils/constants.h
-    utils/easings.h
-    utils/helpers.h
-    utils/lerp.h
-    utils/quadtree.h
-    utils/rectangles.h
-    utils/vectors.h
-    utils/resourcepack.h
-    utils/scene3d.h
+    # Platform
+    src/platform/audio/audio.h
+    src/platform/input/input.h
+    src/platform/input/inputconstants.h
+    src/platform/input/inputdevice.h
+    src/platform/input/virtualcontrols.h
+    src/platform/window/window.h
 
-    # Window management
-    window/windowhandler.h
+    # Scene
+    src/scene/camera.h
+    src/scene/camera3d.h
+    src/scene/scene3d.h
+
+    # Draw
+    src/draw/texthandler.h
+    src/draw/particles.h
+    src/draw/particlesystem.h
+    src/draw/draw.h
+
+    # File
+    src/file/filehandler.h
+    src/file/resourcepack.h
 )
 
-# app/lumi_main.cpp is intentionally excluded from LUMINOVEAU_SOURCES.
-# It is added as an INTERFACE source in CMakeLists.txt so it compiles
-# into the executable rather than the static library.
+# app/lumi_main.cpp is INTERFACE — compiles into the executable, not the library.

@@ -4,31 +4,31 @@
 
 # Adding Steam handler sources (always included, but only functional if Steam SDK is found)
 target_sources(luminoveau PRIVATE
-    steam/steamhandler.cpp
-    steam/steamhandler.h
+    src/integrations/steam/steamhandler.cpp
+    src/integrations/steam/steamhandler.h
 )
 
 # Checking for Steam SDK presence
-set(STEAM_SDK_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/public/steam/steam_api.h")
+set(STEAM_SDK_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/public/steam/steam_api.h")
 if(EXISTS "${STEAM_SDK_HEADER}")
     # Finding required threads library
     find_package(Threads REQUIRED)
 
     # Setting include directories for Steam SDK
     target_include_directories(luminoveau PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/public/steam"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/public/steam"
     )
 
     # Configuring platform-specific Steam API library
     if(WIN32)
-        set(STEAM_API_LIB "${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/redistributable_bin/win64/steam_api64.lib")
-        set(STEAM_API_DLL "${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/redistributable_bin/win64/steam_api64.dll")
+        set(STEAM_API_LIB "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/win64/steam_api64.lib")
+        set(STEAM_API_DLL "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/win64/steam_api64.dll")
     elseif(UNIX AND NOT APPLE)
-        set(STEAM_API_LIB "${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/redistributable_bin/linux64/libsteam_api.so")
-        set(STEAM_API_DLL "${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/redistributable_bin/linux64/libsteam_api.so")
+        set(STEAM_API_LIB "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/linux64/libsteam_api.so")
+        set(STEAM_API_DLL "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/linux64/libsteam_api.so")
     elseif(APPLE)
-        set(STEAM_API_LIB "${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/redistributable_bin/osx/libsteam_api.dylib")
-        set(STEAM_API_DLL "${CMAKE_CURRENT_SOURCE_DIR}/steam/sdk/redistributable_bin/osx/libsteam_api.dylib")
+        set(STEAM_API_LIB "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/osx/libsteam_api.dylib")
+        set(STEAM_API_DLL "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/osx/libsteam_api.dylib")
     else()
         message(WARNING "Unsupported platform for Steam SDK integration")
         return()

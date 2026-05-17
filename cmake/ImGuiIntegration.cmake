@@ -31,6 +31,12 @@ if(LUMINOVEAU_BUILD_IMGUI)
         endif()
         target_include_directories(luminoveau PUBLIC "${Imgui_SOURCE_DIR}")
 
+        # Luminoveau ImGui integration wrapper
+        target_sources(luminoveau PRIVATE
+            "${PROJECT_SOURCE_DIR}/src/integrations/imgui/imgui_integration.cpp"
+            "${PROJECT_SOURCE_DIR}/src/integrations/imgui/imgui_integration.h"
+        )
+
         # Adding core ImGui sources
         target_sources(luminoveau PRIVATE
             "${Imgui_SOURCE_DIR}/imgui.cpp"

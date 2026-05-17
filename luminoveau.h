@@ -1,54 +1,63 @@
 #pragma once
 
-//Asset types
-#include <assettypes/font.h>
-#include <assettypes/music.h>
-#include <assettypes/shader.h>
-#include <assettypes/sound.h>
-#include <assettypes/texture.h>
-#include <assettypes/model.h>
-#include <assettypes/effect.h>
-#include <assettypes/effecthandler.h>
-#include <assettypes/pcmsound.h>
-#include <assettypes/computepipeline.h>
-#include <assettypes/particlesystem.h>
+// ── Global config ────────────────────────────────────────────────────────────
+#include <config.h>
 
-//Buffer management
-#include <buffer/buffer.h>
-#include <buffer/buffermanager.h>
+// ── Math & types ────────────────────────────────────────────────────────────
+#include <math/angles.h>
+#include <types/color.h>
+#include <math/constants.h>
+#include <util/helpers.h>
+#include <util/lerp.h>
+#include <math/rectangles.h>
+#include <math/vectors.h>
 
-//Engine components
-#include <assethandler/assethandler.h>
-#include <audio/audiohandler.h>
-#include <draw/drawhandler.h>
-#include <eventbus/eventbushandler.h>
-#include <input/inputhandler.h>
-#include <renderer/rendererhandler.h>
+// ── Asset types ──────────────────────────────────────────────────────────────
+#include <assets/texture/texture.h>
+#include <assets/shader/shader.h>
+#include <assets/font/font.h>
+#include <assets/audio/sound.h>
+#include <assets/audio/music.h>
+#include <assets/audio/pcmsound.h>
+#include <assets/model/model.h>
+#include <assets/effect/effect.h>
+#include <assets/effect/effecthandler.h>
+#include <assets/compute/computepipeline.h>
+
+// ── GPU ──────────────────────────────────────────────────────────────────────
+#include <gpu/types.h>
+#include <gpu/IGpu.h>
+#include <gpu/presets.h>
+#include <gpu/buffer/buffer.h>
+#include <gpu/buffer/buffermanager.h>
+
+// ── Engine systems ───────────────────────────────────────────────────────────
+#include <assets/assethandler.h>
+#include <platform/audio/audio.h>
+#include <draw/draw.h>
+#include <core/eventbus/eventbus.h>
+#include <platform/input/input.h>
+#include <renderer/renderer.h>
 #include <renderer/shaderhandler.h>
 #include <renderer/computehandler.h>
-#include <renderer/particlerenderer.h>
-#include <text/texthandler.h>
-#include <window/windowhandler.h>
+#include <draw/particles.h>
+#include <draw/texthandler.h>
+#include <platform/window/window.h>
 
-//Utilities
-#include <utils/angles.h>
-#include <utils/camera.h>
-#include <utils/camera3d.h>
-#include <utils/colors.h>
-#include <utils/constants.h>
-#include <utils/helpers.h>
-#include <utils/lerp.h>
-#include <utils/rectangles.h>
-#include <utils/vectors.h>
-#include <utils/scene3d.h>
+// ── Scene ────────────────────────────────────────────────────────────────────
+#include <scene/camera.h>
+#include <scene/camera3d.h>
+#include <scene/scene3d.h>
 
-//RmlUI integration
+// ── Steam (optional) ─────────────────────────────────────────────────────────
+#include <integrations/steam/steamhandler.h>
+
+// ── RmlUI (optional) ─────────────────────────────────────────────────────────
 #ifdef LUMINOVEAU_WITH_RMLUI
-#include <rmlui/rmluihandler.h>
+#include <integrations/rmlui/rmluihandler.h>
 #endif
 
-//Callback-based main loop
+// ── Callback-based main loop (optional) ──────────────────────────────────────
 #ifdef LUMINOVEAU_USE_CALLBACKS
 #include <app/app.h>
 #endif
-

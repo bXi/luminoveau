@@ -1,0 +1,1072 @@
+#include "draw.h"
+#include "draw/particles.h"
+
+#include <utility>
+#include <algorithm>
+#include <cmath>
+
+int32_t Draw::_getOrCreateEffectIndex() {
+    if (_effectStack.empty()) return -1;
+    
+    // If stack hasn't changed since last lookup, reuse cached index
+    if (!_effectStackDirty) return _currentEffectIndex;
+    
+    // Store the effect stack and cache the index
+    _currentEffectIndex = static_cast<int32_t>(_effectStore.size());
+    _effectStore.push_back(_effectStack);
+    _effectTextureStore.push_back(_effectTextures);
+    _effectStackDirty = false;
+    
+    return _currentEffectIndex;
+}
+
+void Draw::_setEffect(const EffectAsset& effect) {
+    _effectStack.clear();
+    _effectStack.push_back(effect);
+    _effectStackDirty = true;
+}
+
+void Draw::_addEffect(const EffectAsset& effect) {
+    _effectStack.push_back(effect);
+    _effectStackDirty = true;
+}
+
+void Draw::_removeEffect(const EffectAsset& effect) {
+    // Remove by comparing shader pointers
+    _effectStack.erase(
+        std::remove_if(_effectStack.begin(), _effectStack.end(),
+            [&](const EffectAsset& e) {
+                return e.vertShader.gpuShader == effect.vertShader.gpuShader &&
+                       e.fragShader.gpuShader == effect.fragShader.gpuShader;
+            }),
+        _effectStack.end()
+    );
+    _effectStackDirty = true;
+}
+
+void Draw::_clearEffects() {
+    _effectStack.clear();
+    _effectStackDirty = true;
+}
+
+void Draw::_setEffectTexture(uint32_t binding, const TextureAsset& texture, ScaleMode scaleMode) {
+    _effectTextures[binding] = { reinterpret_cast<SDL_GPUTexture*>(texture.gpuTexture), scaleMode };
+}
+
+void Draw::_clearEffectTextures() {
+    _effectTextures.clear();
+}
+
+
+
+void Draw::_initPixelBuffer() {
+    // Get desktop size in physical pixels to match framebuffer dimensions
+    SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode* displayMode = SDL_GetCurrentDisplayMode(primaryDisplay);
+    _pixelBufferWidth = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
+    _pixelBufferHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
+
+    LOG_INFO("initializing pixel buffer at desktop size: {}x{}", _pixelBufferWidth, _pixelBufferHeight);
+
+    // Pre-allocate CPU buffer for pixel data
+    _pixelBufferData.resize(_pixelBufferWidth * _pixelBufferHeight, 0x00000000);
+
+    // Single reusable transfer buffer for uploads
+    SDL_GPUTransferBufferCreateInfo transferInfo = {
+        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+        .size = (Uint32)(_pixelBufferWidth * _pixelBufferHeight * sizeof(uint32_t)),
+        .props = 0,
+    };
+
+    _pixelTransferBuffer = SDL_CreateGPUTransferBuffer(Renderer::GetDevice(), &transferInfo);
+    if (!_pixelTransferBuffer) {
+        LOG_ERROR("failed to create pixel transfer buffer: {}", SDL_GetError());
+    }
+}
+
+void Draw::_flushPixels() {
+    if (!_pixelsDirty) return;
+    if (!_pixelTransferBuffer) return;
+
+    // Allocate a fresh GPU texture for this flush so previously queued
+    // renderables are never overwritten by a subsequent flush this frame
+    SDL_GPUTextureCreateInfo texInfo = {
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
+        .width = _pixelBufferWidth,
+        .height = _pixelBufferHeight,
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
+        .props = 0,
+    };
+
+    SDL_GPUTexture* gpuTex = SDL_CreateGPUTexture(Renderer::GetDevice(), &texInfo);
+    if (!gpuTex) {
+        LOG_ERROR("failed to create pixel flush texture: {}", SDL_GetError());
+        return;
+    }
+
+    // Track it so we can release it at frame end
+    _pixelFrameTextures.push_back(gpuTex);
+
+    // Upload CPU buffer into the new texture.
+    // cycle=true lets SDL allocate a fresh backing buffer if this one is still
+    // in flight from a previous flush this frame, avoiding transfer buffer stomping.
+    void* mappedData = SDL_MapGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer, true);
+    if (!mappedData) {
+        LOG_ERROR("failed to map transfer buffer: {}", SDL_GetError());
+        return;
+    }
+
+    std::memcpy(mappedData, _pixelBufferData.data(), _pixelBufferWidth * _pixelBufferHeight * sizeof(uint32_t));
+    SDL_UnmapGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer);
+
+    SDL_GPUCommandBuffer* cmdBuf = SDL_AcquireGPUCommandBuffer(Renderer::GetDevice());
+    if (!cmdBuf) {
+        LOG_ERROR("failed to acquire GPU command buffer: {}", SDL_GetError());
+        return;
+    }
+
+    SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmdBuf);
+    if (!copyPass) {
+        LOG_ERROR("failed to begin GPU copy pass: {}", SDL_GetError());
+        return;
+    }
+
+    SDL_GPUTextureTransferInfo transferInfo = {
+        .transfer_buffer = _pixelTransferBuffer,
+        .offset = 0,
+        .pixels_per_row = 0,
+        .rows_per_layer = 0,
+    };
+
+    SDL_GPUTextureRegion destInfo = {
+        .texture = gpuTex,
+        .mip_level = 0,
+        .layer = 0,
+        .x = 0, .y = 0, .z = 0,
+        .w = _pixelBufferWidth,
+        .h = _pixelBufferHeight,
+        .d = 1,
+    };
+
+    SDL_UploadToGPUTexture(copyPass, &transferInfo, &destInfo, false);
+    SDL_EndGPUCopyPass(copyPass);
+    SDL_SubmitGPUCommandBuffer(cmdBuf);
+
+    // Clear CPU buffer and dirty flag BEFORE drawing to avoid recursion
+    std::fill(_pixelBufferData.begin(), _pixelBufferData.end(), 0x00000000);
+    _pixelsDirty = false;
+
+    // Build a temporary TextureAsset wrapper so _drawTexture can use it
+    TextureAsset flushTex;
+    flushTex.gpuTexture = reinterpret_cast<GpuTextureHandle>(gpuTex);
+    flushTex.gpuSampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode());
+    flushTex.width = _pixelBufferWidth;
+    flushTex.height = _pixelBufferHeight;
+    flushTex.filename = "[Lumi]PixelFlush";
+
+    _drawTexture(flushTex, {0, 0}, {(float)_pixelBufferWidth, (float)_pixelBufferHeight}, WHITE);
+}
+
+void Draw::_releaseFramePixelTextures() {
+    // Release the PREVIOUS frame's textures - by the time this is called,
+    // SDL_WaitAndAcquireGPUSwapchainTexture has already blocked, guaranteeing
+    // the GPU has finished rendering with those textures (frames_in_flight = 1).
+    for (SDL_GPUTexture* tex : _pixelPrevFrameTextures) {
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), tex);
+    }
+    // Rotate: current frame's textures become next frame's "previous"
+    _pixelPrevFrameTextures = std::move(_pixelFrameTextures);
+    _pixelFrameTextures.clear();
+}
+
+void Draw::_cleanupPixelBuffer() {
+    // Release both lists on shutdown - GPU is idle at this point
+    for (SDL_GPUTexture* tex : _pixelFrameTextures)
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), tex);
+    for (SDL_GPUTexture* tex : _pixelPrevFrameTextures)
+        SDL_ReleaseGPUTexture(Renderer::GetDevice(), tex);
+    _pixelFrameTextures.clear();
+    _pixelPrevFrameTextures.clear();
+    if (_pixelTransferBuffer) {
+        SDL_ReleaseGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer);
+        _pixelTransferBuffer = nullptr;
+    }
+    _pixelBufferData.clear();
+}
+
+void Draw::_drawRectangle(const vf2d& pos, const vf2d& size, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Calculate corners from original pos/size, let _drawLine handle transformation
+    vf2d topLeft = pos;
+    vf2d topRight = {pos.x + size.x, pos.y};
+    vf2d bottomRight = {pos.x + size.x, pos.y + size.y};
+    vf2d bottomLeft = {pos.x, pos.y + size.y};
+
+    // Top edge
+    _drawLine(topLeft, topRight, color);
+    // Right edge
+    _drawLine(topRight, bottomRight, color);
+    // Bottom edge
+    _drawLine(bottomRight, bottomLeft, color);
+    // Left edge
+    _drawLine(bottomLeft, topLeft, color);
+}
+
+void Draw::_drawCircle(vf2d pos, float radius, Color color, int segments = 32) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Apply camera transformation to center and radius
+    bool cameraWasActive = Camera::IsActive();
+    if (cameraWasActive) {
+        pos = Camera::ToScreenSpace(pos);
+        radius *= Camera::GetScale();
+        // Deactivate camera so _drawLine doesn't double-transform
+        Camera::Deactivate();
+    }
+
+    float angleStep = 2.0f * PI / segments;
+
+    vf2d first = {
+        pos.x + std::cos(0.0f) * radius,
+        pos.y + std::sin(0.0f) * radius - 0.5f  // Offset by half pixel
+    };
+
+    vf2d prev = first;
+
+    for (int i = 1; i < segments; i++) {  // Changed: i < segments (not <=)
+        float a = i * angleStep;
+        vf2d curr = {
+            pos.x + std::cos(a) * radius,
+            pos.y + std::sin(a) * radius
+        };
+
+        _drawLine(prev, curr, color);
+        prev = curr;
+    }
+
+    // Explicitly close the circle
+    _drawLine(prev, first, color);
+    
+    // Reactivate camera if it was active
+    if (cameraWasActive) {
+        Camera::Activate();
+    }
+}
+
+void Draw::_drawRectangleRounded(vf2d pos, const vf2d &size, float radius, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Clamp radius to not exceed half of either dimension
+    radius = std::min(radius, std::min(size.x, size.y) / 2.0f);
+    
+    // Apply camera transformation
+    bool cameraWasActive = Camera::IsActive();
+    if (cameraWasActive) {
+        pos = Camera::ToScreenSpace(pos);
+        radius *= Camera::GetScale();
+        // Scale size manually so we can deactivate camera for _drawLine
+        vf2d scaledSize = size * Camera::GetScale();
+        Camera::Deactivate();
+        
+        float r = radius;
+        
+        // Straight edges
+        _drawLine({pos.x + r, pos.y},                    {pos.x + scaledSize.x - r, pos.y}, color);                    // Top
+        _drawLine({pos.x + scaledSize.x, pos.y + r},     {pos.x + scaledSize.x, pos.y + scaledSize.y - r}, color);     // Right
+        _drawLine({pos.x + scaledSize.x - r, pos.y + scaledSize.y}, {pos.x + r, pos.y + scaledSize.y}, color);         // Bottom
+        _drawLine({pos.x, pos.y + scaledSize.y - r},     {pos.x, pos.y + r}, color);                                   // Left
+        
+        // Corner arcs (8 segments each)
+        int seg = 8;
+        vf2d tl = {pos.x + r, pos.y + r};
+        for (int i = 0; i < seg; i++) {
+            float a0 = PI + (PI * 0.5f) * (float)i / (float)seg;
+            float a1 = PI + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+            _drawLine({tl.x + std::cos(a0) * r, tl.y + std::sin(a0) * r},
+                      {tl.x + std::cos(a1) * r, tl.y + std::sin(a1) * r}, color);
+        }
+        vf2d tr = {pos.x + scaledSize.x - r, pos.y + r};
+        for (int i = 0; i < seg; i++) {
+            float a0 = PI * 1.5f + (PI * 0.5f) * (float)i / (float)seg;
+            float a1 = PI * 1.5f + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+            _drawLine({tr.x + std::cos(a0) * r, tr.y + std::sin(a0) * r},
+                      {tr.x + std::cos(a1) * r, tr.y + std::sin(a1) * r}, color);
+        }
+        vf2d br = {pos.x + scaledSize.x - r, pos.y + scaledSize.y - r};
+        for (int i = 0; i < seg; i++) {
+            float a0 = (PI * 0.5f) * (float)i / (float)seg;
+            float a1 = (PI * 0.5f) * (float)(i + 1) / (float)seg;
+            _drawLine({br.x + std::cos(a0) * r, br.y + std::sin(a0) * r},
+                      {br.x + std::cos(a1) * r, br.y + std::sin(a1) * r}, color);
+        }
+        vf2d bl = {pos.x + r, pos.y + scaledSize.y - r};
+        for (int i = 0; i < seg; i++) {
+            float a0 = PI * 0.5f + (PI * 0.5f) * (float)i / (float)seg;
+            float a1 = PI * 0.5f + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+            _drawLine({bl.x + std::cos(a0) * r, bl.y + std::sin(a0) * r},
+                      {bl.x + std::cos(a1) * r, bl.y + std::sin(a1) * r}, color);
+        }
+        
+        Camera::Activate();
+        return;
+    }
+    
+    // No camera path
+    float r = radius;
+    
+    _drawLine({pos.x + r, pos.y},              {pos.x + size.x - r, pos.y}, color);              // Top
+    _drawLine({pos.x + size.x, pos.y + r},     {pos.x + size.x, pos.y + size.y - r}, color);     // Right
+    _drawLine({pos.x + size.x - r, pos.y + size.y}, {pos.x + r, pos.y + size.y}, color);         // Bottom
+    _drawLine({pos.x, pos.y + size.y - r},     {pos.x, pos.y + r}, color);                       // Left
+    
+    int seg = 8;
+    vf2d tl = {pos.x + r, pos.y + r};
+    for (int i = 0; i < seg; i++) {
+        float a0 = PI + (PI * 0.5f) * (float)i / (float)seg;
+        float a1 = PI + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+        _drawLine({tl.x + std::cos(a0) * r, tl.y + std::sin(a0) * r},
+                  {tl.x + std::cos(a1) * r, tl.y + std::sin(a1) * r}, color);
+    }
+    vf2d tr = {pos.x + size.x - r, pos.y + r};
+    for (int i = 0; i < seg; i++) {
+        float a0 = PI * 1.5f + (PI * 0.5f) * (float)i / (float)seg;
+        float a1 = PI * 1.5f + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+        _drawLine({tr.x + std::cos(a0) * r, tr.y + std::sin(a0) * r},
+                  {tr.x + std::cos(a1) * r, tr.y + std::sin(a1) * r}, color);
+    }
+    vf2d br = {pos.x + size.x - r, pos.y + size.y - r};
+    for (int i = 0; i < seg; i++) {
+        float a0 = (PI * 0.5f) * (float)i / (float)seg;
+        float a1 = (PI * 0.5f) * (float)(i + 1) / (float)seg;
+        _drawLine({br.x + std::cos(a0) * r, br.y + std::sin(a0) * r},
+                  {br.x + std::cos(a1) * r, br.y + std::sin(a1) * r}, color);
+    }
+    vf2d bl = {pos.x + r, pos.y + size.y - r};
+    for (int i = 0; i < seg; i++) {
+        float a0 = PI * 0.5f + (PI * 0.5f) * (float)i / (float)seg;
+        float a1 = PI * 0.5f + (PI * 0.5f) * (float)(i + 1) / (float)seg;
+        _drawLine({bl.x + std::cos(a0) * r, bl.y + std::sin(a0) * r},
+                  {bl.x + std::cos(a1) * r, bl.y + std::sin(a1) * r}, color);
+    }
+}
+
+void Draw::_drawLine(vf2d start, vf2d end, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Apply camera transformation
+    bool cameraWasActive = Camera::IsActive();
+    if (cameraWasActive) {
+        start = Camera::ToScreenSpace(start);
+        end   = Camera::ToScreenSpace(end);
+        // Deactivate camera so _drawRotatedTexture doesn't double-transform
+        Camera::Deactivate();
+    }
+
+    vf2d line = end - start;
+
+    // Early exit for zero-length lines
+    if (line.x == 0.0f && line.y == 0.0f) return;
+
+    float length = std::hypot(line.x, line.y);
+    float angle = std::atan2(line.y, line.x);  // Keep in radians
+
+    vf2d size = {length, 1.0f};
+    vf2d pivot = {0.0f, 0.5f};
+
+    _drawRotatedTexture(Renderer::WhitePixel(), start, size, angle, pivot, color);
+    
+    // Reactivate camera if it was active
+    if (cameraWasActive) {
+        Camera::Activate();
+    }
+}
+
+void Draw::_drawArc(const vf2d& center, float radius, float startAngle, float endAngle, int segments, Color color) {
+    LUMI_UNUSED(center, radius, startAngle, endAngle, segments, color);
+}
+
+void Draw::_drawTexture(TextureType texture, const vf2d& pos, const vf2d &size, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    SDL_FRect dstRect = _doCamera(pos, size);
+
+    Renderable renderable = {
+        .texture = texture,
+        .geometry = Renderer::GetQuadGeometry(),
+
+        .x = dstRect.x,
+        .y = dstRect.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
+
+        .rotation = 0.f,
+
+
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = dstRect.w,  // Use transformed size
+        .h = dstRect.h,  // Use transformed size
+
+        .pivot_x = 0.5f,
+        .pivot_y = 0.5f,
+        
+        .effectIndex = _getOrCreateEffectIndex(),
+    };
+
+    _getTargetPass()->addToRenderQueue(renderable);
+}
+
+void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &size, const rectf &src, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    SDL_FRect dstRect = _doCamera(pos, size);
+    bool flipH = src.width  < 0.f;
+    bool flipV = src.height < 0.f;
+    SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
+
+    float u0 = (srcRect.x / (float) texture.getSize().x);
+    float v0 = (srcRect.y / (float) texture.getSize().y);
+    float u1 = ((srcRect.x + srcRect.w) / (float) texture.getSize().x);
+    float v1 = ((srcRect.y + srcRect.h) / (float) texture.getSize().y);
+
+    if (flipH) std::swap(u0, u1);
+    if (flipV) std::swap(v0, v1);
+
+    Renderable renderable = {
+        .texture = texture,
+        .geometry = Renderer::GetQuadGeometry(),
+
+        .x = dstRect.x,
+        .y = dstRect.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
+
+        .rotation = 0.f,
+
+        .tex_u = u0,
+        .tex_v = v0,
+        .tex_w = u1 - u0,
+        .tex_h = v1 - v0,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = dstRect.w,
+        .h = dstRect.h,
+
+        .pivot_x = 0.5f,
+        .pivot_y = 0.5f,
+        
+        .effectIndex = _getOrCreateEffectIndex(),
+    };
+
+    _getTargetPass()->addToRenderQueue(renderable);
+}
+
+void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, vf2d size, float angle, const vf2d& pivot, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    if (Camera::IsActive()) {
+        pos = Camera::ToScreenSpace(pos);
+        size = size * Camera::GetScale();
+    }
+
+    Renderable renderable = {
+        .texture = texture,
+        .geometry = Renderer::GetQuadGeometry(),
+
+        .x = pos.x,
+        .y = pos.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
+
+        .rotation = fmod(angle, 2.0f * PI),  // Wrap radians to 0-2π
+
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = size.x,
+        .h = size.y,
+
+        .pivot_x = pivot.x,
+        .pivot_y = pivot.y,
+        
+        .effectIndex = _getOrCreateEffectIndex(),
+    };
+
+    _getTargetPass()->addToRenderQueue(renderable);
+}
+
+void Draw::_drawRotatedTexturePart(Draw::TextureType texture, vf2d pos, vf2d size, const rectf &src, float angle, const vf2d& pivot, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    if (Camera::IsActive()) {
+        pos = Camera::ToScreenSpace(pos);
+        size = size * Camera::GetScale();
+    }
+    
+    SDL_FRect srcRect = {src.x, src.y, std::abs(src.width), std::abs(src.height)};
+
+    float u0 = (srcRect.x / (float) texture.getSize().x);
+    float v0 = (srcRect.y / (float) texture.getSize().y);
+    float u1 = ((srcRect.x + srcRect.w) / (float) texture.getSize().x);
+    float v1 = ((srcRect.y + srcRect.h) / (float) texture.getSize().y);
+
+    Renderable renderable = {
+        .texture = texture,
+        .geometry = Renderer::GetQuadGeometry(),
+
+        .x = pos.x,
+        .y = pos.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
+
+        .rotation = fmod(angle, 2.0f * PI),  // Wrap radians to 0-2π
+
+        .tex_u = u0,
+        .tex_v = v0,
+        .tex_w = u1,
+        .tex_h = v1,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = size.x,
+        .h = size.y,
+
+        .pivot_x = pivot.x,
+        .pivot_y = pivot.x,
+        
+        .effectIndex = _getOrCreateEffectIndex(),
+    };
+
+    _getTargetPass()->addToRenderQueue(renderable);
+}
+
+void Draw::_setScissorMode(const rectf& area) {
+    Renderer::SetScissorMode(_targetRenderPass, area);
+}
+
+void Draw::_drawRectangleFilled(vf2d pos, vf2d size, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // _drawTexture now correctly handles camera transformation with proper size
+    _drawTexture(Renderer::WhitePixel(), pos, size, color);
+}
+
+void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Clamp radius to not exceed half of the smallest dimension
+    radius = std::min(radius, std::min(size.x, size.y) / 2.0f);
+    
+    // Apply camera transformation
+    if (Camera::IsActive()) {
+        pos = Camera::ToScreenSpace(pos);
+        radius *= Camera::GetScale();
+        size *= Camera::GetScale();
+    }
+    
+    // Normalize radius separately per axis so corners stay circular
+    // after the geometry is scaled non-uniformly to (size.x, size.y)
+    float normalizedRadiusX = std::min(0.5f, radius / size.x);
+    float normalizedRadiusY = std::min(0.5f, radius / size.y);
+    
+    // Get the rounded rectangle geometry with 8 segments per corner
+    Geometry2D* geom = Renderer::GetRoundedRectGeometry(normalizedRadiusX, normalizedRadiusY, 8);
+    
+    // Create renderable using the geometry
+    Renderable renderable = {
+        .texture = Renderer::WhitePixel(),
+        .geometry = geom,
+
+        .x = pos.x,
+        .y = pos.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,
+
+        .rotation = 0.f,
+
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = size.x,
+        .h = size.y,
+
+        .pivot_x = 0.5f,
+        .pivot_y = 0.5f,
+        
+        .effectIndex = _getOrCreateEffectIndex(),
+    };
+
+    _getTargetPass()->addToRenderQueue(renderable);
+}
+
+void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    if (Camera::IsActive()) {
+        // Convert world space coordinates to screen space
+        pos = Camera::ToScreenSpace(pos);
+        radius *= Camera::GetScale();
+    }
+
+    Renderable renderable = {
+        .texture = Renderer::WhitePixel(),  // Use white pixel texture for tinting
+        .geometry = Renderer::GetCircleGeometry(32),  // Use 32-segment circle
+
+        .x = pos.x,
+        .y = pos.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,  // Normalize to 0.0-1.0
+
+        .rotation = 0.f,
+
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+
+        .r = (float) color.r / 255.f,
+        .g = (float) color.g / 255.f,
+        .b = (float) color.b / 255.f,
+        .a = (float) color.a / 255.f,
+
+        .w = radius,
+        .h = radius,
+
+        .pivot_x = 0.5f,
+        .pivot_y = 0.5f,
+        
+        .effectIndex = _getOrCreateEffectIndex(),
+    };
+
+    _getTargetPass()->addToRenderQueue(renderable);
+}
+
+void Draw::_drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
+    LUMI_UNUSED(center, radius, startAngle, endAngle, segments, color);
+
+    //TODO: create this function
+}
+
+void Draw::_beginMode2D() {
+    // Clear the screen
+    Camera::Activate();
+}
+
+void Draw::_endMode2D() {
+    Camera::Deactivate();
+}
+
+rectf Draw::_doCamera(const vf2d &pos, const vf2d &size) {
+
+    rectf dstRect;
+
+    if (Camera::IsActive()) {
+        // Convert world space coordinates to screen space, then snap both
+        // corners to pixel boundaries so adjacent tiles share exact edges.
+        vf2d screenPos = Camera::ToScreenSpace(pos);
+        vf2d screenEnd = Camera::ToScreenSpace(pos + size);
+        dstRect.pos.x  = std::floor(screenPos.x);
+        dstRect.pos.y  = std::floor(screenPos.y);
+        dstRect.size.x = std::floor(screenEnd.x) - dstRect.pos.x;
+        dstRect.size.y = std::floor(screenEnd.y) - dstRect.pos.y;
+
+    } else {
+        // Camera is not active, render directly in screen space
+
+        dstRect.pos = pos;
+        dstRect.size = size;
+    }
+
+    return dstRect;
+}
+
+void Draw::_drawThickLine(vf2d start, vf2d end, Color color, float width) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Apply camera transformation
+    bool cameraWasActive = Camera::IsActive();
+    if (cameraWasActive) {
+        start = Camera::ToScreenSpace(start);
+        end   = Camera::ToScreenSpace(end);
+        width *= Camera::GetScale();
+        // Deactivate camera so _drawRotatedTexture doesn't double-transform
+        Camera::Deactivate();
+    }
+
+    vf2d line = end - start;
+
+    // Early exit for (nearly) zero-length lines
+    const float EPS = 1e-6f;
+    if (std::fabs(line.x) < EPS && std::fabs(line.y) < EPS) {
+        if (cameraWasActive) Camera::Activate();  // Restore camera state before early return
+        return;
+    }
+
+    float length = std::hypot(line.x, line.y);
+    float angle = std::atan2(line.y, line.x);  // Keep in radians
+
+    // draw rectangle with pivot at left-center so we can place it exactly at `start`
+    vf2d size = { length, width };
+    vf2d pivot = { 0.0f, 0.5f };
+    vf2d offsetStart = start - vf2d(0.f, width/2.f); // left-center of the rotated rectangle should be at `start`
+
+    _drawRotatedTexture(Renderer::WhitePixel(), offsetStart, size, angle, pivot, color);
+    
+    // Reactivate camera if it was active
+    if (cameraWasActive) {
+        Camera::Activate();
+    }
+}
+
+
+void Draw::_drawTriangle(vf2d v1, vf2d v2, vf2d v3, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Apply camera transformation
+    bool cameraWasActive = Camera::IsActive();
+    if (cameraWasActive) {
+        v1 = Camera::ToScreenSpace(v1);
+        v2 = Camera::ToScreenSpace(v2);
+        v3 = Camera::ToScreenSpace(v3);
+        // Deactivate camera so _drawLine doesn't double-transform
+        Camera::Deactivate();
+    }
+    
+    // Draw the three edges
+    _drawLine(v1, v2, color);
+    _drawLine(v2, v3, color);
+    _drawLine(v3, v1, color);
+    
+    // Reactivate camera if it was active
+    if (cameraWasActive) {
+        Camera::Activate();
+    }
+}
+
+void Draw::_drawEllipse(vf2d center, float radiusX, float radiusY, Color color) {
+    LUMI_UNUSED(radiusX, radiusY, color);
+
+    if (Camera::IsActive()) {
+        // Convert world space coordinates to screen space
+        center = Camera::ToScreenSpace(center);
+        radiusX *= Camera::GetScale();  // Scale radiusX with camera zoom
+        radiusY *= Camera::GetScale();  // Scale radiusY with camera zoom
+    }
+}
+
+void Draw::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    if (Camera::IsActive()) {
+        // Convert world space coordinates to screen space
+        v1 = Camera::ToScreenSpace(v1);
+        v2 = Camera::ToScreenSpace(v2);
+        v3 = Camera::ToScreenSpace(v3);
+    }
+    
+    // Calculate bounding box for the triangle
+    float minX = std::min({v1.x, v2.x, v3.x});
+    float minY = std::min({v1.y, v2.y, v3.y});
+    float maxX = std::max({v1.x, v2.x, v3.x});
+    float maxY = std::max({v1.y, v2.y, v3.y});
+    
+    vf2d pos = {minX, minY};
+    vf2d size = {maxX - minX, maxY - minY};
+    
+    // Avoid division by zero for degenerate triangles
+    if (size.x < 0.001f) size.x = 0.001f;
+    if (size.y < 0.001f) size.y = 0.001f;
+    
+    // Create temporary geometry — tracked for deletion at frame end
+    Geometry2D* triangleGeom = new Geometry2D();
+    _frameGeometry.push_back(triangleGeom);
+    
+    // Create normalized vertices (0-1 range relative to bounding box)
+    triangleGeom->vertices.push_back(Vertex2D{(v1.x - minX) / size.x, (v1.y - minY) / size.y, 0.0f, 0.0f});
+    triangleGeom->vertices.push_back(Vertex2D{(v2.x - minX) / size.x, (v2.y - minY) / size.y, 1.0f, 0.0f});
+    triangleGeom->vertices.push_back(Vertex2D{(v3.x - minX) / size.x, (v3.y - minY) / size.y, 0.5f, 1.0f});
+    
+    triangleGeom->indices.push_back(0);
+    triangleGeom->indices.push_back(1);
+    triangleGeom->indices.push_back(2);
+    
+    triangleGeom->UploadToGPU(Renderer::GetDevice());
+    
+    // Create renderable
+    Renderable renderable = {
+        .texture = Renderer::WhitePixel(),
+        .geometry = triangleGeom,
+        
+        .x = pos.x,
+        .y = pos.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,
+        
+        .rotation = 0.0f,
+        
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+        
+        .r = (float)color.r / 255.f,
+        .g = (float)color.g / 255.f,
+        .b = (float)color.b / 255.f,
+        .a = (float)color.a / 255.f,
+        
+        .w = size.x,
+        .h = size.y,
+        
+        .pivot_x = 0.0f,
+        .pivot_y = 0.0f,
+        
+        .effectIndex = _getOrCreateEffectIndex(),
+    };
+    
+    _getTargetPass()->addToRenderQueue(renderable);
+    
+}
+
+void Draw::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
+    LUMI_UNUSED(radiusX, radiusY, color);
+    if (Camera::IsActive()) {
+        // Convert world space coordinates to screen space
+        center = Camera::ToScreenSpace(center);
+        radiusX *= Camera::GetScale();  // Scale radiusX with camera zoom
+        radiusY *= Camera::GetScale();  // Scale radiusY with camera zoom
+    }
+}
+
+void Draw::_drawPixel(const vi2d& pos, Color color) {
+    // Lazy initialize pixel buffer on first use
+    if (!_pixelTransferBuffer) {
+        _initPixelBuffer();
+    }
+    
+    // Apply camera transform if active
+    vi2d finalPos = pos;
+    if (Camera::IsActive()) {
+        vf2d transformed = Camera::ToScreenSpace({(float)pos.x, (float)pos.y});
+        finalPos = {(int)transformed.x, (int)transformed.y};
+    }
+    
+    // Write directly to pixel buffer
+    if (finalPos.x >= 0 && finalPos.x < (int)_pixelBufferWidth && 
+        finalPos.y >= 0 && finalPos.y < (int)_pixelBufferHeight) {
+        uint32_t index = finalPos.y * _pixelBufferWidth + finalPos.x;
+        // Pack RGBA into uint32 (R8G8B8A8)
+        _pixelBufferData[index] = color.r | (color.g << 8) | (color.b << 16) | (color.a << 24);
+        _pixelsDirty = true;
+    }
+}
+
+// Helper function to convert screen position to Mode 7 texture UV coordinates
+static vf2d ScreenToMode7UV(vf2d screenPos, const Mode7Parameters& params, const TextureAsset& texture) {
+    // Get position relative to screen center
+    int relX = (int)screenPos.x - params.snesScreenWidth / 2;
+    int relY = (int)screenPos.y - params.snesScreenHeight / 2;
+    
+    // Apply inverse affine transform to get texture space coordinates
+    // The matrix [a b; c d] transforms texture space to screen space,
+    // so we apply it to get back to texture coordinates
+    int texX = ((params.a * relX + params.b * relY) >> 8) + params.x0 + params.h;
+    int texY = ((params.c * relX + params.d * relY) >> 8) + params.y0 + params.v;
+    
+    // Convert to UV coordinates (0.0 - 1.0)
+    return {
+        (float)texX / (float)texture.width,
+        (float)texY / (float)texture.height
+    };
+}
+
+void Draw::_drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mode7Parameters& params, Color color) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Apply camera transformation if active
+    rectf dstRect = _doCamera(pos, size);
+    
+    // Calculate UV coordinates for the four corners using Mode 7 transform
+    vf2d topLeft = ScreenToMode7UV(dstRect.pos, params, texture);
+    vf2d topRight = ScreenToMode7UV({dstRect.pos.x + dstRect.size.x, dstRect.pos.y}, params, texture);
+    vf2d bottomLeft = ScreenToMode7UV({dstRect.pos.x, dstRect.pos.y + dstRect.size.y}, params, texture);
+    vf2d bottomRight = ScreenToMode7UV(dstRect.pos + dstRect.size, params, texture);
+    
+    // Create custom geometry with transformed UVs — tracked for deletion at frame end
+    Geometry2D* mode7Geom = new Geometry2D();
+    _frameGeometry.push_back(mode7Geom);
+    mode7Geom->name = "Mode7Quad";
+    
+    // Vertices in normalized quad space (0-1)
+    mode7Geom->vertices.push_back(Vertex2D{0.0f, 0.0f, topLeft.x, topLeft.y});           // Top-left
+    mode7Geom->vertices.push_back(Vertex2D{1.0f, 0.0f, topRight.x, topRight.y});         // Top-right
+    mode7Geom->vertices.push_back(Vertex2D{0.0f, 1.0f, bottomLeft.x, bottomLeft.y});     // Bottom-left
+    mode7Geom->vertices.push_back(Vertex2D{1.0f, 1.0f, bottomRight.x, bottomRight.y});   // Bottom-right
+    
+    // Two triangles to form a quad
+    mode7Geom->indices = {0, 1, 2, 2, 1, 3};
+    
+    mode7Geom->UploadToGPU(Renderer::GetDevice());
+    
+    // Create renderable
+    Renderable renderable = {
+        .texture = texture,
+        .geometry = mode7Geom,
+        
+        .x = dstRect.pos.x,
+        .y = dstRect.pos.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,
+        
+        .rotation = 0.0f,
+        
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+        
+        .r = (float)color.r / 255.f,
+        .g = (float)color.g / 255.f,
+        .b = (float)color.b / 255.f,
+        .a = (float)color.a / 255.f,
+        
+        .w = dstRect.size.x,
+        .h = dstRect.size.y,
+        
+        .pivot_x = 0.0f,
+        .pivot_y = 0.0f,
+        
+        .effectIndex = _getOrCreateEffectIndex(),
+    };
+    
+    _getTargetPass()->addToRenderQueue(renderable);
+}
+
+void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size, 
+    std::function<Mode7Parameters(int)> getParamsForLine, Color color, int scanlineStep) {
+    _flushPixels();  // Auto-flush before drawing
+    
+    // Apply camera transformation if active
+    rectf dstRect = _doCamera(pos, size);
+    
+    // Clamp scanline step to reasonable values
+    if (scanlineStep < 1) scanlineStep = 1;
+    if (scanlineStep > (int)size.y) scanlineStep = (int)size.y;
+    
+    int numScanlines = (int)dstRect.size.y;
+    
+    // Create geometry with horizontal strips — tracked for deletion at frame end
+    Geometry2D* scanlineGeom = new Geometry2D();
+    _frameGeometry.push_back(scanlineGeom);
+    scanlineGeom->name = "Mode7Scanline";
+    
+    // Generate vertices for each scanline strip
+    for (int y = 0; y < numScanlines; y += scanlineStep) {
+        // Get Mode 7 parameters for this scanline
+        Mode7Parameters params = getParamsForLine(y);
+        
+        float screenY = dstRect.pos.y + y;
+        float nextScreenY = dstRect.pos.y + std::min(y + scanlineStep, numScanlines);
+        
+        // Calculate screen positions for left and right edges
+        vf2d leftScreen = {dstRect.pos.x, screenY};
+        vf2d rightScreen = {dstRect.pos.x + dstRect.size.x, screenY};
+        
+        // Transform to Mode 7 UV coordinates
+        vf2d leftUV = ScreenToMode7UV(leftScreen, params, texture);
+        vf2d rightUV = ScreenToMode7UV(rightScreen, params, texture);
+        
+        // Get parameters for next scanline for bottom UVs
+        Mode7Parameters nextParams = getParamsForLine(std::min(y + scanlineStep, numScanlines - 1));
+        vf2d leftBottomScreen = {dstRect.pos.x, nextScreenY};
+        vf2d rightBottomScreen = {dstRect.pos.x + dstRect.size.x, nextScreenY};
+        vf2d leftBottomUV = ScreenToMode7UV(leftBottomScreen, nextParams, texture);
+        vf2d rightBottomUV = ScreenToMode7UV(rightBottomScreen, nextParams, texture);
+        
+        // Normalize vertex positions to 0-1 range relative to entire drawable area
+        float normY = (float)y / dstRect.size.y;
+        float normNextY = (float)std::min(y + scanlineStep, numScanlines) / dstRect.size.y;
+        
+        // Add four vertices for this strip (two triangles)
+        int baseIdx = (int)scanlineGeom->vertices.size();
+        scanlineGeom->vertices.push_back(Vertex2D{0.0f, normY, leftUV.x, leftUV.y});              // Top-left
+        scanlineGeom->vertices.push_back(Vertex2D{1.0f, normY, rightUV.x, rightUV.y});            // Top-right
+        scanlineGeom->vertices.push_back(Vertex2D{0.0f, normNextY, leftBottomUV.x, leftBottomUV.y}); // Bottom-left
+        scanlineGeom->vertices.push_back(Vertex2D{1.0f, normNextY, rightBottomUV.x, rightBottomUV.y}); // Bottom-right
+        
+        // Add indices for two triangles
+        scanlineGeom->indices.push_back(baseIdx + 0);
+        scanlineGeom->indices.push_back(baseIdx + 1);
+        scanlineGeom->indices.push_back(baseIdx + 2);
+        
+        scanlineGeom->indices.push_back(baseIdx + 2);
+        scanlineGeom->indices.push_back(baseIdx + 1);
+        scanlineGeom->indices.push_back(baseIdx + 3);
+    }
+    
+    scanlineGeom->UploadToGPU(Renderer::GetDevice());
+    
+    // Create renderable
+    Renderable renderable = {
+        .texture = texture,
+        .geometry = scanlineGeom,
+        
+        .x = dstRect.pos.x,
+        .y = dstRect.pos.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,
+        
+        .rotation = 0.0f,
+        
+        .tex_u = 0.f,
+        .tex_v = 0.f,
+        .tex_w = 1.f,
+        .tex_h = 1.f,
+        
+        .r = (float)color.r / 255.f,
+        .g = (float)color.g / 255.f,
+        .b = (float)color.b / 255.f,
+        .a = (float)color.a / 255.f,
+        
+        .w = dstRect.size.x,
+        .h = dstRect.size.y,
+        
+        .pivot_x = 0.0f,
+        .pivot_y = 0.0f,
+        
+        .effectIndex = _getOrCreateEffectIndex(),
+    };
+    
+    _getTargetPass()->addToRenderQueue(renderable);
+}
+
+
+void Draw::Particles(const ParticleSystemHandle& handle) {
+    // Forward to the global Particles namespace which queues the draw
+    // for the ParticleRenderPass registered in the current framebuffer.
+    ::Particles::QueueDraw(handle);
+}

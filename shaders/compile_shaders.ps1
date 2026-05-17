@@ -47,8 +47,8 @@ $MetalDeploymentTarget = "11.0"
 $ScriptDir = $PSScriptRoot
 $ProjectRoot = Split-Path $ScriptDir -Parent
 $ShaderSourceDir = $ScriptDir
-$OutputDir = Join-Path $ProjectRoot "assethandler" "shaders"
-$HeaderOutputPath = Join-Path $ProjectRoot "assethandler" "shaders_generated.h"
+$OutputDir = Join-Path $ProjectRoot "src" "assets" "shaders"
+$HeaderOutputPath = Join-Path $ProjectRoot "src" "assets" "shaders_generated.h"
 $CMakeOutputPath = Join-Path $ProjectRoot "cmake" "Sources.Shaders.cmake"
 
 # Platform detection
@@ -754,8 +754,8 @@ if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
     {
         if ($shader.VertCppSPIRV)
         {
-            $cmakeContent += "`n        assethandler/shaders/$($shader.VertCppSPIRV)"
-            $cmakeContent += "`n        assethandler/shaders/$($shader.FragCppSPIRV)"
+            $cmakeContent += "`n        assets/shaders/$($shader.VertCppSPIRV)"
+            $cmakeContent += "`n        assets/shaders/$($shader.FragCppSPIRV)"
         }
     }
 
@@ -769,8 +769,8 @@ if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
     {
         if ($shader.VertCppDXIL)
         {
-            $cmakeContent += "`n        assethandler/shaders/$($shader.VertCppDXIL)"
-            $cmakeContent += "`n        assethandler/shaders/$($shader.FragCppDXIL)"
+            $cmakeContent += "`n        assets/shaders/$($shader.VertCppDXIL)"
+            $cmakeContent += "`n        assets/shaders/$($shader.FragCppDXIL)"
         }
     }
 
@@ -784,8 +784,8 @@ if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
     {
         if ($shader.VertCppMETALLIB)
         {
-            $cmakeContent += "`n        assethandler/shaders/$($shader.VertCppMETALLIB)"
-            $cmakeContent += "`n        assethandler/shaders/$($shader.FragCppMETALLIB)"
+            $cmakeContent += "`n        assets/shaders/$($shader.VertCppMETALLIB)"
+            $cmakeContent += "`n        assets/shaders/$($shader.FragCppMETALLIB)"
         }
     }
 
@@ -804,7 +804,7 @@ set(LUMINOVEAU_COMPUTE_SHADER_SOURCES
     {
         if ($compute.CompCppSPIRV)
         {
-            $cmakeContent += "`n    assethandler/shaders/$($compute.CompCppSPIRV)"
+            $cmakeContent += "`n    assets/shaders/$($compute.CompCppSPIRV)"
         }
     }
 

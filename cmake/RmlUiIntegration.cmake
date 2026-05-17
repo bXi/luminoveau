@@ -54,10 +54,10 @@ if(LUMINOVEAU_BUILD_RMLUI)
 
         # Add Luminoveau RmlUI wrapper sources
         target_sources(luminoveau PRIVATE
-            "${PROJECT_SOURCE_DIR}/rmlui/rmluihandler.cpp"
-            "${PROJECT_SOURCE_DIR}/rmlui/rmluihandler.h"
-            "${PROJECT_SOURCE_DIR}/rmlui/rmluibackend.cpp"
-            "${PROJECT_SOURCE_DIR}/rmlui/rmluibackend.h"
+            "${PROJECT_SOURCE_DIR}/src/integrations/rmlui/rmluihandler.cpp"
+            "${PROJECT_SOURCE_DIR}/src/integrations/rmlui/rmluihandler.h"
+            "${PROJECT_SOURCE_DIR}/src/integrations/rmlui/rmluibackend.cpp"
+            "${PROJECT_SOURCE_DIR}/src/integrations/rmlui/rmluibackend.h"
         )
 
         # Manually add RmlUi SDL_GPU backend sources
