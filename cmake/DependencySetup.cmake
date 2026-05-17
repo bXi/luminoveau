@@ -79,32 +79,6 @@ else()
     lumi_warn("fmt - fetch failed")
 endif()
 
-# Fetching glslang (disabling unwanted components)
-set(ENABLE_OPT OFF CACHE BOOL "Disable glslang optimizations" FORCE)
-set(BUILD_TESTING OFF CACHE BOOL "Disable glslang tests" FORCE)
-set(ENABLE_CTEST OFF CACHE BOOL "Disable glslang CTest" FORCE)
-set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "Disable glslang CLI tools" FORCE)
-set(ENABLE_GLSLANG_INSTALL OFF CACHE BOOL "Disable glslang install" FORCE)
-set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "Skip glslang install" FORCE)
-
-lumi_msg("Fetching glslang")
-CPMAddPackage(
-    NAME glslang
-    GITHUB_REPOSITORY KhronosGroup/glslang
-    GIT_TAG e435148
-    EXCLUDE_FROM_ALL YES
-)
-if(glslang_ADDED)
-    if(NOT EXISTS "${glslang_SOURCE_DIR}")
-        message(FATAL_ERROR "glslang source directory '${glslang_SOURCE_DIR}' does not exist")
-    endif()
-    target_include_directories(luminoveau SYSTEM PUBLIC "${glslang_SOURCE_DIR}")
-    target_link_libraries(luminoveau PUBLIC glslang SPIRV)
-    lumi_done("glslang")
-else()
-    lumi_warn("glslang - fetch failed")
-endif()
-
 # Fetching SDL3
 # Disable examples, tests, and test applications to avoid unnecessary builds
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "Disable SDL test library" FORCE)
@@ -165,46 +139,6 @@ else()
     lumi_warn("SDL3_image - fetch failed")
 endif()
 
-# Fetching SDL_shadercross (shader translation library)
-# NOTE: Must come AFTER SDL3 since it depends on it
-set(SDLSHADERCROSS_SHARED OFF CACHE BOOL "Build static SDL_shadercross library" FORCE)
-set(SDLSHADERCROSS_STATIC ON CACHE BOOL "Build static SDL_shadercross library" FORCE)
-set(SDLSHADERCROSS_CLI OFF CACHE BOOL "Disable SDL_shadercross CLI" FORCE)
-set(SDLSHADERCROSS_INSTALL OFF CACHE BOOL "Disable SDL_shadercross install" FORCE)
-set(SDLSHADERCROSS_VENDORED ON CACHE BOOL "Use vendored dependencies (required)" FORCE)
-set(SDLSHADERCROSS_SPIRVCROSS_SHARED OFF CACHE BOOL "Build SPIRV-Cross statically into SDL_shadercross" FORCE)
-set(SDLSHADERCROSS_DXC OFF CACHE BOOL "Disable DXC compilation (use runtime DLLs instead)" FORCE)
-
-lumi_msg("Fetching SDL_shadercross")
-CPMAddPackage(
-    NAME SDL_shadercross
-    GITHUB_REPOSITORY libsdl-org/SDL_shadercross
-    GIT_TAG main
-    EXCLUDE_FROM_ALL YES
-)
-if(SDL_shadercross_ADDED)
-    # Force SDL_shadercross to compile with C17 instead of C23 to avoid bool/NULL conversion issues
-    set_target_properties(SDL3_shadercross-static PROPERTIES C_STANDARD 17)
-    set_target_properties(SDL3_shadercross-static PROPERTIES C_STANDARD_REQUIRED ON)
-    if(NOT EXISTS "${SDL_shadercross_SOURCE_DIR}")
-        message(FATAL_ERROR "SDL_shadercross source directory '${SDL_shadercross_SOURCE_DIR}' does not exist")
-    endif()
-    target_include_directories(luminoveau SYSTEM PUBLIC "${SDL_shadercross_SOURCE_DIR}/include")
-    target_link_libraries(luminoveau PUBLIC SDL3_shadercross::SDL3_shadercross-static)
-    
-    # Use SDL_shadercross's vendored SPIRV-Cross for our shader reflection needs
-    target_include_directories(luminoveau SYSTEM PUBLIC "${SDL_shadercross_SOURCE_DIR}/external/SPIRV-Cross")
-    # Link against the vendored SPIRV-Cross targets (built statically by SDL_shadercross)
-    target_link_libraries(luminoveau PUBLIC
-        spirv-cross-core
-        spirv-cross-glsl
-    )
-    
-    lumi_done("SDL_shadercross")
-else()
-    lumi_warn("SDL_shadercross - fetch failed")
-endif()
-
 # Fetching freetype (required by MSDF-atlas-gen's msdfgen)
 if (NOT ANDROID)
 lumi_msg("Fetching freetype")
@@ -261,17 +195,16 @@ set(MSDF_ATLAS_MSDFGEN_EXTERNAL OFF CACHE BOOL "" FORCE)
 
     # tinyxml2
     lumi_msg("Fetching tinyxml2")
-    set(tinyxml2_BUILD_TESTING OFF)
-    FetchContent_Declare(
-        tinyxml2
-        GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git
-        GIT_TAG 10.0.0
-        EXCLUDE_FROM_ALL
-    )
-    FetchContent_MakeAvailable(tinyxml2)
-
-    set_target_properties(tinyxml2 PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    lumi_done("tinyxml2")
+    lumi_fetch("tinyxml2" "https://github.com/leethomason/tinyxml2.git" "10.0.0" _tinyxml2_src)
+    if(_tinyxml2_src)
+        add_library(tinyxml2 STATIC "${_tinyxml2_src}/tinyxml2.cpp")
+        add_library(tinyxml2::tinyxml2 ALIAS tinyxml2)
+        target_include_directories(tinyxml2 PUBLIC "${_tinyxml2_src}")
+        set_target_properties(tinyxml2 PROPERTIES POSITION_INDEPENDENT_CODE ON)
+        lumi_done("tinyxml2")
+    else()
+        lumi_warn("tinyxml2 - fetch failed")
+    endif()
 
 lumi_msg("Fetching MSDF-atlas-gen")
 CPMAddPackage(

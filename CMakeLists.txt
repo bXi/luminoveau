@@ -141,6 +141,7 @@ endif()
 target_compile_features(luminoveau PUBLIC cxx_std_20)
 
 # ── Dependencies (CPM) ────────────────────────────────────────────────────────
+
 file(DOWNLOAD
     https://github.com/cpm-cmake/CPM.cmake/releases/download/v0.40.5/CPM.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake
@@ -156,6 +157,9 @@ include(cmake/SteamDetection.cmake)
 
 set(CMAKE_FOLDER "Dependencies")
 include(cmake/DependencySetup.cmake)
+include(cmake/SpirvCross.cmake)
+include(cmake/ShaderCross.cmake)
+include(cmake/Glslang.cmake)
 include(cmake/ImGuiIntegration.cmake)
 include(cmake/RmlUiIntegration.cmake)
 include(cmake/DownloadDXC.cmake)

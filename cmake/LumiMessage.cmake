@@ -41,3 +41,25 @@ endfunction()
 function(lumi_fail text)
     execute_process(COMMAND ${CMAKE_COMMAND} -E echo "--- ${_LUMI_TAG} ${text}  ${_LUMI_RD}FAIL${_LUMI_RS}")
 endfunction()
+
+# lumi_fetch(name url tag out_src_dir) — silent git clone+checkout into _deps/<name>-src
+function(lumi_fetch name url tag out_src_dir)
+    set(_dir "${CMAKE_BINARY_DIR}/_deps/${name}-src")
+    if(NOT EXISTS "${_dir}/.git")
+        execute_process(
+            COMMAND git clone "${url}" "${_dir}"
+            OUTPUT_QUIET ERROR_QUIET
+            RESULT_VARIABLE _clone_result
+        )
+        if(NOT _clone_result EQUAL 0)
+            lumi_warn("${name} - clone failed")
+            set(${out_src_dir} "" PARENT_SCOPE)
+            return()
+        endif()
+        execute_process(
+            COMMAND git -C "${_dir}" checkout "${tag}"
+            OUTPUT_QUIET ERROR_QUIET
+        )
+    endif()
+    set(${out_src_dir} "${_dir}" PARENT_SCOPE)
+endfunction()
