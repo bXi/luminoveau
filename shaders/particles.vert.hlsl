@@ -8,6 +8,10 @@ struct GPUParticle {
     float  respawnTimer;
     float  startSize;       // size at birth (pixels)
     float  endSize;         // size at death (pixels)
+    float  angle;           // current rotation (radians)
+    float  angularVelocity; // radians per second
+    float  _pad0;
+    float  _pad1;
 };
 
 struct GPUParticleSystem {
@@ -28,6 +32,10 @@ struct GPUParticleSystem {
     float  emitRate;
     uint   flags;
     uint   shapeType;
+    float  angVelMin;
+    float  angVelMax;
+    float  angVelBias;
+    float  _pad;
 };
 
 // Billboard quad corners — CCW, 2 triangles (6 vertices)
@@ -116,8 +124,17 @@ Output main(uint vertID : SV_VertexID, uint instanceID : SV_InstanceID)
     float t = clamp(1.0 - life / max(maxLife, 1e-5), 0.0, 1.0);
 
     o.vColor     = SampleGradient(sys.colors, sys.colorPositions, t);
-    o.vUV        = QUAD[cornerIdx] + float2(0.5, 0.5);
     o.vShapeType = sys.shapeType;
+
+    // Rotate the billboard corner by the particle's current angle
+    float sinA = sin(p.angle);
+    float cosA = cos(p.angle);
+    float2 corner = QUAD[cornerIdx];
+    float2 rotated = float2(cosA * corner.x - sinA * corner.y,
+                            sinA * corner.x + cosA * corner.y);
+
+    // UV follows the rotated corner so shape SDFs and textures rotate with the quad
+    o.vUV = rotated + float2(0.5, 0.5);
 
     // Per-particle size, interpolated from birth to death
     float particleSize = lerp(p.startSize, p.endSize, t);
@@ -127,7 +144,7 @@ Output main(uint vertID : SV_VertexID, uint instanceID : SV_InstanceID)
 
     // Expand screen-aligned billboard (particleSize is in pixels)
     float2 pixelToClip = 2.0 / screenSize;
-    clipPos.xy += QUAD[cornerIdx] * particleSize * pixelToClip * clipPos.w;
+    clipPos.xy += rotated * particleSize * pixelToClip * clipPos.w;
 
     o.Position = clipPos;
     return o;

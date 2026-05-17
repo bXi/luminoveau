@@ -71,7 +71,7 @@ static bool ImportPreset(const char* encoded, ParticleSystemConfig& cfg) {
         try { v.push_back(std::stof(tok)); } catch (...) { return false; }
     }
 
-    // 2 + 3 + 2 + 1 + 3 + 3 + 3 + 1 + 16 + 4 = 38 fields
+    // 38 base fields + 3 optional angular velocity fields (added in v1.1)
     if (v.size() < 38) return false;
 
     int i = 0;
@@ -98,6 +98,11 @@ static bool ImportPreset(const char* encoded, ParticleSystemConfig& cfg) {
             cfg.colors[c][j] = v[i++];
     for (int c = 0; c < 4; ++c)
         cfg.colorPositions[c] = v[i++];
+
+    // Angular velocity (optional — older presets default to no spin)
+    cfg.angVelMin  = (v.size() > 38) ? v[i++] : 0.0f;
+    cfg.angVelMax  = (v.size() > 39) ? v[i++] : 0.0f;
+    cfg.angVelBias = (v.size() > 40) ? v[i++] : 1.0f;
 
     cfg.texture = 0;
     cfg.sampler = 0;
@@ -402,6 +407,10 @@ ParticleSystemHandle CreateSystem(const ParticleSystemConfig& cfg) {
     sys.shapeType        = cfg.texture
                                ? static_cast<uint32_t>(ParticleShape::Textured)
                                : static_cast<uint32_t>(cfg.shape);
+    sys.angVelMin        = cfg.angVelMin;
+    sys.angVelMax        = cfg.angVelMax;
+    sys.angVelBias       = cfg.angVelBias;
+    sys._pad             = 0.0f;
     s_systemTextures[handle.systemIndex]  = cfg.texture;
     s_systemSamplers[handle.systemIndex]  = cfg.sampler;
     s_systemPixelMode[handle.systemIndex] = cfg.pixelMode;
@@ -421,6 +430,10 @@ ParticleSystemHandle CreateSystem(const ParticleSystemConfig& cfg) {
             init[i].respawnTimer  = (n > 1) ? (static_cast<float>(i) / static_cast<float>(n)) : 0.0f;
             init[i].startSize     = cfg.sizeStartMin;
             init[i].endSize       = cfg.sizeEndMin;
+            init[i].angle         = 0.0f;
+            init[i].angularVelocity = 0.0f;
+            init[i]._pad0         = 0.0f;
+            init[i]._pad1         = 0.0f;
         }
 
         SDL_GPUDevice* device = Renderer::GetDevice();
@@ -551,6 +564,10 @@ void UpdateConfig(const ParticleSystemHandle& handle, const ParticleSystemConfig
     sys.shapeType        = cfg.texture
                                ? static_cast<uint32_t>(ParticleShape::Textured)
                                : static_cast<uint32_t>(cfg.shape);
+    sys.angVelMin        = cfg.angVelMin;
+    sys.angVelMax        = cfg.angVelMax;
+    sys.angVelBias       = cfg.angVelBias;
+    sys._pad             = 0.0f;
     s_systemTextures[handle.systemIndex]  = cfg.texture;
     s_systemSamplers[handle.systemIndex]  = cfg.sampler;
     s_systemPixelMode[handle.systemIndex] = cfg.pixelMode;
@@ -589,6 +606,9 @@ ParticleSystemConfig GetConfig(const ParticleSystemHandle& handle) {
                              ? sys.emitRate * static_cast<float>(handle.maxParticles)
                              : sys.emitRate;
     cfg.shape          = static_cast<ParticleShape>(sys.shapeType);
+    cfg.angVelMin      = sys.angVelMin;
+    cfg.angVelMax      = sys.angVelMax;
+    cfg.angVelBias     = sys.angVelBias;
     cfg.pixelMode      = s_systemPixelMode[handle.systemIndex];
     cfg.texture        = s_systemTextures[handle.systemIndex];
     cfg.sampler        = s_systemSamplers[handle.systemIndex];

@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\assethandler\shaders\fullscreen_quad_frag.dxil
+// Source: luminoveau\src\assets\shaders\fullscreen_quad_frag.dxil
 // Backend: DXIL
 
 #include <cstdint>

@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\assethandler\shaders\sprite_vert.dxil
+// Source: luminoveau\src\assets\shaders\sprite_vert.dxil
 // Backend: DXIL
 
 #include <cstdint>

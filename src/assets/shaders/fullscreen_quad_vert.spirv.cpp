@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\assethandler\shaders\fullscreen_quad_vert.spv
+// Source: luminoveau\src\assets\shaders\fullscreen_quad_vert.spv
 // Backend: SPIR-V
 
 #include <cstdint>

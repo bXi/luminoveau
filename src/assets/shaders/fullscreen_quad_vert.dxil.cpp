@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\assethandler\shaders\fullscreen_quad_vert.dxil
+// Source: luminoveau\src\assets\shaders\fullscreen_quad_vert.dxil
 // Backend: DXIL
 
 #include <cstdint>

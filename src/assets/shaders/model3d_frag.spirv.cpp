@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\assethandler\shaders\model3d_frag.spv
+// Source: luminoveau\src\assets\shaders\model3d_frag.spv
 // Backend: SPIR-V
 
 #include <cstdint>

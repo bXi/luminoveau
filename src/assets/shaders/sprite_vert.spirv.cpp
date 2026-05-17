@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\assethandler\shaders\sprite_vert.spv
+// Source: luminoveau\src\assets\shaders\sprite_vert.spv
 // Backend: SPIR-V
 
 #include <cstdint>

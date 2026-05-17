@@ -10,6 +10,10 @@ struct GPUParticle {
     float  respawnTimer;
     float  startSize;       // size at birth (pixels)
     float  endSize;         // size at death (pixels)
+    float  angle;           // current rotation (radians)
+    float  angularVelocity; // radians per second
+    float  _pad0;
+    float  _pad1;
 };
 
 struct GPUParticleSystem {
@@ -28,8 +32,12 @@ struct GPUParticleSystem {
     float  lifetimeMax;
     float  lifetimeBias;
     float  emitRate;
-    uint   flags;           // bit 0 = emitting
+    uint   flags;           // bit 0 = emitting, bit 1 = custom compute
     uint   shapeType;
+    float  angVelMin;
+    float  angVelMax;
+    float  angVelBias;
+    float  _pad;
 };
 
 // set=0: read-only system data
@@ -99,6 +107,7 @@ void main(uint3 dispatchID : SV_DispatchThreadID)
 
         particles[idx].posAndLife    = posAndLife;
         particles[idx].velAndMaxLife = float4(vel, velAndMaxLife.w);
+        particles[idx].angle        += particles[idx].angularVelocity * deltaTime;
     }
     else
     {
@@ -142,10 +151,19 @@ void main(uint3 dispatchID : SV_DispatchThreadID)
                 float endSize = lerp(sys.sizeEndMin, sys.sizeEndMax,
                                      biasedSample(seed + 6u, sys.sizeEndBias));
 
+                // Initial rotation angle — fully random regardless of angVel range
+                float startAngle = hash(seed + 7u) * 6.2831853;
+
+                // Angular velocity sampled from system range
+                float angVel = lerp(sys.angVelMin, sys.angVelMax,
+                                    biasedSample(seed + 8u, sys.angVelBias));
+
                 particles[idx].posAndLife    = float4(spawnPos, maxLife);
                 particles[idx].velAndMaxLife = float4(sys.spawnVel.xyz + randVel, maxLife);
                 particles[idx].startSize     = startSize;
                 particles[idx].endSize       = endSize;
+                particles[idx].angle         = startAngle;
+                particles[idx].angularVelocity = angVel;
                 particles[idx].respawnTimer  = 1.0; // reset to full period fraction
             }
             else

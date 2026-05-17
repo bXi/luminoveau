@@ -11,7 +11,7 @@
 // GPU-side structs (std430 layout — must stay in sync with .comp / .vert)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// 48 bytes, std430-compatible
+// 64 bytes, std430-compatible
 struct alignas(16) GPUParticle {
     glm::vec4 posAndLife;       // xyz = world pos,  w = remaining life (<=0 → dead)
     glm::vec4 velAndMaxLife;    // xyz = velocity,   w = maxLife (for t lerp)
@@ -19,10 +19,14 @@ struct alignas(16) GPUParticle {
     float     respawnTimer;     // counts down; when <=0 and emitting → respawn
     float     startSize;        // billboard size at birth (pixels)
     float     endSize;          // billboard size at death (pixels)
+    float     angle;            // current rotation (radians)
+    float     angularVelocity;  // radians per second; set on spawn, persists
+    float     _pad0;
+    float     _pad1;
 };
-static_assert(sizeof(GPUParticle) == 48, "GPUParticle size mismatch");
+static_assert(sizeof(GPUParticle) == 64, "GPUParticle size mismatch");
 
-// 176 bytes, std430-compatible
+// 192 bytes, std430-compatible
 struct alignas(16) GPUParticleSystem {
     glm::vec4 spawnPos;         // xyz = origin,     w = spawn radius
     glm::vec4 spawnVel;         // xyz = base vel,   w = velocity spread
@@ -39,10 +43,14 @@ struct alignas(16) GPUParticleSystem {
     float     lifetimeMax;
     float     lifetimeBias;     // 1.0 = uniform, >1 = skew toward min
     float     emitRate;         // particles per second
-    uint32_t  flags;            // bit 0 = emitting
+    uint32_t  flags;            // bit 0 = emitting, bit 1 = custom compute
     uint32_t  shapeType;        // see ParticleShape enum
+    float     angVelMin;        // angular velocity range (rad/s); can be negative
+    float     angVelMax;
+    float     angVelBias;       // 1.0 = uniform, >1 = skew toward min magnitude
+    float     _pad;
 };
-static_assert(sizeof(GPUParticleSystem) == 176, "GPUParticleSystem size mismatch");
+static_assert(sizeof(GPUParticleSystem) == 192, "GPUParticleSystem size mismatch");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shape types
@@ -126,6 +134,12 @@ struct ParticleSystemConfig {
     float     sizeEndBias    = 1.0f;
 
     ParticleShape shape      = ParticleShape::SoftCircle;
+
+    // Angular velocity — range applied per-particle at spawn. Both values can be
+    // negative; set min < 0 and max > 0 for bidirectional spin.
+    float     angVelMin      = 0.0f;   // radians per second
+    float     angVelMax      = 0.0f;
+    float     angVelBias     = 1.0f;   // 1.0 = uniform, >1 = skew toward min
 
     // When true the system is rendered with standard alpha blending
     // (SRC_ALPHA, ONE_MINUS_SRC_ALPHA) instead of additive.  Combine with

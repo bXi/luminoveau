@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\assethandler\shaders\particles_frag.dxil
+// Source: luminoveau\src\assets\shaders\particles_frag.dxil
 // Backend: DXIL
 
 #include <cstdint>

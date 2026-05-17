@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\assethandler\shaders\model3d_vert.dxil
+// Source: luminoveau\src\assets\shaders\model3d_vert.dxil
 // Backend: DXIL
 
 #include <cstdint>
