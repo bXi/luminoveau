@@ -1,5 +1,5 @@
 #include "buffermanager.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 void BufferManager::_resetAll() {
     for (auto& buffer : m_buffers) {

@@ -1,8 +1,8 @@
-#include "shaderhandler.h"
+#include "shaders.h"
 #include "renderer.h"
 #include "assets/shader/shader.h"
 #include "assets/compute/computepipeline.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 #include <fstream>
 #include <filesystem>

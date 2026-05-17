@@ -58,8 +58,8 @@ bool LoadFontFromFile(const std::string& filepath, bool fallback = false);
  * @param fallback Whether this is a fallback font (default: false)
  * @return True if loaded successfully
  */
-bool LoadFontFromMemory(const unsigned char* data, size_t data_length, 
-                       const std::string& family, 
+bool LoadFontFromMemory(const unsigned char* data, size_t data_length,
+                       const std::string& family,
                        Rml::Style::FontStyle style = Rml::Style::FontStyle::Normal,
                        Rml::Style::FontWeight weight = Rml::Style::FontWeight::Normal,
                        bool fallback = false);
@@ -220,7 +220,7 @@ using EventCallback = std::function<void(Rml::Event&)>;
  * @param event_type Event type (e.g., "click", "change", "submit")
  * @param callback Function to call when event fires
  */
-void RegisterEventListener(const std::string& document_path, const std::string& element_id, 
+void RegisterEventListener(const std::string& document_path, const std::string& element_id,
                           const std::string& event_type, EventCallback callback);
 
 /**
@@ -241,7 +241,7 @@ bool ProcessEvent(SDL_Event& event);
  * @param property CSS property name
  * @param value CSS property value
  */
-void SetElementStyle(const std::string& document_path, const std::string& element_id, 
+void SetElementStyle(const std::string& document_path, const std::string& element_id,
                      const std::string& property, const std::string& value);
 
 /**
@@ -290,7 +290,7 @@ Rml::DataModelConstructor BindDataModel(const std::string& model_name);
  * @param message Message content
  * @param on_ok Optional callback when OK is clicked
  */
-void ShowMessageBox(const std::string& title, const std::string& message, 
+void ShowMessageBox(const std::string& title, const std::string& message,
                    std::function<void()> on_ok = nullptr);
 
 /**

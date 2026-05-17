@@ -1,6 +1,6 @@
 #include "resourcepack.h"
 #include "file/filehandler.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 #include <filesystem>
 #include <utility>

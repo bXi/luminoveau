@@ -11,20 +11,20 @@
 #include "draw/draw.h"
 
 #include "util/helpers.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 #include "gpu/renderpass.h"
 #include "renderer/passes/spriterenderpass.h"
 #include "renderer/passes/model3drenderpass.h"
 #include "renderer/passes/shaderrenderpass.h"
-#include "shaderhandler.h"
-#include "computehandler.h"
+#include "shaders.h"
+#include "compute.h"
 #include "draw/particles.h"
 
 #include <SDL3_image/SDL_image.h>
 
 #ifdef LUMINOVEAU_WITH_RMLUI
-#include "integrations/rmlui/rmluihandler.h"
+#include "integrations/rmlui/rmlui.h"
 #include "integrations/rmlui/rmluibackend.h"
 #endif
 

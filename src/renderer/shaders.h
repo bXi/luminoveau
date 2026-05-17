@@ -29,7 +29,7 @@ struct ShaderMetadata {
     uint32_t num_storage_buffers = 0;
     uint32_t num_storage_textures = 0;
     SDL_GPUShaderFormat shader_format = SDL_GPU_SHADERFORMAT_SPIRV; // Store the format!
-    
+
     // Simple text serialization
     std::string serialize() const;
     static ShaderMetadata deserialize(const std::string& data);
@@ -41,20 +41,20 @@ public:
     static void Init() {
         get()._init();
     }
-    
+
     static void Quit() {
         get()._quit();
     }
 
     static PhysFSFileData GetShader(const std::string &filename) { return get()._getShader(filename); }
-    
+
     static ShaderMetadata GetShaderMetadata(const std::string &filename) { return get()._getShaderMetadata(filename); }
-    
+
     static SDL_GPUShaderFormat GetShaderFormat(const std::string &filename) { return get()._getShaderFormat(filename); }
-    
+
     // Helper to create SDL_GPUShader with correct format
     static SDL_GPUShader* CreateGPUShader(SDL_GPUDevice* device, const std::string& filename, SDL_GPUShaderStage stage);
-    
+
     // Helper to create complete ShaderAsset from filename
     static ShaderAsset CreateShaderAsset(SDL_GPUDevice* device, const std::string& filename, SDL_GPUShaderStage stage);
 
@@ -68,28 +68,28 @@ public:
 private:
 
     void _init();
-    
+
     void _quit();
 
     PhysFSFileData _getShader(const std::string &filename);
-    
+
     ShaderMetadata _getShaderMetadata(const std::string &filename);
-    
+
     SDL_GPUShaderFormat _getShaderFormat(const std::string &filename);
 
     std::vector<uint32_t> _compileGLSLtoSPIRV(const std::string &source, EShLanguage shaderStage);
-    
+
     ShaderMetadata _extractMetadataFromSPIRV(const std::vector<uint32_t> &spirv);
-    
+
     std::string _computeSourceHash(const std::string &source);
-    
+
     // Cache paths
     std::string _getCachePath(const std::string &filename, const std::string &extension);
     std::string _getMetadataPath(const std::string &filename);
-    
+
     bool _loadCachedShader(const std::string &cachePath, std::vector<uint8_t> &outData);
     bool _loadCachedMetadata(const std::string &metadataPath, ShaderMetadata &outMetadata);
-    
+
     void _saveCachedShader(const std::string &cachePath, const std::vector<uint8_t> &data);
     void _saveCachedMetadata(const std::string &metadataPath, const ShaderMetadata &metadata);
 

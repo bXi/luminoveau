@@ -9,7 +9,7 @@
 #include <string>
 #include <type_traits>
 
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 enum class BufferType { CPU, GPU };
 

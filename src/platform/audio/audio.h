@@ -4,7 +4,7 @@
 #include <array>
 #include <vector>
 
-#include "core/settings/settingshandler.h"
+#include "core/settings/settings.h"
 
 #include "assets/audio/sound.h"
 #include "assets/audio/music.h"

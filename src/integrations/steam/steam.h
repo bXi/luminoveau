@@ -8,7 +8,7 @@
 #endif
 
 #include "util/helpers.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 class Steam {
 public:
     static void Init(int appId) { get()._init(appId); }

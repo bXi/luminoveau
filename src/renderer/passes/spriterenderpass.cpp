@@ -6,7 +6,7 @@
 #include "SDL3/SDL_gpu.h"
 #include "platform/window/window.h"
 #include "assets/shaders_generated.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 #include "draw/draw.h"
 
 #include "math/constants.h"

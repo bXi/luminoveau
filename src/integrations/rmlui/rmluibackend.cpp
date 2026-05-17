@@ -5,7 +5,7 @@
 #ifdef LUMINOVEAU_WITH_RMLUI
 
 #include "rmluibackend.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 #include "platform/window/window.h"
 
 namespace RmlUI {

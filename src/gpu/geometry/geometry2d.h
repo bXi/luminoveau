@@ -2,7 +2,7 @@
 
 #include <vector>
 #include "SDL3/SDL.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 /**
  * @brief 2D vertex with position and UV coordinates

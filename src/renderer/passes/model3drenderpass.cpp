@@ -3,7 +3,7 @@
 #include "gpu/presets.h"
 #include "platform/window/window.h"
 #include "assets/shaders_generated.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 #include <algorithm>
 
 bool Model3DRenderPass::init(

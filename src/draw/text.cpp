@@ -1,4 +1,4 @@
-#include "texthandler.h"
+#include "text.h"
 #include "draw/draw.h"
 #include <algorithm>
 
@@ -6,19 +6,19 @@
 static uint32_t decodeUTF8(const std::string& str, size_t& pos) {
     unsigned char c = str[pos++];
     if (c < 0x80) return c;
-    
+
     uint32_t codepoint = 0;
     int bytes = 0;
-    
+
     if ((c & 0xE0) == 0xC0) { codepoint = c & 0x1F; bytes = 1; }
     else if ((c & 0xF0) == 0xE0) { codepoint = c & 0x0F; bytes = 2; }
     else if ((c & 0xF8) == 0xF0) { codepoint = c & 0x07; bytes = 3; }
     else return '?';  // Invalid
-    
+
     for (int i = 0; i < bytes && pos < str.length(); ++i) {
         codepoint = (codepoint << 6) | (str[pos++] & 0x3F);
     }
-    
+
     return codepoint;
 }
 
@@ -46,7 +46,7 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
 
     // Use proper ascender from font metrics
     double ascender_px = font.ascender * font.generatedSize;
-    
+
     // Convert top-left -> baseline
     newPos.y += static_cast<float>(ascender_px * scale);
 
@@ -150,16 +150,16 @@ vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw, float 
 
         double advance = glyph.advance;
         double pr = glyph.pr;
-        
+
         pr *= font.generatedSize;
         advance *= font.generatedSize;
-        
+
         float glyphRight = static_cast<float>((cursorX + pr) * scale);
         maxRight = std::max(maxRight, glyphRight);
 
         cursorX += advance;
     }
-    
+
     float finalWidth = std::max(maxRight, cursorX * scale);
 
     return {finalWidth, static_cast<float>(ascender_px * scale)};

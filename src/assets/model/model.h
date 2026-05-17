@@ -4,7 +4,7 @@
 #include "gpu/types.h"
 #include "math/vectors.h"
 #include "assets/texture/texture.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 struct Vertex3D {
     float x, y, z;     // position

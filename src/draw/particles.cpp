@@ -7,11 +7,11 @@
 #include <sstream>
 
 #include "renderer/renderer.h"
-#include "renderer/computehandler.h"
-#include "renderer/shaderhandler.h"
+#include "renderer/compute.h"
+#include "renderer/shaders.h"
 #include "platform/window/window.h"
 #include "gpu/backends/sdl/sdlgpu.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 #include "assets/compute/computepipeline.h"
 #include "gpu/buffer/uniformobject.h"
 #include "scene/camera.h"

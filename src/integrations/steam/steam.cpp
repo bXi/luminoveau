@@ -1,4 +1,4 @@
-#include "steamhandler.h"
+#include "steam.h"
 
 //*/
 void Steam::_init(int newAppId) {

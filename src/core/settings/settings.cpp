@@ -1,4 +1,4 @@
-#include "settingshandler.h"
+#include "settings.h"
 
 void Settings::_setRes(int width, int height)
 {

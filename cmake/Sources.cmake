@@ -39,9 +39,9 @@ set(LUMINOVEAU_SOURCES
 
     # Core
     src/core/eventbus/eventbus.cpp
-    src/core/settings/settingshandler.cpp
+    src/core/settings/settings.cpp
     src/core/state/state.cpp
-    src/core/log/loghandler.cpp
+    src/core/log/log.cpp
 
     # File
     src/file/filehandler.cpp
@@ -66,8 +66,8 @@ set(LUMINOVEAU_SOURCES
     src/renderer/passes/spriterenderpass.cpp
     src/renderer/passes/model3drenderpass.cpp
     src/renderer/passes/shaderrenderpass.cpp
-    src/renderer/shaderhandler.cpp
-    src/renderer/computehandler.cpp
+    src/renderer/shaders.cpp
+    src/renderer/compute.cpp
 
     # Assets
     src/assets/assethandler.cpp
@@ -77,7 +77,7 @@ set(LUMINOVEAU_SOURCES
     src/scene/scene3d.cpp
 
     # Draw
-    src/draw/texthandler.cpp
+    src/draw/text.cpp
     src/draw/particles.cpp
     src/draw/draw.cpp
 
@@ -145,13 +145,13 @@ set(LUMINOVEAU_HEADERS
     src/assets/audio/pcmsound.h
     src/assets/model/model.h
     src/assets/effect/effect.h
-    src/assets/effect/effecthandler.h
+    src/assets/effect/effects.h
     src/assets/compute/computepipeline.h
 
     # Renderer
     src/renderer/renderer.h
-    src/renderer/shaderhandler.h
-    src/renderer/computehandler.h
+    src/renderer/shaders.h
+    src/renderer/compute.h
     src/renderer/passes/spriterenderpass.h
     src/renderer/passes/model3drenderpass.h
     src/renderer/passes/shaderrenderpass.h
@@ -159,11 +159,11 @@ set(LUMINOVEAU_HEADERS
     # Core
     src/core/eventbus/eventbus.h
     src/core/enginestate/enginestate.h
-    src/core/settings/settingshandler.h
+    src/core/settings/settings.h
     src/core/settings/mini.h
     src/core/state/state.h
     src/core/state/basestate.h
-    src/core/log/loghandler.h
+    src/core/log/log.h
 
     # Platform
     src/platform/audio/audio.h
@@ -179,7 +179,7 @@ set(LUMINOVEAU_HEADERS
     src/scene/scene3d.h
 
     # Draw
-    src/draw/texthandler.h
+    src/draw/text.h
     src/draw/particles.h
     src/draw/particlesystem.h
     src/draw/draw.h

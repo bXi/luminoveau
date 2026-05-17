@@ -1,6 +1,6 @@
-#include "computehandler.h"
+#include "compute.h"
 #include "renderer.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 #include <algorithm>
 #include <vector>

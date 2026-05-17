@@ -4,9 +4,9 @@
 
 #ifdef LUMINOVEAU_WITH_RMLUI
 
-#include "rmluihandler.h"
+#include "rmlui.h"
 #include "rmluibackend.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 #include "platform/window/window.h"
 #include "renderer/renderer.h"
 #include "file/filehandler.h"
@@ -40,7 +40,7 @@ bool LoadFontFromFile(const std::string& filepath, bool fallback) {
         LOG_ERROR("RmlUI not initialized");
         return false;
     }
-    
+
     bool success = Rml::LoadFontFace(filepath, fallback);
     if (success) {
         LOG_INFO("Loaded font: {}", filepath);
@@ -50,17 +50,17 @@ bool LoadFontFromFile(const std::string& filepath, bool fallback) {
     return success;
 }
 
-bool LoadFontFromMemory(const unsigned char* data, size_t data_length, 
-                       const std::string& family, Rml::Style::FontStyle style, 
+bool LoadFontFromMemory(const unsigned char* data, size_t data_length,
+                       const std::string& family, Rml::Style::FontStyle style,
                        Rml::Style::FontWeight weight, bool fallback) {
     if (!g_state.initialized) {
         LOG_ERROR("RmlUI not initialized");
         return false;
     }
-    
+
     // Create a Span from the data
     Rml::Span<const Rml::byte> font_data(reinterpret_cast<const Rml::byte*>(data), data_length);
-    
+
     bool success = Rml::LoadFontFace(font_data, family, style, weight, fallback);
     if (success) {
         LOG_INFO("Loaded font from memory: {}", family);
@@ -76,8 +76,8 @@ bool LoadDefaultFont() {
     return LoadFontFromMemory(
         font_data,
         font_size,
-        "DroidSansMono", 
-        Rml::Style::FontStyle::Normal, 
+        "DroidSansMono",
+        Rml::Style::FontStyle::Normal,
         Rml::Style::FontWeight::Normal,
         true  // fallback=true makes this the default font
     );
@@ -90,7 +90,7 @@ bool LoadDefaultFont() {
 class CustomEventListener : public Rml::EventListener {
 public:
     CustomEventListener(EventCallback callback) : callback_(callback) {}
-    
+
     void ProcessEvent(Rml::Event& event) override {
         if (callback_) {
             callback_(event);
@@ -120,7 +120,7 @@ void Init() {
 
     // Get GPU device from Renderer
     SDL_GPUDevice* device = Renderer::GetDevice();
-    
+
     // Initialize backend
     if (!Backend::Initialize(device, window)) {
         LOG_ERROR("Failed to initialize RmlUI backend");
@@ -139,9 +139,9 @@ void Init() {
 
     // Create main context
     vf2d window_size = Window::GetSize();
-    g_state.main_context = Rml::CreateContext("main", 
+    g_state.main_context = Rml::CreateContext("main",
         Rml::Vector2i(static_cast<int>(window_size.x), static_cast<int>(window_size.y)));
-    
+
     if (!g_state.main_context) {
         LOG_ERROR("Failed to create main RmlUI context");
         Rml::Shutdown();
@@ -150,11 +150,11 @@ void Init() {
     }
 
     g_state.contexts["main"] = g_state.main_context;
-    
+
     // Note: Users should load fonts manually using RmlUI::LoadFontFromFile()
     // or RmlUI::LoadFontFromMemory() after initialization
     // RmlUI will show warnings if no fonts are loaded, but will still function
-    
+
     g_state.initialized = true;
 
     LOG_INFO("RmlUI initialized successfully - remember to load fonts for text rendering");
@@ -217,9 +217,9 @@ Rml::Context* CreateContext(const std::string& name, vf2d size) {
         return g_state.contexts[name];
     }
 
-    Rml::Context* context = Rml::CreateContext(name, 
+    Rml::Context* context = Rml::CreateContext(name,
         Rml::Vector2i(static_cast<int>(size.x), static_cast<int>(size.y)));
-    
+
     if (context) {
         g_state.contexts[name] = context;
         LOG_INFO("Created RmlUI context: {}", name);
@@ -252,7 +252,7 @@ Rml::ElementDocument* LoadDocument(const std::string& filepath) {
 
     // Load the document
     Rml::ElementDocument* document = g_state.main_context->LoadDocument(filepath);
-    
+
     if (!document) {
         LOG_ERROR("Failed to load RML document: {}", filepath);
         return nullptr;
@@ -274,7 +274,7 @@ void ShowDocument(const std::string& filepath) {
     if (!doc) {
         doc = LoadDocument(filepath);
     }
-    
+
     if (doc) {
         doc->Show();
     }
@@ -296,7 +296,7 @@ void ToggleDocument(const std::string& filepath) {
         }
         return;
     }
-    
+
     if (doc->IsVisible()) {
         doc->Hide();
     } else {
@@ -316,10 +316,10 @@ void UnloadDocument(const std::string& filepath) {
             it->second->Close();
         }
         g_state.documents.erase(it);
-        
+
         // Clean up associated event listeners
         g_state.event_listeners.erase(filepath);
-        
+
         LOG_INFO("Unloaded RML document: {}", filepath);
     }
 }
@@ -402,12 +402,12 @@ Rml::Element* GetElement(const std::string& document_path, const std::string& el
         LOG_WARNING("Document not found: {}", document_path);
         return nullptr;
     }
-    
+
     Rml::Element* element = doc->GetElementById(element_id);
     if (!element) {
         LOG_WARNING("Element '{}' not found in document '{}'", element_id, document_path);
     }
-    
+
     return element;
 }
 
@@ -415,7 +415,7 @@ Rml::Element* GetElement(const std::string& document_path, const std::string& el
 // EVENT HANDLING
 // ============================================================================
 
-void RegisterEventListener(const std::string& document_path, const std::string& element_id, 
+void RegisterEventListener(const std::string& document_path, const std::string& element_id,
                           const std::string& event_type, EventCallback callback) {
     if (!callback) {
         LOG_WARNING("Null callback provided for event listener");
@@ -450,7 +450,7 @@ bool ProcessEvent(SDL_Event& event) {
 // STYLING HELPERS
 // ============================================================================
 
-void SetElementStyle(const std::string& document_path, const std::string& element_id, 
+void SetElementStyle(const std::string& document_path, const std::string& element_id,
                      const std::string& property, const std::string& value) {
     Rml::Element* element = GetElement(document_path, element_id);
     if (element) {
@@ -496,7 +496,7 @@ Rml::DataModelConstructor BindDataModel(const std::string& model_name) {
     } else {
         LOG_ERROR("Failed to create data model '{}'", model_name);
     }
-    
+
     return constructor;
 }
 
@@ -504,7 +504,7 @@ Rml::DataModelConstructor BindDataModel(const std::string& model_name) {
 // COMMON UI HELPERS
 // ============================================================================
 
-void ShowMessageBox(const std::string& title, const std::string& message, 
+void ShowMessageBox(const std::string& title, const std::string& message,
                    std::function<void()> on_ok) {
     if (!g_state.initialized) {
         return;
@@ -528,18 +528,18 @@ void ShowMessageBox(const std::string& title, const std::string& message,
             border: 2px solid #666;
             padding: 20px;
         }
-        
+
         .title {
             font-size: 20px;
             color: #fff;
             margin-bottom: 20px;
         }
-        
+
         .message {
             color: #ccc;
             margin-bottom: 30px;
         }
-        
+
         button {
             width: 100px;
             height: 30px;
@@ -548,7 +548,7 @@ void ShowMessageBox(const std::string& title, const std::string& message,
             border: 1px solid #777;
             cursor: pointer;
         }
-        
+
         button:hover {
             background-color: #666;
         }
@@ -566,7 +566,7 @@ void ShowMessageBox(const std::string& title, const std::string& message,
     Rml::ElementDocument* doc = g_state.main_context->LoadDocumentFromMemory(rml);
     if (doc) {
         doc->Show();
-        
+
         // Register OK button handler
         if (on_ok) {
             RegisterEventListener("msgbox", "ok_button", "click", [on_ok, doc](Rml::Event&) {
@@ -605,22 +605,22 @@ void ShowConfirmDialog(const std::string& title, const std::string& message,
             border: 2px solid #666;
             padding: 20px;
         }
-        
+
         .title {
             font-size: 20px;
             color: #fff;
             margin-bottom: 20px;
         }
-        
+
         .message {
             color: #ccc;
             margin-bottom: 30px;
         }
-        
+
         .buttons {
             text-align: right;
         }
-        
+
         button {
             width: 100px;
             height: 30px;
@@ -630,7 +630,7 @@ void ShowConfirmDialog(const std::string& title, const std::string& message,
             cursor: pointer;
             margin-left: 10px;
         }
-        
+
         button:hover {
             background-color: #666;
         }
@@ -650,13 +650,13 @@ void ShowConfirmDialog(const std::string& title, const std::string& message,
     Rml::ElementDocument* doc = g_state.main_context->LoadDocumentFromMemory(rml);
     if (doc) {
         doc->Show();
-        
+
         // Register button handlers
         RegisterEventListener("confirm", "yes_button", "click", [callback, doc](Rml::Event&) {
             callback(true);
             doc->Close();
         });
-        
+
         RegisterEventListener("confirm", "no_button", "click", [callback, doc](Rml::Event&) {
             callback(false);
             doc->Close();

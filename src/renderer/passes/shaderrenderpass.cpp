@@ -8,8 +8,8 @@
 #include "assets/shaders_generated.h"
 #include "renderer/passes/spriterenderpass.h"
 #include "platform/window/window.h"
-#include "renderer/shaderhandler.h"
-#include "core/log/loghandler.h"
+#include "renderer/shaders.h"
+#include "core/log/log.h"
 
 void ShaderRenderPass::release(bool logRelease) {
     if (m_depth_texture.gpuTexture) {

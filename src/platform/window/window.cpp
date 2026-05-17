@@ -12,7 +12,7 @@
 #include <SDL3_image/SDL_image.h>
 
 #ifdef LUMINOVEAU_WITH_RMLUI
-#include "integrations/rmlui/rmluihandler.h"
+#include "integrations/rmlui/rmlui.h"
 #endif
 
 #ifdef LUMINOVEAU_WITH_IMGUI

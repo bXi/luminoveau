@@ -21,7 +21,7 @@
 #include <assets/audio/pcmsound.h>
 #include <assets/model/model.h>
 #include <assets/effect/effect.h>
-#include <assets/effect/effecthandler.h>
+#include <assets/effect/effects.h>
 #include <assets/compute/computepipeline.h>
 
 // ── GPU ──────────────────────────────────────────────────────────────────────
@@ -38,10 +38,10 @@
 #include <core/eventbus/eventbus.h>
 #include <platform/input/input.h>
 #include <renderer/renderer.h>
-#include <renderer/shaderhandler.h>
-#include <renderer/computehandler.h>
+#include <renderer/shaders.h>
+#include <renderer/compute.h>
 #include <draw/particles.h>
-#include <draw/texthandler.h>
+#include <draw/text.h>
 #include <platform/window/window.h>
 
 // ── Scene ────────────────────────────────────────────────────────────────────
@@ -50,11 +50,11 @@
 #include <scene/scene3d.h>
 
 // ── Steam (optional) ─────────────────────────────────────────────────────────
-#include <integrations/steam/steamhandler.h>
+#include <integrations/steam/steam.h>
 
 // ── RmlUI (optional) ─────────────────────────────────────────────────────────
 #ifdef LUMINOVEAU_WITH_RMLUI
-#include <integrations/rmlui/rmluihandler.h>
+#include <integrations/rmlui/rmlui.h>
 #endif
 
 // ── Callback-based main loop (optional) ──────────────────────────────────────

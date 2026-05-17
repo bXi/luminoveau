@@ -9,7 +9,7 @@
 #include "SDL3/SDL.h"
 #include "assets/assethandler.h"
 #include "core/state/state.h"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 #include <map>
 #include <algorithm>

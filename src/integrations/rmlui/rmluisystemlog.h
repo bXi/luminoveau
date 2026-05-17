@@ -1,7 +1,7 @@
 #include <RmlUi/Core/SystemInterface.h>
 #include <RmlUi/Core/Core.h>
 
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 class RmlSystem : public Rml::SystemInterface
 {

@@ -99,10 +99,10 @@ endif()
 
 # ── Optional: logging ─────────────────────────────────────────────────────────
 if(LUMINOVEAU_ENABLE_LOGGING)
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/core/log/loghandler.cpp")
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/core/log/log.cpp")
         target_sources(luminoveau PRIVATE
-            src/core/log/loghandler.cpp
-            src/core/log/loghandler.h
+            src/core/log/log.cpp
+            src/core/log/log.h
         )
         lumi_done("Logging support")
     endif()

@@ -4,8 +4,8 @@
 
 # Adding Steam handler sources (always included, but only functional if Steam SDK is found)
 target_sources(luminoveau PRIVATE
-    src/integrations/steam/steamhandler.cpp
-    src/integrations/steam/steamhandler.h
+    src/integrations/steam/steam.cpp
+    src/integrations/steam/steam.h
 )
 
 # Checking for Steam SDK presence

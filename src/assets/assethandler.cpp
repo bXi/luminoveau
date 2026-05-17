@@ -2,13 +2,13 @@
 #include "gpu/backends/sdl/sdlgpu.h"
 #include "platform/window/window.h"
 #include "spirv_cross.hpp"
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 #include <iostream>
 #include <vector>
 
 #include "renderer/renderer.h"
-#include "renderer/shaderhandler.h"
+#include "renderer/shaders.h"
 
 #include <msdf-atlas-gen/msdf-atlas-gen.h>
 #include <msdfgen/msdfgen.h>

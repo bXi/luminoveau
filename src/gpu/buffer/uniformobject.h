@@ -8,7 +8,7 @@
 #include <cstring>
 #include <type_traits>
 
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 
 template<typename T>
 struct is_std_array : std::false_type {

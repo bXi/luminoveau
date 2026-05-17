@@ -11,7 +11,7 @@
 #include "scene/camera3d.h"
 #include "assets/model/model.h"
 
-#include "core/log/loghandler.h"
+#include "core/log/log.h"
 /**
  * @brief Instance of a 3D model with transform
  */
