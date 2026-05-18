@@ -35,7 +35,7 @@ struct GPUParticleSystem {
     float  angVelMin;
     float  angVelMax;
     float  angVelBias;
-    float  _pad;
+    float  trailStretch;  // >0 = stretch billboard along velocity
 };
 
 // Billboard quad corners — CCW, 2 triangles (6 vertices)
@@ -126,25 +126,47 @@ Output main(uint vertID : SV_VertexID, uint instanceID : SV_InstanceID)
     o.vColor     = SampleGradient(sys.colors, sys.colorPositions, t);
     o.vShapeType = sys.shapeType;
 
-    // Rotate the billboard corner by the particle's current angle
-    float sinA = sin(p.angle);
-    float cosA = cos(p.angle);
-    float2 corner = QUAD[cornerIdx];
-    float2 rotated = float2(cosA * corner.x - sinA * corner.y,
-                            sinA * corner.x + cosA * corner.y);
-
-    // UV follows the rotated corner so shape SDFs and textures rotate with the quad
-    o.vUV = rotated + float2(0.5, 0.5);
-
-    // Per-particle size, interpolated from birth to death
-    float particleSize = lerp(p.startSize, p.endSize, t);
+    float2 corner       = QUAD[cornerIdx];
+    float  particleSize = lerp(p.startSize, p.endSize, t);
+    float2 pixelToClip  = 2.0 / screenSize;
 
     // Project centre to clip space (orthographic → w == 1)
     float4 clipPos = mul(camera, float4(p.posAndLife.xyz, 1.0));
 
-    // Expand screen-aligned billboard (particleSize is in pixels)
-    float2 pixelToClip = 2.0 / screenSize;
-    clipPos.xy += rotated * particleSize * pixelToClip * clipPos.w;
+    float2 vel2D = p.velAndMaxLife.xy;
+    float  speed = length(vel2D);
+
+    if (sys.trailStretch > 0.0 && speed > 0.5)
+    {
+        // Orient the quad along the velocity vector and stretch in that direction.
+        // corner.x [-0.5, 0.5] → perpendicular axis (keeps particle width)
+        // corner.y [-0.5, 0.5] → velocity axis (stretched by trailStretch * speed)
+        // Angular rotation is skipped — velocity already provides orientation.
+        //
+        // Y is negated: our ortho matrix maps world Y+ downward (screen coords),
+        // but clip Y+ is upward, so velocity direction must be flipped in Y
+        // before being used as a clip-space offset direction.
+        float2 velDir  = float2(vel2D.x, -vel2D.y) / speed;
+        float2 perpDir = float2(-velDir.y, velDir.x);
+
+        float stretchLen = particleSize + sys.trailStretch * speed;
+        float2 offset    = corner.x * perpDir * particleSize
+                         + corner.y * velDir  * stretchLen;
+
+        clipPos.xy += offset * pixelToClip * clipPos.w;
+        o.vUV = corner + float2(0.5, 0.5);  // unrotated; SDF maps to stretched ellipse
+    }
+    else
+    {
+        // Standard rotation billboard
+        float sinA   = sin(p.angle);
+        float cosA   = cos(p.angle);
+        float2 rotated = float2(cosA * corner.x - sinA * corner.y,
+                                sinA * corner.x + cosA * corner.y);
+
+        clipPos.xy += rotated * particleSize * pixelToClip * clipPos.w;
+        o.vUV = rotated + float2(0.5, 0.5);
+    }
 
     o.Position = clipPos;
     return o;

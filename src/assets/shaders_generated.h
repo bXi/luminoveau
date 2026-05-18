@@ -21,6 +21,11 @@ namespace Shaders {
     extern const size_t Model3d_Vert_Size;
     extern const uint8_t Model3d_Frag[];
     extern const size_t Model3d_Frag_Size;
+    // ParticlesPov Shaders
+    extern const uint8_t ParticlesPov_Vert[];
+    extern const size_t ParticlesPov_Vert_Size;
+    extern const uint8_t ParticlesPov_Frag[];
+    extern const size_t ParticlesPov_Frag_Size;
     // Particles Shaders
     extern const uint8_t Particles_Vert[];
     extern const size_t Particles_Vert_Size;

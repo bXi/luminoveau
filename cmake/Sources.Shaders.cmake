@@ -20,6 +20,8 @@ if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
         src/assets/shaders/fullscreen_quad_frag.spirv.cpp
         src/assets/shaders/model3d_vert.spirv.cpp
         src/assets/shaders/model3d_frag.spirv.cpp
+        src/assets/shaders/particles_pov_vert.spirv.cpp
+        src/assets/shaders/particles_pov_frag.spirv.cpp
         src/assets/shaders/particles_vert.spirv.cpp
         src/assets/shaders/particles_frag.spirv.cpp
         src/assets/shaders/sprite_vert.spirv.cpp
@@ -32,6 +34,8 @@ elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "DXIL")
         src/assets/shaders/fullscreen_quad_frag.dxil.cpp
         src/assets/shaders/model3d_vert.dxil.cpp
         src/assets/shaders/model3d_frag.dxil.cpp
+        src/assets/shaders/particles_pov_vert.dxil.cpp
+        src/assets/shaders/particles_pov_frag.dxil.cpp
         src/assets/shaders/particles_vert.dxil.cpp
         src/assets/shaders/particles_frag.dxil.cpp
         src/assets/shaders/sprite_vert.dxil.cpp

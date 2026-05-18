@@ -48,7 +48,7 @@ struct alignas(16) GPUParticleSystem {
     float     angVelMin;        // angular velocity range (rad/s); can be negative
     float     angVelMax;
     float     angVelBias;       // 1.0 = uniform, >1 = skew toward min magnitude
-    float     _pad;
+    float     trailStretch;     // >0 = elongate billboard along velocity; 0 = off
 };
 static_assert(sizeof(GPUParticleSystem) == 192, "GPUParticleSystem size mismatch");
 
@@ -140,6 +140,11 @@ struct ParticleSystemConfig {
     float     angVelMin      = 0.0f;   // radians per second
     float     angVelMax      = 0.0f;
     float     angVelBias     = 1.0f;   // 1.0 = uniform, >1 = skew toward min
+
+    // Stretch the billboard along the velocity vector proportional to speed.
+    // 0 = off (default). 0.05–0.2 works well for fire/spark trails.
+    // When active, the particle orients along its velocity (angular rotation ignored).
+    float     trailStretch   = 0.0f;
 
     // When true the system is rendered with standard alpha blending
     // (SRC_ALPHA, ONE_MINUS_SRC_ALPHA) instead of additive.  Combine with

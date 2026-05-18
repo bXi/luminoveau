@@ -47,6 +47,11 @@ public:
 
     void addDraw(const DrawCmd& cmd) { m_drawQueue.push_back(cmd); }
 
+    // Enable or disable persistence-of-vision trails. decay in (0,1): higher = longer trails.
+    void SetPOV(bool enabled, float decay);
+    bool  getPOVEnabled() const { return m_povEnabled; }
+    float getPOVDecay()   const { return m_povDecay;   }
+
 private:
     SDL_GPUDevice*            m_gpu_device    = nullptr;
     GpuGraphicsPipelineHandle m_pipeline      = 0;  // additive blend
@@ -60,6 +65,19 @@ private:
     GpuTextureFormat m_format        = GpuTextureFormat::B8G8R8A8_Unorm;
     uint32_t         m_surfaceWidth  = 0;
     uint32_t         m_surfaceHeight = 0;
+
+    // ── Persistence-of-vision ─────────────────────────────────────────────────
+    bool             m_povEnabled    = false;
+    float            m_povDecay      = 0.92f;
+    bool             m_povNeedsClear = true;
+    uint32_t         m_povIndex      = 0;          // ping-pong index (0 or 1)
+
+    GpuTextureHandle          m_povTex[2]          = {};
+    GpuSamplerHandle          m_povSampler         = 0;
+    GpuGraphicsPipelineHandle m_povDecayPipeline   = 0;  // no-blend, overwrites POV tex
+    GpuGraphicsPipelineHandle m_povCompositePipeline = 0; // additive onto swapchain
+    GpuShaderHandle           m_povVertShader      = 0;
+    GpuShaderHandle           m_povFragShader      = 0;
 };
 
 
@@ -182,6 +200,14 @@ namespace Particles {
     ParticleRenderPass* GetRenderPass();
     GpuTextureHandle    GetWhiteTexture();   // 1×1 white fallback for non-textured draws
     GpuSamplerHandle    GetLinearSampler();  // default sampler for textured draws
+
+    // --- Persistence of Vision ---
+
+    /// Enable or disable POV trails for all particle systems.
+    /// decay in (0,1): higher value = longer / brighter trails (0.92 is a good default).
+    void  SetPOV(bool enabled, float decay = 0.92f);
+    bool  GetPOVEnabled();
+    float GetPOVDecay();
 
     // --- Internal: called by Renderer::_endFrame() before compute ---
     void _PrepareFrame(GpuCmdBufferHandle cmdBuf);

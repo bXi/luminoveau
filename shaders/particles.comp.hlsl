@@ -37,7 +37,7 @@ struct GPUParticleSystem {
     float  angVelMin;
     float  angVelMax;
     float  angVelBias;
-    float  _pad;
+    float  trailStretch;
 };
 
 // set=0: read-only system data

@@ -100,9 +100,10 @@ static bool ImportPreset(const char* encoded, ParticleSystemConfig& cfg) {
         cfg.colorPositions[c] = v[i++];
 
     // Angular velocity (optional — older presets default to no spin)
-    cfg.angVelMin  = (v.size() > 38) ? v[i++] : 0.0f;
-    cfg.angVelMax  = (v.size() > 39) ? v[i++] : 0.0f;
-    cfg.angVelBias = (v.size() > 40) ? v[i++] : 1.0f;
+    cfg.angVelMin    = (v.size() > 38) ? v[i++] : 0.0f;
+    cfg.angVelMax    = (v.size() > 39) ? v[i++] : 0.0f;
+    cfg.angVelBias   = (v.size() > 40) ? v[i++] : 1.0f;
+    cfg.trailStretch = (v.size() > 41) ? v[i++] : 0.0f;
 
     cfg.texture = 0;
     cfg.sampler = 0;
@@ -410,7 +411,7 @@ ParticleSystemHandle CreateSystem(const ParticleSystemConfig& cfg) {
     sys.angVelMin        = cfg.angVelMin;
     sys.angVelMax        = cfg.angVelMax;
     sys.angVelBias       = cfg.angVelBias;
-    sys._pad             = 0.0f;
+    sys.trailStretch     = cfg.trailStretch;
     s_systemTextures[handle.systemIndex]  = cfg.texture;
     s_systemSamplers[handle.systemIndex]  = cfg.sampler;
     s_systemPixelMode[handle.systemIndex] = cfg.pixelMode;
@@ -567,7 +568,7 @@ void UpdateConfig(const ParticleSystemHandle& handle, const ParticleSystemConfig
     sys.angVelMin        = cfg.angVelMin;
     sys.angVelMax        = cfg.angVelMax;
     sys.angVelBias       = cfg.angVelBias;
-    sys._pad             = 0.0f;
+    sys.trailStretch     = cfg.trailStretch;
     s_systemTextures[handle.systemIndex]  = cfg.texture;
     s_systemSamplers[handle.systemIndex]  = cfg.sampler;
     s_systemPixelMode[handle.systemIndex] = cfg.pixelMode;
@@ -609,6 +610,7 @@ ParticleSystemConfig GetConfig(const ParticleSystemHandle& handle) {
     cfg.angVelMin      = sys.angVelMin;
     cfg.angVelMax      = sys.angVelMax;
     cfg.angVelBias     = sys.angVelBias;
+    cfg.trailStretch   = sys.trailStretch;
     cfg.pixelMode      = s_systemPixelMode[handle.systemIndex];
     cfg.texture        = s_systemTextures[handle.systemIndex];
     cfg.sampler        = s_systemSamplers[handle.systemIndex];
@@ -757,6 +759,10 @@ GpuBufferHandle     GetSystemBuffer()   { return reinterpret_cast<GpuBufferHandl
 ParticleRenderPass* GetRenderPass()     { return s_renderPass; }
 GpuTextureHandle    GetWhiteTexture()   { return s_whiteTexture; }
 GpuSamplerHandle    GetLinearSampler()  { return s_linearSampler; }
+
+void  SetPOV(bool enabled, float decay) { if (s_renderPass) s_renderPass->SetPOV(enabled, decay); }
+bool  GetPOVEnabled()                   { return s_renderPass ? s_renderPass->getPOVEnabled() : false; }
+float GetPOVDecay()                     { return s_renderPass ? s_renderPass->getPOVDecay()   : 0.92f; }
 
 void AttachToFramebuffer(const std::string& fbName) {
     FrameBuffer* fb = Renderer::GetFramebuffer(fbName);
@@ -939,16 +945,162 @@ bool ParticleRenderPass::init(GpuTextureFormat swapchainFormat,
         return false;
     }
 
+    // ── POV shaders ───────────────────────────────────────────────────────────
+    SDL_GPUShaderCreateInfo povVertInfo = {
+        .code_size            = Luminoveau::Shaders::ParticlesPov_Vert_Size,
+        .code                 = Luminoveau::Shaders::ParticlesPov_Vert,
+        .entrypoint           = entryPoint,
+        .format               = shaderFormat,
+        .stage                = SDL_GPU_SHADERSTAGE_VERTEX,
+        .num_samplers         = 0,
+        .num_storage_textures = 0,
+        .num_storage_buffers  = 0,
+        .num_uniform_buffers  = 1,  // POVUniforms (gScale forwarded as vScale varying)
+    };
+    m_povVertShader = reinterpret_cast<GpuShaderHandle>(SDL_CreateGPUShader(m_gpu_device, &povVertInfo));
+
+    SDL_GPUShaderCreateInfo povFragInfo = {
+        .code_size            = Luminoveau::Shaders::ParticlesPov_Frag_Size,
+        .code                 = Luminoveau::Shaders::ParticlesPov_Frag,
+        .entrypoint           = entryPoint,
+        .format               = shaderFormat,
+        .stage                = SDL_GPU_SHADERSTAGE_FRAGMENT,
+        .num_samplers         = 1,  // gPovTex + gSampler
+        .num_storage_textures = 0,
+        .num_storage_buffers  = 0,
+        .num_uniform_buffers  = 0,  // no fragment cbuffer; scale comes via vScale varying
+    };
+    m_povFragShader = reinterpret_cast<GpuShaderHandle>(SDL_CreateGPUShader(m_gpu_device, &povFragInfo));
+
+    if (!m_povVertShader || !m_povFragShader) {
+        LOG_ERROR("ParticleRenderPass: POV shader creation failed");
+        return false;
+    }
+
+    // ── POV textures (ping-pong) ───────────────────────────────────────────────
+    SDL_GPUTextureCreateInfo povTexInfo = {
+        .type                 = SDL_GPU_TEXTURETYPE_2D,
+        .format               = sdlSwapchainFormat,
+        .usage                = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
+        .width                = width,
+        .height               = height,
+        .layer_count_or_depth = 1,
+        .num_levels           = 1,
+        .props                = 0,
+    };
+    m_povTex[0] = reinterpret_cast<GpuTextureHandle>(SDL_CreateGPUTexture(m_gpu_device, &povTexInfo));
+    m_povTex[1] = reinterpret_cast<GpuTextureHandle>(SDL_CreateGPUTexture(m_gpu_device, &povTexInfo));
+
+    if (!m_povTex[0] || !m_povTex[1]) {
+        LOG_ERROR("ParticleRenderPass: POV texture creation failed: {}", SDL_GetError());
+        return false;
+    }
+
+    // Zero-initialize both POV textures: GPU memory is undefined at allocation time;
+    // if it contains stale swapchain data the decay loop will fade that content in.
+    {
+        SDL_GPUCommandBuffer* initCmd = SDL_AcquireGPUCommandBuffer(m_gpu_device);
+        for (int ti = 0; ti < 2; ti++) {
+            SDL_GPUColorTargetInfo ci = {
+                .texture     = reinterpret_cast<SDL_GPUTexture*>(m_povTex[ti]),
+                .clear_color = { 0.f, 0.f, 0.f, 0.f },
+                .load_op     = SDL_GPU_LOADOP_CLEAR,
+                .store_op    = SDL_GPU_STOREOP_STORE,
+            };
+            SDL_GPURenderPass* rp = SDL_BeginGPURenderPass(initCmd, &ci, 1, nullptr);
+            SDL_EndGPURenderPass(rp);
+        }
+        SDL_SubmitGPUCommandBuffer(initCmd);
+    }
+
+    // Nearest sampler — 1:1 pixel mapping, no interpolation artefacts
+    SDL_GPUSamplerCreateInfo povSampInfo = {
+        .min_filter        = SDL_GPU_FILTER_NEAREST,
+        .mag_filter        = SDL_GPU_FILTER_NEAREST,
+        .mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+        .address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+        .address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+        .address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+    };
+    m_povSampler = reinterpret_cast<GpuSamplerHandle>(SDL_CreateGPUSampler(m_gpu_device, &povSampInfo));
+
+    // ── POV pipelines ─────────────────────────────────────────────────────────
+    SDL_GPUGraphicsPipelineCreateInfo povBase = {
+        .vertex_shader   = reinterpret_cast<SDL_GPUShader*>(m_povVertShader),
+        .fragment_shader = reinterpret_cast<SDL_GPUShader*>(m_povFragShader),
+        .vertex_input_state  = { nullptr, 0, nullptr, 0 },
+        .primitive_type      = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+        .rasterizer_state    = SDL_DefaultRasterizerState,
+        .multisample_state   = { SDL_GPU_SAMPLECOUNT_1, 0, false },
+        .depth_stencil_state = {
+            .enable_depth_test   = false,
+            .enable_depth_write  = false,
+            .enable_stencil_test = false,
+        },
+        .props = 0,
+    };
+
+    // Decay pipeline: writes directly to POV texture, no blend
+    SDL_GPUColorTargetBlendState noBlend = { .enable_blend = false };
+    SDL_GPUColorTargetDescription povDecayTargetDesc = { sdlSwapchainFormat, noBlend };
+    SDL_GPUGraphicsPipelineTargetInfo povDecayTarget = {
+        .color_target_descriptions = &povDecayTargetDesc,
+        .num_color_targets         = 1,
+        .depth_stencil_format      = SDL_GPU_TEXTUREFORMAT_INVALID,
+        .has_depth_stencil_target  = false,
+    };
+    povBase.target_info = povDecayTarget;
+    m_povDecayPipeline = reinterpret_cast<GpuGraphicsPipelineHandle>(
+        SDL_CreateGPUGraphicsPipeline(m_gpu_device, &povBase));
+
+    // Composite pipeline: ONE+ONE additive onto the swapchain.
+    // Empty POV texels are (0,0,0,0) → add zero → background unaffected.
+    // Trail texels add their accumulated glow directly to the scene.
+    SDL_GPUColorTargetBlendState povBlend = {
+        .src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+        .dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+        .color_blend_op        = SDL_GPU_BLENDOP_ADD,
+        .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+        .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+        .alpha_blend_op        = SDL_GPU_BLENDOP_ADD,
+        .enable_blend          = true,
+    };
+    SDL_GPUColorTargetDescription povCompositeTargetDesc = { sdlSwapchainFormat, povBlend };
+    SDL_GPUGraphicsPipelineTargetInfo povCompositeTarget = {
+        .color_target_descriptions = &povCompositeTargetDesc,
+        .num_color_targets         = 1,
+        .depth_stencil_format      = SDL_GPU_TEXTUREFORMAT_INVALID,
+        .has_depth_stencil_target  = false,
+    };
+    povBase.target_info = povCompositeTarget;
+    m_povCompositePipeline = reinterpret_cast<GpuGraphicsPipelineHandle>(
+        SDL_CreateGPUGraphicsPipeline(m_gpu_device, &povBase));
+
+    if (!m_povDecayPipeline || !m_povCompositePipeline) {
+        LOG_ERROR("ParticleRenderPass: POV pipeline creation failed: {}", SDL_GetError());
+        return false;
+    }
+
+    m_povNeedsClear = true;
+    m_povIndex      = 0;
+
     if (logInit) LOG_INFO("ParticleRenderPass '{}' initialized", passname);
     return true;
 }
 
 void ParticleRenderPass::release(bool logRelease) {
-    if (m_pipeline)      { SDL_ReleaseGPUGraphicsPipeline(m_gpu_device, reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_pipeline));      m_pipeline      = 0; }
-    if (m_pixelPipeline) { SDL_ReleaseGPUGraphicsPipeline(m_gpu_device, reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_pixelPipeline)); m_pixelPipeline = 0; }
-    if (m_vertShader)    { SDL_ReleaseGPUShader(m_gpu_device, reinterpret_cast<SDL_GPUShader*>(m_vertShader));                         m_vertShader    = 0; }
-    if (m_fragShader)    { SDL_ReleaseGPUShader(m_gpu_device, reinterpret_cast<SDL_GPUShader*>(m_fragShader));                         m_fragShader    = 0; }
-    if (logRelease)      LOG_INFO("ParticleRenderPass '{}' released", passname);
+    if (m_pipeline)             { SDL_ReleaseGPUGraphicsPipeline(m_gpu_device, reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_pipeline));             m_pipeline             = 0; }
+    if (m_pixelPipeline)        { SDL_ReleaseGPUGraphicsPipeline(m_gpu_device, reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_pixelPipeline));        m_pixelPipeline        = 0; }
+    if (m_vertShader)           { SDL_ReleaseGPUShader(m_gpu_device, reinterpret_cast<SDL_GPUShader*>(m_vertShader));                               m_vertShader           = 0; }
+    if (m_fragShader)           { SDL_ReleaseGPUShader(m_gpu_device, reinterpret_cast<SDL_GPUShader*>(m_fragShader));                               m_fragShader           = 0; }
+    if (m_povDecayPipeline)     { SDL_ReleaseGPUGraphicsPipeline(m_gpu_device, reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_povDecayPipeline));     m_povDecayPipeline     = 0; }
+    if (m_povCompositePipeline) { SDL_ReleaseGPUGraphicsPipeline(m_gpu_device, reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_povCompositePipeline)); m_povCompositePipeline = 0; }
+    if (m_povVertShader)        { SDL_ReleaseGPUShader(m_gpu_device, reinterpret_cast<SDL_GPUShader*>(m_povVertShader));                            m_povVertShader        = 0; }
+    if (m_povFragShader)        { SDL_ReleaseGPUShader(m_gpu_device, reinterpret_cast<SDL_GPUShader*>(m_povFragShader));                            m_povFragShader        = 0; }
+    if (m_povTex[0])            { SDL_ReleaseGPUTexture(m_gpu_device, reinterpret_cast<SDL_GPUTexture*>(m_povTex[0]));                              m_povTex[0]            = 0; }
+    if (m_povTex[1])            { SDL_ReleaseGPUTexture(m_gpu_device, reinterpret_cast<SDL_GPUTexture*>(m_povTex[1]));                              m_povTex[1]            = 0; }
+    if (m_povSampler)           { SDL_ReleaseGPUSampler(m_gpu_device, reinterpret_cast<SDL_GPUSampler*>(m_povSampler));                             m_povSampler           = 0; }
+    if (logRelease)             LOG_INFO("ParticleRenderPass '{}' released", passname);
 }
 
 void ParticleRenderPass::render(GpuCmdBufferHandle cmdBufHandle,
@@ -958,21 +1110,6 @@ void ParticleRenderPass::render(GpuCmdBufferHandle cmdBufHandle,
 
     auto* cmdBuf = reinterpret_cast<SDL_GPUCommandBuffer*>(cmdBufHandle);
     auto* target = reinterpret_cast<SDL_GPUTexture*>(targetHandle);
-
-    SDL_GPUColorTargetInfo colorInfo = {
-        .texture  = target,
-        .load_op  = SDL_GPU_LOADOP_LOAD,
-        .store_op = SDL_GPU_STOREOP_STORE,
-    };
-
-    SDL_GPURenderPass* rp = SDL_BeginGPURenderPass(cmdBuf, &colorInfo, 1, nullptr);
-
-    // Bind particle + system buffers to vertex storage slots 0 and 1
-    SDL_GPUBuffer* storageBufs[2] = {
-        reinterpret_cast<SDL_GPUBuffer*>(Particles::GetParticleBuffer()),
-        reinterpret_cast<SDL_GPUBuffer*>(Particles::GetSystemBuffer())
-    };
-    SDL_BindGPUVertexStorageBuffers(rp, 0, storageBufs, 2);
 
     float camW = (float)m_surfaceWidth  * (float)Window::GetWidth()  / (float)Window::GetPhysicalWidth();
     float camH = (float)m_surfaceHeight * (float)Window::GetHeight() / (float)Window::GetPhysicalHeight();
@@ -988,27 +1125,108 @@ void ParticleRenderPass::render(GpuCmdBufferHandle cmdBufHandle,
         glm::vec2 screenSize;
         glm::vec2 pad;
     } vu = { correctedCamera, {camW, camH}, {} };
-    SDL_PushGPUVertexUniformData(cmdBuf, 0, &vu, sizeof(vu));
 
-    SDL_GPUGraphicsPipeline* activePipeline = nullptr;
+    struct POVUniforms { float gScale; float _pad[3]; };
 
-    for (const auto& cmd : m_drawQueue) {
-        SDL_GPUGraphicsPipeline* needed = cmd.pixelMode
-            ? reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_pixelPipeline)
-            : reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_pipeline);
-        if (needed != activePipeline) {
-            SDL_BindGPUGraphicsPipeline(rp, needed);
-            activePipeline = needed;
+    SDL_GPUBuffer* storageBufs[2] = {
+        reinterpret_cast<SDL_GPUBuffer*>(Particles::GetParticleBuffer()),
+        reinterpret_cast<SDL_GPUBuffer*>(Particles::GetSystemBuffer())
+    };
+
+    auto drawParticles = [&](SDL_GPURenderPass* rp) {
+        SDL_BindGPUVertexStorageBuffers(rp, 0, storageBufs, 2);
+        SDL_PushGPUVertexUniformData(cmdBuf, 0, &vu, sizeof(vu));
+        SDL_GPUGraphicsPipeline* activePipeline = nullptr;
+        for (const auto& cmd : m_drawQueue) {
+            SDL_GPUGraphicsPipeline* needed = cmd.pixelMode
+                ? reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_pixelPipeline)
+                : reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_pipeline);
+            if (needed != activePipeline) {
+                SDL_BindGPUGraphicsPipeline(rp, needed);
+                activePipeline = needed;
+            }
+            SDL_GPUTextureSamplerBinding sb = {
+                .texture = reinterpret_cast<SDL_GPUTexture*>(cmd.texture ? cmd.texture : Particles::GetWhiteTexture()),
+                .sampler = reinterpret_cast<SDL_GPUSampler*>(cmd.sampler ? cmd.sampler : Particles::GetLinearSampler()),
+            };
+            SDL_BindGPUFragmentSamplers(rp, 0, &sb, 1);
+            SDL_DrawGPUPrimitives(rp, 6, cmd.maxParticles, 0, cmd.particleOffset);
+        }
+    };
+
+    if (m_povEnabled && m_povDecayPipeline && m_povCompositePipeline) {
+        uint32_t curr     = m_povIndex;
+        uint32_t prev     = 1u - curr;
+        auto*    povCurr  = reinterpret_cast<SDL_GPUTexture*>(m_povTex[curr]);
+        auto*    povPrev  = reinterpret_cast<SDL_GPUTexture*>(m_povTex[prev]);
+        auto*    povSamp  = reinterpret_cast<SDL_GPUSampler*>(m_povSampler);
+
+        // ── 1. Decay pass: fade previous accumulation into current ────────────
+        if (!m_povNeedsClear) {
+            SDL_GPUColorTargetInfo decayInfo = {
+                .texture  = povCurr,
+                .load_op  = SDL_GPU_LOADOP_DONT_CARE,
+                .store_op = SDL_GPU_STOREOP_STORE,
+            };
+            SDL_GPURenderPass* rp = SDL_BeginGPURenderPass(cmdBuf, &decayInfo, 1, nullptr);
+            SDL_BindGPUGraphicsPipeline(rp, reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_povDecayPipeline));
+            SDL_GPUTextureSamplerBinding sb = { povPrev, povSamp };
+            SDL_BindGPUFragmentSamplers(rp, 0, &sb, 1);
+            POVUniforms pu = { m_povDecay, {} };
+            SDL_PushGPUVertexUniformData(cmdBuf, 0, &pu, sizeof(pu));
+            SDL_DrawGPUPrimitives(rp, 3, 1, 0, 0);
+            SDL_EndGPURenderPass(rp);
         }
 
-        SDL_GPUTextureSamplerBinding samplerBinding = {
-            .texture = reinterpret_cast<SDL_GPUTexture*>(cmd.texture ? cmd.texture : Particles::GetWhiteTexture()),
-            .sampler = reinterpret_cast<SDL_GPUSampler*>(cmd.sampler ? cmd.sampler : Particles::GetLinearSampler()),
+        // ── 2. Particle render into POV texture ───────────────────────────────
+        {
+            SDL_GPUColorTargetInfo particleInfo = {
+                .texture     = povCurr,
+                .clear_color = {0.f, 0.f, 0.f, 0.f},
+                .load_op     = m_povNeedsClear ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_LOAD,
+                .store_op    = SDL_GPU_STOREOP_STORE,
+            };
+            SDL_GPURenderPass* rp = SDL_BeginGPURenderPass(cmdBuf, &particleInfo, 1, nullptr);
+            drawParticles(rp);
+            SDL_EndGPURenderPass(rp);
+            m_povNeedsClear = false;
+        }
+
+        // ── 3. Composite POV texture onto swapchain ───────────────────────────
+        {
+            SDL_GPUColorTargetInfo compositeInfo = {
+                .texture  = target,
+                .load_op  = SDL_GPU_LOADOP_LOAD,
+                .store_op = SDL_GPU_STOREOP_STORE,
+            };
+            SDL_GPURenderPass* rp = SDL_BeginGPURenderPass(cmdBuf, &compositeInfo, 1, nullptr);
+            SDL_BindGPUGraphicsPipeline(rp, reinterpret_cast<SDL_GPUGraphicsPipeline*>(m_povCompositePipeline));
+            SDL_GPUTextureSamplerBinding sb = { povCurr, povSamp };
+            SDL_BindGPUFragmentSamplers(rp, 0, &sb, 1);
+            POVUniforms pu = { 1.0f, {} };
+            SDL_PushGPUVertexUniformData(cmdBuf, 0, &pu, sizeof(pu));
+            SDL_DrawGPUPrimitives(rp, 3, 1, 0, 0);
+            SDL_EndGPURenderPass(rp);
+        }
+
+        m_povIndex ^= 1u;
+
+    } else {
+        // Standard path — render directly to swapchain
+        SDL_GPUColorTargetInfo colorInfo = {
+            .texture  = target,
+            .load_op  = SDL_GPU_LOADOP_LOAD,
+            .store_op = SDL_GPU_STOREOP_STORE,
         };
-        SDL_BindGPUFragmentSamplers(rp, 0, &samplerBinding, 1);
-
-        SDL_DrawGPUPrimitives(rp, 6, cmd.maxParticles, 0, cmd.particleOffset);
+        SDL_GPURenderPass* rp = SDL_BeginGPURenderPass(cmdBuf, &colorInfo, 1, nullptr);
+        drawParticles(rp);
+        SDL_EndGPURenderPass(rp);
     }
+}
 
-    SDL_EndGPURenderPass(rp);
+void ParticleRenderPass::SetPOV(bool enabled, float decay) {
+    if (enabled && !m_povEnabled)
+        m_povNeedsClear = true;  // flush stale accumulation on re-enable
+    m_povEnabled = enabled;
+    m_povDecay   = decay;
 }
