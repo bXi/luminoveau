@@ -53,6 +53,30 @@ struct alignas(16) GPUParticleSystem {
 static_assert(sizeof(GPUParticleSystem) == 192, "GPUParticleSystem size mismatch");
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Collider types
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum class ColliderType : uint32_t {
+    HalfPlane = 0,  // params: (nx, ny, d, 0)  — normal points away from solid; solid where dot(pos,n)<d
+    Circle    = 1,  // params: (cx, cy, r, 0)  — particles bounce off outside
+};
+
+// 32 bytes, std430-compatible
+struct alignas(16) GPUCollider {
+    glm::vec4 params;       // type-specific (see ColliderType)
+    float     restitution;  // bounce factor [0,1]: 1=elastic, 0=inelastic
+    float     friction;     // tangential damping [0,1]: 0=frictionless
+    uint32_t  type;         // ColliderType
+    uint32_t  enabled;      // 1 = active
+};
+static_assert(sizeof(GPUCollider) == 32, "GPUCollider size mismatch");
+
+struct ColliderHandle {
+    uint32_t index = 0;
+    bool     valid = false;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Shape types
 // ─────────────────────────────────────────────────────────────────────────────
 

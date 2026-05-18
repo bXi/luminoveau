@@ -40,8 +40,17 @@ struct GPUParticleSystem {
     float  trailStretch;
 };
 
-// set=0: read-only system data
+struct GPUCollider {
+    float4 params;       // HalfPlane:(nx,ny,d,0)  Circle:(cx,cy,r,0)
+    float  restitution;
+    float  friction;
+    uint   type;         // 0=HalfPlane, 1=Circle
+    uint   enabled;
+};
+
+// set=0: read-only buffers
 StructuredBuffer<GPUParticleSystem>   systems   : register(t0, space0);
+StructuredBuffer<GPUCollider>         colliders : register(t1, space0);
 
 // set=1: read-write particle data
 RWStructuredBuffer<GPUParticle>       particles : register(u0, space1);
@@ -52,7 +61,7 @@ cbuffer ComputeUniforms : register(b0, space2)
     uint  totalParticles;
     float deltaTime;
     float time;
-    uint  _pad;
+    uint  numColliders;  // high-water slot count; entries may have enabled==0
 };
 
 // ── Deterministic hash (Wang hash) → float in [0, 1) ─────────────────────────
@@ -71,6 +80,48 @@ float hash(uint seed)
 float biasedSample(uint seed, float bias)
 {
     return pow(hash(seed), max(bias, 1e-5));
+}
+
+// ── Collision helper — shared by alive update and first-frame spawn ───────────
+
+void ApplyColliders(inout float3 pos, inout float3 vel)
+{
+    for (uint ci = 0u; ci < numColliders; ci++)
+    {
+        GPUCollider col = colliders[ci];
+        if (!col.enabled) continue;
+
+        float2 n   = float2(0.0, 0.0);
+        float  pen = 0.0;
+
+        if (col.type == 0u)
+        {
+            n = col.params.xy;
+            float dist = dot(pos.xy, n) - col.params.z;
+            if (dist < 0.0) pen = -dist;
+        }
+        else if (col.type == 1u)
+        {
+            float2 delta = pos.xy - col.params.xy;
+            float  dist  = length(delta);
+            if (dist < col.params.z && dist > 1e-5)
+            {
+                n   = delta / dist;
+                pen = col.params.z - dist;
+            }
+        }
+
+        if (pen > 0.0)
+        {
+            pos.xy += n * pen;
+            float vn = dot(vel.xy, n);
+            if (vn < 0.0)
+            {
+                float2 vt = vel.xy - vn * n;
+                vel.xy = (-vn * col.restitution) * n + vt * (1.0 - col.friction);
+            }
+        }
+    }
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -104,6 +155,9 @@ void main(uint3 dispatchID : SV_DispatchThreadID)
 
         posAndLife.xyz += vel * deltaTime;
         posAndLife.w   -= deltaTime;
+
+        // ── Collider responses ────────────────────────────────────────────────
+        ApplyColliders(posAndLife.xyz, vel);
 
         particles[idx].posAndLife    = posAndLife;
         particles[idx].velAndMaxLife = float4(vel, velAndMaxLife.w);
@@ -158,8 +212,11 @@ void main(uint3 dispatchID : SV_DispatchThreadID)
                 float angVel = lerp(sys.angVelMin, sys.angVelMax,
                                     biasedSample(seed + 8u, sys.angVelBias));
 
+                float3 spawnVel3 = sys.spawnVel.xyz + randVel;
+                ApplyColliders(spawnPos, spawnVel3);
+
                 particles[idx].posAndLife    = float4(spawnPos, maxLife);
-                particles[idx].velAndMaxLife = float4(sys.spawnVel.xyz + randVel, maxLife);
+                particles[idx].velAndMaxLife = float4(spawnVel3, maxLife);
                 particles[idx].startSize     = startSize;
                 particles[idx].endSize       = endSize;
                 particles[idx].angle         = startAngle;

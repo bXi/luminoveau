@@ -122,7 +122,7 @@ static SDL_GPUBuffer* s_particleBuf = nullptr;  // RW: compute + vertex read
 static SDL_GPUBuffer* s_systemBuf   = nullptr;  // RO: compute + vertex read
 static SDL_GPUTransferBuffer* s_systemUploadBuf = nullptr; // CPU→GPU transfer
 
-// --- Compute pipeline ---
+// --- Compute pipelines ---
 static ComputePipelineAsset s_computePipeline;
 
 // --- CPU-side system data ---
@@ -135,12 +135,33 @@ static bool              s_systemDirty = false;
 // --- Per-system render flags ---
 static bool s_systemPixelMode[MAX_SYSTEMS] = {};
 
+// --- Physics pass per-system state ---
+static uint32_t  s_systemPhysicsCompute[MAX_SYSTEMS] = {};  // pool index, INVALID = none
+static glm::vec2 s_systemPhysicsGravity[MAX_SYSTEMS] = {};
+static float     s_systemPhysicsDrag[MAX_SYSTEMS]    = {};
+
+// --- Spring pass per-system state ---
+// Pool index into s_customComputePool for the spring shader (INVALID = none)
+static uint32_t  s_systemSpringCompute[MAX_SYSTEMS]   = {};
+static float     s_systemSpringK[MAX_SYSTEMS]         = {};
+static float     s_systemSpringDamp[MAX_SYSTEMS]      = {};
+// Interaction: x, y, radius, force (force=0 = no interaction this frame)
+static glm::vec4 s_systemSpringInteract[MAX_SYSTEMS]  = {};
+
 // --- Custom compute pool ---
 static constexpr uint32_t INVALID_CUSTOM_COMPUTE = UINT32_MAX;
 static ComputePipelineAsset s_customComputePool[MAX_CUSTOM_COMPUTES] = {};
 static bool                 s_customComputeUsed[MAX_CUSTOM_COMPUTES] = {};
 // Per-system index into the pool (INVALID_CUSTOM_COMPUTE = none)
 static uint32_t             s_systemCustomCompute[MAX_SYSTEMS]       = {};
+
+// --- Collider resources ---
+static SDL_GPUBuffer*         s_colliderBuf       = nullptr;
+static SDL_GPUTransferBuffer* s_colliderUploadBuf = nullptr;
+static GPUCollider            s_colliderData[MAX_COLLIDERS] = {};
+static bool                   s_colliderUsed[MAX_COLLIDERS] = {};
+static uint32_t               s_colliderHighWater = 0;   // one past last used slot
+static bool                   s_colliderDirty     = false;
 
 // --- Fallback resources for non-textured draws ---
 static GpuTextureHandle s_whiteTexture  = 0;
@@ -201,6 +222,53 @@ void Init() {
     s_systemUploadBuf = SDL_CreateGPUTransferBuffer(device, &tbInfo);
     if (!s_systemUploadBuf) {
         LOG_CRITICAL("Particles: failed to create system upload buffer: {}", SDL_GetError());
+    }
+
+    // Collider buffer: compute RO
+    SDL_GPUBufferCreateInfo colliderBufInfo = {
+        .usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
+        .size  = static_cast<uint32_t>(MAX_COLLIDERS * sizeof(GPUCollider)),
+        .props = 0
+    };
+    s_colliderBuf = SDL_CreateGPUBuffer(device, &colliderBufInfo);
+    if (!s_colliderBuf) {
+        LOG_CRITICAL("Particles: failed to create collider buffer: {}", SDL_GetError());
+    }
+
+    SDL_GPUTransferBufferCreateInfo colliderTbInfo = {
+        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+        .size  = static_cast<uint32_t>(MAX_COLLIDERS * sizeof(GPUCollider)),
+        .props = 0
+    };
+    s_colliderUploadBuf = SDL_CreateGPUTransferBuffer(device, &colliderTbInfo);
+    if (!s_colliderUploadBuf) {
+        LOG_CRITICAL("Particles: failed to create collider upload buffer: {}", SDL_GetError());
+    }
+
+    // Zero-init collider buffer so all slots start disabled
+    {
+        SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device);
+        SDL_GPUTransferBuffer* zeroTB;
+        {
+            SDL_GPUTransferBufferCreateInfo zi = {
+                .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+                .size  = static_cast<uint32_t>(MAX_COLLIDERS * sizeof(GPUCollider)),
+                .props = 0
+            };
+            zeroTB = SDL_CreateGPUTransferBuffer(device, &zi);
+        }
+        void* zm = SDL_MapGPUTransferBuffer(device, zeroTB, false);
+        SDL_memset(zm, 0, MAX_COLLIDERS * sizeof(GPUCollider));
+        SDL_UnmapGPUTransferBuffer(device, zeroTB);
+        SDL_GPUCopyPass* cp = SDL_BeginGPUCopyPass(cmd);
+        SDL_GPUTransferBufferLocation zsrc = {.transfer_buffer = zeroTB, .offset = 0};
+        SDL_GPUBufferRegion           zdst = {.buffer = s_colliderBuf, .offset = 0,
+                                              .size = static_cast<uint32_t>(MAX_COLLIDERS * sizeof(GPUCollider))};
+        SDL_UploadToGPUBuffer(cp, &zsrc, &zdst, false);
+        SDL_EndGPUCopyPass(cp);
+        SDL_SubmitGPUCommandBuffer(cmd);
+        SDL_WaitForGPUIdle(device);
+        SDL_ReleaseGPUTransferBuffer(device, zeroTB);
     }
 
     // Zero-init both GPU buffers via an immediate copy pass
@@ -275,7 +343,7 @@ void Init() {
     auto linearSamplerInfo = toSDL(GpuPresets::LinearClamp);
     s_linearSampler = reinterpret_cast<GpuSamplerHandle>(SDL_CreateGPUSampler(device, &linearSamplerInfo));
 
-    // Load compute pipeline from embedded engine SPIRV
+    // Load compute pipelines from embedded engine SPIRV
     s_computePipeline = Shaders::CreateComputePipelineFromBytes(
         device,
         Luminoveau::Shaders::Particles_Comp,
@@ -285,8 +353,9 @@ void Init() {
     s_renderPass = new ParticleRenderPass();
     AttachToFramebuffer("primaryFramebuffer");
 
-    std::fill(std::begin(s_systemCustomCompute), std::end(s_systemCustomCompute),
-              INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(s_systemCustomCompute),  std::end(s_systemCustomCompute),  INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(s_systemPhysicsCompute), std::end(s_systemPhysicsCompute), INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(s_systemSpringCompute),  std::end(s_systemSpringCompute),  INVALID_CUSTOM_COMPUTE);
 
     LOG_INFO("Particles: initialized (max particles: {}, max systems: {})",
              MAX_PARTICLES, MAX_SYSTEMS);
@@ -324,9 +393,14 @@ void Quit() {
         }
     }
 
-    if (s_particleBuf)     { SDL_ReleaseGPUBuffer(device, s_particleBuf);     s_particleBuf     = nullptr; }
-    if (s_systemBuf)       { SDL_ReleaseGPUBuffer(device, s_systemBuf);       s_systemBuf       = nullptr; }
-    if (s_systemUploadBuf) { SDL_ReleaseGPUTransferBuffer(device, s_systemUploadBuf); s_systemUploadBuf = nullptr; }
+    if (s_particleBuf)      { SDL_ReleaseGPUBuffer(device, s_particleBuf);              s_particleBuf       = nullptr; }
+    if (s_systemBuf)        { SDL_ReleaseGPUBuffer(device, s_systemBuf);                s_systemBuf         = nullptr; }
+    if (s_systemUploadBuf)  { SDL_ReleaseGPUTransferBuffer(device, s_systemUploadBuf);  s_systemUploadBuf   = nullptr; }
+    if (s_colliderBuf)      { SDL_ReleaseGPUBuffer(device, s_colliderBuf);              s_colliderBuf       = nullptr; }
+    if (s_colliderUploadBuf){ SDL_ReleaseGPUTransferBuffer(device, s_colliderUploadBuf);s_colliderUploadBuf = nullptr; }
+    s_colliderHighWater = 0;
+    SDL_memset(s_colliderData, 0, sizeof(s_colliderData));
+    SDL_memset(s_colliderUsed, 0, sizeof(s_colliderUsed));
     if (s_whiteTexture)    { SDL_ReleaseGPUTexture(device, reinterpret_cast<SDL_GPUTexture*>(s_whiteTexture));   s_whiteTexture    = 0; }
     if (s_linearSampler)   { SDL_ReleaseGPUSampler(device, reinterpret_cast<SDL_GPUSampler*>(s_linearSampler));  s_linearSampler   = 0; }
 
@@ -343,9 +417,14 @@ void Quit() {
     std::fill(std::begin(s_systemPixelMode),     std::end(s_systemPixelMode),     false);
     std::fill(std::begin(s_slotParticleOffset),  std::end(s_slotParticleOffset),  0u);
     std::fill(std::begin(s_slotParticleCount),   std::end(s_slotParticleCount),   0u);
-    std::fill(std::begin(s_systemCustomCompute), std::end(s_systemCustomCompute), INVALID_CUSTOM_COMPUTE);
-    std::fill(std::begin(s_customComputeUsed),   std::end(s_customComputeUsed),   false);
-    std::fill(std::begin(s_customComputePool),   std::end(s_customComputePool),   ComputePipelineAsset{});
+    std::fill(std::begin(s_systemCustomCompute),  std::end(s_systemCustomCompute),  INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(s_systemPhysicsCompute), std::end(s_systemPhysicsCompute), INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(s_customComputeUsed),    std::end(s_customComputeUsed),    false);
+    std::fill(std::begin(s_customComputePool),    std::end(s_customComputePool),    ComputePipelineAsset{});
+    std::fill(std::begin(s_systemSpringCompute),  std::end(s_systemSpringCompute),  INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(s_systemSpringK),       std::end(s_systemSpringK),       0.f);
+    std::fill(std::begin(s_systemSpringDamp),    std::end(s_systemSpringDamp),    0.f);
+    std::fill(std::begin(s_systemSpringInteract),std::end(s_systemSpringInteract),glm::vec4{});
 
     LOG_INFO("Particles: shut down");
 }
@@ -659,13 +738,17 @@ ParticleComputeHandle CreateCustomCompute(const std::string& shaderPath) {
 void DestroyCustomCompute(ParticleComputeHandle& handle) {
     if (!handle.valid) return;
 
-    // Clear from any system currently using it
+    // Clear from any system currently using it (primary or spring slot)
     for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
         if (s_systemCustomCompute[i] == handle.index) {
             s_systemCustomCompute[i]  = INVALID_CUSTOM_COMPUTE;
-            s_systemData[i].flags    &= ~2u; // clear custom-compute bit
+            s_systemData[i].flags    &= ~2u;
             s_systemDirty             = true;
         }
+        if (s_systemPhysicsCompute[i] == handle.index)
+            s_systemPhysicsCompute[i] = INVALID_CUSTOM_COMPUTE;
+        if (s_systemSpringCompute[i] == handle.index)
+            s_systemSpringCompute[i]  = INVALID_CUSTOM_COMPUTE;
     }
 
     SDL_ReleaseGPUComputePipeline(Renderer::GetDevice(),
@@ -708,11 +791,12 @@ void Update(float deltaTime) {
         uint32_t totalParticles;
         float    deltaTime;
         float    time;
-        uint32_t _pad;
-    } uniforms = {total, deltaTime, s_accumTime, 0u};
+        uint32_t numColliders;
+    } uniforms = {total, deltaTime, s_accumTime, s_colliderHighWater};
 
     Compute::SetPipeline(s_computePipeline);
     Compute::BindReadBuffer(0, s_systemBuf);
+    Compute::BindReadBuffer(1, s_colliderBuf);
     Compute::BindReadWriteBuffer(0, s_particleBuf);
     Compute::PushUniform(0, uniforms);
     Compute::DispatchAuto(total);  // built-in: skips systems with custom compute flag
@@ -741,6 +825,70 @@ void Update(float deltaTime) {
         Compute::PushUniform(0, cu);
         Compute::DispatchAuto(s_slotParticleCount[i]);
     }
+
+    // Physics pass — user-provided pipeline, runs after custom computes
+    {
+        struct PhysicsUniforms {
+            uint32_t particleOffset;
+            uint32_t particleCount;
+            float    deltaTime;
+            uint32_t numColliders;
+            float    gravityX;
+            float    gravityY;
+            float    drag;
+            float    _pad;
+        };
+        for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
+            uint32_t pc = s_systemPhysicsCompute[i];
+            if (!s_systemUsed[i] || pc == INVALID_CUSTOM_COMPUTE) continue;
+            PhysicsUniforms pu = {
+                s_slotParticleOffset[i], s_slotParticleCount[i],
+                deltaTime, s_colliderHighWater,
+                s_systemPhysicsGravity[i].x, s_systemPhysicsGravity[i].y,
+                s_systemPhysicsDrag[i], 0.f
+            };
+            Compute::SetPipeline(s_customComputePool[pc]);
+            Compute::BindReadBuffer(0, s_colliderBuf);
+            Compute::BindReadWriteBuffer(0, s_particleBuf);
+            Compute::PushUniform(0, pu);
+            Compute::DispatchAuto(s_slotParticleCount[i]);
+        }
+    }
+
+    // Spring pass — elastic deformation after custom computes (e.g. Mandelbrot).
+    // Pipeline is user-provided via EnableSpringPass (loaded from assets, not embedded).
+    {
+        struct SpringUniforms {
+            uint32_t particleOffset;
+            uint32_t particleCount;
+            float    deltaTime;
+            float    springK;
+            float    damping;
+            float    interactX;
+            float    interactY;
+            float    interactR;
+            float    interactF;
+            float    _pad0;
+            float    _pad1;
+            float    _pad2;
+        };
+        for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
+            uint32_t sc = s_systemSpringCompute[i];
+            if (!s_systemUsed[i] || sc == INVALID_CUSTOM_COMPUTE) continue;
+            const glm::vec4& ia = s_systemSpringInteract[i];
+            SpringUniforms su = {
+                s_slotParticleOffset[i], s_slotParticleCount[i],
+                deltaTime, s_systemSpringK[i],
+                s_systemSpringDamp[i],
+                ia.x, ia.y, ia.z, ia.w,
+                0.f, 0.f, 0.f
+            };
+            Compute::SetPipeline(s_customComputePool[sc]);
+            Compute::BindReadWriteBuffer(0, s_particleBuf);
+            Compute::PushUniform(0, su);
+            Compute::DispatchAuto(s_slotParticleCount[i]);
+        }
+    }
 }
 
 void QueueDraw(const ParticleSystemHandle& handle) {
@@ -759,6 +907,118 @@ GpuBufferHandle     GetSystemBuffer()   { return reinterpret_cast<GpuBufferHandl
 ParticleRenderPass* GetRenderPass()     { return s_renderPass; }
 GpuTextureHandle    GetWhiteTexture()   { return s_whiteTexture; }
 GpuSamplerHandle    GetLinearSampler()  { return s_linearSampler; }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Physics pass
+// ─────────────────────────────────────────────────────────────────────────────
+
+void EnablePhysicsPass(const ParticleSystemHandle& handle,
+                       const ParticleComputeHandle& physicsCompute,
+                       glm::vec2 gravity, float drag) {
+    if (!handle.valid || !physicsCompute.valid) return;
+    s_systemPhysicsCompute[handle.systemIndex] = physicsCompute.index;
+    s_systemPhysicsGravity[handle.systemIndex] = gravity;
+    s_systemPhysicsDrag   [handle.systemIndex] = drag;
+}
+
+void DisablePhysicsPass(const ParticleSystemHandle& handle) {
+    if (!handle.valid) return;
+    s_systemPhysicsCompute[handle.systemIndex] = INVALID_CUSTOM_COMPUTE;
+}
+
+void SetPhysicsPassParams(const ParticleSystemHandle& handle,
+                          glm::vec2 gravity, float drag) {
+    if (!handle.valid) return;
+    s_systemPhysicsGravity[handle.systemIndex] = gravity;
+    s_systemPhysicsDrag   [handle.systemIndex] = drag;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Spring pass
+// ─────────────────────────────────────────────────────────────────────────────
+
+void EnableSpringPass(const ParticleSystemHandle& handle,
+                      const ParticleComputeHandle& springCompute,
+                      float springK, float damping) {
+    if (!handle.valid || !springCompute.valid) return;
+    s_systemSpringCompute [handle.systemIndex] = springCompute.index;
+    s_systemSpringK       [handle.systemIndex] = springK;
+    s_systemSpringDamp    [handle.systemIndex] = damping;
+    s_systemSpringInteract[handle.systemIndex] = {};
+}
+
+void DisableSpringPass(const ParticleSystemHandle& handle) {
+    if (!handle.valid) return;
+    s_systemSpringCompute [handle.systemIndex] = INVALID_CUSTOM_COMPUTE;
+    s_systemSpringInteract[handle.systemIndex] = {};
+}
+
+void SetSpringParams(const ParticleSystemHandle& handle,
+                     float springK, float damping) {
+    if (!handle.valid) return;
+    s_systemSpringK   [handle.systemIndex] = springK;
+    s_systemSpringDamp[handle.systemIndex] = damping;
+}
+
+void SetSpringInteraction(const ParticleSystemHandle& handle,
+                          float x, float y, float r, float f) {
+    if (!handle.valid) return;
+    s_systemSpringInteract[handle.systemIndex] = {x, y, r, f};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Colliders
+// ─────────────────────────────────────────────────────────────────────────────
+
+ColliderHandle AddCollider(ColliderType type, glm::vec4 params,
+                           float restitution, float friction) {
+    for (uint32_t i = 0; i < MAX_COLLIDERS; ++i) {
+        if (s_colliderUsed[i]) continue;
+        s_colliderData[i] = {
+            .params      = params,
+            .restitution = restitution,
+            .friction    = friction,
+            .type        = static_cast<uint32_t>(type),
+            .enabled     = 1u,
+        };
+        s_colliderUsed[i]   = true;
+        s_colliderHighWater = std::max(s_colliderHighWater, i + 1u);
+        s_colliderDirty     = true;
+        return { i, true };
+    }
+    LOG_ERROR("Particles: no free collider slots (MAX_COLLIDERS = {})", MAX_COLLIDERS);
+    return {};
+}
+
+void RemoveCollider(ColliderHandle& handle) {
+    if (!handle.valid) return;
+    s_colliderData[handle.index].enabled = 0u;
+    s_colliderUsed[handle.index]         = false;
+    // Recompute high-water mark
+    s_colliderHighWater = 0;
+    for (uint32_t i = 0; i < MAX_COLLIDERS; ++i)
+        if (s_colliderUsed[i]) s_colliderHighWater = i + 1u;
+    s_colliderDirty = true;
+    handle          = {};
+}
+
+void ClearColliders() {
+    for (uint32_t i = 0; i < MAX_COLLIDERS; ++i) {
+        s_colliderData[i].enabled = 0u;
+        s_colliderUsed[i]         = false;
+    }
+    s_colliderHighWater = 0;
+    s_colliderDirty     = true;
+}
+
+void UpdateCollider(const ColliderHandle& handle, glm::vec4 params,
+                    float restitution, float friction) {
+    if (!handle.valid) return;
+    s_colliderData[handle.index].params      = params;
+    s_colliderData[handle.index].restitution = restitution;
+    s_colliderData[handle.index].friction    = friction;
+    s_colliderDirty = true;
+}
 
 void  SetPOV(bool enabled, float decay) { if (s_renderPass) s_renderPass->SetPOV(enabled, decay); }
 bool  GetPOVEnabled()                   { return s_renderPass ? s_renderPass->getPOVEnabled() : false; }
@@ -780,24 +1040,34 @@ void AttachToFramebuffer(const std::string& fbName) {
 
 // Called by Renderer::_endFrame() BEFORE Compute::_ExecuteQueued()
 void _PrepareFrame(GpuCmdBufferHandle cmdBuf) {
-    if (!s_systemDirty) return;
-    s_systemDirty = false;
+    if (!s_systemDirty && !s_colliderDirty) return;
 
-    auto* sdlCmdBuf = reinterpret_cast<SDL_GPUCommandBuffer*>(cmdBuf);
+    auto*              sdlCmdBuf = reinterpret_cast<SDL_GPUCommandBuffer*>(cmdBuf);
+    SDL_GPUDevice*     device    = Renderer::GetDevice();
+    SDL_GPUCopyPass*   cp        = SDL_BeginGPUCopyPass(sdlCmdBuf);
 
-    // Upload system data via a copy pass on the main command buffer
-    void* mapped = SDL_MapGPUTransferBuffer(Renderer::GetDevice(), s_systemUploadBuf, false);
-    SDL_memcpy(mapped, s_systemData, MAX_SYSTEMS * sizeof(GPUParticleSystem));
-    SDL_UnmapGPUTransferBuffer(Renderer::GetDevice(), s_systemUploadBuf);
+    if (s_systemDirty) {
+        s_systemDirty = false;
+        void* mapped = SDL_MapGPUTransferBuffer(device, s_systemUploadBuf, false);
+        SDL_memcpy(mapped, s_systemData, MAX_SYSTEMS * sizeof(GPUParticleSystem));
+        SDL_UnmapGPUTransferBuffer(device, s_systemUploadBuf);
+        SDL_GPUTransferBufferLocation src = {.transfer_buffer = s_systemUploadBuf, .offset = 0};
+        SDL_GPUBufferRegion dst = {.buffer = s_systemBuf, .offset = 0,
+                                   .size = static_cast<uint32_t>(MAX_SYSTEMS * sizeof(GPUParticleSystem))};
+        SDL_UploadToGPUBuffer(cp, &src, &dst, false);
+    }
 
-    SDL_GPUCopyPass* cp = SDL_BeginGPUCopyPass(sdlCmdBuf);
-    SDL_GPUTransferBufferLocation src = {.transfer_buffer = s_systemUploadBuf, .offset = 0};
-    SDL_GPUBufferRegion dst = {
-        .buffer = s_systemBuf,
-        .offset = 0,
-        .size   = static_cast<uint32_t>(MAX_SYSTEMS * sizeof(GPUParticleSystem))
-    };
-    SDL_UploadToGPUBuffer(cp, &src, &dst, false);
+    if (s_colliderDirty) {
+        s_colliderDirty = false;
+        void* mapped = SDL_MapGPUTransferBuffer(device, s_colliderUploadBuf, false);
+        SDL_memcpy(mapped, s_colliderData, MAX_COLLIDERS * sizeof(GPUCollider));
+        SDL_UnmapGPUTransferBuffer(device, s_colliderUploadBuf);
+        SDL_GPUTransferBufferLocation src = {.transfer_buffer = s_colliderUploadBuf, .offset = 0};
+        SDL_GPUBufferRegion dst = {.buffer = s_colliderBuf, .offset = 0,
+                                   .size = static_cast<uint32_t>(MAX_COLLIDERS * sizeof(GPUCollider))};
+        SDL_UploadToGPUBuffer(cp, &src, &dst, false);
+    }
+
     SDL_EndGPUCopyPass(cp);
 }
 

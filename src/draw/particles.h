@@ -107,9 +107,10 @@ private:
 
 namespace Particles {
 
-    static constexpr uint32_t MAX_PARTICLES      = 50'000'000;
-    static constexpr uint32_t MAX_SYSTEMS        = 64;
+    static constexpr uint32_t MAX_PARTICLES       = 50'000'000;
+    static constexpr uint32_t MAX_SYSTEMS         = 64;
     static constexpr uint32_t MAX_CUSTOM_COMPUTES = 32;
+    static constexpr uint32_t MAX_COLLIDERS       = 32;
 
     // --- Lifecycle ---
 
@@ -200,6 +201,52 @@ namespace Particles {
     ParticleRenderPass* GetRenderPass();
     GpuTextureHandle    GetWhiteTexture();   // 1×1 white fallback for non-textured draws
     GpuSamplerHandle    GetLinearSampler();  // default sampler for textured draws
+
+    // --- Physics pass (for systems with a custom compute) ---
+
+    /// Run a standard physics step (gravity, drag, collision) after a custom compute.
+    /// gravity is in pixels/s². Useful for Mandelbrot and other custom shaders that
+    /// set positions directly and don't do their own physics.
+    void EnablePhysicsPass(const ParticleSystemHandle& handle,
+                           const ParticleComputeHandle& physicsCompute,
+                           glm::vec2 gravity = {0.f, 200.f},
+                           float drag = 0.5f);
+    void DisablePhysicsPass(const ParticleSystemHandle& handle);
+    void SetPhysicsPassParams(const ParticleSystemHandle& handle,
+                              glm::vec2 gravity, float drag);
+
+    // --- Spring pass (elastic deformation for custom computes) ---
+
+    /// Run a spring/elastic pass after a custom compute.
+    /// springCompute: handle created via CreateCustomCompute() from the user's spring shader.
+    /// springK: stiffness (e.g. 80), damping: velocity damping (e.g. 8).
+    void EnableSpringPass(const ParticleSystemHandle& handle,
+                          const ParticleComputeHandle& springCompute,
+                          float springK = 80.f, float damping = 8.f);
+    void DisableSpringPass(const ParticleSystemHandle& handle);
+    void SetSpringParams(const ParticleSystemHandle& handle,
+                         float springK, float damping);
+    /// Set cursor interaction for this frame. Call every frame while interacting.
+    /// r = 0 or f = 0 disables interaction. f > 0 pulls toward cursor, f < 0 pushes.
+    void SetSpringInteraction(const ParticleSystemHandle& handle,
+                              float x, float y, float r, float f);
+
+    // --- Colliders ---
+
+    /// Add a static collider that particles bounce off.
+    /// restitution: bounce factor [0,1] (1 = elastic). friction: tangential damping [0,1].
+    ColliderHandle AddCollider(ColliderType type, glm::vec4 params,
+                               float restitution = 0.5f, float friction = 0.1f);
+
+    /// Disable and free a collider slot.
+    void RemoveCollider(ColliderHandle& handle);
+
+    /// Disable all active colliders.
+    void ClearColliders();
+
+    /// Update params/restitution/friction of an existing collider without recreating it.
+    void UpdateCollider(const ColliderHandle& handle, glm::vec4 params,
+                        float restitution, float friction);
 
     // --- Persistence of Vision ---
 
