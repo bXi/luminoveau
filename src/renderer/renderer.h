@@ -60,6 +60,8 @@ struct SpriteRenderTargetConfig {
     size_t          maxSprites    = 0;  // 0 = use MAX_SPRITES default
     // Invalid = use swapchain format. Set to e.g. R16G16B16A16_Float for HDR.
     GpuTextureFormat format       = GpuTextureFormat::Invalid;
+    // Render this target's passes BEFORE compute dispatches so compute can read same-frame results.
+    bool            preComputeFlush = false;
 };
 
 struct FrameBuffer {
@@ -72,9 +74,10 @@ struct FrameBuffer {
 
     std::vector<std::pair<std::string, RenderPass*>> renderpasses;
 
-    bool renderToScreen = false;
-    bool noMSAA         = false;  // true for custom effect targets that always render to 1x textures
-    bool additiveBlend  = false;  // use additive pipeline when compositing onto swapchain
+    bool renderToScreen    = false;
+    bool noMSAA            = false;  // true for custom effect targets that always render to 1x textures
+    bool additiveBlend     = false;  // use additive pipeline when compositing onto swapchain
+    bool preComputeFlush   = false;  // run passes before compute dispatches (eliminates 1-frame GI lag)
 
     TextureAsset textureView;
 };

@@ -416,45 +416,46 @@ void Renderer::_endFrame() {
 
         SDL_SetGPUTextureName(Renderer::GetDevice(), swapchain_texture, "Renderer: swapchain_texture");
 
-        // Upload any modified particle system data, then run all compute dispatches.
-        // Both happen before render passes so results are ready to sample this frame.
+        bool useMSAA = (currentSampleCount > GpuSampleCount::x1);
+
+        // Runs all render passes for framebuffers matching the given preComputeFlush flag.
+        auto runPasses = [&](bool preCompute) {
+            for (auto &[fbName, framebuffer]: frameBuffers) {
+                if (framebuffer->preComputeFlush != preCompute) continue;
+
+                bool useThisMSAA = useMSAA && framebuffer->fbContentMSAA != 0;
+                GpuTextureHandle renderTarget = useThisMSAA ? framebuffer->fbContentMSAA : framebuffer->fbContent;
+                GpuTextureHandle depthTarget  = useThisMSAA ? framebuffer->fbDepthMSAA   : 0;
+
+                for (size_t i = 0; i < framebuffer->renderpasses.size(); i++) {
+                    auto& [passname, renderpass] = framebuffer->renderpasses[i];
+
+                    if (i > 0) {
+                        renderpass->color_target_info_loadop = GpuLoadOp::Load;
+                    }
+
+                    renderpass->renderTargetDepth = depthTarget;
+
+                    bool isLastPass = (i == framebuffer->renderpasses.size() - 1);
+                    bool nextNeedsResolved = useThisMSAA && !isLastPass &&
+                        framebuffer->renderpasses[i + 1].second->needsResolvedInput();
+                    renderpass->renderTargetResolve = (useThisMSAA && (isLastPass || nextNeedsResolved)) ? framebuffer->fbContent : 0;
+
+                    renderpass->render(reinterpret_cast<GpuCmdBufferHandle>(m_cmdbuf), renderTarget, m_camera);
+                }
+            }
+        };
+
+        // Phase 1: pre-compute render passes (e.g. scene texture written before SDF/RC read it)
+        runPasses(true);
+
+        // Phase 2: compute — particles + all queued dispatches
         Particles::_PrepareFrame(reinterpret_cast<GpuCmdBufferHandle>(m_cmdbuf));
         Compute::_ExecuteQueued(m_cmdbuf);
         Compute::_Reset();
 
-        bool useMSAA = (currentSampleCount > GpuSampleCount::x1);
-
-        for (auto &[fbName, framebuffer]: frameBuffers) {
-            // Render all passes to MSAA texture if enabled and available, otherwise directly to fbContent.
-            // Custom render targets (effect buffers) have no MSAA texture and render directly to fbContent.
-            bool useThisMSAA = useMSAA && framebuffer->fbContentMSAA != 0;
-            GpuTextureHandle renderTarget = useThisMSAA ? framebuffer->fbContentMSAA : framebuffer->fbContent;
-            GpuTextureHandle depthTarget  = useThisMSAA ? framebuffer->fbDepthMSAA   : 0;
-
-            // Render all passes
-            for (size_t i = 0; i < framebuffer->renderpasses.size(); i++) {
-                auto& [passname, renderpass] = framebuffer->renderpasses[i];
-
-                // Subsequent passes always load (accumulate on top of prior pass).
-                // Pass 0 keeps the load op set at creation time (respects clearOnLoad config).
-                if (i > 0) {
-                    renderpass->color_target_info_loadop = GpuLoadOp::Load;
-                }
-
-                // Pass shared depth target
-                renderpass->renderTargetDepth = depthTarget;
-
-                // Resolve MSAA to fbContent for:
-                // - the last pass (normal case), OR
-                // - any pass whose successor reads from fbContent directly (e.g. ShaderRenderPass)
-                bool isLastPass = (i == framebuffer->renderpasses.size() - 1);
-                bool nextNeedsResolved = useThisMSAA && !isLastPass &&
-                    framebuffer->renderpasses[i + 1].second->needsResolvedInput();
-                renderpass->renderTargetResolve = (useThisMSAA && (isLastPass || nextNeedsResolved)) ? framebuffer->fbContent : 0;
-
-                renderpass->render(reinterpret_cast<GpuCmdBufferHandle>(m_cmdbuf), renderTarget, m_camera);
-            }
-        }
+        // Phase 3: remaining render passes
+        runPasses(false);
 
         renderFrameBuffer(m_cmdbuf);
 
@@ -1059,7 +1060,8 @@ void Renderer::_createSpriteRenderTarget(const std::string& name, const SpriteRe
     // that always render to plain 1x textures.
     auto* fb = _getFramebuffer(framebufferName);
     if (fb) {
-        fb->noMSAA = true;
+        fb->noMSAA          = true;
+        fb->preComputeFlush = config.preComputeFlush;
         if (config.renderToScreen && config.blendMode == BlendMode::Additive)
             fb->additiveBlend = true;
     }
