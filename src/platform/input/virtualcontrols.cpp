@@ -1,7 +1,10 @@
 #include "platform/input/virtualcontrols.h"
-#include "draw/draw.h"
 #include "platform/window/window.h"
 #include <cmath>
+
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
+#include "draw/draw.h"
+#endif
 
 #ifdef LUMINOVEAU_WITH_IMGUI
 #include "imgui.h"
@@ -317,6 +320,7 @@ void VirtualControls::Render() {
 }
 
 void VirtualControls::RenderJoystick() {
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
     if (m_joystickMode == JoystickMode::DISABLED) return;
 
     // Don't render if not active in RELATIVE mode
@@ -365,15 +369,17 @@ void VirtualControls::RenderJoystick() {
             Draw::CircleFilled(stickPos, stickRadius, {255, 255, 255, 200});
         }
     }
+#endif
 }
 
 void VirtualControls::RenderButtons() {
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
     vf2d anchorOffset = GetButtonAnchorOffset();
-    
+
     for (const auto &button: m_buttons) {
         TextureAsset *texture = button.customTexture ? button.customTexture : m_defaultTexture;
         uint8_t alpha = button.isPressed ? 255 : 128;
-        
+
         vf2d screenPos = button.GetScreenPosition(anchorOffset);
 
         if (texture) {
@@ -387,6 +393,7 @@ void VirtualControls::RenderButtons() {
             Draw::CircleFilled(screenPos, button.radius, {255, 255, 255, alpha});
         }
     }
+#endif
 }
 
 void VirtualControls::SetButtonCount(int count) {

@@ -225,6 +225,15 @@ void SdlGpuBackend::bindFragmentStorageTextures(GpuRenderPassHandle pass, uint32
     SDL_BindGPUFragmentStorageTextures(reinterpret_cast<SDL_GPURenderPass*>(pass), firstBinding, sdlTex.data(), count);
 }
 
+void SdlGpuBackend::bindVertexStorageBuffers(GpuRenderPassHandle pass, uint32_t first,
+                                              const GpuBufferHandle* buffers, uint32_t count) {
+    auto* rp = reinterpret_cast<SDL_GPURenderPass*>(pass);
+    std::vector<SDL_GPUBuffer*> sdlBufs(count);
+    for (uint32_t i = 0; i < count; ++i)
+        sdlBufs[i] = reinterpret_cast<SDL_GPUBuffer*>(buffers[first + i]);
+    SDL_BindGPUVertexStorageBuffers(rp, first, sdlBufs.data(), count);
+}
+
 void SdlGpuBackend::bindComputeSamplers(GpuComputePassHandle pass, uint32_t firstBinding,
                                          const GpuTextureSamplerBinding* bindings, uint32_t count) {
     auto sdl = toSDLBindings(bindings, count);

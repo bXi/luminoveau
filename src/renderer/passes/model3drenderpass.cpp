@@ -1,11 +1,15 @@
 #include "renderer/passes/model3drenderpass.h"
+#include "core/log/log.h"
+
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
 #include "gpu/backends/sdl/sdlgpu.h"
 #include "gpu/presets.h"
 #include "platform/window/window.h"
 #include "assets/shaders_generated.h"
-#include "core/log/log.h"
 #include <algorithm>
+#endif
 
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
 bool Model3DRenderPass::init(
     GpuTextureFormat swapchain_texture_format,
     uint32_t width,
@@ -591,3 +595,211 @@ void Model3DRenderPass::render(
     SDL_EndGPURenderPass(sdl_rp);
     SDL_PopGPUDebugGroup(cmd_buffer);
 }
+#endif // LUMINOVEAU_WEBGPU_BACKEND
+
+#ifdef LUMINOVEAU_WEBGPU_BACKEND
+#include "assets/shaders_generated.h"
+#include "gpu/presets.h"
+#include "platform/window/window.h"
+
+bool Model3DRenderPass::init(
+    GpuTextureFormat swapchain_texture_format, uint32_t surface_width,
+    uint32_t surface_height, std::string name, bool logInit,
+    size_t /*capacity*/, bool /*forceNoMSAA*/) {
+    passname         = std::move(name);
+    m_surface_width  = surface_width;
+    m_surface_height = surface_height;
+
+    auto& gpu = Renderer::GetGpu();
+
+    // Shaders (WGSL). 0 samplers / 0 uniforms / 1 storage buf in vertex; 1 sampler in fragment.
+    m_vert_shader = gpu.createShader({
+        Luminoveau::Shaders::Model3d_Vert,
+        Luminoveau::Shaders::Model3d_Vert_Size,
+        "vs_main", GpuShaderStage::Vertex,
+        0, 0, 1, 0,
+    });
+    m_frag_shader = gpu.createShader({
+        Luminoveau::Shaders::Model3d_Frag,
+        Luminoveau::Shaders::Model3d_Frag_Size,
+        "fs_main", GpuShaderStage::Fragment,
+        1, 0, 0, 0,
+    });
+    if (!m_vert_shader || !m_frag_shader) {
+        LOG_ERROR("Model3DRenderPass: shader creation failed");
+        return false;
+    }
+
+    // Vertex attributes for Vertex3D: position (vec3), normal (vec3), texCoord (vec2), color (vec4).
+    static GpuVertexAttribute attrs[4] = {
+        { .location = 0, .binding = 0, .format = GpuVertexElementFormat::Float3, .offset = 0  },
+        { .location = 1, .binding = 0, .format = GpuVertexElementFormat::Float3, .offset = 12 },
+        { .location = 2, .binding = 0, .format = GpuVertexElementFormat::Float2, .offset = 24 },
+        { .location = 3, .binding = 0, .format = GpuVertexElementFormat::Float4, .offset = 32 },
+    };
+    static GpuVertexBinding vbind = { .binding = 0, .stride = sizeof(Vertex3D), .instanceStepping = false };
+
+    GpuGraphicsPipelineCreateInfo pci{};
+    pci.vertexShader        = m_vert_shader;
+    pci.fragmentShader      = m_frag_shader;
+    pci.attributes          = attrs;
+    pci.attributeCount      = 4;
+    pci.bindings            = &vbind;
+    pci.bindingCount        = 1;
+    pci.fillMode            = GpuFillMode::Fill;
+    pci.cullMode            = GpuCullMode::None;
+    pci.frontFace           = GpuFrontFace::CounterClockwise;
+    pci.colorTargetFormat   = swapchain_texture_format;
+    pci.blend               = GpuPresets::AlphaBlendKeepDstAlpha;
+    pci.hasDepthTarget      = true;
+    pci.depthTargetFormat   = GpuTextureFormat::D32_Float;
+    pci.sampleCount         = GpuSampleCount::x1;
+    pci.vertexStorageBufferCount = 1;
+    m_pipeline_wgpu = gpu.createGraphicsPipeline(pci);
+    if (!m_pipeline_wgpu) {
+        LOG_ERROR("Model3DRenderPass: graphics pipeline creation failed");
+        return false;
+    }
+
+    // Uniform/storage buffer for SceneUniforms.
+    m_uniform_buf = gpu.createBuffer({ sizeof(SceneUniforms),
+        GpuBufferUsage::StorageRead });
+    m_uniform_xfer_buf = gpu.createTransferBuffer({ sizeof(SceneUniforms), GpuTransferUsage::Upload });
+    if (!m_uniform_buf || !m_uniform_xfer_buf) {
+        LOG_ERROR("Model3DRenderPass: uniform buffer creation failed");
+        return false;
+    }
+
+    // Depth texture sized to the surface; recreated on resize via _reset().
+    GpuTextureCreateInfo depthInfo{};
+    depthInfo.width         = surface_width  ? surface_width  : 1;
+    depthInfo.height        = surface_height ? surface_height : 1;
+    depthInfo.depthOrLayers = 1;
+    depthInfo.numLevels     = 1;
+    depthInfo.format        = GpuTextureFormat::D32_Float;
+    depthInfo.sampleCount   = GpuSampleCount::x1;
+    depthInfo.usage         = GpuTextureUsage::DepthStencilTarget;
+    m_depth_tex = gpu.createTexture(depthInfo);
+    if (!m_depth_tex) {
+        LOG_ERROR("Model3DRenderPass: depth texture creation failed");
+        return false;
+    }
+
+    m_linear_sampler = gpu.createSampler(GpuPresets::LinearClamp);
+
+    if (logInit) LOG_INFO("Model3DRenderPass initialized (WebGPU): {}", passname);
+    return true;
+}
+
+void Model3DRenderPass::release(bool /*logRelease*/) {
+    auto& gpu = Renderer::GetGpu();
+    if (m_pipeline_wgpu)    { gpu.releaseGraphicsPipeline(m_pipeline_wgpu);    m_pipeline_wgpu    = 0; }
+    if (m_uniform_buf)      { gpu.releaseBuffer(m_uniform_buf);                m_uniform_buf      = 0; }
+    if (m_uniform_xfer_buf) { gpu.releaseTransferBuffer(m_uniform_xfer_buf);   m_uniform_xfer_buf = 0; }
+    if (m_depth_tex)        { gpu.releaseTexture(m_depth_tex);                 m_depth_tex        = 0; }
+    if (m_linear_sampler)   { gpu.releaseSampler(m_linear_sampler);            m_linear_sampler   = 0; }
+    if (m_vert_shader)      { gpu.releaseShader(m_vert_shader);                m_vert_shader      = 0; }
+    if (m_frag_shader)      { gpu.releaseShader(m_frag_shader);                m_frag_shader      = 0; }
+}
+
+void Model3DRenderPass::uploadModelToGPU(ModelAsset* model) {
+    if (!model || model->vertices.empty() || model->indices.empty()) return;
+    if (model->vertexBuffer && model->indexBuffer) return; // already uploaded
+
+    auto& gpu = Renderer::GetGpu();
+    uint32_t vSize = static_cast<uint32_t>(model->vertices.size() * sizeof(Vertex3D));
+    uint32_t iSize = static_cast<uint32_t>(model->indices.size()  * sizeof(uint32_t));
+
+    model->vertexBuffer = gpu.createBuffer({ vSize, GpuBufferUsage::Vertex });
+    model->indexBuffer  = gpu.createBuffer({ iSize, GpuBufferUsage::Index  });
+
+    GpuTransferBufferHandle vXfer = gpu.createTransferBuffer({ vSize, GpuTransferUsage::Upload });
+    std::memcpy(gpu.mapTransferBuffer(vXfer, false), model->vertices.data(), vSize);
+    gpu.unmapTransferBuffer(vXfer);
+
+    GpuTransferBufferHandle iXfer = gpu.createTransferBuffer({ iSize, GpuTransferUsage::Upload });
+    std::memcpy(gpu.mapTransferBuffer(iXfer, false), model->indices.data(), iSize);
+    gpu.unmapTransferBuffer(iXfer);
+
+    GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
+    gpu.uploadToBuffer(cmd, vXfer, 0, model->vertexBuffer, 0, vSize);
+    gpu.uploadToBuffer(cmd, iXfer, 0, model->indexBuffer,  0, iSize);
+    gpu.submitCommandBuffer(cmd);
+    gpu.waitIdle();
+    gpu.releaseTransferBuffer(vXfer);
+    gpu.releaseTransferBuffer(iXfer);
+}
+
+void Model3DRenderPass::render(
+    GpuCmdBufferHandle cmdBuffer, GpuTextureHandle targetTexture, const glm::mat4& /*camera*/) {
+    auto& gpu = Renderer::GetGpu();
+    Camera3D& camera                    = Scene::GetCamera();
+    std::vector<ModelInstance>& models  = Scene::GetModels();
+    std::vector<Light>& lights          = Scene::GetLights();
+    Color ambient                       = Scene::GetAmbientLight();
+
+    // Fill scene uniforms and upload.
+    SceneUniforms u{};
+    float aspect    = (float)Window::GetWidth() / (float)Window::GetHeight();
+    u.viewProj      = camera.GetViewProjectionMatrix(aspect);
+    u.modelCount    = std::min((int)models.size(), 16);
+    for (int i = 0; i < u.modelCount; ++i) u.models[i] = models[i].GetModelMatrix();
+    u.cameraPos     = glm::vec4(camera.position.x, camera.position.y, camera.position.z, 1.0f);
+    u.ambientLight  = glm::vec4(ambient.r / 255.f, ambient.g / 255.f, ambient.b / 255.f, ambient.a / 255.f);
+    u.lightCount    = std::min((int)lights.size(), 4);
+    for (int i = 0; i < u.lightCount; ++i) {
+        const Light& L = lights[i];
+        if (L.type == LightType::Directional)
+            u.lightPositions[i] = glm::vec4(L.direction.x, L.direction.y, L.direction.z, (float)L.type);
+        else
+            u.lightPositions[i] = glm::vec4(L.position.x,  L.position.y,  L.position.z,  (float)L.type);
+        u.lightColors[i] = glm::vec4(L.color.r / 255.f, L.color.g / 255.f, L.color.b / 255.f, L.intensity);
+        u.lightParams[i] = glm::vec4(L.constant, L.linear, L.quadratic, 0.0f);
+    }
+    if (m_uniform_xfer_buf && m_uniform_buf) {
+        std::memcpy(gpu.mapTransferBuffer(m_uniform_xfer_buf, false), &u, sizeof(u));
+        gpu.unmapTransferBuffer(m_uniform_xfer_buf);
+        gpu.uploadToBuffer(cmdBuffer, m_uniform_xfer_buf, 0, m_uniform_buf, 0, sizeof(u));
+    }
+
+    // Upload any pending model vertex/index buffers.
+    for (auto& inst : models) if (inst.model) uploadModelToGPU(inst.model);
+
+    GpuColorTargetInfo ct{};
+    ct.texture  = targetTexture;
+    ct.loadOp   = color_target_info_loadop;
+    ct.storeOp  = GpuStoreOp::Store;
+    ct.clearR = color_target_clear_r; ct.clearG = color_target_clear_g;
+    ct.clearB = color_target_clear_b; ct.clearA = color_target_clear_a;
+    GpuDepthStencilTargetInfo dt{};
+    dt.texture    = m_depth_tex;
+    dt.loadOp     = GpuLoadOp::Clear;
+    dt.storeOp    = GpuStoreOp::Store;
+    dt.clearDepth = 1.0f;
+
+    auto rp = gpu.beginRenderPass(cmdBuffer, &ct, 1, &dt);
+    if (!models.empty() && m_pipeline_wgpu &&
+        models[0].model && models[0].model->vertexBuffer && models[0].model->indexBuffer) {
+        gpu.bindGraphicsPipeline(rp, m_pipeline_wgpu);
+        gpu.bindVertexStorageBuffers(rp, 0, &m_uniform_buf, 1);
+        GpuBufferBinding vb{ models[0].model->vertexBuffer, 0 };
+        gpu.bindVertexBuffers(rp, 0, &vb, 1);
+        GpuBufferBinding ib{ models[0].model->indexBuffer, 0 };
+        gpu.bindIndexBuffer(rp, ib, /*use16BitIndices=*/false);
+
+        GpuTextureHandle tex = models[0].textureOverride.gpuTexture
+            ? models[0].textureOverride.gpuTexture
+            : (models[0].model->texture.gpuTexture
+                ? models[0].model->texture.gpuTexture
+                : Renderer::WhitePixel().gpuTexture);
+        GpuTextureSamplerBinding tsb{ tex, m_linear_sampler };
+        gpu.bindFragmentSamplers(rp, 0, &tsb, 1);
+
+        gpu.drawIndexedPrimitives(rp,
+            static_cast<uint32_t>(models[0].model->indices.size()),
+            static_cast<uint32_t>(models.size()),
+            0, 0, 0);
+    }
+    gpu.endRenderPass(rp);
+}
+#endif // LUMINOVEAU_WEBGPU_BACKEND

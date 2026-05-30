@@ -1,5 +1,7 @@
 #include "draw.h"
 #include "draw/particles.h"
+#include "gpu/IGpu.h"
+#include "SDL3/SDL.h"
 
 #include <utility>
 #include <algorithm>
@@ -50,7 +52,7 @@ void Draw::_clearEffects() {
 }
 
 void Draw::_setEffectTexture(uint32_t binding, const TextureAsset& texture, ScaleMode scaleMode) {
-    _effectTextures[binding] = { reinterpret_cast<SDL_GPUTexture*>(texture.gpuTexture), scaleMode };
+    _effectTextures[binding] = { texture.gpuTexture, scaleMode };
 }
 
 void Draw::_clearEffectTextures() {
@@ -63,24 +65,17 @@ void Draw::_initPixelBuffer() {
     // Get desktop size in physical pixels to match framebuffer dimensions
     SDL_DisplayID primaryDisplay = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode* displayMode = SDL_GetCurrentDisplayMode(primaryDisplay);
-    _pixelBufferWidth = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
+    _pixelBufferWidth  = displayMode ? (int)(displayMode->w * displayMode->pixel_density) : 3840;
     _pixelBufferHeight = displayMode ? (int)(displayMode->h * displayMode->pixel_density) : 2160;
 
     LOG_INFO("initializing pixel buffer at desktop size: {}x{}", _pixelBufferWidth, _pixelBufferHeight);
 
-    // Pre-allocate CPU buffer for pixel data
     _pixelBufferData.resize(_pixelBufferWidth * _pixelBufferHeight, 0x00000000);
 
-    // Single reusable transfer buffer for uploads
-    SDL_GPUTransferBufferCreateInfo transferInfo = {
-        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = (Uint32)(_pixelBufferWidth * _pixelBufferHeight * sizeof(uint32_t)),
-        .props = 0,
-    };
-
-    _pixelTransferBuffer = SDL_CreateGPUTransferBuffer(Renderer::GetDevice(), &transferInfo);
+    uint32_t sz = static_cast<uint32_t>(_pixelBufferWidth * _pixelBufferHeight * sizeof(uint32_t));
+    _pixelTransferBuffer = Renderer::GetGpu().createTransferBuffer({ sz, GpuTransferUsage::Upload });
     if (!_pixelTransferBuffer) {
-        LOG_ERROR("failed to create pixel transfer buffer: {}", SDL_GetError());
+        LOG_ERROR("failed to create pixel transfer buffer");
     }
 }
 
@@ -88,81 +83,47 @@ void Draw::_flushPixels() {
     if (!_pixelsDirty) return;
     if (!_pixelTransferBuffer) return;
 
-    // Allocate a fresh GPU texture for this flush so previously queued
-    // renderables are never overwritten by a subsequent flush this frame
-    SDL_GPUTextureCreateInfo texInfo = {
-        .type = SDL_GPU_TEXTURETYPE_2D,
-        .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
-        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
-        .width = _pixelBufferWidth,
-        .height = _pixelBufferHeight,
-        .layer_count_or_depth = 1,
-        .num_levels = 1,
-        .sample_count = SDL_GPU_SAMPLECOUNT_1,
-        .props = 0,
-    };
+    IGpu& gpu = Renderer::GetGpu();
 
-    SDL_GPUTexture* gpuTex = SDL_CreateGPUTexture(Renderer::GetDevice(), &texInfo);
+    GpuTextureHandle gpuTex = gpu.createTexture({
+        _pixelBufferWidth, _pixelBufferHeight, 1, 1,
+        GpuTextureFormat::R8G8B8A8_Unorm,
+        GpuSampleCount::x1, GpuTextureUsage::Sampler
+    });
     if (!gpuTex) {
-        LOG_ERROR("failed to create pixel flush texture: {}", SDL_GetError());
+        LOG_ERROR("failed to create pixel flush texture");
         return;
     }
 
-    // Track it so we can release it at frame end
     _pixelFrameTextures.push_back(gpuTex);
 
-    // Upload CPU buffer into the new texture.
-    // cycle=true lets SDL allocate a fresh backing buffer if this one is still
-    // in flight from a previous flush this frame, avoiding transfer buffer stomping.
-    void* mappedData = SDL_MapGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer, true);
+    // cycle=true: re-use transfer buffer without stomping in-flight data
+    void* mappedData = gpu.mapTransferBuffer(_pixelTransferBuffer, true);
     if (!mappedData) {
-        LOG_ERROR("failed to map transfer buffer: {}", SDL_GetError());
+        LOG_ERROR("failed to map pixel transfer buffer");
         return;
     }
 
-    std::memcpy(mappedData, _pixelBufferData.data(), _pixelBufferWidth * _pixelBufferHeight * sizeof(uint32_t));
-    SDL_UnmapGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer);
+    std::memcpy(mappedData, _pixelBufferData.data(),
+                _pixelBufferWidth * _pixelBufferHeight * sizeof(uint32_t));
+    gpu.unmapTransferBuffer(_pixelTransferBuffer);
 
-    SDL_GPUCommandBuffer* cmdBuf = SDL_AcquireGPUCommandBuffer(Renderer::GetDevice());
-    if (!cmdBuf) {
-        LOG_ERROR("failed to acquire GPU command buffer: {}", SDL_GetError());
+    GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
+    if (!cmd) {
+        LOG_ERROR("failed to acquire GPU command buffer for pixel flush");
         return;
     }
 
-    SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmdBuf);
-    if (!copyPass) {
-        LOG_ERROR("failed to begin GPU copy pass: {}", SDL_GetError());
-        return;
-    }
+    GpuTransferBufferRegion src{ _pixelTransferBuffer, 0, 0, 0 };
+    GpuTextureRegion dst{ gpuTex, 0, 0, 0, 0, 0, _pixelBufferWidth, _pixelBufferHeight, 1 };
+    gpu.uploadToTexture(cmd, src, dst, false);
+    gpu.submitCommandBuffer(cmd);
 
-    SDL_GPUTextureTransferInfo transferInfo = {
-        .transfer_buffer = _pixelTransferBuffer,
-        .offset = 0,
-        .pixels_per_row = 0,
-        .rows_per_layer = 0,
-    };
-
-    SDL_GPUTextureRegion destInfo = {
-        .texture = gpuTex,
-        .mip_level = 0,
-        .layer = 0,
-        .x = 0, .y = 0, .z = 0,
-        .w = _pixelBufferWidth,
-        .h = _pixelBufferHeight,
-        .d = 1,
-    };
-
-    SDL_UploadToGPUTexture(copyPass, &transferInfo, &destInfo, false);
-    SDL_EndGPUCopyPass(copyPass);
-    SDL_SubmitGPUCommandBuffer(cmdBuf);
-
-    // Clear CPU buffer and dirty flag BEFORE drawing to avoid recursion
     std::fill(_pixelBufferData.begin(), _pixelBufferData.end(), 0x00000000);
     _pixelsDirty = false;
 
-    // Build a temporary TextureAsset wrapper so _drawTexture can use it
     TextureAsset flushTex;
-    flushTex.gpuTexture = reinterpret_cast<GpuTextureHandle>(gpuTex);
+    flushTex.gpuTexture = gpuTex;
     flushTex.gpuSampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode());
     flushTex.width = _pixelBufferWidth;
     flushTex.height = _pixelBufferHeight;
@@ -172,28 +133,23 @@ void Draw::_flushPixels() {
 }
 
 void Draw::_releaseFramePixelTextures() {
-    // Release the PREVIOUS frame's textures - by the time this is called,
-    // SDL_WaitAndAcquireGPUSwapchainTexture has already blocked, guaranteeing
-    // the GPU has finished rendering with those textures (frames_in_flight = 1).
-    for (SDL_GPUTexture* tex : _pixelPrevFrameTextures) {
-        SDL_ReleaseGPUTexture(Renderer::GetDevice(), tex);
+    IGpu& gpu = Renderer::GetGpu();
+    for (GpuTextureHandle tex : _pixelPrevFrameTextures) {
+        gpu.releaseTexture(tex);
     }
-    // Rotate: current frame's textures become next frame's "previous"
     _pixelPrevFrameTextures = std::move(_pixelFrameTextures);
     _pixelFrameTextures.clear();
 }
 
 void Draw::_cleanupPixelBuffer() {
-    // Release both lists on shutdown - GPU is idle at this point
-    for (SDL_GPUTexture* tex : _pixelFrameTextures)
-        SDL_ReleaseGPUTexture(Renderer::GetDevice(), tex);
-    for (SDL_GPUTexture* tex : _pixelPrevFrameTextures)
-        SDL_ReleaseGPUTexture(Renderer::GetDevice(), tex);
+    IGpu& gpu = Renderer::GetGpu();
+    for (GpuTextureHandle tex : _pixelFrameTextures)     gpu.releaseTexture(tex);
+    for (GpuTextureHandle tex : _pixelPrevFrameTextures) gpu.releaseTexture(tex);
     _pixelFrameTextures.clear();
     _pixelPrevFrameTextures.clear();
     if (_pixelTransferBuffer) {
-        SDL_ReleaseGPUTransferBuffer(Renderer::GetDevice(), _pixelTransferBuffer);
-        _pixelTransferBuffer = nullptr;
+        gpu.releaseTransferBuffer(_pixelTransferBuffer);
+        _pixelTransferBuffer = 0;
     }
     _pixelBufferData.clear();
 }
@@ -818,7 +774,7 @@ void Draw::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
     triangleGeom->indices.push_back(1);
     triangleGeom->indices.push_back(2);
     
-    triangleGeom->UploadToGPU(Renderer::GetDevice());
+    triangleGeom->UploadToGPU();
     
     // Create renderable
     Renderable renderable = {
@@ -932,7 +888,7 @@ void Draw::_drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mod
     // Two triangles to form a quad
     mode7Geom->indices = {0, 1, 2, 2, 1, 3};
     
-    mode7Geom->UploadToGPU(Renderer::GetDevice());
+    mode7Geom->UploadToGPU();
     
     // Create renderable
     Renderable renderable = {
@@ -1029,7 +985,7 @@ void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size,
         scanlineGeom->indices.push_back(baseIdx + 3);
     }
     
-    scanlineGeom->UploadToGPU(Renderer::GetDevice());
+    scanlineGeom->UploadToGPU();
     
     // Create renderable
     Renderable renderable = {

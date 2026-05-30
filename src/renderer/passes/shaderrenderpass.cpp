@@ -1,16 +1,18 @@
 #include "renderer/passes/shaderrenderpass.h"
+#include "core/log/log.h"
+
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
 #include "gpu/backends/sdl/sdlgpu.h"
 #include "gpu/presets.h"
-
 #include <utility>
-
 #include "SDL3/SDL_gpu.h"
 #include "assets/shaders_generated.h"
 #include "renderer/passes/spriterenderpass.h"
 #include "platform/window/window.h"
 #include "renderer/shaders.h"
-#include "core/log/log.h"
+#endif
 
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
 void ShaderRenderPass::release(bool logRelease) {
     if (m_depth_texture.gpuTexture) {
         SDL_ReleaseGPUTexture(Renderer::GetDevice(), reinterpret_cast<SDL_GPUTexture*>(m_depth_texture.gpuTexture));
@@ -560,3 +562,40 @@ ShaderRenderPass::_renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buf
     SDL_EndGPURenderPass(render_pass);
     // No longer creating and releasing pipeline here - it's now managed in init() and release()
 }
+#endif // LUMINOVEAU_WEBGPU_BACKEND
+
+#ifdef LUMINOVEAU_WEBGPU_BACKEND
+bool ShaderRenderPass::init(
+    GpuTextureFormat /*swapchain_texture_format*/, uint32_t /*surface_width*/,
+    uint32_t /*surface_height*/, std::string name, bool logInit,
+    size_t /*capacity*/, bool /*forceNoMSAA*/) {
+    passname = std::move(name);
+    if (logInit) LOG_INFO("ShaderRenderPass stub init (WebGPU): {}", passname);
+    return true;
+}
+
+void ShaderRenderPass::release(bool /*logRelease*/) {
+    // WebGPU stub — nothing to release
+}
+
+UniformBuffer& ShaderRenderPass::getUniformBuffer() {
+    static UniformBuffer dummy;
+    return dummy;
+}
+
+void ShaderRenderPass::render(
+    GpuCmdBufferHandle cmdBuffer, GpuTextureHandle targetTexture, const glm::mat4&) {
+    // No WebGPU user-shader implementation yet — just clear to transparent
+    auto& gpu = Renderer::GetGpu();
+    GpuColorTargetInfo ct{};
+    ct.texture  = targetTexture;
+    ct.loadOp   = color_target_info_loadop;
+    ct.storeOp  = GpuStoreOp::Store;
+    ct.clearR   = 0.0f;
+    ct.clearG   = 0.0f;
+    ct.clearB   = 0.0f;
+    ct.clearA   = 0.0f;
+    auto rp = gpu.beginRenderPass(cmdBuffer, &ct, 1, nullptr);
+    gpu.endRenderPass(rp);
+}
+#endif // LUMINOVEAU_WEBGPU_BACKEND

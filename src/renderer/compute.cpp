@@ -1,64 +1,57 @@
 #include "compute.h"
 #include "renderer.h"
 #include "core/log/log.h"
+#include "gpu/IGpu.h"
 
 #include <algorithm>
 #include <vector>
 #include <utility>
+#include <cstring>
 
 namespace Compute {
 
 // -----------------------------------------------------------------
-// Internal dispatch record — one entry per Dispatch() call
+// Internal dispatch record
 // -----------------------------------------------------------------
 
 struct RWTextureBind {
-    SDL_GPUTexture* tex;
-    uint32_t        mipLevel;
-    uint32_t        layer;
+    GpuTextureHandle tex;
+    uint32_t         mipLevel;
+    uint32_t         layer;
 };
 
 struct DispatchRecord {
-    SDL_GPUComputePipeline* pipeline = nullptr;
+    GpuComputePipelineHandle pipeline    = 0;
     uint32_t threadcount_x = 1, threadcount_y = 1, threadcount_z = 1;
 
-    // Read-only textures indexed by slot (gaps filled with nullptr)
-    std::vector<SDL_GPUTexture*> readTextures;
-
-    // Read-write textures: (slot, binding) — sorted by slot at execution time
-    std::vector<std::pair<uint32_t, RWTextureBind>> readWriteTextures;
-
-    // Read-only buffers indexed by slot
-    std::vector<SDL_GPUBuffer*> readBuffers;
-
-    // Read-write buffers: (slot, buffer) — sorted by slot at execution time
-    std::vector<std::pair<uint32_t, SDL_GPUBuffer*>> readWriteBuffers;
-
-    // Uniform data per slot
-    std::vector<std::pair<uint32_t, std::vector<uint8_t>>> uniforms;
+    std::vector<GpuTextureHandle>                              readTextures;
+    std::vector<std::pair<uint32_t, RWTextureBind>>            readWriteTextures;
+    std::vector<GpuBufferHandle>                               readBuffers;
+    std::vector<std::pair<uint32_t, GpuBufferHandle>>          readWriteBuffers;
+    std::vector<std::pair<uint32_t, std::vector<uint8_t>>>     uniforms;
 
     uint32_t groupX = 1, groupY = 1, groupZ = 1;
 };
 
 // -----------------------------------------------------------------
-// Builder state (accumulates between SetPipeline/Bind* and Dispatch)
+// Builder state
 // -----------------------------------------------------------------
 
-static SDL_GPUComputePipeline* s_pipeline    = nullptr;
+static GpuComputePipelineHandle                             s_pipeline = 0;
 static uint32_t s_tcX = 1, s_tcY = 1, s_tcZ = 1;
 
-static std::vector<SDL_GPUTexture*>                             s_readTextures;
-static std::vector<std::pair<uint32_t, RWTextureBind>>          s_readWriteTextures;
-static std::vector<SDL_GPUBuffer*>                              s_readBuffers;
-static std::vector<std::pair<uint32_t, SDL_GPUBuffer*>>         s_readWriteBuffers;
-static std::vector<std::pair<uint32_t, std::vector<uint8_t>>>   s_uniforms;
+static std::vector<GpuTextureHandle>                               s_readTextures;
+static std::vector<std::pair<uint32_t, RWTextureBind>>             s_readWriteTextures;
+static std::vector<GpuBufferHandle>                                s_readBuffers;
+static std::vector<std::pair<uint32_t, GpuBufferHandle>>           s_readWriteBuffers;
+static std::vector<std::pair<uint32_t, std::vector<uint8_t>>>      s_uniforms;
 
 static std::vector<DispatchRecord> s_queue;
 
 // -----------------------------------------------------------------
 
 static void _clearBuilderState() {
-    s_pipeline = nullptr;
+    s_pipeline = 0;
     s_tcX = s_tcY = s_tcZ = 1;
     s_readTextures.clear();
     s_readWriteTextures.clear();
@@ -72,37 +65,35 @@ static void _clearBuilderState() {
 // -----------------------------------------------------------------
 
 void SetPipeline(const ComputePipelineAsset& pipeline) {
-    s_pipeline = reinterpret_cast<SDL_GPUComputePipeline*>(pipeline.pipeline);
+    s_pipeline = pipeline.pipeline;
     s_tcX = pipeline.threadcount_x;
     s_tcY = pipeline.threadcount_y;
     s_tcZ = pipeline.threadcount_z;
 }
 
-void BindReadTexture(uint32_t slot, SDL_GPUTexture* tex) {
-    if (slot >= s_readTextures.size()) s_readTextures.resize(slot + 1, nullptr);
+void BindReadTexture(uint32_t slot, GpuTextureHandle tex) {
+    if (slot >= s_readTextures.size()) s_readTextures.resize(slot + 1, 0);
     s_readTextures[slot] = tex;
 }
 
 void BindReadTexture(uint32_t slot, const TextureAsset& tex) {
-    BindReadTexture(slot, reinterpret_cast<SDL_GPUTexture*>(tex.gpuTexture));
+    BindReadTexture(slot, tex.gpuTexture);
 }
 
-void BindReadWriteTexture(uint32_t slot, SDL_GPUTexture* tex,
-                          uint32_t mipLevel, uint32_t layer) {
+void BindReadWriteTexture(uint32_t slot, GpuTextureHandle tex, uint32_t mipLevel, uint32_t layer) {
     s_readWriteTextures.push_back({slot, {tex, mipLevel, layer}});
 }
 
-void BindReadWriteTexture(uint32_t slot, const TextureAsset& tex,
-                          uint32_t mipLevel, uint32_t layer) {
-    BindReadWriteTexture(slot, reinterpret_cast<SDL_GPUTexture*>(tex.gpuTexture), mipLevel, layer);
+void BindReadWriteTexture(uint32_t slot, const TextureAsset& tex, uint32_t mipLevel, uint32_t layer) {
+    BindReadWriteTexture(slot, tex.gpuTexture, mipLevel, layer);
 }
 
-void BindReadBuffer(uint32_t slot, SDL_GPUBuffer* buf) {
-    if (slot >= s_readBuffers.size()) s_readBuffers.resize(slot + 1, nullptr);
+void BindReadBuffer(uint32_t slot, GpuBufferHandle buf) {
+    if (slot >= s_readBuffers.size()) s_readBuffers.resize(slot + 1, 0);
     s_readBuffers[slot] = buf;
 }
 
-void BindReadWriteBuffer(uint32_t slot, SDL_GPUBuffer* buf) {
+void BindReadWriteBuffer(uint32_t slot, GpuBufferHandle buf) {
     s_readWriteBuffers.push_back({slot, buf});
 }
 
@@ -111,7 +102,6 @@ void PushUniform(uint32_t slot, const void* data, uint32_t size) {
         static_cast<const uint8_t*>(data),
         static_cast<const uint8_t*>(data) + size
     );
-    // Replace any existing entry for this slot
     auto it = std::find_if(s_uniforms.begin(), s_uniforms.end(),
                            [slot](const auto& p){ return p.first == slot; });
     if (it != s_uniforms.end()) {
@@ -127,15 +117,15 @@ static void _enqueueDispatch(uint32_t gx, uint32_t gy, uint32_t gz) {
         return;
     }
     DispatchRecord rec;
-    rec.pipeline        = s_pipeline;
-    rec.threadcount_x   = s_tcX;
-    rec.threadcount_y   = s_tcY;
-    rec.threadcount_z   = s_tcZ;
-    rec.readTextures    = s_readTextures;
+    rec.pipeline          = s_pipeline;
+    rec.threadcount_x     = s_tcX;
+    rec.threadcount_y     = s_tcY;
+    rec.threadcount_z     = s_tcZ;
+    rec.readTextures      = s_readTextures;
     rec.readWriteTextures = s_readWriteTextures;
-    rec.readBuffers     = s_readBuffers;
-    rec.readWriteBuffers = s_readWriteBuffers;
-    rec.uniforms        = s_uniforms;
+    rec.readBuffers       = s_readBuffers;
+    rec.readWriteBuffers  = s_readWriteBuffers;
+    rec.uniforms          = s_uniforms;
     rec.groupX = gx;
     rec.groupY = gy;
     rec.groupZ = gz;
@@ -162,101 +152,68 @@ void DispatchAuto(uint32_t totalX, uint32_t totalY, uint32_t totalZ) {
 // Buffer helpers
 // -----------------------------------------------------------------
 
-SDL_GPUBuffer* CreateBuffer(uint32_t size, SDL_GPUBufferUsageFlags usage) {
-    SDL_GPUBufferCreateInfo info = {
-        .usage = usage,
-        .size  = size,
-        .props = 0
-    };
-    SDL_GPUBuffer* buf = SDL_CreateGPUBuffer(Renderer::GetDevice(), &info);
-    if (!buf) {
-        LOG_ERROR("Compute::CreateBuffer failed ({} bytes): {}", size, SDL_GetError());
-    }
+GpuBufferHandle CreateBuffer(uint32_t size, GpuBufferUsage usage) {
+    GpuBufferCreateInfo info{ size, usage };
+    GpuBufferHandle buf = Renderer::GetGpu().createBuffer(info);
+    if (!buf) LOG_ERROR("Compute::CreateBuffer failed ({} bytes)", size);
     return buf;
 }
 
-void UploadBufferData(SDL_GPUBuffer* buffer, const void* data, uint32_t size) {
-    SDL_GPUDevice* device = Renderer::GetDevice();
+void UploadBufferData(GpuBufferHandle buffer, const void* data, uint32_t size) {
+    IGpu& gpu = Renderer::GetGpu();
+    GpuTransferBufferHandle tb = gpu.createTransferBuffer({ size, GpuTransferUsage::Upload });
+    if (!tb) { LOG_ERROR("Compute::UploadBufferData: failed to create transfer buffer"); return; }
 
-    SDL_GPUTransferBufferCreateInfo tbInfo = {
-        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size  = size,
-        .props = 0
-    };
-    SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(device, &tbInfo);
-    if (!tb) {
-        LOG_ERROR("Compute::UploadBufferData: failed to create transfer buffer: {}", SDL_GetError());
-        return;
-    }
-
-    void* mapped = SDL_MapGPUTransferBuffer(device, tb, false);
+    void* mapped = gpu.mapTransferBuffer(tb, false);
     if (!mapped) {
-        LOG_ERROR("Compute::UploadBufferData: failed to map transfer buffer: {}", SDL_GetError());
-        SDL_ReleaseGPUTransferBuffer(device, tb);
+        LOG_ERROR("Compute::UploadBufferData: failed to map transfer buffer");
+        gpu.releaseTransferBuffer(tb);
         return;
     }
-    SDL_memcpy(mapped, data, size);
-    SDL_UnmapGPUTransferBuffer(device, tb);
+    std::memcpy(mapped, data, size);
+    gpu.unmapTransferBuffer(tb);
 
-    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device);
-    SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmd);
-
-    SDL_GPUTransferBufferLocation src = {.transfer_buffer = tb, .offset = 0};
-    SDL_GPUBufferRegion            dst = {.buffer = buffer,      .offset = 0, .size = size};
-    SDL_UploadToGPUBuffer(copyPass, &src, &dst, false);
-
-    SDL_EndGPUCopyPass(copyPass);
-    SDL_SubmitGPUCommandBuffer(cmd);
-    SDL_WaitForGPUIdle(device);
-
-    SDL_ReleaseGPUTransferBuffer(device, tb);
+    GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
+    gpu.uploadToBuffer(cmd, tb, 0, buffer, 0, size);
+    gpu.submitCommandBuffer(cmd);
+    gpu.waitIdle();
+    gpu.releaseTransferBuffer(tb);
 }
 
-void DestroyBuffer(SDL_GPUBuffer* buffer) {
-    if (buffer) SDL_ReleaseGPUBuffer(Renderer::GetDevice(), buffer);
+void DestroyBuffer(GpuBufferHandle buffer) {
+    if (buffer) Renderer::GetGpu().releaseBuffer(buffer);
 }
 
 // -----------------------------------------------------------------
 // Internal
 // -----------------------------------------------------------------
 
-void _ExecuteQueued(SDL_GPUCommandBuffer* cmdBuf) {
-    for (const auto& rec : s_queue) {
-        // Push uniform data onto the command buffer before the pass
-        for (const auto& [slot, bytes] : rec.uniforms) {
-            SDL_PushGPUComputeUniformData(cmdBuf, slot,
-                                          bytes.data(),
-                                          static_cast<uint32_t>(bytes.size()));
-        }
+void _ExecuteQueued(GpuCmdBufferHandle cmdBuf) {
+    if (s_queue.empty()) return;
+    IGpu& gpu = Renderer::GetGpu();
 
-        // Build sorted RW texture bindings
+    for (const auto& rec : s_queue) {
         auto rwTexSorted = rec.readWriteTextures;
         std::sort(rwTexSorted.begin(), rwTexSorted.end(),
                   [](const auto& a, const auto& b){ return a.first < b.first; });
 
-        std::vector<SDL_GPUStorageTextureReadWriteBinding> rwTexBindings;
+        std::vector<GpuStorageTextureBinding> rwTexBindings;
         rwTexBindings.reserve(rwTexSorted.size());
         for (const auto& [slot, bind] : rwTexSorted) {
-            rwTexBindings.push_back({
-                .texture   = bind.tex,
-                .mip_level = bind.mipLevel,
-                .layer     = bind.layer,
-                .cycle     = false,
-            });
+            rwTexBindings.push_back({ bind.tex, bind.mipLevel, bind.layer, false });
         }
 
-        // Build sorted RW buffer bindings
         auto rwBufSorted = rec.readWriteBuffers;
         std::sort(rwBufSorted.begin(), rwBufSorted.end(),
                   [](const auto& a, const auto& b){ return a.first < b.first; });
 
-        std::vector<SDL_GPUStorageBufferReadWriteBinding> rwBufBindings;
+        std::vector<GpuStorageBufferBinding> rwBufBindings;
         rwBufBindings.reserve(rwBufSorted.size());
         for (const auto& [slot, buf] : rwBufSorted) {
-            rwBufBindings.push_back({.buffer = buf, .cycle = false});
+            rwBufBindings.push_back({ buf, false });
         }
 
-        SDL_GPUComputePass* computePass = SDL_BeginGPUComputePass(
+        GpuComputePassHandle computePass = gpu.beginComputePass(
             cmdBuf,
             rwTexBindings.empty() ? nullptr : rwTexBindings.data(),
             static_cast<uint32_t>(rwTexBindings.size()),
@@ -265,27 +222,31 @@ void _ExecuteQueued(SDL_GPUCommandBuffer* cmdBuf) {
         );
 
         if (!computePass) {
-            LOG_ERROR("SDL_BeginGPUComputePass failed: {}", SDL_GetError());
+            LOG_ERROR("Compute::_ExecuteQueued: beginComputePass failed");
             continue;
         }
 
-        SDL_BindGPUComputePipeline(computePass, rec.pipeline);
+        gpu.bindComputePipeline(computePass, rec.pipeline);
+
+        for (const auto& [slot, bytes] : rec.uniforms) {
+            gpu.pushComputeUniformData(cmdBuf, slot, bytes.data(),
+                                       static_cast<uint32_t>(bytes.size()));
+        }
 
         if (!rec.readTextures.empty()) {
-            SDL_BindGPUComputeStorageTextures(computePass, 0,
+            gpu.bindComputeStorageTextures(computePass, 0,
                 rec.readTextures.data(),
                 static_cast<uint32_t>(rec.readTextures.size()));
         }
 
         if (!rec.readBuffers.empty()) {
-            SDL_BindGPUComputeStorageBuffers(computePass, 0,
+            gpu.bindComputeStorageBuffers(computePass, 0,
                 rec.readBuffers.data(),
                 static_cast<uint32_t>(rec.readBuffers.size()));
         }
 
-        SDL_DispatchGPUCompute(computePass, rec.groupX, rec.groupY, rec.groupZ);
-
-        SDL_EndGPUComputePass(computePass);
+        gpu.dispatchCompute(computePass, rec.groupX, rec.groupY, rec.groupZ);
+        gpu.endComputePass(computePass);
     }
 }
 

@@ -51,6 +51,8 @@ public:
                               const GpuTextureSamplerBinding* bindings, uint32_t count) override;
     void bindFragmentStorageTextures(GpuRenderPassHandle pass, uint32_t firstBinding,
                                      const GpuTextureHandle* textures, uint32_t count) override;
+    void bindVertexStorageBuffers(GpuRenderPassHandle /*pass*/, uint32_t /*first*/,
+                                  const GpuBufferHandle* /*buffers*/, uint32_t /*count*/) override {}
     void bindComputeSamplers(GpuComputePassHandle pass, uint32_t firstBinding,
                              const GpuTextureSamplerBinding* bindings, uint32_t count) override;
     void bindComputeStorageTextures(GpuComputePassHandle pass, uint32_t firstBinding,

@@ -20,7 +20,7 @@
 # ============================================================================
 
 param(
-    [ValidateSet("spirv", "dxil", "metallib", "all")]
+    [ValidateSet("spirv", "dxil", "metallib", "wgsl", "all")]
     [string]$Backend = "all",  # Compile all backends by default
     
     [string]$Shader = "",  # Empty = all shaders
@@ -574,11 +574,13 @@ function Generate-CppFile
         [string]$BinaryFile,
         [string]$OutputFile,
         [string]$SymbolName,
-        [string]$Backend
+        [string]$Backend,
+        [switch]$NullTerminate
     )
 
     # Read binary data
     $bytes = [System.IO.File]::ReadAllBytes($BinaryFile)
+    if ($NullTerminate) { $bytes = $bytes + [byte]0 }
     $length = $bytes.Length
 
     # Make the source path relative to the repo root's parent so it's machine-independent
@@ -735,12 +737,12 @@ function Generate-CMakeFile
 
 # Set default GPU backend if not specified
 if(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
-    set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)")
+    set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB, WGSL)")
 endif()
 
 # Validate backend selection
-if(NOT LUMINOVEAU_GPU_BACKEND MATCHES "^(SPIRV|DXIL|METALLIB)$")
-    message(FATAL_ERROR "Invalid LUMINOVEAU_GPU_BACKEND: `${LUMINOVEAU_GPU_BACKEND}. Must be SPIRV, DXIL, or METALLIB")
+if(NOT LUMINOVEAU_GPU_BACKEND MATCHES "^(SPIRV|DXIL|METALLIB|WGSL)$")
+    message(FATAL_ERROR "Invalid LUMINOVEAU_GPU_BACKEND: `${LUMINOVEAU_GPU_BACKEND}. Must be SPIRV, DXIL, METALLIB, or WGSL")
 endif()
 
 lumi_done("GPU Backend: `${LUMINOVEAU_GPU_BACKEND}")
@@ -786,6 +788,19 @@ if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
         {
             $cmakeContent += "`n        src/assets/shaders/$($shader.VertCppMETALLIB)"
             $cmakeContent += "`n        src/assets/shaders/$($shader.FragCppMETALLIB)"
+        }
+    }
+
+    $cmakeContent += "`n    )`n"
+    $cmakeContent += "elseif(LUMINOVEAU_GPU_BACKEND STREQUAL `"WGSL`")`n"
+    $cmakeContent += "    set(LUMINOVEAU_SHADER_SOURCES`n"
+
+    foreach ($shader in $CompiledShaders)
+    {
+        if ($shader.VertCppWGSL)
+        {
+            $cmakeContent += "`n        src/assets/shaders/$($shader.VertCppWGSL)"
+            $cmakeContent += "`n        src/assets/shaders/$($shader.FragCppWGSL)"
         }
     }
 
@@ -849,6 +864,9 @@ function Get-AvailableBackends
 {
     # Determine which backends can be compiled on this platform
     $available = @()
+
+    # WGSL: no tool needed — source files are embedded as-is
+    $available += "wgsl"
 
     # SPIR-V: needs dxc (available everywhere)
     if (Get-Command dxc -ErrorAction SilentlyContinue)
@@ -943,6 +961,8 @@ function Compile-AllShaders
             FragCppDXIL = ""
             VertCppMETALLIB = ""
             FragCppMETALLIB = ""
+            VertCppWGSL = ""
+            FragCppWGSL = ""
         }
 
         # Compile to SPIR-V
@@ -1002,6 +1022,26 @@ function Compile-AllShaders
             }
         }
 
+        # Compile to WGSL (embed source text as null-terminated bytes — no tool required)
+        if ("wgsl" -in $backendsToCompile)
+        {
+            $vertWgsl = Join-Path $ShaderSourceDir "$($shaderDef.BaseName).vert.wgsl"
+            $fragWgsl = Join-Path $ShaderSourceDir "$($shaderDef.BaseName).frag.wgsl"
+
+            if ((Test-Path $vertWgsl) -and (Test-Path $fragWgsl))
+            {
+                $shaderInfo.VertCppWGSL = "$($shaderDef.BaseName)_vert.wgsl.cpp"
+                $shaderInfo.FragCppWGSL = "$($shaderDef.BaseName)_frag.wgsl.cpp"
+
+                Generate-CppFile -BinaryFile $vertWgsl -OutputFile (Join-Path $OutputDir $shaderInfo.VertCppWGSL) -SymbolName $shaderInfo.VertSymbol -Backend "WGSL" -NullTerminate
+                Generate-CppFile -BinaryFile $fragWgsl -OutputFile (Join-Path $OutputDir $shaderInfo.FragCppWGSL) -SymbolName $shaderInfo.FragSymbol -Backend "WGSL" -NullTerminate
+            }
+            else
+            {
+                Write-Info "No .wgsl source files found for $($shaderDef.Name) - skipping WGSL"
+            }
+        }
+
         # Fill in any backend fields from existing .cpp files on disk
         # This preserves backends compiled on other platforms (e.g., SPIRV/DXIL from Windows)
         $backendSuffixes = @{
@@ -1011,6 +1051,8 @@ function Compile-AllShaders
             FragCppDXIL     = "$($shaderDef.BaseName)_frag.dxil.cpp"
             VertCppMETALLIB = "$($shaderDef.BaseName)_vert.metallib.cpp"
             FragCppMETALLIB = "$($shaderDef.BaseName)_frag.metallib.cpp"
+            VertCppWGSL     = "$($shaderDef.BaseName)_vert.wgsl.cpp"
+            FragCppWGSL     = "$($shaderDef.BaseName)_frag.wgsl.cpp"
         }
 
         foreach ($field in $backendSuffixes.Keys)
@@ -1027,7 +1069,7 @@ function Compile-AllShaders
         }
 
         # Add to compiled shaders if at least one backend exists
-        if ($shaderInfo.VertCppSPIRV -or $shaderInfo.VertCppDXIL -or $shaderInfo.VertCppMETALLIB)
+        if ($shaderInfo.VertCppSPIRV -or $shaderInfo.VertCppDXIL -or $shaderInfo.VertCppMETALLIB -or $shaderInfo.VertCppWGSL)
         {
             $compiledShaders += $shaderInfo
         }

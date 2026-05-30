@@ -1,6 +1,5 @@
 #pragma once
 
-#include <SDL3/SDL_gpu.h>
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
 
@@ -15,17 +14,21 @@
 
 #include "gpu/buffer/uniformobject.h"
 
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
+#include <SDL3/SDL_gpu.h>
 #include "spirv_cross.hpp"
 #include "gpu/backends/sdl/sdlgpu.h"
+#endif
 
 class ShaderRenderPass : public RenderPass {
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
     glm::vec2 lastMousePos = {0, 0};
 
     SDL_GPUGraphicsPipeline *m_pipeline{nullptr};
     TextureAsset m_depth_texture;
 
-    SDL_GPUTexture* resultTexture = nullptr;  // Window-sized output
-    SDL_GPUTexture* inputTexture = nullptr;   // Window-sized input (copy of framebuffer window region)
+    SDL_GPUTexture* resultTexture = nullptr;
+    SDL_GPUTexture* inputTexture = nullptr;
     SDL_GPUGraphicsPipeline* finalrender_pipeline = nullptr;
 
     Renderable   fs;
@@ -39,7 +42,6 @@ class ShaderRenderPass : public RenderPass {
     SDL_GPUShader *finalrender_fragment_shader = nullptr;
     SDL_GPUShader *finalrender_vertex_shader   = nullptr;
 
-    // Desktop-sized texture dimensions for UV scaling
     uint32_t m_desktop_width = 0;
     uint32_t m_desktop_height = 0;
 
@@ -49,22 +51,23 @@ class ShaderRenderPass : public RenderPass {
     void _loadUniformsFromShader(const std::vector<uint8_t> &spirvBinary);
     void _copyFramebufferToInput(SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *framebuffer_texture, const glm::mat4 &camera);
     void _renderShaderOutputToFramebuffer(SDL_GPUCommandBuffer *cmd_buffer, SDL_GPUTexture *target_texture, SDL_GPUTexture *result_texture, const glm::mat4 &camera);
+#endif
     std::vector<Renderable> renderQueue;
 
 public:
     ShaderAsset             vertShader;
     ShaderAsset             fragShader;
 
-
     ShaderRenderPass(const ShaderRenderPass &) = delete;
-
     ShaderRenderPass &operator=(const ShaderRenderPass &) = delete;
-
     ShaderRenderPass(ShaderRenderPass &&) = delete;
-
     ShaderRenderPass &operator=(ShaderRenderPass &&) = delete;
 
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
     explicit ShaderRenderPass(SDL_GPUDevice*) : RenderPass() {}
+#else
+    ShaderRenderPass() : RenderPass() {}
+#endif
 
     [[nodiscard]] bool init(
         GpuTextureFormat swapchain_texture_format, uint32_t surface_width,
@@ -90,5 +93,4 @@ public:
 
     // ShaderRenderPass reads from fbContent; require the previous pass to resolve MSAA first.
     bool needsResolvedInput() const override { return true; }
-
 };

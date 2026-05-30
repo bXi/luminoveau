@@ -3,18 +3,25 @@
 #include "imgui_integration.h"
 
 #include "imgui.h"
-#include "backends/imgui_impl_sdlgpu3.h"
 #include "backends/imgui_impl_sdl3.h"
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
+#include "backends/imgui_impl_sdlgpu3.h"
+#else
+#include "backends/imgui_impl_wgpu.h"
+#include "gpu/backends/webgpu/WebGpuGpuBackend.h"
+#include "gpu/backends/webgpu/WebGpuHandles.h"
+#endif
 
 #include "SDL3/SDL.h"
 #include "assets/assethandler.h"
 #include "core/state/state.h"
 #include "core/log/log.h"
+#include "renderer/renderer.h"
 
 #include <map>
 #include <algorithm>
 
-#ifdef LUMIDEBUG
+#if defined(LUMIDEBUG) && !defined(LUMINOVEAU_WEBGPU_BACKEND)
 // SDL_PushGPUDebugGroup / SDL_PopGPUDebugGroup are SDL3 GPU functions
 #include "SDL3/SDL_gpu.h"
 #endif
@@ -62,6 +69,8 @@ bool texturesVisible = false;
 bool audioVisible    = false;
 bool inputVisible    = false;
 bool demoVisible     = false;
+
+SDL_Window* g_imguiWindow = nullptr;
 
 void SetupStyle() {
     ImGuiIO& io = ImGui::GetIO();
@@ -159,12 +168,14 @@ void SetupStyle() {
 namespace ImGuiIntegration {
 
 void Init(SDL_Window* window) {
-    (void)window;
+    g_imguiWindow = window;
     ImGui::CreateContext();
     SetupStyle();
 }
 
-void InitRenderer(SDL_GPUDevice* device, SDL_Window* window) {
+void InitRenderer(SDL_Window* window) {
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
+    SDL_GPUDevice* device = Renderer::GetDevice();
     ImGui_ImplSDL3_InitForSDLGPU(window);
 
     ImGui_ImplSDLGPU3_InitInfo init_info = {};
@@ -174,31 +185,101 @@ void InitRenderer(SDL_GPUDevice* device, SDL_Window* window) {
     init_info.SwapchainComposition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;
     init_info.PresentMode         = SDL_GPU_PRESENTMODE_VSYNC;
     ImGui_ImplSDLGPU3_Init(&init_info);
+#else
+    ImGui_ImplSDL3_InitForOther(window);
+
+    auto* wgpuBackend = static_cast<WebGpuGpuBackend*>(&Renderer::GetGpu());
+
+    // Map engine swapchain format to WGPUTextureFormat for imgui pipeline creation
+    WGPUTextureFormat wgpuFmt = WGPUTextureFormat_BGRA8Unorm;
+    GpuTextureFormat engineFmt = Renderer::GetGpu().getSwapchainFormat();
+    if (engineFmt == GpuTextureFormat::R8G8B8A8_Unorm) wgpuFmt = WGPUTextureFormat_RGBA8Unorm;
+
+    ImGui_ImplWGPU_InitInfo init_info = {};
+    init_info.Device              = static_cast<WGPUDevice>(wgpuBackend->getRawDevice());
+    init_info.NumFramesInFlight   = 1;
+    init_info.RenderTargetFormat  = wgpuFmt;
+    init_info.DepthStencilFormat  = WGPUTextureFormat_Undefined;
+    ImGui_ImplWGPU_Init(&init_info);
+#endif
 }
 
 void Shutdown() {
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
     ImGui_ImplSDLGPU3_Shutdown();
+#else
+    ImGui_ImplWGPU_Shutdown();
+#endif
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 }
 
 void ProcessEvent(SDL_Event* event) {
+#if defined(LUMINOVEAU_WEBGPU_BACKEND) && defined(__EMSCRIPTEN__)
+    // SDL mouse events are in SDL window space (e.g. 1280×720).
+    // ImGui needs canvas/swapchain space. Scale mouse coords before ImGui sees them.
+    const uint32_t cw = Renderer::GetCanvasWidth();
+    const uint32_t ch = Renderer::GetCanvasHeight();
+    int sdlW = 0, sdlH = 0;
+    SDL_GetWindowSize(g_imguiWindow, &sdlW, &sdlH);
+    if (cw > 0 && ch > 0 && sdlW > 0 && sdlH > 0 &&
+        (cw != (uint32_t)sdlW || ch != (uint32_t)sdlH)) {
+        const float sx = (float)cw / (float)sdlW;
+        const float sy = (float)ch / (float)sdlH;
+        SDL_Event scaled = *event;
+        switch (event->type) {
+            case SDL_EVENT_MOUSE_MOTION:
+                scaled.motion.x *= sx; scaled.motion.y *= sy;
+                scaled.motion.xrel *= sx; scaled.motion.yrel *= sy;
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            case SDL_EVENT_MOUSE_BUTTON_UP:
+                scaled.button.x *= sx; scaled.button.y *= sy;
+                break;
+            case SDL_EVENT_MOUSE_WHEEL:
+                // wheel coords are not positional, no scaling needed
+                break;
+            default: break;
+        }
+        ImGui_ImplSDL3_ProcessEvent(&scaled);
+        return;
+    }
+#endif
     ImGui_ImplSDL3_ProcessEvent(event);
 }
 
 void NewFrame() {
     ImGui_ImplSDL3_NewFrame();
+#if defined(LUMINOVEAU_WEBGPU_BACKEND) && defined(__EMSCRIPTEN__)
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        const uint32_t cw = Renderer::GetCanvasWidth();
+        const uint32_t ch = Renderer::GetCanvasHeight();
+        if (cw > 0 && ch > 0) {
+            io.DisplaySize = ImVec2((float)cw, (float)ch);
+        }
+    }
+#endif
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
     ImGui_ImplSDLGPU3_NewFrame();
+#else
+    ImGui_ImplWGPU_NewFrame();
+#endif
     ImGui::NewFrame();
 }
 
-void RenderFrame(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* swapchain) {
+void RenderFrame(GpuCmdBufferHandle cmd, GpuTextureHandle swapchain) {
     ImGui::Render();
     ImDrawData* draw_data = ImGui::GetDrawData();
-    ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, cmd);
+
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
+    auto* sdlCmd      = reinterpret_cast<SDL_GPUCommandBuffer*>(cmd);
+    auto* sdlSwapchain = reinterpret_cast<SDL_GPUTexture*>(swapchain);
+
+    ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, sdlCmd);
 
     SDL_GPUColorTargetInfo color_target_info = {};
-    color_target_info.texture              = swapchain;
+    color_target_info.texture              = sdlSwapchain;
     color_target_info.mip_level            = 0;
     color_target_info.layer_or_depth_plane = 0;
     color_target_info.clear_color          = {0.25f, 0.25f, 0.25f, 0.0f};
@@ -206,15 +287,38 @@ void RenderFrame(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* swapchain) {
     color_target_info.store_op             = SDL_GPU_STOREOP_STORE;
 
 #ifdef LUMIDEBUG
-    SDL_PushGPUDebugGroup(cmd, "[Lumi] ImGuiRenderPass::render");
+    SDL_PushGPUDebugGroup(sdlCmd, "[Lumi] ImGuiRenderPass::render");
 #endif
 
-    auto render_pass = SDL_BeginGPURenderPass(cmd, &color_target_info, 1, nullptr);
-    ImGui_ImplSDLGPU3_RenderDrawData(draw_data, cmd, render_pass);
+    auto render_pass = SDL_BeginGPURenderPass(sdlCmd, &color_target_info, 1, nullptr);
+    ImGui_ImplSDLGPU3_RenderDrawData(draw_data, sdlCmd, render_pass);
     SDL_EndGPURenderPass(render_pass);
 
 #ifdef LUMIDEBUG
-    SDL_PopGPUDebugGroup(cmd);
+    SDL_PopGPUDebugGroup(sdlCmd);
+#endif
+
+#else // LUMINOVEAU_WEBGPU_BACKEND
+    auto* cb   = reinterpret_cast<WgpuCmdBuffer*>(cmd);
+    // On WebGPU the swapchain handle is a raw WGPUTextureView (see WebGpuGpuBackend::acquireSwapchainTexture)
+    auto  view = reinterpret_cast<WGPUTextureView>(swapchain);
+
+    WGPURenderPassColorAttachment ca{};
+    ca.depthSlice    = WGPU_DEPTH_SLICE_UNDEFINED;
+    ca.view          = view;
+    ca.resolveTarget = nullptr;
+    ca.loadOp        = WGPULoadOp_Load;
+    ca.storeOp       = WGPUStoreOp_Store;
+    ca.clearValue    = {0.0, 0.0, 0.0, 0.0};
+
+    WGPURenderPassDescriptor rpDesc{};
+    rpDesc.colorAttachmentCount = 1;
+    rpDesc.colorAttachments     = &ca;
+
+    WGPURenderPassEncoder enc = wgpuCommandEncoderBeginRenderPass(cb->encoder, &rpDesc);
+    ImGui_ImplWGPU_RenderDrawData(draw_data, enc);
+    wgpuRenderPassEncoderEnd(enc);
+    wgpuRenderPassEncoderRelease(enc);
 #endif
 }
 

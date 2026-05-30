@@ -3,8 +3,6 @@
 #include <vector>
 #include <string>
 
-#include "SDL3/SDL_gpu.h"
-
 #include <glm/glm.hpp>
 
 #include "draw/particlesystem.h"
@@ -53,7 +51,6 @@ public:
     float getPOVDecay()   const { return m_povDecay;   }
 
 private:
-    SDL_GPUDevice*            m_gpu_device    = nullptr;
     GpuGraphicsPipelineHandle m_pipeline      = 0;  // additive blend
     GpuGraphicsPipelineHandle m_pixelPipeline = 0;  // standard alpha blend (pixel mode)
     GpuShaderHandle           m_vertShader    = 0;
@@ -107,7 +104,14 @@ private:
 
 namespace Particles {
 
+#ifdef LUMINOVEAU_WEBGPU_BACKEND
+    // Browser WebGPU implementations vary widely in storage-buffer caps. Chrome happily takes
+    // 5M (≈320 MB), but Firefox's WebGPU heap is much tighter and OOMs during init. 1.5M
+    // (≈96 MB) fits both and still covers the Mandelbrot demo at 1080p.
+    static constexpr uint32_t MAX_PARTICLES       = 1'500'000;
+#else
     static constexpr uint32_t MAX_PARTICLES       = 50'000'000;
+#endif
     static constexpr uint32_t MAX_SYSTEMS         = 64;
     static constexpr uint32_t MAX_CUSTOM_COMPUTES = 32;
     static constexpr uint32_t MAX_COLLIDERS       = 32;

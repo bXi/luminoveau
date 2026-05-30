@@ -24,10 +24,13 @@
 #include "config.h"
 #include "assets/shader/shader.h"
 #include "assets/texture/texture.h"
+#include "assets/compute/computepipeline.h"
 
 #include "gpu/renderpass.h"
 #include "gpu/renderable.h"
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
 #include "gpu/backends/sdl/sdlgpu.h"
+#endif
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -35,17 +38,19 @@
 
 #ifdef LUMINOVEAU_WITH_IMGUI
 #include "imgui.h"
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
 #include "backends/imgui_impl_sdlgpu3.h"
 #include "backends/imgui_impl_sdl3.h"
-
 #ifdef WIN32
 #include "backends/imgui_impl_win32.h"
+#endif
 #endif
 #endif
 
 // SDL Forward Declarations
 struct SDL_Window;
 union SDL_Event;
+struct SDL_GPUDevice;
 
 // Forward declare RenderPass before FrameBuffer uses it
 class RenderPass;
@@ -77,6 +82,7 @@ struct FrameBuffer {
     bool renderToScreen    = false;
     bool noMSAA            = false;  // true for custom effect targets that always render to 1x textures
     bool additiveBlend     = false;  // use additive pipeline when compositing onto swapchain
+    bool fixedSize         = false;  // true when caller specified explicit width/height; skip canvas-resize in _reset
     bool preComputeFlush   = false;  // run passes before compute dispatches (eliminates 1-frame GI lag)
 
     TextureAsset textureView;
@@ -108,7 +114,12 @@ public:
      *
      * @return Pointer to the SDL GPU device.
      */
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
     static SDL_GPUDevice *GetDevice() { return get()._getDevice(); }
+#else
+    static SDL_GPUDevice *GetDevice() { return nullptr; }
+#endif
+    static bool IsReady() { return get().m_gpu != nullptr; }
 
     /**
      * @brief Starts a new rendering frame.
@@ -244,6 +255,19 @@ public:
     }
 
     /**
+     * @brief Converts canvas pixel coordinates to logical/render space.
+     *
+     * On WebGPU builds, applies the inverse of the blit scaling transform so that
+     * mouse coordinates (reported in canvas pixels) map to render-space coordinates.
+     * On non-WebGPU builds this is a 1:1 pass-through.
+     */
+    static vf2d CanvasToLogical(float cx, float cy) {
+        auto& r = get();
+        return { r.m_blitLogicalOffsetX + cx * r.m_blitInvScaleX,
+                 r.m_blitLogicalOffsetY + cy * r.m_blitInvScaleY };
+    }
+
+    /**
      * @brief Gets the active SDL GPU render pass for a specific render pass.
      *
      * @param passname Name of the render pass.
@@ -280,6 +304,16 @@ public:
      * textures at the new window size.
      */
     static void OnResize() { get()._onResize(); }
+
+    // Returns true and clears the flag if a deferred reset is pending.
+    // Call from Window::_startFrame(), before ImGui::NewFrame(), so _reset()
+    // runs before the frame begins (not mid-frame where waitIdle() would abort).
+    static bool ConsumePendingReset() {
+        auto& r = get();
+        if (!r.m_pendingReset) return false;
+        r.m_pendingReset = false;
+        return true;
+    }
 
     /**
      * @brief Updates the camera projection matrix to match current window size.
@@ -334,7 +368,13 @@ public:
      */
     static IGpu& GetGpu() { return *get().m_gpu; }
 
+    static ComputePipelineAsset CreateComputePipelineAsset(const std::string& shaderPath);
+
+
     static GpuSampleCount GetSampleCount() { return get().currentSampleCount; }
+
+    static uint32_t GetCanvasWidth()  { return get().m_canvasWidth;  }
+    static uint32_t GetCanvasHeight() { return get().m_canvasHeight; }
 
     /**
      * @brief Sets the MSAA sample count and recreates render passes.
@@ -374,8 +414,8 @@ public:
     }
 
 private:
-    SDL_GPUDevice        *m_device = nullptr;
-    SDL_GPUCommandBuffer *m_cmdbuf = nullptr;
+    SDL_GPUDevice        *m_device = nullptr;  // null under WebGPU backend
+    GpuCmdBufferHandle    m_cmdbuf = 0;
 
     std::unique_ptr<IGpu> m_gpu;
 
@@ -396,7 +436,7 @@ private:
 
     void _close();
 
-    SDL_GPUDevice *_getDevice();
+    SDL_GPUDevice *_getDevice() { return m_device; }
 
     void _startFrame() const;
 
@@ -433,10 +473,10 @@ private:
 
     TextureAsset _screenBuffer;
     TextureAsset fs;
-    SDL_GPUShader *rtt_vertex_shader;
-    SDL_GPUShader *rtt_fragment_shader;
+    GpuShaderHandle rtt_vertex_shader   = 0;
+    GpuShaderHandle rtt_fragment_shader = 0;
 
-    void renderFrameBuffer(SDL_GPUCommandBuffer *cmd_buffer);
+    void renderFrameBuffer(GpuCmdBufferHandle cmdBuf);
 
     FrameBuffer *_getFramebuffer(std::string fbname);
 
@@ -446,9 +486,9 @@ private:
     
     void _removeSpriteRenderTarget(const std::string& name, bool removeFramebuffer);
     
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
     void _processPendingScreenshot();
-    
-    // Pending screenshot data
+
     struct PendingScreenshotData {
         std::string filename;
         SDL_GPUTransferBuffer* transferBuffer = nullptr;
@@ -457,6 +497,7 @@ private:
         size_t dataSize = 0;
     };
     PendingScreenshotData _pendingScreenshotData;
+#endif
 
     struct Uniforms {
         glm::mat4 camera;
@@ -483,14 +524,20 @@ private:
 
     GpuSampleCount currentSampleCount = GpuSampleCount::x1;
 
-    SDL_GPUGraphicsPipeline *m_rendertotexturepipeline{nullptr};
-    SDL_GPUGraphicsPipeline *m_rendertotexturepipeline_additive{nullptr};
+    GpuGraphicsPipelineHandle m_rendertotexturepipeline          = 0;
+    GpuGraphicsPipelineHandle m_rendertotexturepipeline_additive = 0;
 
-    SDL_GPUTexture *swapchain_texture = nullptr;
-    glm::mat4x4    m_camera           = {};
+    GpuTextureHandle swapchain_texture = 0;
+    glm::mat4x4      m_camera          = {};
+    uint32_t         m_canvasWidth     = 0;
+    uint32_t         m_canvasHeight    = 0;
+    bool             m_pendingReset    = false;
 
-    SDL_GPUColorTargetDescription     color_target_descriptions;
-    SDL_GPUGraphicsPipelineCreateInfo rtt_pipeline_create_info;
+    // Inverse blit transform: logical = offset + canvas * invScale
+    float m_blitInvScaleX      = 1.0f;
+    float m_blitInvScaleY      = 1.0f;
+    float m_blitLogicalOffsetX = 0.0f;
+    float m_blitLogicalOffsetY = 0.0f;
 
 public:
     Renderer(const Renderer &) = delete;

@@ -39,6 +39,9 @@ public:
 
     virtual GpuCmdBufferHandle acquireCommandBuffer() = 0;
     virtual void submitCommandBuffer(GpuCmdBufferHandle cmd) = 0;
+    // Releases the current swapchain texture/view; called once per frame after the final submit.
+    // Default no-op covers backends where the swapchain is presented implicitly by submit.
+    virtual void presentSwapchain() {}
 
     // Returns a GpuTextureHandle for the swapchain image.
     // width/height are set to the current swapchain dimensions.
@@ -101,6 +104,11 @@ public:
                                              uint32_t firstBinding,
                                              const GpuTextureHandle* textures,
                                              uint32_t count) = 0;
+
+    virtual void bindVertexStorageBuffers(GpuRenderPassHandle pass,
+                                          uint32_t first,
+                                          const GpuBufferHandle* buffers,
+                                          uint32_t count) = 0;
 
     virtual void bindComputeSamplers(GpuComputePassHandle pass,
                                      uint32_t firstBinding,

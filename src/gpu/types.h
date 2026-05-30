@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Opaque GPU resource handles.
@@ -326,6 +327,7 @@ struct GpuGraphicsPipelineCreateInfo {
     bool                         hasDepthTarget     = false;
     GpuTextureFormat             depthTargetFormat  = GpuTextureFormat::D32_Float;
     GpuSampleCount               sampleCount        = GpuSampleCount::x1;
+    uint32_t                     vertexStorageBufferCount = 0;  // read-only storage buffers bound at group 3, vertex stage
 };
 
 struct GpuComputePipelineCreateInfo {
@@ -341,6 +343,13 @@ struct GpuComputePipelineCreateInfo {
     uint32_t        readonlyStorageBufferCount     = 0;
     uint32_t        readwriteStorageBufferCount    = 0;
     uint32_t        uniformBufferCount             = 0;
+    // WebGPU only: per-binding storage texture format for BGL. Must match WGSL
+    // texture_storage_2d<FORMAT, ...> declaration. nullptr → defaults to RGBA8Unorm.
+    const GpuTextureFormat* readonlyStorageTextureFormats  = nullptr;
+    const GpuTextureFormat* readwriteStorageTextureFormats = nullptr;
+    // WebGPU only: per-binding access mode override for the RW storage texture group.
+    // true = WriteOnly (matches GLSL `writeonly image2D`), false = ReadWrite. nullptr → all RW.
+    const bool* readwriteStorageTextureWriteOnly = nullptr;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

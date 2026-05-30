@@ -2,26 +2,14 @@
 
 #include "assets/effect/effect.h"
 #include "assets/shader/shader.h"
-#include "renderer/shaders.h"
 #include "core/log/log.h"
 
-/**
- * @brief Provides functionality for creating and managing shader effects.
- */
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
+#include "renderer/shaders.h"
+#endif
+
 class EffectHandler {
 public:
-    /**
-     * @brief Creates a new effect instance from vertex and fragment shaders.
-     *
-     * Each call creates a new Effect with its own parameter buffer, allowing
-     * multiple instances of the same shader with different parameters.
-     * The uniform buffer is automatically populated with the correct layout
-     * from shader reflection data.
-     *
-     * @param vertShader Vertex shader asset
-     * @param fragShader Fragment shader asset
-     * @return New effect instance
-     */
     static EffectAsset Create(const ShaderAsset& vertShader, const ShaderAsset& fragShader) {
         return get()._create(vertShader, fragShader);
     }
@@ -30,19 +18,24 @@ private:
     EffectAsset _create(const ShaderAsset& vertShader, const ShaderAsset& fragShader) {
         EffectAsset effect(vertShader, fragShader);
 
-        // Get fragment shader metadata to set up uniform buffer layout
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
         ShaderMetadata metadata = Shaders::GetShaderMetadata(fragShader.shaderFilename);
-
-        // Pre-populate uniform buffer with variables at correct offsets
         for (const auto& [name, offset] : metadata.uniform_offsets) {
-            size_t size = metadata.uniform_sizes.at(name);
-            effect.uniforms->addVariable(name, size, offset);
+            effect.uniforms->addVariable(name, metadata.uniform_sizes.at(name), offset);
         }
-
         if (!metadata.uniform_offsets.empty()) {
             LOG_INFO("Effect '{}': Initialized {} uniform variables from shader reflection",
                     fragShader.shaderFilename, metadata.uniform_offsets.size());
         }
+#else
+        for (const auto& [name, offset] : fragShader.uniformOffsets) {
+            effect.uniforms->addVariable(name, fragShader.uniformSizes.at(name), offset);
+        }
+        if (!fragShader.uniformOffsets.empty()) {
+            LOG_INFO("Effect '{}': Initialized {} uniform variables from WebGPU reflection",
+                    fragShader.shaderFilename, fragShader.uniformOffsets.size());
+        }
+#endif
 
         return effect;
     }
@@ -59,7 +52,6 @@ private:
     EffectHandler() = default;
 };
 
-// Namespace alias for cleaner API
 namespace Effects {
     inline EffectAsset Create(const ShaderAsset& vertShader, const ShaderAsset& fragShader) {
         return EffectHandler::Create(vertShader, fragShader);

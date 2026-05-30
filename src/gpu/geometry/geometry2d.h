@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include "SDL3/SDL.h"
+#include "gpu/types.h"
 #include "core/log/log.h"
 
 /**
@@ -20,7 +20,7 @@ struct Vertex2D {
 struct CompactVertex2D {
     uint32_t pos_xy;    // x,y as half-floats
     uint32_t uv;        // u,v as half-floats
-    
+
     // Helper to pack from Vertex2D
     static CompactVertex2D FromVertex(const Vertex2D& v);
 };
@@ -31,36 +31,34 @@ struct CompactVertex2D {
 struct Geometry2D {
     std::vector<Vertex2D> vertices;
     std::vector<uint16_t> indices;  // Using uint16 for smaller index buffers
-    
+
     // GPU buffers
-    SDL_GPUBuffer* vertexBuffer = nullptr;
-    SDL_GPUBuffer* indexBuffer = nullptr;
-    SDL_GPUTransferBuffer* vertexTransferBuffer = nullptr;
-    SDL_GPUTransferBuffer* indexTransferBuffer = nullptr;
-    
+    GpuBufferHandle         vertexBuffer         = 0;
+    GpuBufferHandle         indexBuffer          = 0;
+    GpuTransferBufferHandle vertexTransferBuffer = 0;
+    GpuTransferBufferHandle indexTransferBuffer  = 0;
+
     const char* name = nullptr;
-    
+
     /**
      * @brief Gets the number of vertices in the geometry.
      */
     size_t GetVertexCount() const { return vertices.size(); }
-    
+
     /**
      * @brief Gets the number of indices in the geometry.
      */
     size_t GetIndexCount() const { return indices.size(); }
-    
+
     /**
-     * @brief Uploads geometry data to GPU buffers.
-     * @param device Pointer to the SDL_GPUDevice.
+     * @brief Uploads geometry data to GPU buffers via IGpu.
      */
-    void UploadToGPU(SDL_GPUDevice* device);
-    
+    void UploadToGPU();
+
     /**
-     * @brief Releases GPU resources.
-     * @param device Pointer to the SDL_GPUDevice.
+     * @brief Releases GPU resources via IGpu.
      */
-    void Release(SDL_GPUDevice* device);
+    void Release();
 };
 
 /**
@@ -72,13 +70,13 @@ namespace Geometry2DFactory {
      * Vertices are at corners, UVs match positions
      */
     Geometry2D* CreateQuad();
-    
+
     /**
      * @brief Creates a unit circle geometry centered at origin
      * @param segments Number of segments around the circle (triangles = segments)
      */
     Geometry2D* CreateCircle(int segments = 32);
-    
+
     /**
      * @brief Creates a unit rounded rectangle geometry (0,0) to (1,1) with rounded corners
      * @param cornerRadiusX Normalized radius along X axis (0.0 to 0.5)
@@ -86,10 +84,9 @@ namespace Geometry2DFactory {
      * @param cornerSegments Number of segments per corner arc
      */
     Geometry2D* CreateRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments = 8);
-    
+
     /**
      * @brief Releases all cached geometries
-     * @param device Pointer to the SDL_GPUDevice.
      */
-    void ReleaseAll(SDL_GPUDevice* device);
+    void ReleaseAll();
 }

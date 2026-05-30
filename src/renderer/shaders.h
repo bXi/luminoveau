@@ -1,5 +1,7 @@
 #pragma once
 
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
+
 #include <fstream>
 #include <string>
 #include <vector>
@@ -111,3 +113,5 @@ private:
 
     void _fillResources(TBuiltInResource *pResource);
 };
+
+#endif // LUMINOVEAU_WEBGPU_BACKEND

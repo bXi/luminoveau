@@ -11,7 +11,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <SDL3/SDL_gpu.h>
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
 
@@ -23,10 +22,14 @@
 #include "assets/assethandler.h"
 #include "gpu/renderable.h"
 #include "gpu/presets.h"
-#include "gpu/backends/sdl/sdlgpu.h"
 
 #include "gpu/renderpass.h"
 #include "gpu/buffer/buffermanager.h"
+
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
+#include <SDL3/SDL_gpu.h>
+#include "gpu/backends/sdl/sdlgpu.h"
+#endif
 
 struct TaskBase {
     virtual ~TaskBase() = default;
@@ -100,8 +103,13 @@ private:
 
 class SpriteRenderPass : public RenderPass {
 
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
     ThreadPool thread_pool = ThreadPool(std::max(1u, std::thread::hardware_concurrency()));
+#else
+    ThreadPool thread_pool = ThreadPool(0);
+#endif
 
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
     SDL_GPUDevice*  m_gpu_device         = nullptr;
     SDL_GPUTexture* m_msaa_color_texture = nullptr;
     SDL_GPUTexture* m_msaa_depth_texture = nullptr;
@@ -109,21 +117,41 @@ class SpriteRenderPass : public RenderPass {
     TextureAsset            m_depth_texture;
     SDL_GPUGraphicsPipeline *m_pipeline{nullptr};
 
-    std::string passname;
-
     SDL_GPUShader *vertex_shader   = nullptr;
     SDL_GPUShader *fragment_shader = nullptr;
 
-    SDL_GPUTransferBuffer* SpriteDataTransferBuffer;
-    SDL_GPUBuffer* SpriteDataBuffer;
+    SDL_GPUTransferBuffer* SpriteDataTransferBuffer = nullptr;
+    SDL_GPUBuffer* SpriteDataBuffer = nullptr;
 
-std::unordered_map<uint32_t, SDL_GPUTexture*> m_additionalEffectTextures;
+    std::unordered_map<uint32_t, SDL_GPUTexture*> m_additionalEffectTextures;
+
+    bool m_noMSAA = false;
+    SDL_GPUTextureFormat m_swapchain_format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
+#else
+    // WebGPU path
+    GpuGraphicsPipelineHandle m_wgpu_pipeline    = 0;
+    GpuBufferHandle           m_sprite_gpu_buf   = 0;
+    GpuTransferBufferHandle   m_sprite_xfer_buf  = 0;
+    // Unit quad geometry for sprite rendering
+    GpuBufferHandle           m_quad_vertex_buf  = 0;
+    GpuBufferHandle           m_quad_index_buf   = 0;
+    GpuTransferBufferHandle   m_quad_xfer_vert   = 0;
+    GpuTransferBufferHandle   m_quad_xfer_idx    = 0;
+    // Effect rendering resources
+    GpuTextureFormat          m_swapchain_fmt    = GpuTextureFormat::B8G8R8A8_Unorm;
+    GpuTextureHandle          m_effect_tex_a     = 0;
+    GpuTextureHandle          m_effect_tex_b     = 0;
+    GpuSamplerHandle          m_effect_sampler   = 0;
+    GpuBufferHandle           m_effect_vbuf      = 0;  // fullscreen quad for effects
+    GpuBufferHandle           m_effect_ibuf      = 0;
+    std::unordered_map<GpuShaderHandle, GpuGraphicsPipelineHandle> m_effect_pipelines;
+#endif
+
+    std::string passname;
 
     // Surface dimensions (desktop size) for effect textures
     uint32_t m_surface_width = 0;
     uint32_t m_surface_height = 0;
-    bool m_noMSAA = false;
-    SDL_GPUTextureFormat m_swapchain_format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
 
     // Original full-precision struct (64 bytes)
     struct SpriteInstance {
@@ -203,10 +231,17 @@ std::unordered_map<uint32_t, SDL_GPUTexture*> m_additionalEffectTextures;
     }
 
     struct Batch {
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
         Geometry2D* geometry = nullptr;  // Which geometry this batch uses
         SDL_GPUTexture* texture = nullptr;
         SDL_GPUSampler* sampler = nullptr;
-
+#else
+        GpuBufferHandle vertexBuffer = 0;
+        GpuBufferHandle indexBuffer  = 0;
+        uint32_t        indexCount   = 0;
+        GpuTextureHandle texture = 0;
+        GpuSamplerHandle sampler = 0;
+#endif
         size_t offset = 0; // Offset in sprite_buffer (in instances)
         size_t count = 0;  // Number of sprites
     };
@@ -224,9 +259,19 @@ public:
 
     SpriteRenderPass &operator=(SpriteRenderPass &&) = delete;
 
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
+    // Default ctor pulls the active SDL GPU device from the renderer so callers don't need
+    // a backend-specific code path. Explicit ctor still available for tests that need to
+    // pass a separate device handle.
+    SpriteRenderPass() : RenderPass() {
+        m_gpu_device = static_cast<SDL_GPUDevice*>(Renderer::GetDevice());
+    }
     explicit SpriteRenderPass(SDL_GPUDevice *gpu_device) : RenderPass() {
         m_gpu_device = gpu_device;
     }
+#else
+    SpriteRenderPass() : RenderPass() {}
+#endif
 
     [[nodiscard]] bool init(
         GpuTextureFormat swapchain_texture_format, uint32_t surface_width,
@@ -248,11 +293,38 @@ public:
         renderQueue->Reset();
     }
 
-    UniformBuffer &getUniformBuffer() override {
+    UniformBuffer uniformBuffer;
 
+    UniformBuffer &getUniformBuffer() override {
         return uniformBuffer;
     }
 
+#ifdef LUMINOVEAU_WEBGPU_BACKEND
+    GpuGraphicsPipelineHandle _getOrCreateEffectPipeline(const ShaderAsset& vertShader, const ShaderAsset& fragShader);
+    void _applyEffectsWGPU(GpuCmdBufferHandle cmdBuffer, const std::vector<EffectAsset>& effects,
+                            GpuTextureHandle sourceTexture, GpuTextureHandle targetTexture,
+                            const std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>>& extraTextures,
+                            GpuLoadOp targetLoadOp = GpuLoadOp::Load,
+                            float clearR = 0, float clearG = 0, float clearB = 0, float clearA = 0);
+
+    // Blend state applied at pipeline creation time. Defaults to standard alpha blend.
+    // Custom sprite render targets override via UpdateRenderPassBlendState.
+    GpuColorTargetBlendState renderPassBlendStateGpu = {
+        .blendEnabled   = true,
+        .srcColorFactor = GpuBlendFactor::SrcAlpha,
+        .dstColorFactor = GpuBlendFactor::OneMinusSrcAlpha,
+        .colorOp        = GpuBlendOp::Add,
+        .srcAlphaFactor = GpuBlendFactor::One,
+        .dstAlphaFactor = GpuBlendFactor::OneMinusSrcAlpha,
+        .alphaOp        = GpuBlendOp::Add,
+    };
+
+    void UpdateRenderPassBlendState(GpuColorTargetBlendState newstate) {
+        renderPassBlendStateGpu = newstate;
+    }
+#endif
+
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
     void UpdateRenderPassBlendState(SDL_GPUColorTargetBlendState newstate) {
         renderPassBlendState = newstate;
     }
@@ -265,24 +337,22 @@ public:
         m_additionalEffectTextures.clear();
     }
 
-
-    UniformBuffer uniformBuffer;
-
     SDL_GPUColorTargetBlendState renderPassBlendState = toSDL(GpuPresets::AlphaBlendKeepDstAlpha);
 
     void createShaders();
-    
+
     // Effect rendering support
     TextureAsset effectTempA;  // Ping-pong texture A
     TextureAsset effectTempB;  // Ping-pong texture B
     SDL_GPUGraphicsPipeline* effectPipeline = nullptr;
     SDL_GPUGraphicsPipeline* effectSpritePipeline = nullptr;  // Pipeline for rendering sprites to temp (no blending)
     SDL_GPUShader* effectVertShader = nullptr;
-    
+
     void createEffectResources();
     void releaseEffectResources();
     void applyEffects(SDL_GPUCommandBuffer* cmd_buffer, const std::vector<EffectAsset>& effects,
                      SDL_GPUTexture* sourceTexture, SDL_GPUTexture* targetTexture, const glm::mat4& camera,
                      SDL_GPUTextureFormat targetFormat, bool isFirstBatch,
-                     const std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>>& effectTextures);
+                     const std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>>& effectTextures);
+#endif
 };

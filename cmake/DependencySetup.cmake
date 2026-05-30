@@ -60,20 +60,27 @@ else()
 endif()
 
 # Fetching fmt
+# Using 9.1.0: 10.x uses consteval which breaks Emscripten's clang (consteval-in-lambda bug).
 lumi_msg("Fetching fmt")
 CPMAddPackage(
     NAME fmt
     GITHUB_REPOSITORY fmtlib/fmt
-    GIT_TAG 10.2.1
+    GIT_TAG 9.1.0
     EXCLUDE_FROM_ALL YES
     OPTIONS
         "FMT_INSTALL OFF"
         "FMT_TEST OFF"
         "FMT_DOC OFF"
         "FMT_FUZZ OFF"
+        "FMT_OS OFF"
 )
 if(fmt_ADDED)
     target_link_libraries(luminoveau PUBLIC fmt::fmt)
+    # Treat fmt headers as system includes to suppress deprecation warnings from fmt internals
+    get_target_property(_fmt_inc fmt::fmt INTERFACE_INCLUDE_DIRECTORIES)
+    if(_fmt_inc)
+        target_include_directories(luminoveau SYSTEM PUBLIC ${_fmt_inc})
+    endif()
     lumi_done("fmt")
 else()
     lumi_warn("fmt - fetch failed")
@@ -88,6 +95,10 @@ set(SDL_INSTALL_TESTS OFF CACHE BOOL "Disable SDL test installation" FORCE)
 set(SDL_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL installation" FORCE)
 set(SDL3_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL3 installation" FORCE)
 set(SDL_AUDIO OFF CACHE BOOL "Disable SDL audio (Luminoveau uses miniaudio)" FORCE)
+set(SDL_VULKAN ON CACHE BOOL "Force SDL Vulkan video backend" FORCE)
+if(WIN32)
+    set(SDL_DIRECTX ON CACHE BOOL "Force SDL DirectX video backend" FORCE)
+endif()
 
 lumi_msg("Fetching SDL3")
 CPMAddPackage(
@@ -244,18 +255,10 @@ if(physfs_ADDED)
         message(FATAL_ERROR "physfs source directory '${physfs_SOURCE_DIR}/src' does not exist")
     endif()
     target_include_directories(luminoveau SYSTEM PUBLIC "${physfs_SOURCE_DIR}/src")
-    target_sources(luminoveau PRIVATE
+    set(_physfs_common_sources
         "${physfs_SOURCE_DIR}/src/physfs.c"
         "${physfs_SOURCE_DIR}/src/physfs_byteorder.c"
         "${physfs_SOURCE_DIR}/src/physfs_unicode.c"
-        "${physfs_SOURCE_DIR}/src/physfs_platform_posix.c"
-        "${physfs_SOURCE_DIR}/src/physfs_platform_unix.c"
-        "${physfs_SOURCE_DIR}/src/physfs_platform_windows.c"
-        "${physfs_SOURCE_DIR}/src/physfs_platform_ogc.c"
-        "${physfs_SOURCE_DIR}/src/physfs_platform_os2.c"
-        "${physfs_SOURCE_DIR}/src/physfs_platform_qnx.c"
-        "${physfs_SOURCE_DIR}/src/physfs_platform_android.c"
-        "${physfs_SOURCE_DIR}/src/physfs_platform_playdate.c"
         "${physfs_SOURCE_DIR}/src/physfs_archiver_dir.c"
         "${physfs_SOURCE_DIR}/src/physfs_archiver_unpacked.c"
         "${physfs_SOURCE_DIR}/src/physfs_archiver_grp.c"
@@ -271,6 +274,27 @@ if(physfs_ADDED)
         "${physfs_SOURCE_DIR}/src/physfs_archiver_vdf.c"
         "${physfs_SOURCE_DIR}/src/physfs_archiver_lec3d.c"
     )
+    if(EMSCRIPTEN)
+        list(APPEND _physfs_common_sources
+            "${physfs_SOURCE_DIR}/src/physfs_platform_posix.c"
+            "${physfs_SOURCE_DIR}/src/physfs_platform_unix.c"
+        )
+    elseif(WIN32)
+        list(APPEND _physfs_common_sources
+            "${physfs_SOURCE_DIR}/src/physfs_platform_windows.c"
+        )
+    elseif(ANDROID)
+        list(APPEND _physfs_common_sources
+            "${physfs_SOURCE_DIR}/src/physfs_platform_posix.c"
+            "${physfs_SOURCE_DIR}/src/physfs_platform_android.c"
+        )
+    elseif(UNIX)
+        list(APPEND _physfs_common_sources
+            "${physfs_SOURCE_DIR}/src/physfs_platform_posix.c"
+            "${physfs_SOURCE_DIR}/src/physfs_platform_unix.c"
+        )
+    endif()
+    target_sources(luminoveau PRIVATE ${_physfs_common_sources})
     if(WINRT)
         target_sources(luminoveau PRIVATE
             "${physfs_SOURCE_DIR}/src/physfs_platform_winrt.cpp"

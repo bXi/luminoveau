@@ -301,8 +301,7 @@ private:
                     asset.glyphMap = nullptr;
                 }
                 if (asset.atlasTexture) {
-                    SDL_ReleaseGPUTexture(Renderer::GetDevice(),
-                        reinterpret_cast<SDL_GPUTexture*>(asset.atlasTexture));
+                    Renderer::GetGpu().releaseTexture(asset.atlasTexture);
                     asset.atlasTexture = 0;
                 }
                 if (asset.fontHandle) {
@@ -349,8 +348,7 @@ private:
 
             if (it != _textures.end()) {
                 if (asset.gpuTexture) {
-                    SDL_ReleaseGPUTexture(Renderer::GetDevice(),
-                        reinterpret_cast<SDL_GPUTexture*>(asset.gpuTexture));
+                    Renderer::GetGpu().releaseTexture(asset.gpuTexture);
                     asset.gpuTexture = 0;
                 }
                 _textures.erase(it);

@@ -14,7 +14,7 @@ if(LUMINOVEAU_BUILD_IMGUI)
     CPMAddPackage(
         NAME Imgui
         GITHUB_REPOSITORY ocornut/imgui
-        GIT_TAG 7b3ad4a
+        GIT_TAG fbcf951
         EXCLUDE_FROM_ALL YES
         OPTIONS
             "IMGUI_BUILD_SDL3_BACKEND OFF"
@@ -46,17 +46,24 @@ if(LUMINOVEAU_BUILD_IMGUI)
             "${Imgui_SOURCE_DIR}/imgui_widgets.cpp"
         )
 
-        # Adding platform-specific backends
-        if(WIN32)
+        # SDL3 event/input backend — needed on all platforms
+        target_sources(luminoveau PRIVATE
+            "${Imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp"
+        )
+
+        # GPU rendering backends — SDL GPU or WebGPU depending on build target
+        if(NOT LUMINOVEAU_WEBGPU_BACKEND)
             target_sources(luminoveau PRIVATE
-                "${Imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp"
                 "${Imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp"
-                "${Imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp"
             )
+            if(WIN32)
+                target_sources(luminoveau PRIVATE
+                    "${Imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp"
+                )
+            endif()
         else()
             target_sources(luminoveau PRIVATE
-                "${Imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp"
-                "${Imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp"
+                "${Imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp"
             )
         endif()
 

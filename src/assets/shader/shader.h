@@ -24,6 +24,11 @@ struct ShaderAsset {
     std::vector<uint8_t> fileData;
 
     std::unordered_map<std::string, std::string> frameBufferToSamplerMapping;
+
+#ifdef LUMINOVEAU_WEBGPU_BACKEND
+    std::unordered_map<std::string, size_t> uniformOffsets;
+    std::unordered_map<std::string, size_t> uniformSizes;
+#endif
 };
 
 using Shader = ShaderAsset&;

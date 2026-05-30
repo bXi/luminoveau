@@ -1,12 +1,15 @@
 # ── GPU backend selection ─────────────────────────────────────────────────────
-if(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
+# Emscripten/WebGPU uses WGSL shaders, not the SDL_GPU shader backends.
+if(LUMINOVEAU_WEBGPU_BACKEND OR EMSCRIPTEN)
+    set(LUMINOVEAU_GPU_BACKEND "WGSL" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB, WGSL)" FORCE)
+elseif(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
     if(APPLE)
-        set(LUMINOVEAU_GPU_BACKEND "METALLIB" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)" FORCE)
+        set(LUMINOVEAU_GPU_BACKEND "METALLIB" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB, WGSL)" FORCE)
     else()
-        set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)" FORCE)
+        set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB, WGSL)" FORCE)
     endif()
 else()
-    if(NOT LUMINOVEAU_GPU_BACKEND MATCHES "^(SPIRV|DXIL|METALLIB)$")
+    if(NOT LUMINOVEAU_GPU_BACKEND MATCHES "^(SPIRV|DXIL|METALLIB|WGSL)$")
         message(WARNING "Invalid LUMINOVEAU_GPU_BACKEND='${LUMINOVEAU_GPU_BACKEND}', resetting to platform default")
         if(APPLE)
             set(LUMINOVEAU_GPU_BACKEND "METALLIB" CACHE STRING "" FORCE)
@@ -22,7 +25,6 @@ endif()
 if(LUMINOVEAU_GPU_BACKEND STREQUAL "DXIL" AND NOT WIN32)
     message(FATAL_ERROR "DXIL backend is only supported on Windows")
 endif()
-
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Sources.Shaders.cmake")
     include(cmake/Sources.Shaders.cmake)
 else()
@@ -56,18 +58,10 @@ set(LUMINOVEAU_SOURCES
     src/util/lerp.cpp
 
     # GPU
-    src/gpu/backends/sdl/SdlGpuBackend.cpp
-    src/gpu/backends/sdl/sdlgpu.cpp
-    src/gpu/geometry/geometry2d.cpp
     src/gpu/buffer/buffermanager.cpp
 
     # Renderer
     src/renderer/renderer.cpp
-    src/renderer/passes/spriterenderpass.cpp
-    src/renderer/passes/model3drenderpass.cpp
-    src/renderer/passes/shaderrenderpass.cpp
-    src/renderer/shaders.cpp
-    src/renderer/compute.cpp
 
     # Assets
     src/assets/assethandler.cpp
@@ -76,7 +70,11 @@ set(LUMINOVEAU_SOURCES
     # Scene
     src/scene/scene3d.cpp
 
+    # GPU geometry
+    src/gpu/geometry/geometry2d.cpp
+
     # Draw
+    src/renderer/compute.cpp
     src/draw/text.cpp
     src/draw/particles.cpp
     src/draw/draw.cpp
@@ -87,6 +85,24 @@ set(LUMINOVEAU_SOURCES
     # External
     src/extern/miniaudio.cpp
 )
+
+if(LUMINOVEAU_WEBGPU_BACKEND)
+    list(APPEND LUMINOVEAU_SOURCES
+        src/gpu/backends/webgpu/WebGpuGpuBackend.cpp
+        src/renderer/passes/spriterenderpass.cpp
+        src/renderer/passes/model3drenderpass.cpp
+        src/renderer/passes/shaderrenderpass.cpp
+    )
+else()
+    list(APPEND LUMINOVEAU_SOURCES
+        src/gpu/backends/sdl/SdlGpuBackend.cpp
+        src/gpu/backends/sdl/sdlgpu.cpp
+        src/renderer/passes/spriterenderpass.cpp
+        src/renderer/passes/model3drenderpass.cpp
+        src/renderer/passes/shaderrenderpass.cpp
+        src/renderer/shaders.cpp
+    )
+endif()
 
 set(LUMINOVEAU_HEADERS
     luminoveau.h

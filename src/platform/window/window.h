@@ -5,6 +5,14 @@
 #include <optional>
 #include <chrono>
 
+/// Scaling mode for the WebGPU canvas blit. No-op on SDL/native builds.
+enum class WebGpuScaleMode {
+    Contain, ///< Scale to fit, maintain aspect ratio (letterbox/pillarbox)
+    Fill,    ///< Scale to fill, maintain aspect ratio (crops edges)
+    Stretch, ///< Stretch to exactly fill the canvas (distorts aspect)
+    Native,  ///< Render at canvas resolution; Window::GetWidth/Height return canvas size
+};
+
 #include "SDL3/SDL.h"
 
 #include "core/enginestate/enginestate.h"
@@ -243,6 +251,25 @@ public:
      * @param filename Optional filename (default: screenshot_TIMESTAMP.png)
      */
     static void TakeScreenshot(const std::string& filename = "") { get()._takeScreenshot(filename); }
+
+    /**
+     * @brief Sets the WebGPU canvas scaling mode and internal render resolution.
+     *
+     * On non-WebGPU builds this is a no-op. Call before Window::InitWindow().
+     *
+     * @param mode     How the internal framebuffer is scaled to the canvas.
+     * @param renderWidth  Internal render width  (ignored in Native mode).
+     * @param renderHeight Internal render height (ignored in Native mode).
+     */
+    static void SetWebGpuScaling(WebGpuScaleMode mode, int renderWidth = 1280, int renderHeight = 720) {
+        get()._webGpuScaleMode    = mode;
+        get()._webGpuRenderWidth  = renderWidth;
+        get()._webGpuRenderHeight = renderHeight;
+    }
+
+    static WebGpuScaleMode GetWebGpuScaleMode()  { return get()._webGpuScaleMode;    }
+    static int GetWebGpuRenderWidth()             { return get()._webGpuRenderWidth;  }
+    static int GetWebGpuRenderHeight()            { return get()._webGpuRenderHeight; }
     
     /**
      * @brief Check if there's a pending screenshot
@@ -329,6 +356,10 @@ private:
     void _processEvent(SDL_Event* event);
 
     SDL_Window *m_window = nullptr;
+
+    WebGpuScaleMode _webGpuScaleMode    = WebGpuScaleMode::Contain;
+    int             _webGpuRenderWidth  = 1280;
+    int             _webGpuRenderHeight = 720;
 
     int  _lastWindowWidth  = 0;
     int  _lastWindowHeight = 0;

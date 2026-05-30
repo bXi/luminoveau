@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Emscripten-Generated Code</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed&display=swap" rel="stylesheet">
+    
+    <style>
+        body { background-color: #000; margin:0; padding: 0; }
+        .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
+        textarea.emscripten { font-family: monospace; width: 80%; }
+        div.emscripten { text-align: center; }
+        div.emscripten_border {  }
+        canvas.emscripten { border: 0px none; background-color: black; max-width:100vw; }
+        canvas:focus, input:focus, select:focus, textarea:focus, button:focus {
+            outline: none;
+        }
+        div#startgame {
+            font-family: 'Barlow Condensed', sans-serif;
+            position: absolute;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100vh;
+            align-items: center;
+            color: #fff;
+            background: #000;
+            font-size: 4em;
+        }
+        div#startgame.ready { cursor: pointer; }
+        div#startgame:not(.ready) { cursor: default; }
+        #progressbar {
+            width: 40vw;
+            max-width: 600px;
+            height: 18px;
+            border: 2px solid #fff;
+            border-radius: 4px;
+            background: #111;
+            overflow: hidden;
+            margin-top: 0.6em;
+        }
+        #progressbar > div {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #4ad, #6df);
+            transition: width 0.15s ease-out;
+        }
+        #startgame.ready #progressbar { display: none; }
+    </style>
+</head>
+<body>
+    <div id="startgame" onclick="startGame()">
+        <h3 id="startgame-text">Loading...</h3>
+        <div id="progressbar"><div></div></div>
+    </div>
+    <div class="emscripten_border">
+        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+    </div>
+
+    <script type='text/javascript' src="https://cdn.jsdelivr.net/gh/eligrey/FileSaver.js/dist/FileSaver.min.js"> </script>
+    <script type='text/javascript'>
+        function saveFileFromMEMFSToDisk(memoryFSname, localFSname)     // This can be called by C/C++ code
+        {
+            var isSafari = false; // Not supported, navigator.userAgent access is being restricted
+            //var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            var data = FS.readFile(memoryFSname);
+            var blob;
+
+            if (isSafari) blob = new Blob([data.buffer], { type: "application/octet-stream" });
+            else blob = new Blob([data.buffer], { type: "application/octet-binary" });
+        }
+    </script>
+
+    <script type='text/javascript'>
+
+        function startGame() {
+            var sg = document.getElementById('startgame');
+            if (!sg.classList.contains('ready')) return; // ignore clicks while still loading
+            if (_removeRunDep) _removeRunDep("bixxyengine_init_delay");
+            sg.style.display = 'none';
+        }
+
+        // WebGPU preflight: warn before the user wastes a download if their browser has no GPU adapter.
+        (async function() {
+            var txt = document.getElementById('startgame-text');
+            if (!window.isSecureContext) {
+                if (txt) txt.innerHTML = 'WebGPU requires a secure context.<br><span style="font-size:0.5em">Load this page over HTTPS or from http://localhost — LAN IPs over HTTP are blocked by the browser.</span>';
+                document.getElementById('progressbar').style.display = 'none';
+                return;
+            }
+            if (!navigator.gpu) {
+                if (txt) txt.innerHTML = 'WebGPU is not enabled in this browser.<br><span style="font-size:0.5em">Use Chrome 113+, Edge 113+, or Firefox Nightly with dom.webgpu.enabled.</span>';
+                document.getElementById('progressbar').style.display = 'none';
+                return;
+            }
+            try {
+                var adapter = await navigator.gpu.requestAdapter();
+                if (!adapter) {
+                    if (txt) txt.innerHTML = 'No compatible WebGPU adapter.<br><span style="font-size:0.5em">Your GPU driver may be blocked or out of date.</span>';
+                    document.getElementById('progressbar').style.display = 'none';
+                }
+            } catch (e) {
+                if (txt) txt.innerHTML = 'WebGPU adapter request failed.<br><span style="font-size:0.5em">' + e.message + '</span>';
+                document.getElementById('progressbar').style.display = 'none';
+            }
+        })();
+
+        function _lumiSetProgress(frac) {
+            var bar = document.querySelector('#progressbar > div');
+            if (bar) bar.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%';
+        }
+        function _lumiMarkReady() {
+            var sg   = document.getElementById('startgame');
+            var txt  = document.getElementById('startgame-text');
+            if (txt) txt.textContent = 'Click here to start game';
+            if (sg)  sg.classList.add('ready');
+            _lumiSetProgress(1);
+        }
+
+        // Track .wasm download progress. Bar reflects ONLY the .wasm since it dominates load time;
+        // ready state fires when the .wasm body finishes streaming (independent of run dependencies,
+        // which are held back by the bixxyengine_init_delay user-gesture gate).
+        //
+        // Many servers compress the .wasm with gzip/brotli and either omit content-length entirely
+        // or report the compressed size while body.getReader() yields decompressed bytes. To get a
+        // reliable total we issue a HEAD request first and prefer x-uncompressed-content-length /
+        // a server-side hint when present, falling back to growing the total as bytes arrive.
+        (function() {
+            var _origFetch = window.fetch;
+            window.fetch = function(input, opts) {
+                var url = (typeof input === 'string') ? input : (input && input.url) || '';
+                if (url.indexOf('.wasm') < 0) return _origFetch.apply(this, arguments);
+
+                // Best-effort total: try HEAD first; if it fails or returns no length, default to 0.
+                var totalPromise = _origFetch(url, { method: 'HEAD' })
+                    .then(function(h) {
+                        if (!h.ok) return 0;
+                        var unc = parseInt(h.headers.get('x-uncompressed-content-length') || '0', 10);
+                        if (unc > 0) return unc;
+                        return parseInt(h.headers.get('content-length') || '0', 10);
+                    })
+                    .catch(function() { return 0; });
+
+                return Promise.all([_origFetch(input, opts), totalPromise]).then(function(arr) {
+                    var response = arr[0];
+                    var total    = arr[1];
+                    if (!response.ok || !response.body) return response;
+                    if (!total) total = parseInt(response.headers.get('content-length') || '0', 10);
+                    // Fallback: if no length is available at all, use a typical wasm size estimate
+                    // so the bar still moves. It snaps to 100% on stream done regardless.
+                    if (!total) total = 30 * 1024 * 1024;
+                    var received = 0;
+                    var reader = response.body.getReader();
+                    var stream = new ReadableStream({
+                        start: function(controller) {
+                            function pump() {
+                                return reader.read().then(function(r) {
+                                    if (r.done) {
+                                        _lumiSetProgress(1);
+                                        _lumiMarkReady();
+                                        controller.close();
+                                        return;
+                                    }
+                                    received += r.value.byteLength;
+                                    if (received > total) total = received;  // grow estimate if undersized
+                                    if (total > 0) _lumiSetProgress(received / total);
+                                    controller.enqueue(r.value);
+                                    return pump();
+                                });
+                            }
+                            pump();
+                        }
+                    });
+                    return new Response(stream, {
+                        headers: response.headers,
+                        status:  response.status,
+                        statusText: response.statusText
+                    });
+                });
+            };
+        })();
+
+        var _addRunDep, _removeRunDep;
+
+        var Module = {
+            _ma_device__on_notification_unlocked() {},
+            preRun: [],
+            postRun: [],
+            print: (function() {
+                return function(text) {
+                    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                    console.log(text);
+                };
+            })(),
+            canvas: (() => {
+                var canvas = document.getElementById('canvas');
+                canvas.addEventListener("webglcontextlost", (e) => { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+                return canvas;
+            })(),
+            setStatus: (text) => {
+                if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+                if (text === Module.setStatus.last.text) return;
+                var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+                var now = Date.now();
+                if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
+                Module.setStatus.last.time = now;
+                Module.setStatus.last.text = text;
+                if (m) {
+                    var cur = parseFloat(m[2]);
+                    var tot = parseFloat(m[4]);
+                    if (tot > 0) _lumiSetProgress(cur / tot);
+                }
+            },
+            totalDependencies: 0,
+            monitorRunDependencies: (left) => {
+                this.totalDependencies = Math.max(this.totalDependencies, left);
+                Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+            }
+        };
+        Module.setStatus('Downloading...');
+        window.onerror = () => {
+            Module.setStatus('Exception thrown, see JavaScript console');
+            Module.setStatus = (text) => {
+                if (text) console.error('[post-exception status] ' + text);
+            };
+        };
+
+        Module.preRun.push(function() {
+            // Capture add/removeRunDependency while they're in scope (Emscripten internals).
+            // Block execution until user clicks — ensures audio context unlocks on first gesture.
+            _addRunDep = addRunDependency;
+            _removeRunDep = removeRunDependency;
+            _addRunDep("bixxyengine_init_delay");
+        });
+    </script>
+    {{{ SCRIPT }}}
+</body>
+</html>

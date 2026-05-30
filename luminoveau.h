@@ -34,15 +34,16 @@
 // ── Engine systems ───────────────────────────────────────────────────────────
 #include <assets/assethandler.h>
 #include <platform/audio/audio.h>
-#include <draw/draw.h>
 #include <core/eventbus/eventbus.h>
 #include <platform/input/input.h>
 #include <renderer/renderer.h>
+#include <platform/window/window.h>
+
+#include <draw/draw.h>
 #include <renderer/shaders.h>
 #include <renderer/compute.h>
 #include <draw/particles.h>
 #include <draw/text.h>
-#include <platform/window/window.h>
 
 // ── Scene ────────────────────────────────────────────────────────────────────
 #include <scene/camera.h>

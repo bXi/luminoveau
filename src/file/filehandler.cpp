@@ -38,7 +38,7 @@ bool FileHandler::_initPhysFS() {
         LOG_DEBUG("PhysFS already initialized, skipping");
         return true;
     }
-    if (PHYSFS_init(nullptr) == 0) {
+    if (PHYSFS_init("") == 0) {
         std::cerr << "Failed to initialize PhysFS: "
                   << PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()) << std::endl;
         return false;

@@ -8,7 +8,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 #ifndef MAX_SPRITES
-#define MAX_SPRITES 4'000'000   // Maximum sprites per frame (used for z-depth normalisation and buffer sizing)
+#  ifdef LUMINOVEAU_WEBGPU_BACKEND
+#    define MAX_SPRITES 100'000   // Browser VRAM/heap budget: ~3 MB GPU + ~12 MB CPU per pass
+#  else
+#    define MAX_SPRITES 4'000'000
+#  endif
 #endif
 
 // ─────────────────────────────────────────────────────────────────────────────

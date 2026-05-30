@@ -4,8 +4,7 @@
 #include <string>
 #include <optional>
 
-#include "SDL3/SDL.h"
-
+#include "gpu/types.h"
 #include "assets/assethandler.h"
 #include "platform/window/window.h"
 #include "renderer/renderer.h"
@@ -370,13 +369,13 @@ public:
     /**
      * @brief Gets additional effect textures (for internal use by Renderer).
      */
-    static const std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>>& GetEffectTextures() { return get()._effectTextures; }
+    static const std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>>& GetEffectTextures() { return get()._effectTextures; }
 
     /**
      * @brief Gets the effect store for the current frame (for internal use by render passes).
      */
     static const std::vector<std::vector<EffectAsset>>& GetEffectStore() { return get()._effectStore; }
-    static const std::vector<std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>>>& GetEffectTextureStore() { return get()._effectTextureStore; }
+    static const std::vector<std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>>>& GetEffectTextureStore() { return get()._effectTextureStore; }
 
     /**
      * @brief Resets the per-frame effect store. Called at frame start.
@@ -452,8 +451,6 @@ private:
 
     rectf _doCamera(const vf2d& pos, const vf2d& size);
 
-    SDL_Renderer *renderer = nullptr;
-
     void _resetTargetRenderPass() { get()._setTargetRenderPass("2dsprites"); }
 
     void _setTargetRenderPass(const std::string& newTargetRenderPass) {
@@ -476,12 +473,12 @@ private:
 
     // Effect system
     std::vector<EffectAsset> _effectStack;
-    std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>> _effectTextures;
+    std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>> _effectTextures;
 
     // Effect store - small side-channel for per-frame effect data
     // Avoids copying effect vectors into every Renderable
     std::vector<std::vector<EffectAsset>> _effectStore;
-    std::vector<std::unordered_map<uint32_t, std::pair<SDL_GPUTexture*, ScaleMode>>> _effectTextureStore;
+    std::vector<std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>>> _effectTextureStore;
     int32_t _currentEffectIndex = -1;  // Cached index for current _effectStack
     bool _effectStackDirty = true;     // True when _effectStack changed since last index lookup
     
@@ -496,12 +493,12 @@ private:
 
     // Per-frame dynamically allocated geometry (e.g. TriangleFilled) — freed at frame end
     std::vector<Geometry2D*> _frameGeometry;
-    void _releaseFrameGeometry() { for (auto* g : _frameGeometry) { g->Release(Renderer::GetDevice()); delete g; } _frameGeometry.clear(); }
+    void _releaseFrameGeometry() { for (auto* g : _frameGeometry) { g->Release(); delete g; } _frameGeometry.clear(); }
 
     // Pixel buffer system
-    SDL_GPUTransferBuffer* _pixelTransferBuffer = nullptr;  // Single reusable upload buffer
-    std::vector<SDL_GPUTexture*> _pixelFrameTextures;        // Textures allocated this frame
-    std::vector<SDL_GPUTexture*> _pixelPrevFrameTextures;    // Textures from previous frame, safe to release
+    GpuTransferBufferHandle      _pixelTransferBuffer = 0;   // Single reusable upload buffer
+    std::vector<GpuTextureHandle> _pixelFrameTextures;       // Textures allocated this frame
+    std::vector<GpuTextureHandle> _pixelPrevFrameTextures;   // Textures from previous frame, safe to release
     bool _pixelsDirty = false;
     uint32_t _pixelBufferWidth = 0;
     uint32_t _pixelBufferHeight = 0;

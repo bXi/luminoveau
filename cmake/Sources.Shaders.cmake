@@ -1,14 +1,14 @@
 # Auto-generated shader sources - DO NOT EDIT
-# Available backends: spirv, dxil
+# Available backends: wgsl
 
 # Set default GPU backend if not specified
 if(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
-    set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB)")
+    set(LUMINOVEAU_GPU_BACKEND "SPIRV" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB, WGSL)")
 endif()
 
 # Validate backend selection
-if(NOT LUMINOVEAU_GPU_BACKEND MATCHES "^(SPIRV|DXIL|METALLIB)$")
-    message(FATAL_ERROR "Invalid LUMINOVEAU_GPU_BACKEND: ${LUMINOVEAU_GPU_BACKEND}. Must be SPIRV, DXIL, or METALLIB")
+if(NOT LUMINOVEAU_GPU_BACKEND MATCHES "^(SPIRV|DXIL|METALLIB|WGSL)$")
+    message(FATAL_ERROR "Invalid LUMINOVEAU_GPU_BACKEND: ${LUMINOVEAU_GPU_BACKEND}. Must be SPIRV, DXIL, METALLIB, or WGSL")
 endif()
 
 lumi_done("GPU Backend: ${LUMINOVEAU_GPU_BACKEND}")
@@ -50,6 +50,20 @@ elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "METALLIB")
         src/assets/shaders/model3d_frag.metallib.cpp
         src/assets/shaders/sprite_vert.metallib.cpp
         src/assets/shaders/sprite_frag.metallib.cpp
+    )
+elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "WGSL")
+    set(LUMINOVEAU_SHADER_SOURCES
+
+        src/assets/shaders/fullscreen_quad_vert.wgsl.cpp
+        src/assets/shaders/fullscreen_quad_frag.wgsl.cpp
+        src/assets/shaders/model3d_vert.wgsl.cpp
+        src/assets/shaders/model3d_frag.wgsl.cpp
+        src/assets/shaders/particles_pov_vert.wgsl.cpp
+        src/assets/shaders/particles_pov_frag.wgsl.cpp
+        src/assets/shaders/particles_vert.wgsl.cpp
+        src/assets/shaders/particles_frag.wgsl.cpp
+        src/assets/shaders/sprite_vert.wgsl.cpp
+        src/assets/shaders/sprite_frag.wgsl.cpp
     )
 else()
     message(FATAL_ERROR "No shader files available for backend: ${LUMINOVEAU_GPU_BACKEND}")
