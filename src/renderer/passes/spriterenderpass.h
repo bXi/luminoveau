@@ -329,6 +329,12 @@ public:
         renderPassBlendState = newstate;
     }
 
+    // Backend-neutral overload: callers can pass a GpuPresets blend state
+    // without needing an ifdef around toSDL(). Mirrors the WebGPU overload above.
+    void UpdateRenderPassBlendState(GpuColorTargetBlendState newstate) {
+        renderPassBlendState = toSDL(newstate);
+    }
+
     void SetAdditionalTexture(uint32_t binding, SDL_GPUTexture* texture) {
         m_additionalEffectTextures[binding] = texture;
     }

@@ -179,6 +179,18 @@ public:
     static float GetDisplayScale() { return EngineState::_displayScale; }
 
     /**
+     * @brief Returns the display bounds the window currently lives on.
+     *
+     * On native (SDL) backends this queries the primary display via SDL.
+     * On WebGPU/browser backends SDL display queries are unreliable, so
+     * this falls back to the current window/canvas size.
+     *
+     * @param outW Receives display width in pixels.
+     * @param outH Receives display height in pixels.
+     */
+    static void GetDisplayBounds(uint32_t& outW, uint32_t& outH);
+
+    /**
      * @brief Starts a new frame for rendering.
      */
     static void StartFrame() { get()._startFrame(); }

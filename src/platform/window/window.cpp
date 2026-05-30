@@ -19,6 +19,22 @@
 #include "integrations/imgui/imgui_integration.h"
 #endif
 
+void Window::GetDisplayBounds(uint32_t& outW, uint32_t& outH) {
+#ifdef LUMINOVEAU_WEBGPU_BACKEND
+    // Browser canvas: SDL display queries are unreliable, use window size.
+    outW = (uint32_t) Window::GetWidth();
+    outH = (uint32_t) Window::GetHeight();
+#else
+    outW = 3840u; outH = 2160u; // safe 4K fallback
+    SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    SDL_Rect bounds = {};
+    if (SDL_GetDisplayBounds(display, &bounds)) {
+        outW = (uint32_t) bounds.w;
+        outH = (uint32_t) bounds.h;
+    }
+#endif
+}
+
 void Window::_initWindow(const std::string &title, int width, int height, int scale, unsigned int flags) {
 
     if (scale > 1) { //when scaling asume width is virtual pixels instead of real screen pixels
