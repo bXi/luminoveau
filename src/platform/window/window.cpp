@@ -8,6 +8,7 @@
 #include "util/helpers.h"
 
 #include "renderer/renderer.h"
+#include "platform/window/window_backend.h"
 
 #include <SDL3_image/SDL_image.h>
 
@@ -20,19 +21,8 @@
 #endif
 
 void Window::GetDisplayBounds(uint32_t& outW, uint32_t& outH) {
-#ifdef LUMINOVEAU_WEBGPU_BACKEND
-    // Browser canvas: SDL display queries are unreliable, use window size.
-    outW = (uint32_t) Window::GetWidth();
-    outH = (uint32_t) Window::GetHeight();
-#else
-    outW = 3840u; outH = 2160u; // safe 4K fallback
-    SDL_DisplayID display = SDL_GetPrimaryDisplay();
-    SDL_Rect bounds = {};
-    if (SDL_GetDisplayBounds(display, &bounds)) {
-        outW = (uint32_t) bounds.w;
-        outH = (uint32_t) bounds.h;
-    }
-#endif
+    outW = 3840u; outH = 2160u;  // safe 4K fallback; backend may override.
+    WindowBackend::GetDisplayBounds(outW, outH);
 }
 
 void Window::_initWindow(const std::string &title, int width, int height, int scale, unsigned int flags) {
@@ -70,13 +60,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 
     Renderer::InitRendering();
 
-#ifdef LUMINOVEAU_WEBGPU_BACKEND
-    // Update the camera to match the canvas size that WebGpuGpuBackend::init() set.
-    // Do NOT call _setSize() here — that would set _sizeDirty and trigger _reset()
-    // on frame 0, destroying and recreating pipelines that were just compiled and
-    // waited on. The framebuffers and render passes are already sized correctly.
-    Renderer::UpdateCameraProjection();
-#endif
+    WindowBackend::PostInit(m_window);
 
     if (!FileHandler::InitPhysFS()) {
         LOG_CRITICAL("AssetHandler::InitPhysFS failed");
@@ -201,19 +185,11 @@ void Window::_processEvent(SDL_Event* event) {
             resizeEventData.emplace("height", event->window.data2);
             EventBus::Fire(SystemEvent::WINDOW_RESIZE, resizeEventData);
 
-#if defined(LUMINOVEAU_WEBGPU_BACKEND) && defined(__EMSCRIPTEN__)
-            // The browser already resized the canvas; calling SDL_SetWindowSize
-            // here would DPI-scale the logical dimensions onto canvas.style.*,
-            // inflating window.innerWidth and the swapchain beyond the viewport.
-            if (_webGpuScaleMode == WebGpuScaleMode::Native) {
-                Renderer::UpdateCameraProjection();
+            if (WindowBackend::HandleResize(event->window.data1, event->window.data2, _webGpuScaleMode)) {
                 _sizeDirty = true;
             } else {
                 _setSize(event->window.data1, event->window.data2);
             }
-#else
-            _setSize(event->window.data1, event->window.data2);
-#endif
 
             if (!_maximized) {
                 _lastWindowWidth = event->window.data1;
@@ -312,21 +288,14 @@ bool Window::_isFullscreen() {
 vf2d Window::_getSize(bool getRealSize) {
     int w, h;
 
-#ifdef LUMINOVEAU_WEBGPU_BACKEND
-    if (_webGpuScaleMode == WebGpuScaleMode::Native) {
-#ifdef __EMSCRIPTEN__
-        // Use actual swapchain dimensions so game coordinates match the framebuffer.
-        // SDL_GetWindowSizeInPixels applies DPI scaling that diverges from
-        // the CSS-pixel-based swapchain size acquireSwapchainTexture sets.
-        uint32_t cw = Renderer::GetCanvasWidth();
-        uint32_t ch = Renderer::GetCanvasHeight();
-        if (cw > 0 && ch > 0) return {(float)cw, (float)ch};
-#endif
-        SDL_GetWindowSizeInPixels(m_window, &w, &h);
-        return {(float)w, (float)h};
+    // WebGPU backend reports canvas-CSS-pixel swapchain dims; SDL backend defers
+    // (returns false) and we fall through to the normal SDL size logic below.
+    vf2d backendSize;
+    if (WindowBackend::GetSizeOverride(m_window, _webGpuScaleMode,
+                                       _webGpuRenderWidth, _webGpuRenderHeight,
+                                       backendSize)) {
+        return backendSize;
     }
-    return {(float)_webGpuRenderWidth, (float)_webGpuRenderHeight};
-#endif
 
 #ifdef LUMI_USE_PHYSICAL_PIXELS
     // Physical pixel mode: always return actual device pixels
@@ -363,6 +332,13 @@ vf2d Window::_getSize(bool getRealSize) {
 }
 
 vf2d Window::_getPhysicalSize() {
+    // WebGPU backend reports the swapchain's canvas-pixel dims here when in Native scale
+    // mode (SDL_GetWindowSizeInPixels can disagree with the browser canvas attribute on
+    // emscripten/SDL3 builds). SDL backend defers and we use the SDL value.
+    vf2d backendSize;
+    if (WindowBackend::GetPhysicalSizeOverride(m_window, _webGpuScaleMode, backendSize)) {
+        return backendSize;
+    }
     int w, h;
     SDL_GetWindowSizeInPixels(m_window, &w, &h);
     return {(float) w, (float) h};

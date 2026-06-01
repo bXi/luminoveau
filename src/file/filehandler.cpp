@@ -11,6 +11,12 @@
 #include "SDL3/SDL.h"
 #endif
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
+namespace { constexpr const char* kPersistentMountPoint = "/lumi_persist/"; }
+
 #ifdef _WIN32
 #include <windows.h>
 #include <shlobj.h>
@@ -404,4 +410,61 @@ bool FileHandler::_clearLogs() {
         LOG_ERROR("Failed to clear logs: {}", e.what());
         return false;
     }
+}
+
+// ============================================================================
+// PERSISTENT STORAGE
+// ============================================================================
+//
+// On Emscripten we mount IDBFS at /lumi_persist/ and pull existing data out of
+// IndexedDB into MEMFS at engine start; writes happening under that prefix get
+// pushed back to IndexedDB via FS.syncfs(false, ...) on flush. Asyncify.handleSleep
+// pauses C execution until the async JS callback fires, so callers stay synchronous.
+// On native, the same path API just routes to GetSystemDirectory() (regular disk).
+
+bool FileHandler::_initPersistentStorage() {
+    if (_persistentStorageMounted) return true;
+
+#ifdef __EMSCRIPTEN__
+    EM_ASM({
+        var path = UTF8ToString($0);
+        try { FS.mkdir(path); } catch(e) {}
+        try { FS.mount(IDBFS, {}, path); } catch(e) { console.warn('[Lumi] IDBFS mount failed:', e); }
+        Asyncify.handleSleep(function(wakeUp) {
+            FS.syncfs(true, function(err) {
+                if (err) console.warn('[Lumi] IDBFS initial load error:', err);
+                wakeUp();
+            });
+        });
+    }, kPersistentMountPoint);
+#endif
+    // Native filesystems are already persistent — nothing to mount or create.
+    _persistentStorageMounted = true;
+    return true;
+}
+
+std::string FileHandler::_getPersistentStorageDirectory() {
+#ifdef __EMSCRIPTEN__
+    return kPersistentMountPoint;  // trailing slash included
+#else
+    // Empty prefix → caller writes to cwd, matching pre-refactor relative paths.
+    return "";
+#endif
+}
+
+bool FileHandler::_flushPersistentStorage() {
+#ifdef __EMSCRIPTEN__
+    if (!_persistentStorageMounted) return false;
+    EM_ASM(
+        Asyncify.handleSleep(function(wakeUp) {
+            FS.syncfs(false, function(err) {
+                if (err) console.warn('[Lumi] IDBFS flush error:', err);
+                wakeUp();
+            });
+        });
+    );
+    return true;
+#else
+    return true;  // native writes already hit disk
+#endif
 }

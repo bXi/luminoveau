@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <vector>
 #include "gpu/types.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -224,4 +226,31 @@ public:
                              uint32_t srcX, uint32_t srcY, uint32_t srcW, uint32_t srcH,
                              uint32_t dstX, uint32_t dstY, uint32_t dstW, uint32_t dstH,
                              GpuFilter filter = GpuFilter::Linear) = 0;
+
+    // ── Screenshot ────────────────────────────────────────────────────────────
+    // Two-phase async capture (default impl uses downloadFromTexture + stb_image_write,
+    // works on every backend). Override only if a native path is faster (e.g. WebGPU
+    // canvas.toBlob via JS bridge).
+    //
+    //   requestScreenshot()           — call with a live cmdbuf; stages a download.
+    //                                   The cmdbuf must be submitted before processing.
+    //   processPendingScreenshots()   — call after submit; waits, maps, writes PNG.
+
+    void requestScreenshot(GpuCmdBufferHandle cmd,
+                           GpuTextureHandle src,
+                           uint32_t width, uint32_t height,
+                           const std::string& filename);
+
+    void processPendingScreenshots();
+
+protected:
+    struct PendingScreenshot {
+        std::string             filename;
+        GpuTransferBufferHandle transferBuffer = 0;
+        uint32_t                width          = 0;
+        uint32_t                height         = 0;
+        size_t                  dataSize       = 0;
+        bool                    isBGRA         = false;
+    };
+    std::vector<PendingScreenshot> m_pendingScreenshots;
 };

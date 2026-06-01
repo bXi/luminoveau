@@ -171,6 +171,17 @@ private:
     uint32_t m_swapchainWidth  = 0;
     uint32_t m_swapchainHeight = 0;
 
+    // Canvas dims captured during init() and never zeroed (m_swapchainWidth/Height get
+    // reset to 0 on emscripten to force a first-frame surface reconfigure). Anything
+    // running between backend init and the first acquireSwapchainTexture should read
+    // these via the public accessors below.
+public:
+    uint32_t getInitialCanvasWidth()  const { return m_initialCanvasWidth;  }
+    uint32_t getInitialCanvasHeight() const { return m_initialCanvasHeight; }
+private:
+    uint32_t m_initialCanvasWidth  = 0;
+    uint32_t m_initialCanvasHeight = 0;
+
     // Current frame swapchain view (valid between acquireSwapchainTexture and submitCommandBuffer)
     WGPUTexture     m_currentSurfaceTex  = nullptr;
     WGPUTextureView m_currentSurfaceView = nullptr;

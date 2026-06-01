@@ -244,6 +244,10 @@ private:
 
     Shader _getShader(const std::string &fileName);
 
+    // Backend-specific helper: load a single shader from disk into a fresh ShaderAsset.
+    // Implementations live in assethandler_shaders_sdl.cpp / assethandler_shaders_webgpu.cpp.
+    ShaderAsset _loadShaderFromDisk(const std::string &fileName);
+
     // Compute pipelines
 
     ComputePipelineAsset& _getComputePipeline(const std::string &fileName);

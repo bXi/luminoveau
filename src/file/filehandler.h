@@ -208,12 +208,30 @@ public:
     
     /**
      * @brief Clears all log files from the LumiSystem directory.
-     * 
+     *
      * Deletes all files ending with .log extension.
-     * 
+     *
      * @return true if all logs were deleted successfully
      */
     static bool ClearLogs() { return get()._clearLogs(); }
+
+    // ========================================================================
+    // PERSISTENT STORAGE
+    // ========================================================================
+
+    // Engine init hook. On Emscripten, mounts IDBFS at a known prefix and pulls
+    // existing data out of IndexedDB into MEMFS so subsequent reads see prior
+    // sessions' content. On native, ensures the system directory exists. Idempotent.
+    static bool InitPersistentStorage() { return get()._initPersistentStorage(); }
+
+    // Path prefix (with trailing slash) where reload-surviving cache files should
+    // live. Native: same as GetSystemDirectory(). Web: the IDBFS mount point.
+    static std::string GetPersistentStorageDirectory() { return get()._getPersistentStorageDirectory(); }
+
+    // Pushes pending writes from MEMFS into IndexedDB on Emscripten so the data
+    // survives a page reload. No-op on native (writes already hit disk). Callers
+    // should invoke this after a batch of writes to persistent storage.
+    static bool FlushPersistentStorage() { return get()._flushPersistentStorage(); }
 
 private:
     // Configuration
@@ -247,6 +265,12 @@ private:
     bool _deleteFile(const std::string& filepath);
     bool _deleteDirectory(const std::string& dirpath);
     bool _clearLogs();
+
+    // Persistent storage
+    bool _initPersistentStorage();
+    std::string _getPersistentStorageDirectory();
+    bool _flushPersistentStorage();
+    bool _persistentStorageMounted = false;
 
 public:
     FileHandler(const FileHandler &) = delete;

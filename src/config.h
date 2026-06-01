@@ -15,6 +15,16 @@
 #  endif
 #endif
 
+// Particle slot cap. Browser WebGPU implementations vary widely in storage-buffer caps;
+// Firefox's heap is much tighter than Chrome's. 1.5M (≈96 MB) fits both browsers.
+#ifndef LUMINOVEAU_MAX_PARTICLES
+#  ifdef LUMINOVEAU_WEBGPU_BACKEND
+#    define LUMINOVEAU_MAX_PARTICLES 1'500'000u
+#  else
+#    define LUMINOVEAU_MAX_PARTICLES 50'000'000u
+#  endif
+#endif
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Named colors
 // ─────────────────────────────────────────────────────────────────────────────

@@ -21,7 +21,10 @@ bool SdlGpuBackend::init(void* windowHandle) {
 }
 
 void SdlGpuBackend::shutdown() {
-    // Phase 1: no-op — device released by Renderer.
+    if (m_device) {
+        SDL_DestroyGPUDevice(m_device);
+        m_device = nullptr;
+    }
 }
 
 void SdlGpuBackend::waitIdle() {

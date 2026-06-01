@@ -369,7 +369,7 @@ private:
 
     SDL_Window *m_window = nullptr;
 
-    WebGpuScaleMode _webGpuScaleMode    = WebGpuScaleMode::Contain;
+    WebGpuScaleMode _webGpuScaleMode    = WebGpuScaleMode::Native;
     int             _webGpuRenderWidth  = 1280;
     int             _webGpuRenderHeight = 720;
 

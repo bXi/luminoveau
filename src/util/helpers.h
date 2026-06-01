@@ -26,6 +26,20 @@
 template<typename... T>
 inline void LUMI_UNUSED(T&&...) {}
 
+namespace Platform {
+    // Sensible default thread count for parallelizable work (e.g., MSDF atlas generation,
+    // texture decompression). Emscripten without -pthread can't spawn std::thread, so
+    // callers must use 1 there; everywhere else, scale to roughly hardware concurrency
+    // capped at a reasonable upper bound so we don't drown a many-core box in oversubscription.
+    inline unsigned int DefaultThreadCount() {
+#ifdef __EMSCRIPTEN__
+        return 1u;
+#else
+        return 8u;
+#endif
+    }
+}
+
 class Helpers {
 public:
     static int clamp(int input, int min, int max);

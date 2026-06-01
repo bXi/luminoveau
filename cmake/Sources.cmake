@@ -59,6 +59,7 @@ set(LUMINOVEAU_SOURCES
 
     # GPU
     src/gpu/buffer/buffermanager.cpp
+    src/gpu/IGpu.cpp
 
     # Renderer
     src/renderer/renderer.cpp
@@ -84,22 +85,34 @@ set(LUMINOVEAU_SOURCES
 
     # External
     src/extern/miniaudio.cpp
+    src/extern/stb_image_write.cpp
 )
 
 if(LUMINOVEAU_WEBGPU_BACKEND)
     list(APPEND LUMINOVEAU_SOURCES
         src/gpu/backends/webgpu/WebGpuGpuBackend.cpp
-        src/renderer/passes/spriterenderpass.cpp
-        src/renderer/passes/model3drenderpass.cpp
-        src/renderer/passes/shaderrenderpass.cpp
+        src/renderer/webgpu/init.cpp
+        src/assets/webgpu/assethandler.cpp
+        src/renderer/passes/webgpu/spriterenderpass.cpp
+        src/renderer/passes/webgpu/model3drenderpass.cpp
+        src/renderer/passes/webgpu/shaderrenderpass.cpp
+        src/draw/webgpu/particles_builtin.cpp
+        src/platform/input/webgpu/mouseinput.cpp
+        src/platform/window/webgpu/window_backend.cpp
+        src/renderer/webgpu/shaders.cpp
     )
 else()
     list(APPEND LUMINOVEAU_SOURCES
         src/gpu/backends/sdl/SdlGpuBackend.cpp
         src/gpu/backends/sdl/sdlgpu.cpp
-        src/renderer/passes/spriterenderpass.cpp
-        src/renderer/passes/model3drenderpass.cpp
-        src/renderer/passes/shaderrenderpass.cpp
+        src/renderer/sdl/init.cpp
+        src/assets/sdl/assethandler.cpp
+        src/renderer/passes/sdl/spriterenderpass.cpp
+        src/renderer/passes/sdl/model3drenderpass.cpp
+        src/renderer/passes/sdl/shaderrenderpass.cpp
+        src/draw/sdl/particles_builtin.cpp
+        src/platform/input/sdl/mouseinput.cpp
+        src/platform/window/sdl/window_backend.cpp
         src/renderer/shaders.cpp
     )
 endif()

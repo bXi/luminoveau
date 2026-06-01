@@ -28,9 +28,6 @@
 
 #include "gpu/renderpass.h"
 #include "gpu/renderable.h"
-#ifndef LUMINOVEAU_WEBGPU_BACKEND
-#include "gpu/backends/sdl/sdlgpu.h"
-#endif
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -38,13 +35,6 @@
 
 #ifdef LUMINOVEAU_WITH_IMGUI
 #include "imgui.h"
-#ifndef LUMINOVEAU_WEBGPU_BACKEND
-#include "backends/imgui_impl_sdlgpu3.h"
-#include "backends/imgui_impl_sdl3.h"
-#ifdef WIN32
-#include "backends/imgui_impl_win32.h"
-#endif
-#endif
 #endif
 
 // SDL Forward Declarations
@@ -114,11 +104,9 @@ public:
      *
      * @return Pointer to the SDL GPU device.
      */
-#ifndef LUMINOVEAU_WEBGPU_BACKEND
+    // Returns the underlying SDL_GPUDevice on the SDL backend; nullptr on WebGPU.
+    // Forward-declared SDL_GPUDevice* keeps this signature backend-neutral.
     static SDL_GPUDevice *GetDevice() { return get()._getDevice(); }
-#else
-    static SDL_GPUDevice *GetDevice() { return nullptr; }
-#endif
     static bool IsReady() { return get().m_gpu != nullptr; }
 
     /**
@@ -376,6 +364,16 @@ public:
     static uint32_t GetCanvasWidth()  { return get().m_canvasWidth;  }
     static uint32_t GetCanvasHeight() { return get().m_canvasHeight; }
 
+    // Lets the GPU backend publish the canvas/swapchain dims as soon as it knows them,
+    // before the first frame is acquired. Without this, code that runs between backend
+    // init and the first acquireSwapchainTexture (e.g. lumifps MenuManager::Init which
+    // queries Window::GetWidth) sees stale SDL window-creation dims.
+    static void     SetCanvasSize(uint32_t w, uint32_t h) {
+        get().m_canvasWidth  = w;
+        get().m_canvasHeight = h;
+        get()._updateCameraProjection();
+    }
+
     /**
      * @brief Sets the MSAA sample count and recreates render passes.
      *
@@ -486,18 +484,6 @@ private:
     
     void _removeSpriteRenderTarget(const std::string& name, bool removeFramebuffer);
     
-#ifndef LUMINOVEAU_WEBGPU_BACKEND
-    void _processPendingScreenshot();
-
-    struct PendingScreenshotData {
-        std::string filename;
-        SDL_GPUTransferBuffer* transferBuffer = nullptr;
-        int width = 0;
-        int height = 0;
-        size_t dataSize = 0;
-    };
-    PendingScreenshotData _pendingScreenshotData;
-#endif
 
     struct Uniforms {
         glm::mat4 camera;

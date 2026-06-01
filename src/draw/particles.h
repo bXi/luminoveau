@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 
+#include "config.h"
 #include "draw/particlesystem.h"
 #include "assets/compute/computepipeline.h"
 #include "gpu/renderpass.h"
@@ -104,14 +105,8 @@ private:
 
 namespace Particles {
 
-#ifdef LUMINOVEAU_WEBGPU_BACKEND
-    // Browser WebGPU implementations vary widely in storage-buffer caps. Chrome happily takes
-    // 5M (≈320 MB), but Firefox's WebGPU heap is much tighter and OOMs during init. 1.5M
-    // (≈96 MB) fits both and still covers the Mandelbrot demo at 1080p.
-    static constexpr uint32_t MAX_PARTICLES       = 1'500'000;
-#else
-    static constexpr uint32_t MAX_PARTICLES       = 50'000'000;
-#endif
+    // Backend-tunable; defined in config.h.
+    static constexpr uint32_t MAX_PARTICLES       = LUMINOVEAU_MAX_PARTICLES;
     static constexpr uint32_t MAX_SYSTEMS         = 64;
     static constexpr uint32_t MAX_CUSTOM_COMPUTES = 32;
     static constexpr uint32_t MAX_COLLIDERS       = 32;

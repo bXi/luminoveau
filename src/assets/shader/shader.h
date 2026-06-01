@@ -25,10 +25,10 @@ struct ShaderAsset {
 
     std::unordered_map<std::string, std::string> frameBufferToSamplerMapping;
 
-#ifdef LUMINOVEAU_WEBGPU_BACKEND
+    // Inline uniform layout (populated by the asset loader on WebGPU at shader-load time).
+    // SDL reads its uniform layout from Shaders::GetShaderMetadata cache instead.
     std::unordered_map<std::string, size_t> uniformOffsets;
     std::unordered_map<std::string, size_t> uniformSizes;
-#endif
 };
 
 using Shader = ShaderAsset&;

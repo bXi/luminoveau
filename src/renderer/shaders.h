@@ -1,117 +1,25 @@
+// Cross-backend public API for the engine's shader subsystem.
+//
+// Only the lifecycle + entry-point queries live here. Backend-specific machinery
+// (SDL_ShaderCross integration, GLSL→SPIRV transpile, metadata caching, shader-asset
+// creation) is declared in renderer/sdl/shaders_sdl.h and only used inside SDL-backend
+// translation units. The WebGPU build provides stub implementations of the symbols below
+// in renderer/webgpu/shaders.cpp.
+
 #pragma once
 
-#ifndef LUMINOVEAU_WEBGPU_BACKEND
+namespace Shaders {
+    // Engine startup hook. SDL backend wires up SDL_shadercross + the on-disk shader cache;
+    // WebGPU backend is a no-op (WGSL is compiled by the browser/Tint at module-create time).
+    void Init();
 
-#include <fstream>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <iostream>
-#include <cstdint>
+    // Engine shutdown hook. SDL backend persists the shader cache and tears down SDL_shadercross.
+    void Quit();
 
-#include <glslang/Public/ShaderLang.h>
-#include <SPIRV/GlslangToSpv.h>
-
-#include <spirv_cross.hpp>
-
-#include <SDL3_shadercross/SDL_shadercross.h>
-
-#include "assets/assethandler.h"
-#include "assets/compute/computepipeline.h"
-#include "file/resourcepack.h"
-
-// Simple text-based shader metadata structure
-struct ShaderMetadata {
-    std::string source_hash;
-    std::vector<std::string> sampler_names;
-    std::unordered_map<std::string, size_t> uniform_offsets;
-    std::unordered_map<std::string, size_t> uniform_sizes;
-    uint32_t num_samplers = 0;
-    uint32_t num_uniform_buffers = 0;
-    uint32_t num_storage_buffers = 0;
-    uint32_t num_storage_textures = 0;
-    SDL_GPUShaderFormat shader_format = SDL_GPU_SHADERFORMAT_SPIRV; // Store the format!
-
-    // Simple text serialization
-    std::string serialize() const;
-    static ShaderMetadata deserialize(const std::string& data);
-};
-
-class Shaders {
-public:
-
-    static void Init() {
-        get()._init();
-    }
-
-    static void Quit() {
-        get()._quit();
-    }
-
-    static PhysFSFileData GetShader(const std::string &filename) { return get()._getShader(filename); }
-
-    static ShaderMetadata GetShaderMetadata(const std::string &filename) { return get()._getShaderMetadata(filename); }
-
-    static SDL_GPUShaderFormat GetShaderFormat(const std::string &filename) { return get()._getShaderFormat(filename); }
-
-    // Helper to create SDL_GPUShader with correct format
-    static SDL_GPUShader* CreateGPUShader(SDL_GPUDevice* device, const std::string& filename, SDL_GPUShaderStage stage);
-
-    // Helper to create complete ShaderAsset from filename
-    static ShaderAsset CreateShaderAsset(SDL_GPUDevice* device, const std::string& filename, SDL_GPUShaderStage stage);
-
-    // Create a compute pipeline from a .comp GLSL file
-    static ComputePipelineAsset CreateComputePipeline(SDL_GPUDevice* device, const std::string& filename);
-
-    // Create a compute pipeline from pre-compiled SPIR-V bytes (e.g. embedded engine shaders).
-    // SDL_ShaderCross reflects the SPIRV and cross-compiles to the platform's native format.
-    static ComputePipelineAsset CreateComputePipelineFromBytes(SDL_GPUDevice* device, const uint8_t* spirvBytes, size_t spirvSize);
-
-private:
-
-    void _init();
-
-    void _quit();
-
-    PhysFSFileData _getShader(const std::string &filename);
-
-    ShaderMetadata _getShaderMetadata(const std::string &filename);
-
-    SDL_GPUShaderFormat _getShaderFormat(const std::string &filename);
-
-    std::vector<uint32_t> _compileGLSLtoSPIRV(const std::string &source, EShLanguage shaderStage);
-
-    ShaderMetadata _extractMetadataFromSPIRV(const std::vector<uint32_t> &spirv);
-
-    std::string _computeSourceHash(const std::string &source);
-
-    // Cache paths
-    std::string _getCachePath(const std::string &filename, const std::string &extension);
-    std::string _getMetadataPath(const std::string &filename);
-
-    bool _loadCachedShader(const std::string &cachePath, std::vector<uint8_t> &outData);
-    bool _loadCachedMetadata(const std::string &metadataPath, ShaderMetadata &outMetadata);
-
-    void _saveCachedShader(const std::string &cachePath, const std::vector<uint8_t> &data);
-    void _saveCachedMetadata(const std::string &metadataPath, const ShaderMetadata &metadata);
-
-    // Cache storage
-    std::unordered_map<std::string, ShaderMetadata> metadataCache;
-    std::unordered_map<std::string, PhysFSFileData> shaderDataCache;  // Cache loaded shader bytecode
-    ResourcePack* shaderCache = nullptr;  // Runtime shader cache
-
-public:
-    Shaders(const Shaders &) = delete;
-
-    static Shaders &get() {
-        static Shaders instance;
-        return instance;
-    }
-
-private:
-    Shaders() = default;
-
-    void _fillResources(TBuiltInResource *pResource);
-};
-
-#endif // LUMINOVEAU_WEBGPU_BACKEND
+    // Entry-point names for the engine's built-in shaders. SDL uses SPIRV (named "main"),
+    // except MSL output which spirv-cross renames to "main0". WebGPU's WGSL pipeline emits
+    // "vs_main" / "fs_main" / "main" via Tint.
+    const char* GetVertexEntryPoint();
+    const char* GetFragmentEntryPoint();
+    const char* GetComputeEntryPoint();
+}

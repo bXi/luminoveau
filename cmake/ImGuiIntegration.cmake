@@ -31,11 +31,21 @@ if(LUMINOVEAU_BUILD_IMGUI)
         endif()
         target_include_directories(luminoveau PUBLIC "${Imgui_SOURCE_DIR}")
 
-        # Luminoveau ImGui integration wrapper
+        # Luminoveau ImGui integration wrapper (shared + per-backend bridge)
         target_sources(luminoveau PRIVATE
             "${PROJECT_SOURCE_DIR}/src/integrations/imgui/imgui_integration.cpp"
             "${PROJECT_SOURCE_DIR}/src/integrations/imgui/imgui_integration.h"
+            "${PROJECT_SOURCE_DIR}/src/integrations/imgui/imgui_backend.h"
         )
+        if(LUMINOVEAU_WEBGPU_BACKEND)
+            target_sources(luminoveau PRIVATE
+                "${PROJECT_SOURCE_DIR}/src/integrations/imgui/webgpu/imgui_backend.cpp"
+            )
+        else()
+            target_sources(luminoveau PRIVATE
+                "${PROJECT_SOURCE_DIR}/src/integrations/imgui/sdl/imgui_backend.cpp"
+            )
+        endif()
 
         # Adding core ImGui sources
         target_sources(luminoveau PRIVATE

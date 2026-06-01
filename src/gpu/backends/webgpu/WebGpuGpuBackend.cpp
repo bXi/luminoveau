@@ -186,6 +186,8 @@ bool WebGpuGpuBackend::init(void* windowHandle) {
 #endif
     m_swapchainWidth  = static_cast<uint32_t>(w);
     m_swapchainHeight = static_cast<uint32_t>(h);
+    m_initialCanvasWidth  = static_cast<uint32_t>(w);
+    m_initialCanvasHeight = static_cast<uint32_t>(h);
 
     // Prefer BGRA8Unorm (most common); check capabilities if needed.
     m_swapchainFormat = WGPUTextureFormat_BGRA8Unorm;
