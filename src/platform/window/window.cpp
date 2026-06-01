@@ -1,6 +1,8 @@
 #include "window.h"
 
+#include <chrono>
 #include <stdexcept>
+#include <thread>
 #include "platform/audio/audio.h"
 
 #include "assets/assethandler.h"
@@ -140,12 +142,24 @@ void Window::_toggleFullscreen() {
 }
 
 int Window::_getFPS(float milliseconds) {
-    auto seconds = milliseconds / 1000.f;
+    // Compute over the requested averaging window using the renderer-maintained
+    // _presentCount. Same parameter semantics as the original API: longer windows
+    // = smoother / slower-to-react number, shorter = jumpier / fresh.
+    using clock = std::chrono::high_resolution_clock;
+    const double windowSeconds = (double)milliseconds / 1000.0;
+    auto now = clock::now();
 
-    if (EngineState::_fpsAccumulator > seconds) {
-        EngineState::_fpsAccumulator -= seconds;
+    static auto     s_sampleStart = now;
+    static uint64_t s_sampleStartCount = EngineState::_presentCount;
 
-        EngineState::_fps = (int) (1. / EngineState::_lastFrameTime);
+    double elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        now - s_sampleStart).count() / 1e9;
+
+    if (elapsed >= windowSeconds && elapsed > 0.0) {
+        uint64_t delta = EngineState::_presentCount - s_sampleStartCount;
+        EngineState::_fps  = (int)((double)delta / elapsed);
+        s_sampleStart      = now;
+        s_sampleStartCount = EngineState::_presentCount;
     }
     return EngineState::_fps;
 }
@@ -378,9 +392,8 @@ void Window::_startFrame() {
     EngineState::_previousTime = EngineState::_currentTime;
     EngineState::_currentTime  = std::chrono::high_resolution_clock::now();
     EngineState::_lastFrameTime =
-        (double) std::chrono::duration_cast<std::chrono::nanoseconds>(EngineState::_currentTime - EngineState::_previousTime).count() /
-        1000000000.;
-    EngineState::_fpsAccumulator += EngineState::_lastFrameTime;
+        (double) std::chrono::duration_cast<std::chrono::nanoseconds>(
+            EngineState::_currentTime - EngineState::_previousTime).count() / 1e9;
 
     Renderer::StartFrame();
 }

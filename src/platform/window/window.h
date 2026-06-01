@@ -238,6 +238,11 @@ public:
      *
      * @return The time taken to render the last frame in seconds.
      */
+    // Real inter-frame delta in seconds. Non-consuming — can be read freely from
+    // multiple call sites within a frame. The engine paces SDL_AppIterate to roughly
+    // the display refresh rate (see Window::_startFrame), so this stays close to the
+    // actual frame interval even on platforms where AppIterate would otherwise spin
+    // far faster than vsync.
     static double GetFrameTime() { return EngineState::_lastFrameTime; }
 
     /**

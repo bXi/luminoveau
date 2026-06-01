@@ -9,6 +9,7 @@
 
 #include "util/helpers.h"
 #include "core/log/log.h"
+#include "core/enginestate/enginestate.h"
 
 #include "gpu/renderpass.h"
 #include "gpu/presets.h"
@@ -252,6 +253,11 @@ void Renderer::_endFrame() {
     // ── Submit and reset ──────────────────────────────────────────────────────
     m_gpu->submitCommandBuffer(m_cmdbuf);
     m_gpu->presentSwapchain();
+
+    // Increment the present counter — Window::GetFPS reads this over its caller-supplied
+    // averaging window. Decoupled from _lastFrameTime so SDL_AppIterate's spin rate
+    // doesn't poison the FPS report.
+    EngineState::_presentCount++;
     for (auto &[fbName, framebuffer]: frameBuffers) {
         for (auto &[passname, renderpass]: framebuffer->renderpasses) {
             renderpass->resetRenderQueue();
