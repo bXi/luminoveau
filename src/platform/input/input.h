@@ -163,6 +163,17 @@ public:
 
     static void UpdateScroll(int scrollDir) { get()._updateScroll(scrollDir); }
 
+    /**
+     * @brief Accumulates relative mouse motion (from SDL mouse-motion events).
+     * Used for FPS-style mouse look in relative mouse mode.
+     */
+    static void AccumulateMouseDelta(float dx, float dy) { get()._accumulateMouseDelta(dx, dy); }
+
+    /**
+     * @brief Returns relative mouse motion accumulated since the last frame.
+     */
+    static vf2d GetMouseDelta() { return get()._getMouseDelta(); }
+
     std::vector<Uint8> currentKeyboardState;
 private:
     std::vector<InputDevice *> inputs;
@@ -174,6 +185,10 @@ private:
     void _clear();
 
     void _update();
+
+    void _accumulateMouseDelta(float dx, float dy) { _mouseDelta.x += dx; _mouseDelta.y += dy; }
+    vf2d _getMouseDelta() { vf2d d = _mouseDelta; _mouseDelta = {0.0f, 0.0f}; return d; }  // read-and-clear
+    vf2d _mouseDelta{0.0f, 0.0f};
 
     void _updateTimings();
 

@@ -70,6 +70,14 @@ public:
     static void SetCursor(const std::string &filename) { get()._setCursor(filename); }
 
     /**
+     * @brief Enables/disables relative mouse mode (FPS capture): hides and
+     * confines the cursor and delivers continuous relative motion.
+     *
+     * @param enabled true to capture the mouse, false to release it.
+     */
+    static void SetRelativeMouseMode(bool enabled) { get()._setRelativeMouseMode(enabled); }
+
+    /**
      * @brief Sets the window title.
      *
      * @param title The new title to set as the window title.
@@ -332,6 +340,8 @@ private:
     void _setIcon(const std::string &filename);
 
     void _setCursor(const std::string &filename);
+
+    void _setRelativeMouseMode(bool enabled);
 
     void _setTitle(const std::string &title);
 

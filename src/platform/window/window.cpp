@@ -187,6 +187,9 @@ void Window::_processEvent(SDL_Event* event) {
         case SDL_EventType::SDL_EVENT_MOUSE_WHEEL:
             Input::UpdateScroll(event->wheel.integer_y);
             break;
+        case SDL_EventType::SDL_EVENT_MOUSE_MOTION:
+            Input::AccumulateMouseDelta(event->motion.xrel, event->motion.yrel);
+            break;
         case SDL_EventType::SDL_EVENT_GAMEPAD_ADDED:
             Input::AddGamepadDevice(event->gdevice.which);
             break;
@@ -478,6 +481,11 @@ void Window::_setCursor(const std::string &filename) {
         SDL_DestroySurface(cursorSurface);
     }
     free(icon.data);
+}
+
+void Window::_setRelativeMouseMode(bool enabled) {
+    if (m_window)
+        SDL_SetWindowRelativeMouseMode(m_window, enabled);
 }
 
 void Window::_takeScreenshot(const std::string& filename) {
