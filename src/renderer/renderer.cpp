@@ -444,19 +444,6 @@ void Renderer::renderFrameBuffer(GpuCmdBufferHandle cmdBuf) {
     // window size up to the full desktop. Render-pass viewports + the blit's partial-UV
     // sample pick up the new window dimensions per frame without recreating textures.
     {
-        if (Input::KeyPressed(SDLK_GRAVE)) {
-            auto mouse = Input::GetMousePosition();
-            LOG_INFO("renderFrameBuffer diag: fb={}x{} canvas={}x{} Window::GetSize={}x{} phys={}x{} mouse=({:.1f},{:.1f}) blitInvScale=({:.3f},{:.3f})",
-                framebufferObj ? framebufferObj->width  : -1,
-                framebufferObj ? framebufferObj->height : -1,
-                (int)m_canvasWidth, (int)m_canvasHeight,
-                Window::GetWidth(), Window::GetHeight(),
-                Window::GetPhysicalWidth(), Window::GetPhysicalHeight(),
-                mouse.x, mouse.y,
-                m_blitInvScaleX, m_blitInvScaleY);
-        }
-    }
-    {
         const float fbW = (float)framebufferObj->width;
         const float fbH = (float)framebufferObj->height;
         const float scW = (float)(m_canvasWidth  > 0 ? m_canvasWidth  : (uint32_t)fbW);
