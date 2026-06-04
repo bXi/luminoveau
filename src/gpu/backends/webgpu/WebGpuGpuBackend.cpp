@@ -1520,9 +1520,22 @@ void WebGpuGpuBackend::uploadToTexture(GpuCmdBufferHandle /*cmd*/,
     dstCopy.origin   = { dst.x, dst.y, dst.z };
     dstCopy.aspect   = WGPUTextureAspect_All;
 
+    // Bytes per pixel from the texture's actual format (don't assume 4/RGBA —
+    // R8 lightmaps are 1 byte/pixel, otherwise bytesPerRow is 4x too large).
+    uint32_t bpp;
+    switch (tex->format) {
+        case WGPUTextureFormat_R8Unorm:                          bpp = 1;  break;
+        case WGPUTextureFormat_RG8Unorm:
+        case WGPUTextureFormat_R16Float:                         bpp = 2;  break;
+        case WGPUTextureFormat_RGBA16Float:
+        case WGPUTextureFormat_RG32Float:                        bpp = 8;  break;
+        case WGPUTextureFormat_RGBA32Float:                      bpp = 16; break;
+        default:                                                 bpp = 4;  break;  // RGBA8/BGRA8/R32F/RGB10A2/...
+    }
+
     WGPUTexelCopyBufferLayout layout{};
     layout.offset       = src.offset;
-    layout.bytesPerRow  = (src.pixels_per_row ? src.pixels_per_row : dst.width) * 4;
+    layout.bytesPerRow  = (src.pixels_per_row ? src.pixels_per_row : dst.width) * bpp;
     layout.rowsPerImage = src.rows_per_layer ? src.rows_per_layer : dst.height;
 
     WGPUExtent3D extent = { dst.width, dst.height, dst.depth };
