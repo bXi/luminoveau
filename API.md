@@ -1,1306 +1,680 @@
-# Luminoveau API Reference
+# Luminoveau Engine — Game-Builder API Reference
 
-All classes are singletons accessed via static methods. Include `luminoveau.h` to get everything.
-
----
-
-## Type Aliases
-
-These aliases are used throughout the API. They are **references**, not values.
-
-| Alias      | Resolves to          |
-|------------|----------------------|
-| `Texture`  | `TextureAsset&`      |
-| `Font`     | `FontAsset&`         |
-| `Sound`    | `SoundAsset&`        |
-| `Music`    | `MusicAsset&`        |
-| `Shader`   | `ShaderAsset&`       |
-| `Effect`   | `EffectAsset&`       |
-| `Model`    | `ModelAsset&`        |
+Practical guide for building a game on top of Luminoveau. Reflects the current state of the SDL/WebGPU backend-split codebase. Pair this with the architecture diagram at `E:\temp\luminoveau_class_diagram.html`.
 
 ---
 
-## Vector Types
+## 1. Project skeleton
 
-Template struct `v2d_generic<T>` with specialisations:
+### CMake
 
-| Type    | Underlying type          |
-|---------|--------------------------|
-| `vi2d`  | `v2d_generic<int32_t>`   |
-| `vu2d`  | `v2d_generic<uint32_t>`  |
-| `vf2d`  | `v2d_generic<float>`     |
-| `vd2d`  | `v2d_generic<double>`    |
-| `vi3d`  | `v3d_generic<int32_t>`   |
-| `vu3d`  | `v3d_generic<uint32_t>`  |
-| `vf3d`  | `v3d_generic<float>`     |
-| `vd3d`  | `v3d_generic<double>`    |
+A consuming project links against the `luminoveau` static lib + `lumi_main` (the SDL3 entry-point glue). Minimum `CMakeLists.txt`:
 
-### `v2d_generic<T>` members
+```cmake
+add_subdirectory(path/to/luminoveau)
 
-```cpp
-T x, y;
-
-T    mag() const;
-T    mag2() const;
-v2d  norm() const;
-v2d  perp() const;
-v2d  floor() const;
-v2d  ceil() const;
-v2d  clamp(const rect_generic<T>& target) const;
-v2d  max(const v2d& v) const;
-v2d  min(const v2d& v) const;
-v2d  cart();                          // polar->cartesian
-v2d  polar();                         // cartesian->polar
-T    dot(const v2d& rhs) const;
-T    cross(const v2d& rhs) const;
-T    getAngle() const;
-void rotateBy(float l);
-float distanceTo(const v2d other);
-v2d  reflectOn(const v2d normal);
-std::string str() const;              // "(x.xx,y.yy)"
-const char* c_str() const;
-
-// Operators: +, -, *, /, +=, -=, *=, /= (scalar and vector forms)
-// Comparison: ==, !=, <, >
-// Implicit conversions between int/float/double specialisations
-// Optional implicit conversions to b2Vec2, glm::vec2, ImVec2 (when available)
+add_executable(mygame
+    src/main.cpp
+    # ... your other .cpp ...
+)
+target_link_libraries(mygame PRIVATE luminoveau lumi_main)
 ```
 
-### `v3d_generic<T>` members
+### Backend selection
 
-```cpp
-T x, y, z;
+Selected at configure time:
 
-T    mag() const;
-T    mag2() const;
-v3d  norm() const;
-T    dot(const v3d& rhs) const;
-v3d  cross(const v3d& rhs) const;
-std::string str() const;
+| Variable | Effect |
+|---|---|
+| `LUMINOVEAU_WEBGPU_BACKEND=ON` | Builds the WebGPU path (Emscripten or Dawn on desktop). Implies WGSL shader backend. |
+| `LUMINOVEAU_WEBGPU_BACKEND=OFF` (default) | SDL_GPU backend. Picks `METALLIB` on Apple, `SPIRV` everywhere else (override with `LUMINOVEAU_GPU_BACKEND=DXIL` if needed). |
+| `LUMINOVEAU_WITH_IMGUI` | Adds ImGui (default ON). |
+| `LUMINOVEAU_WITH_RMLUI` | Adds RmlUI (SDL only; OFF on web). |
 
-// Operators: +, -, *, /, +=, -=, *=, /=
-// Comparison: ==, !=
-// Implicit conversions between int/float/double specialisations
+The engine never `#ifdef`s on the backend in shared engine files — backend differences live in per-backend directories (`sdl/`, `webgpu/`).
+
+### Build commands
+
 ```
+cmake -S . -B build-sdl
+cmake --build build-sdl --config Release
+
+# Web build (Emscripten toolchain assumed on PATH)
+emcmake cmake -S . -B build-web -DLUMINOVEAU_WEBGPU_BACKEND=ON
+cmake --build build-web
+```
+
+### Shader build step
+
+WGSL shaders are transpiled at configure time from GLSL via `cmake/ShaderTranspile.cmake`. SPIRV blobs for built-in engine shaders are baked under `src/assets/shaders/` and embedded in the binary. User-supplied shaders go in `<project>/assets/shaders/` and are loaded at runtime.
 
 ---
 
-## Rectangle Types
+## 2. Entry point
 
-Template union `rect_generic<T>` with specialisations:
-
-| Type    | Underlying type           |
-|---------|---------------------------|
-| `recti` | `rect_generic<int32_t>`   |
-| `rectu` | `rect_generic<uint32_t>`  |
-| `rectf` | `rect_generic<float>`     |
-| `rectd` | `rect_generic<double>`    |
-
-### `rect_generic<T>` members
+Implement four functions in your code; the engine's SDL3 callback shim (`app/lumi_main.cpp`) calls them.
 
 ```cpp
-// Accessible as any of:
-T x, y, width, height;
-T x, y, w, h;           // alternative names
-v2d_generic<T> pos;
-v2d_generic<T> size;
-
-bool contains(const v2d_generic<T>& point) const;
-bool intersects(const rect_generic<T>& other) const;
-
-// Implicit conversions (when SDL3 available):
-operator SDL_FRect();
-operator SDL_Rect();
-```
-
----
-
-## Color
-
-```cpp
-struct Color {
-    unsigned int r, g, b, a;   // 0–255
-
-    Color();
-    Color(unsigned int r, unsigned int g, unsigned int b, unsigned int a);
-    Color(uint32_t colorCode);  // format: 0xRRGGBBAA
-
-    void  CreateFromFloats(float r, float g, float b, float a);  // 0.0–1.0 input
-
-    float getRFloat() const;
-    float getGFloat() const;
-    float getBFloat() const;
-    float getAFloat() const;
-
-    glm::vec4 asVec4();  // when glm is available
-
-    // Explicit conversions (when SDL3 available):
-    explicit operator SDL_Color() const;
-    explicit operator SDL_FColor() const;
-};
-```
-
-### Predefined Color Constants
-
-```
-RED, GREEN, BLUE, BLACK, WHITE
-YELLOW, CYAN, MAGENTA, PURPLE, ORANGE, PINK, LIME
-LIGHTGRAY, GRAY, DARKGRAY
-DARKRED, DARKGREEN, DARKBLUE, DARKYELLOW
-SKYBLUE, NAVY, VIOLET
-BROWN, MAROON, BEIGE
-GOLD, SILVER
-```
-
----
-
-## Angle Helpers
-
-```cpp
-constexpr float deg(float degrees);   // converts degrees to radians
-constexpr float rad(float radians);   // identity, for explicit clarity
-```
-
-### Constants
-
-```cpp
-PI       // 3.14159265...
-EPSILON  // 0.000001f
-DEG2RAD  // PI / 180.0f
-RAD2DEG  // 180.0f / PI
-```
-
----
-
-## Window
-
-```cpp
-class Window {
-    static void InitWindow(const std::string& title,
-                           int width = 800, int height = 600,
-                           int scale = 1, unsigned int flags = 0);
-
-    static void SetIcon(const std::string& filename);
-    static void SetCursor(const std::string& filename);
-    static void SetTitle(const std::string& title);
-
-    // Close is safe to call mid-frame; actual cleanup is deferred to EndFrame()
-    static void Close();
-
-    static SDL_Window* GetWindow();
-
-    static void  SetScale(int scalefactor);
-    static float GetScale();
-
-    static void SetSize(int width, int height);
-
-    // SetScaledSize: width/height in virtual pixels, scale=0 keeps current scale
-    static void SetScaledSize(int width, int height, int scale = 0);
-
-    // GetSize: logical (virtual) pixels. getRealSize=true skips user-scale division
-    static vf2d GetSize(bool getRealSize = false);
-    static int  GetWidth(bool getRealSize = false);
-    static int  GetHeight(bool getRealSize = false);
-
-    // Physical (device) pixels — may be larger on HiDPI/Retina displays
-    static vf2d GetPhysicalSize();
-    static int  GetPhysicalWidth();
-    static int  GetPhysicalHeight();
-
-    // Ratio of physical to logical pixels (e.g. 2.0 on Retina)
-    static float GetDisplayScale();
-
-    static void StartFrame();
-    static void EndFrame();
-
-    static void ToggleFullscreen();
-    static bool IsFullscreen();
-
-    static double GetRunTime();     // seconds since window creation
-    static bool   ShouldQuit();
-    static void   SignalEndLoop();
-
-    static double GetFrameTime();              // last frame duration in seconds
-    static int    GetFPS(float milliseconds = 400.f);
-
-    static void HandleInput();
-    static void ToggleDebugMenu();
-
-    static void        TakeScreenshot(const std::string& filename = "");
-    static bool        HasPendingScreenshot();
-    static std::string GetAndClearPendingScreenshot();
-
-    // Receives raw text input (keyboard typing, IME, etc.)
-    static void SetTextInputCallback(std::function<void(const char*)> callback);
-
-    // SDL3 callback-mode only:
-    static void ProcessEvent(SDL_Event* event);
-};
-```
-
----
-
-## Renderer
-
-```cpp
-enum class BlendMode { Default, SrcAlpha, Additive, None };
-
-struct SpriteRenderTargetConfig {
-    BlendMode blendMode  = BlendMode::SrcAlpha;
-    bool      clearOnLoad    = true;
-    Color     clearColor     = BLACK;
-    bool      renderToScreen = false;
-};
-
-class Renderer {
-    static void InitRendering();
-    static void Close();
-
-    static SDL_GPUDevice* GetDevice();
-
-    static void StartFrame();
-    static void EndFrame();
-    static void Reset();
-
-    static void ClearBackground(Color color);
-
-    static void AddToRenderQueue(const std::string& passname,
-                                 const Renderable& renderable);
-
-    static void AddShaderPass(const std::string& passname,
-                              const ShaderAsset& vertShader,
-                              const ShaderAsset& fragShader,
-                              std::vector<std::string> targetBuffers = {});
-
-    static void RemoveShaderPass(const std::string& passname);
-
-    static void AttachRenderPassToFrameBuffer(RenderPass* renderPass,
-                                              const std::string& passname,
-                                              const std::string& fbName);
-
-    static UniformBuffer& GetUniformBuffer(const std::string& passname);
-
-    static void CreateFrameBuffer(const std::string& fbname);
-    static void SetFramebufferRenderToScreen(const std::string& fbName, bool render);
-    static FrameBuffer* GetFramebuffer(std::string fbname);
-
-    static uint32_t GetZIndex();  // auto-incrementing per-frame depth counter
-
-    static SDL_GPUSampler* GetSampler(ScaleMode scalemode);
-
-    static SDL_GPURenderPass* GetRenderPass(const std::string& passname);
-    static RenderPass*        FindRenderPass(const std::string& passname);
-
-    static void SetScissorMode(std::string passname, rectf cliprect);
-
-    static void OnResize();
-    static void UpdateCameraProjection();
-
-    static Texture     WhitePixel();
-    static Geometry2D* GetQuadGeometry();
-    static Geometry2D* GetCircleGeometry(int segments = 32);
-    static Geometry2D* GetRoundedRectGeometry(float cornerRadiusX,
-                                               float cornerRadiusY,
-                                               int cornerSegments = 8);
-
-    static SDL_GPUSampleCount GetSampleCount();
-    static void               SetSampleCount(SDL_GPUSampleCount sampleCount);
-
-    // Convenience: creates framebuffer + render pass in one call
-    static void CreateSpriteRenderTarget(const std::string& name,
-                                         const SpriteRenderTargetConfig& config = {});
-    static void RemoveSpriteRenderTarget(const std::string& name,
-                                          bool removeFramebuffer = true);
-};
-```
-
----
-
-## Draw
-
-```cpp
-struct Mode7Parameters {
-    int h, v;                      // scroll offsets
-    int x0, y0;                    // rotation/scale origin
-    int a, b, c, d;                // 2x2 transformation matrix elements
-    int snesScreenWidth  = 256;
-    int snesScreenHeight = 224;
-};
-
-class Draw {
-    // --- Pixels ---
-    static void Pixel(vi2d pos, Color color);
-
-    // FlushPixels submits all queued Pixel() calls. Called automatically by every
-    // other Draw method. Only needed if you want explicit control over layering
-    // (e.g. to interleave pixel draws between other draw calls).
-    static void FlushPixels();
-
-    // --- Lines ---
-    static void Line(vf2d start, vf2d end, Color color);
-    static void ThickLine(vf2d start, vf2d end, Color color, float width);
-
-    // --- Outlined shapes ---
-    static void Triangle(vf2d v1, vf2d v2, vf2d v3, Color color);
-    static void Rectangle(vf2d pos, vf2d size, Color color);
-    static void RectangleRounded(vf2d pos, vf2d size, float radius, Color color);
-    static void Circle(vf2d pos, float radius, Color color, int segments = 32);
-    static void Ellipse(vf2d center, float radiusX, float radiusY, Color color);
-    static void Arc(vf2d center, float radius,
-                    float startAngle, float endAngle,   // radians
-                    int segments, Color color);
-
-    // --- Filled shapes ---
-    static void TriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color);
-    static void RectangleFilled(vf2d pos, vf2d size, Color color);
-    static void RectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color color);
-    static void CircleFilled(vf2d pos, float radius, Color color);
-    static void EllipseFilled(vf2d center, float radiusX, float radiusY, Color color);
-    static void ArcFilled(vf2d center, float radius,
-                          float startAngle, float endAngle,  // radians
-                          int segments, Color color);
-
-    // --- Textures ---
-    static void Texture(Texture texture, vf2d pos, vf2d size, Color color = WHITE);
-
-    static void TexturePart(Texture texture, vf2d pos, vf2d size,
-                            rectf src, Color color = WHITE);
-
-    // pivot is in normalised texture space; {0.5, 0.5} = center
-    static void RotatedTexture(Texture texture, vf2d pos, vf2d size,
-                               float angle,                  // radians
-                               vf2d pivot = {0.5f, 0.5f},
-                               Color color = WHITE);
-
-    static void RotatedTexturePart(Texture texture, vf2d pos, vf2d size,
-                                   rectf src, float angle,   // radians
-                                   vf2d pivot, Color color = WHITE);
-
-    // Single affine Mode 7 transform across the whole texture
-    static void Mode7Texture(Texture texture, vf2d pos, vf2d size,
-                             const Mode7Parameters& params, Color color = WHITE);
-
-    // Per-scanline Mode 7 (callback receives scanline index, returns params)
-    // scanlineStep: process every Nth scanline (higher = better perf, fewer strips)
-    static void Mode7TextureScanline(Texture texture, vf2d pos, vf2d size,
-                                     std::function<Mode7Parameters(int)> getParamsForLine,
-                                     Color color = WHITE, int scanlineStep = 1);
-
-    // --- Scissor / render pass control ---
-    static void SetScissorMode(const rectf& area);
-
-    static void BeginMode2D();
-    static void EndMode2D();
-
-    static void        SetTargetRenderPass(const std::string& newTargetRenderPass);
-    static void        ResetTargetRenderPass();   // resets to "2dsprites"
-    static std::string GetTargetRenderPass();
-
-    // --- Effects (shader post-processing) ---
-
-    // SetEffect replaces the entire effect stack with a single effect
-    static void SetEffect(const EffectAsset& effect);
-
-    // AddEffect appends to the effect stack
-    static void AddEffect(const EffectAsset& effect);
-
-    static void RemoveEffect(const EffectAsset& effect);
-    static void ClearEffects();
-
-    // Bind an extra texture for the current effect (binding index matches shader layout)
-    static void SetEffectTexture(uint32_t binding, const TextureAsset& texture);
-    static void ClearEffectTextures();
-
-    // Internal — for use by the renderer:
-    static const std::vector<EffectAsset>& GetEffectStack();
-    static const std::unordered_map<uint32_t, SDL_GPUTexture*>& GetEffectTextures();
-    static const std::vector<std::vector<EffectAsset>>& GetEffectStore();
-    static void ResetEffectStore();
-    static void ReleaseFramePixelTextures();  // called automatically by Renderer::EndFrame
-};
-```
-
----
-
-## Text
-
-```cpp
-class Text {
-    // renderSize: pixels to render at. -1 = use the font's generated atlas size.
-    static void DrawText(Font font, const vf2d& pos,
-                         const std::string& textToDraw, Color color,
-                         float renderSize = -1.0f);
-
-    static void DrawWrappedText(Font font, vf2d pos,
-                                std::string textToDraw, float maxWidth,
-                                Color color, float renderSize = -1.0f);
-
-    static int   MeasureText(Font font, std::string text,
-                             float renderSize = -1.0f);        // returns width in pixels
-
-    static vf2d  GetRenderedTextSize(Font font, std::string text,
-                                     float renderSize = -1.0f);
-
-    static TextureAsset DrawTextToTexture(Font font, std::string textToDraw,
-                                          Color color);
-};
-```
-
----
-
-## Audio
-
-```cpp
-enum class AudioChannel : uint8_t {
-    Master,   // Engine master (not a mix group)
-    SFX,
-    Voice,
-    Music,
-    Count     // Sizing only — do not pass to API
-};
-
-// Callback signatures (audio thread — must be lock-free, no allocs/mutexes/I/O):
-using PCMGenerateCallback = void(*)(float* output,  uint32_t frameCount,
-                                    uint32_t channels, void* userData);
-using PCMEffectCallback   = void(*)(float* samples, uint32_t frameCount,
-                                    uint32_t channels, void* userData);
-
-struct PCMFormat {
-    uint32_t sampleRate = 48000;
-    uint32_t channels   = 2;
-};
-
-class Audio {
-    // --- Lifecycle ---
-    // SetNumberOfChannels must be called BEFORE Init()
-    static void SetNumberOfChannels(int newNumberOfChannels);
-    static void Init();
-    static void Close();
-    static void UpdateMusicStreams();   // call every frame
-
-    // --- Music (always routes through AudioChannel::Music) ---
-    static void PlayMusic(Music& music);
-    static void StopMusic();
-    static void RewindMusic(Music& music);
-    static void SetMusicVolume(Music& music, float volume);
-    static bool IsMusicPlaying();
-
-    // --- Sound effects ---
-    // Non-polyphonic: reuses the pre-loaded ma_sound
-    static void PlaySound(Sound sound,
-                          AudioChannel channel = AudioChannel::SFX);
-
-    // Polyphonic: volume 0.0–1.0, panning -1.0 (left) to 1.0 (right)
-    static void PlaySound(Sound sound, float volume, float panning,
-                          AudioChannel channel = AudioChannel::SFX);
-
-    // --- Channel control ---
-    static void  SetChannelVolume(AudioChannel channel, float volume);  // 0.0–1.0
-    static float GetChannelVolume(AudioChannel channel);
-
-    // No effect on Master channel
-    static void  SetChannelPanning(AudioChannel channel, float panning); // -1.0–1.0
-    static float GetChannelPanning(AudioChannel channel);                // always 0.0 for Master
-
-    static void MuteChannel(AudioChannel channel, bool muted);
-    static bool IsChannelMuted(AudioChannel channel);
-
-    // --- PCM generators ---
-    // userData lifetime is owned by the caller
-    static PCMSound CreatePCMGenerator(const PCMFormat& format,
-                                       PCMGenerateCallback callback,
-                                       void* userData = nullptr);
-    static void PlayPCMSound(PCMSound& sound,
-                             AudioChannel channel = AudioChannel::SFX);
-    static void StopPCMSound(PCMSound& sound);
-    static void DestroyPCMSound(PCMSound& sound);  // do not use sound after this
-
-    // --- Channel insert effects ---
-    // One effect per channel; calling again replaces the previous one.
-    // Master effect runs on the final mixed output before the device.
-    // userData lifetime is owned by the caller.
-    static void SetChannelEffect(AudioChannel channel,
-                                 PCMEffectCallback callback,
-                                 void* userData = nullptr);
-    static void RemoveChannelEffect(AudioChannel channel);
-
-    // --- Low-level access ---
-    static ma_engine*      GetAudioEngine();
-    static ma_sound_group* GetChannelGroup(AudioChannel channel); // nullptr for Master
-};
-```
-
----
-
-## AssetHandler
-
-```cpp
-enum class ScaleMode { NEAREST, LINEAR };
-
-class AssetHandler {
-    // --- Textures ---
-    static Texture     GetTexture(const char* fileName);
-    static void        LoadTexture(const char* fileName);
-    static TextureAsset LoadFromPixelData(const vf2d& size, void* pixelData,
-                                          std::string fileName);
-    static TextureAsset CreateEmptyTexture(const vf2d& size);
-    static void         SaveTextureAsPNG(Texture texture, const char* fileName);
-
-    static void      SetDefaultTextureScaleMode(ScaleMode mode);
-    static ScaleMode GetDefaultTextureScaleMode();
-
-    static std::unordered_map<std::string, TextureAsset> GetTextures();
-
-    // --- Fonts ---
-    // fontSize: size to generate MSDF atlas at (recommend 64–128 for quality)
-    static Font GetFont(const char* fileName, int fontSize);
-    static Font GetDefaultFont();   // built-in DroidSansMono
-
-    // --- Audio ---
-    static Sound  GetSound(const char* fileName);
-    static Music& GetMusic(const char* fileName);
-
-    // --- Shaders ---
-    static Shader GetShader(const char* fileName);
-
-    // --- Models ---
-    static ModelAsset CreateCube(float size = 1.0f,
-                                 CubeUVLayout layout = CubeUVLayout::Atlas4x4);
-
-    // --- Generic deletion ---
-    template<typename T>
-    static void Delete(T& asset);
-
-    static void Cleanup();   // called automatically on shutdown
-};
-```
-
----
-
-## Input
-
-```cpp
-// Key values: SDL scancodes/keycodes (e.g. SDLK_A, SDL_SCANCODE_LSHIFT)
-// Mouse button values: SDL_BUTTON_LEFT, SDL_BUTTON_RIGHT, SDL_BUTTON_MIDDLE, etc.
-
-class Input {
-    static void Init();
-    static void Update();
-    static void UpdateTimings();
-    static void Clear();
-
-    // --- Keyboard ---
-    static bool KeyPressed(int key);    // true on the frame the key goes down
-    static bool KeyReleased(int key);   // true on the frame the key comes up
-    static bool KeyDown(int key);       // true while key is held
-
-    // --- Mouse ---
-    static vf2d GetMousePosition();
-
-    static bool   MouseButtonPressed(int button);   // true on press frame
-    static bool   MouseButtonReleased(int button);  // true on release frame
-    static bool   MouseButtonDown(int button);      // true while held
-
-    static Uint32 MouseScrolledUp();    // non-zero on the frame of a scroll-up event
-    static Uint32 MouseScrolledDown();  // non-zero on the frame of a scroll-down event
-
-    // --- Gamepad ---
-    static float GetGamepadAxisMovement(int gamepadID, SDL_GamepadAxis axis);
-    static bool  GamepadButtonPressed(int gamepadID, int button);
-    static bool  GamepadButtonDown(int gamepadID, int button);
-
-    // --- Device management ---
-    static InputDevice*              GetController(int index);
-    static std::vector<InputDevice*> GetAllInputs();
-
-    static void AddGamepadDevice(SDL_JoystickID joystickID);
-    static void RemoveGamepadDevice(SDL_JoystickID joystickID);
-
-    // --- Touch / virtual controls ---
-    static VirtualControls& GetVirtualControls();
-    static void             HandleTouchEvent(const SDL_Event* event);
-
-    // --- Internal (handle with care) ---
-    static void UpdateInputs(std::vector<Uint8> keys, bool held);
-    static void UpdateScroll(int scrollDir);
-};
-```
-
----
-
-## InputDevice
-
-Represents a single physical controller (keyboard/mouse or gamepad).
-
-```cpp
-enum class InputType { GAMEPAD, MOUSE_KB };
-enum class Buttons   { LEFT, RIGHT, UP, DOWN, ACCEPT, BACK, SHOOT,
-                       SWITCH_NEXT, SWITCH_PREV, RUN };
-enum class Action    { HELD, PRESSED };
-
-class InputDevice {
-    InputDevice(InputType type);
-    InputDevice(InputType type, int gamepadID);
-
-    InputType getType();
-    int       getGamepadID() const;
-
-    // Returns true if button matches the action state this frame
-    bool is(Buttons button, Action action);
-
-    void updateTimings();
-};
-```
-
-### Default Keyboard/Mouse Mappings
-
-| Button        | Keys                                      |
-|---------------|-------------------------------------------|
-| LEFT          | A, Left Arrow                             |
-| RIGHT         | D, Right Arrow                            |
-| UP            | W, Up Arrow                               |
-| DOWN          | S, Down Arrow                             |
-| ACCEPT        | Space, KP Enter, Return                   |
-| BACK          | Escape, Backspace                         |
-| SWITCH_NEXT   | Tab                                       |
-| SWITCH_PREV   | Grave (`)                                 |
-| RUN           | Left Shift (scancode)                     |
-| SHOOT         | Left Shift (keycode) or Left Mouse Button |
-
-### Default Gamepad Mappings
-
-| Button        | Gamepad input                   |
-|---------------|---------------------------------|
-| ACCEPT        | South button (A/Cross)          |
-| BACK          | East button (B/Circle)          |
-| LEFT          | D-Pad Left or Left Stick X < 0  |
-| RIGHT         | D-Pad Right or Left Stick X > 0 |
-| UP            | D-Pad Up or Left Stick Y < 0    |
-| DOWN          | D-Pad Down or Left Stick Y > 0  |
-| SWITCH_NEXT   | Right Shoulder                  |
-| SWITCH_PREV   | Left Shoulder                   |
-| RUN           | Right Trigger axis              |
-
----
-
-## VirtualControls
-
-Accessed via `Input::GetVirtualControls()`.
-
-```cpp
-enum class JoystickMode { DISABLED, STATIC, RELATIVE };
-
-class VirtualControls {
-    // --- Lifecycle ---
-    void Update();
-    void HandleTouchEvent(const SDL_Event* event);
-    void Render();
-
-    // --- Enable/disable ---
-    void SetEnabled(bool enabled);
-    bool IsEnabled() const;
-
-    // --- Joystick ---
-    void        SetJoystickMode(JoystickMode mode);
-    JoystickMode GetJoystickMode() const;
-
-    // Offset from bottom-left corner (STATIC mode only)
-    void SetJoystickPosition(const vf2d& offset);
-    vf2d GetJoystickPosition() const;
-
-    void  SetJoystickRadius(float radius);
-    void  SetJoystickDeadZone(float deadZone);  // 0.0–1.0
-
-    void SetJoystickBaseTexture(TextureAsset* texture);    // nullptr = default
-    void SetJoystickStickTexture(TextureAsset* texture);   // nullptr = default
-
-    const JoystickState& GetJoystickState() const;
-    vf2d  GetJoystickDirection() const;   // normalised direction vector
-    float GetJoystickMagnitude() const;   // 0.0–1.0
-
-    // --- Buttons (index 0–3) ---
-    void SetButtonCount(int count);                              // 0–4
-    void SetButtonGroupOffset(const vf2d& offset);              // from bottom-right
-    vf2d GetButtonGroupOffset() const;
-    vf2d GetButtonAnchorOffset() const;
-    void SetButtonTexture(int buttonIndex, TextureAsset* texture); // nullptr = default
-
-    bool IsButtonPressed(int buttonIndex) const;       // held this frame
-    bool IsButtonJustPressed(int buttonIndex) const;   // went down this frame
-    bool IsButtonJustReleased(int buttonIndex) const;  // went up this frame
-
-    // --- ImGui debug (when LUMINOVEAU_WITH_IMGUI defined) ---
-    void RenderDebugWindow();
-    void ShowDebugWindow(bool show);
-    bool IsDebugWindowVisible() const;
-};
-```
-
----
-
-## EventBus
-
-```cpp
-using EventData         = std::unordered_map<std::string, std::variant<int, float, std::string>>;
-using EventCallback     = std::function<void()>;
-using EventCallbackData = std::function<void(EventData)>;
-
-enum class SystemEvent {
-    GAMEPAD_CONNECTED,
-    GAMEPAD_DISCONNECTED,
-    WINDOW_RESIZE,
-    WINDOW_FULLSCREEN,
-};
-
-class EventBus {
-    // --- Custom events ---
-    static void Register(std::string eventName, EventCallback callback);
-    static void Register(std::string eventName, EventCallbackData callback);
-
-    static void Fire(std::string eventName);
-    static void Fire(std::string eventName, EventData eventData);
-
-    // --- System events ---
-    static void Register(SystemEvent eventName, EventCallbackData callback);
-    static void Fire(SystemEvent eventName, EventData eventData);
-};
-```
-
----
-
-## State
-
-```cpp
-class BaseState {
-    virtual void load()   = 0;
-    virtual void unload() = 0;
-    virtual void draw()   = 0;
-};
-
-class State {
-    static void AddState(std::string stateName, BaseState* state);
-    static void Init(std::string stateName);   // sets the initial active state
-    static void SetState(std::string newState);
-    static void Load();
-    static void Unload();
-    static void Draw();
-};
-```
-
----
-
-## Camera (2D)
-
-```cpp
-class Camera {
-    static void  Activate();
-    static void  Deactivate();
-    static bool  IsActive();
-
-    // SetTarget throws std::logic_error if the camera is locked
-    static void  SetTarget(const vf2d& newTarget);
-    static vf2d  GetTarget();
-
-    static void  SetScale(float newScale);
-    static float GetScale();
-
-    // Lock captures current Target/Scale; unlocks re-enable movement
-    static void Lock();
-    static void Unlock();
-    static bool IsLocked();
-    static bool HasMoved();
-
-    // Coordinate conversion
-    static vf2d ToScreenSpace(const vf2d& worldSpace);
-    static vf2d ToWorldSpace(const vf2d& screenSpace);
-};
-```
-
----
-
-## Camera3D
-
-POD struct, not a singleton.
-
-```cpp
-struct Camera3D {
-    vf3d  position  = {0.f, 0.f, 5.f};
-    vf3d  target    = {0.f, 0.f, 0.f};
-    vf3d  up        = {0.f, 1.f, 0.f};
-    float fov       = 60.f;   // degrees
-    float nearPlane = 0.1f;
-    float farPlane  = 100.f;
-
-    glm::mat4 GetViewMatrix() const;
-    glm::mat4 GetProjectionMatrix(float aspectRatio) const;
-    glm::mat4 GetViewProjectionMatrix(float aspectRatio) const;
-};
-```
-
----
-
-## Scene (3D)
-
-```cpp
-enum class LightType { Point, Directional, Spot };
-
-struct Light {
-    LightType type        = LightType::Point;
-    vf3d      position    = {0, 0, 0};
-    vf3d      direction   = {0, -1, 0};
-    Color     color       = WHITE;
-    float     intensity   = 1.f;
-    float     constant    = 1.f;
-    float     linear      = 0.09f;
-    float     quadratic   = 0.032f;
-    float     cutoffAngle      = 12.5f;   // spot inner cone (degrees)
-    float     outerCutoffAngle = 17.5f;   // spot outer cone (degrees)
-};
-
-struct ModelInstance {
-    ModelAsset* model    = nullptr;
-    vf3d        position = {0, 0, 0};
-    vf3d        rotation = {0, 0, 0};  // Euler angles in degrees (Z, Y, X applied order)
-    vf3d        scale    = {1, 1, 1};
-    Color       tint     = WHITE;
-    TextureAsset textureOverride;        // overrides model default if set
-
-    glm::mat4 GetModelMatrix() const;
-};
-
-class Scene {
-    // --- Scene management ---
-    static void        New(const std::string& name);
-    static void        Switch(const std::string& name);
-    static std::string GetCurrentSceneName();
-    static void        Delete(const std::string& name);  // cannot delete default scene
-
-    // --- Camera ---
-    static void      SetCamera(vf3d position, vf3d target);
-    static void      SetCameraFOV(float fov);            // degrees
-    static void      SetCameraClipPlanes(float nearPlane, float farPlane);
-    static Camera3D& GetCamera();
-
-    // --- Models ---
-    static ModelInstance& AddModel(ModelAsset* model,
-                                   vf3d position = {0,0,0},
-                                   vf3d rotation = {0,0,0},
-                                   vf3d scale    = {1,1,1});
-    static std::vector<ModelInstance>& GetModels();
-    static void ClearModels();
-
-    // --- Lights ---
-    static Light& AddPointLight(const Light& light);
-    static Light& AddPointLight(vf3d position,
-                                Color color = WHITE, float intensity = 1.f);
-
-    static Light& AddDirectionalLight(const Light& light);
-    static Light& AddDirectionalLight(vf3d direction,
-                                      Color color = WHITE, float intensity = 1.f);
-
-    static Light& AddSpotLight(const Light& light);
-
-    static std::vector<Light>& GetLights();
-    static void ClearLights();
-
-    static void  SetAmbientLight(Color color);
-    static Color GetAmbientLight();
-
-    // --- Combined clear ---
-    static void Clear();
-};
-```
-
----
-
-## ModelAsset
-
-```cpp
-struct ModelAsset {
-    std::vector<Vertex3D> vertices;
-    std::vector<uint32_t> indices;
-    TextureAsset          texture;    // defaults to white pixel
-    const char*           name = nullptr;
-
-    // GPU buffers (managed internally):
-    SDL_GPUBuffer*         vertexBuffer;
-    SDL_GPUBuffer*         indexBuffer;
-    SDL_GPUTransferBuffer* vertexTransferBuffer;
-    SDL_GPUTransferBuffer* indexTransferBuffer;
-
-    size_t GetVertexCount() const;
-    size_t GetIndexCount() const;
-
-    // Only valid for cubes (24 vertices = 6 faces x 4 vertices)
-    void SetCubeFaceUVs(CubeFace face, const FaceUV& uvs);
-
-    void release(SDL_GPUDevice* device);
-};
-
-enum class CubeFace { Front, Back, Top, Bottom, Right, Left };
-enum class CubeUVLayout { SingleTexture, Atlas4x4, Atlas3x2, Skybox, Custom };
-
-struct FaceUV {
-    float uMin, vMin, uMax, vMax;
-    FaceUV(float u0 = 0.f, float v0 = 0.f, float u1 = 1.f, float v1 = 1.f);
-};
-```
-
----
-
-## Settings
-
-```cpp
-class Settings {
-    static void Init();
-    static void saveSettings();
-
-    static void setRes(int width, int height);
-    static void ToggleFullscreen();
-    static void toggleVsync();
-    static bool getVsync();
-
-    static std::vector<std::pair<int,int>> resolutions();
-
-    static int getMonitorRefreshRate();
-
-    static void  setMasterVolume(float volume);   // 0.0–1.0
-    static float getMasterVolume();
-
-    static void  setMusicVolume(float volume);
-    static float getMusicVolume();
-
-    static void  setSoundVolume(float volume);
-    static float getSoundVolume();
-};
-```
-
----
-
-## EffectHandler / Effects
-
-```cpp
-class EffectHandler {
-    // Creates a new EffectAsset with its own uniform buffer, populated from
-    // shader reflection data. Each call returns an independent instance.
-    static EffectAsset Create(const ShaderAsset& vertShader,
-                              const ShaderAsset& fragShader);
-};
-
-// Convenience namespace alias:
-namespace Effects {
-    EffectAsset Create(const ShaderAsset& vertShader,
-                       const ShaderAsset& fragShader);
+#include "luminoveau.h"
+#include "MyMenu.h"
+
+static MyMenu* menu = nullptr;
+
+Lumi::Result AppInit(int /*argc*/, char* /*argv*/[]) {
+    Window::InitWindow("My Game", 1280, 720, /*scale=*/1, SDL_WINDOW_RESIZABLE);
+    menu = new MyMenu();
+    menu->Init();
+    return Lumi::Result::Continue;
+}
+
+Lumi::Result AppIterate(void* /*appstate*/) {
+    // Optional global hotkeys
+    if (Input::KeyDown(SDLK_RALT) && Input::KeyPressed(SDLK_RETURN)) Window::ToggleFullscreen();
+    if (Input::KeyDown(SDLK_LALT) && Input::KeyPressed(SDLK_F12))   Window::TakeScreenshot();
+
+    menu->Update((float)Window::GetFrameTime());
+
+    Window::StartFrame();      // begins the engine frame
+    menu->Render();
+    Window::EndFrame();        // submits + presents
+    return Lumi::Result::Continue;
+}
+
+Lumi::Result AppEvent(void* /*appstate*/, SDL_Event* /*event*/) {
+    // Engine already routed the event through Window::ProcessEvent → ImGui / RmlUI / Input.
+    return Lumi::Result::Continue;
+}
+
+void AppQuit(void* /*appstate*/, Lumi::Result /*result*/) {
+    delete menu;
+    Window::Close();
 }
 ```
 
-### EffectAsset
+`Lumi::Result::Continue` keeps the loop running; `Stop` exits cleanly.
+
+---
+
+## 3. The frame
+
+```
+AppIterate
+  ├─ Update (you call this — pass GetFrameTime as dt)
+  ├─ Window::StartFrame
+  │   ├─ Window::HandleInput       (processes buffered events, updates Input)
+  │   ├─ _lastFrameTime updated    (real wall-clock delta)
+  │   └─ Renderer::StartFrame
+  │       └─ acquireSwapchainTexture (may return null → frame skipped)
+  ├─ menu->Render                  (queue Draw::* / Particles::QueueDraw)
+  └─ Window::EndFrame
+      └─ Renderer::EndFrame
+          ├─ runPasses(preComputeFlush = true)   (scene-into-RT passes)
+          ├─ Compute::dispatchAll                (particle physics, SDF, etc.)
+          ├─ runPasses(rest)                      (everything else)
+          ├─ renderFrameBuffer                    (primary FB → swapchain blit)
+          ├─ ImGui / RmlUI overlay
+          ├─ submitCommandBuffer + presentSwapchain
+          └─ EngineState::_presentCount++
+```
+
+Key invariants:
+
+- **Primary framebuffer is desktop-sized.** Resizing the window does **not** recreate textures. Render passes write to the window's physical-pixel region; the blit samples just that region.
+- **Logical coords are the canvas size** (`Window::GetWidth/Height`). Mouse, draw positions, etc. all use logical coords.
+- **`Window::GetFrameTime()` is the inter-StartFrame delta** in seconds. Use for variable-step integration.
+- **`Window::GetFPS(ms)` averages present count** over the given window (ms). Decoupled from `GetFrameTime` so it stays accurate even if `AppIterate` spins faster than vsync on native SDL builds.
+
+---
+
+## 4. Window
 
 ```cpp
-struct EffectAsset {
-    ShaderAsset                     vertShader;
-    ShaderAsset                     fragShader;
-    std::shared_ptr<UniformBuffer>  uniforms;
+Window::InitWindow(title, w, h, scale = 1, flags = SDL_WINDOW_RESIZABLE);
+Window::SetTitle(string);
+Window::SetIcon(physfs_path);
+Window::SetCursor(physfs_path);
 
-    // Set a uniform variable by name (must match the shader):
-    effect["myFloat"] = 0.5f;
-    effect["myVec2"]  = glm::vec2{1.f, 0.f};
-};
+Window::GetWidth() / GetHeight();                  // logical (canvas) pixels
+Window::GetPhysicalWidth() / GetPhysicalHeight();  // physical canvas pixels
+Window::GetSize();                                 // vf2d logical
+Window::GetDisplayBounds(outW, outH);              // monitor size
+Window::GetScale();                                // user-set logical→physical
+Window::GetDisplayScale();                         // OS DPI scale
+
+Window::ToggleFullscreen();
+Window::IsFullscreen();
+Window::SetSize(w, h);                             // logical
+Window::SetScaledSize(w, h, scale);
+
+Window::TakeScreenshot(filename = "");             // PNG, defers to end of frame
+Window::ToggleDebugMenu();                         // ImGui debug overlay
+```
+
+### WebGPU scaling mode
+
+Default is `WebGpuScaleMode::Native` — the swapchain matches the canvas's actual pixel buffer. Switch only if you want a fixed render resolution that gets stretched:
+
+```cpp
+Window::SetWebGpuScaling(WebGpuScaleMode::Contain, 1280, 720);
+// or Fill, Stretch, Native
 ```
 
 ---
 
-## Shaders
+## 5. Input
+
+Polled state. All coordinates are logical-pixel.
 
 ```cpp
-class Shaders {
-    static void Init();
-    static void Quit();
+Input::Init();                       // called from Window::InitWindow
 
-    static PhysFSFileData   GetShader(const std::string& filename);
-    static ShaderMetadata   GetShaderMetadata(const std::string& filename);
-    static SDL_GPUShaderFormat GetShaderFormat(const std::string& filename);
+// Keyboard
+Input::KeyDown(SDLK_W);              // held this frame
+Input::KeyPressed(SDLK_SPACE);       // edge: down this frame, up last
+Input::KeyReleased(SDLK_ESCAPE);
 
-    static SDL_GPUShader* CreateGPUShader(SDL_GPUDevice* device,
-                                           const std::string& filename,
-                                           SDL_GPUShaderStage stage);
+// Mouse
+Input::GetMousePosition();           // vf2d in logical coords
+Input::MouseButtonDown(SDL_BUTTON_LEFT);
+Input::MouseButtonPressed(SDL_BUTTON_RIGHT);
+Input::MouseButtonReleased(SDL_BUTTON_MIDDLE);
+Input::GetScroll();                  // accumulated wheel delta this frame
 
-    static ShaderAsset CreateShaderAsset(SDL_GPUDevice* device,
-                                          const std::string& filename,
-                                          SDL_GPUShaderStage stage);
-};
+// Gamepad (auto-tracked when controllers plug in)
+Input::GamepadButtonDown(deviceIdx, SDL_GAMEPAD_BUTTON_SOUTH);
+Input::GamepadAxis(deviceIdx, SDL_GAMEPAD_AXIS_LEFTX);   // -1..+1 (deadzoned)
+
+// Touch (auto-translated from finger events)
+Input::HasTouchInput();
+Input::GetTouchPoints();             // vector<vf2d>
+
+// Text input
+Window::SetTextInputCallback([](const char* utf8){ ... });
+Window::StartTextInput();
+Window::StopTextInput();
 ```
+
+Virtual controls (logical actions like `"Jump"`) live in `VirtualControls` — see `src/platform/input/virtualcontrols.h` for the binding/serialization API.
 
 ---
 
-## FileHandler
+## 6. State machine pattern
+
+The recommended structure is a `BaseState` per game screen + a `MenuManager`-style switcher. Each screen implements `init / update / render / close`.
 
 ```cpp
-class FileHandler {
-    // --- Configuration (call before reading assets) ---
-    static void SetOrganizationName(const std::string& name);
-    static void SetApplicationName(const std::string& name);
-
-    // --- Paths ---
-    static std::string GetWritableDirectory();   // trailing slash
-    static std::string GetSystemDirectory();     // GetWritable() + "LumiSystem/"
-    static std::string GetBaseDirectory();       // executable directory
-
-    // --- PhysFS (asset loading) ---
-    static bool          InitPhysFS();
-    static PhysFSFileData ReadFile(const std::string& filename);
-    static PhysFSFileData GetFileFromPhysFS(const std::string& filename); // alias
-
-    // --- File reading ---
-    static std::string         ReadTextFile(const std::string& filepath);
-    static std::vector<uint8_t> ReadBinaryFile(const std::string& filepath);
-
-    // --- File writing ---
-    static bool WriteFile(const std::string& filepath,
-                          const void* data, size_t size);
-    static bool WriteTextFile(const std::string& filepath,
-                              const std::string& text);
-
-    // --- Queries ---
-    static bool   FileExists(const std::string& filepath);
-    static bool   DirectoryExists(const std::string& dirpath);
-    static size_t GetFileSize(const std::string& filepath);
-
-    // --- Deletion ---
-    static bool DeleteFile(const std::string& filepath);
-    static bool DeleteDirectory(const std::string& dirpath);
-    static bool ClearSystemDirectory();
-    static bool DeleteShaderCache();   // deletes LumiSystem/shader.cache
-    static bool ClearLogs();           // deletes all .log files in LumiSystem/
+class TestBase {
+public:
+    rectf renderArea;                          // engine fills this for you
+    virtual ~TestBase() = default;
+    virtual bool init() = 0;
+    virtual void update(float dt) = 0;
+    virtual void render() = 0;
+    virtual void close() = 0;
+    virtual std::string getTitleInfo() { return {}; }
 };
 ```
+
+Wire your states into the menu (or your own switcher). Examples live in `E:\lumifps\src\` (LightToy, SpriteCountTest, Test3D, EffectTest).
 
 ---
 
-## Lerp
+## 7. Assets
+
+`AssetHandler` is a singleton cache. Asset getters are idempotent — the second call returns the same handle.
 
 ```cpp
-struct LerpAnimator {
-    const char* name;
-    float time;
-    float startValue;
-    float change;
-    float duration;
-    bool  started;
-    bool  canDelete;
-    bool  shouldDelete;
+TextureAsset       tex      = AssetHandler::GetTexture("sprites/player.png");
+SoundAsset         shoot    = AssetHandler::GetSound("sfx/laser.wav");
+MusicAsset         track    = AssetHandler::GetMusic("music/level1.ogg");
+FontAsset          font16   = AssetHandler::GetFont("fonts/main.ttf", 16);    // MSDF
+ShaderAsset        vert     = AssetHandler::GetShader("shaders/post.vert", SDL_GPU_SHADERSTAGE_VERTEX);
+ShaderAsset        frag     = AssetHandler::GetShader("shaders/post.frag", SDL_GPU_SHADERSTAGE_FRAGMENT);
+ComputePipelineAsset comp   = AssetHandler::GetComputePipeline("shaders/sim.comp");
+ModelAsset*        cube     = AssetHandler::LoadModel("models/cube.gltf");
 
-    // Easing callback: signature matches all EaseXxx functions in easings.h
-    std::function<float(float time, float startValue, float change, float duration)> callback;
+// Asset construction helpers
+TextureAsset empty = AssetHandler::CreateEmptyTexture({ 256, 256 });
+TextureAsset hdr   = AssetHandler::CreateEmptyTexture({ 256, 256 }, GpuTextureFormat::R16G16B16A16_Float);
+TextureAsset white = AssetHandler::CreateWhitePixel();
 
-    bool  isFinished() const;
-    float getValue();        // clamped to [startValue, startValue+change]
-};
-
-class Lerp {
-    // Get or create a lerp by name. Creates on first call; returns existing on subsequent calls.
-    static LerpAnimator* getLerp(const char* name,
-                                  float startValue, float change, float duration);
-
-    // Get an existing lerp by name (returns nullptr if not found)
-    static LerpAnimator* getLerp(const char* name);
-
-    static void resetTime(const char* name);
-    static void updateLerps();   // call every frame
-};
+AssetHandler::Cleanup();   // called by Window::Close
 ```
+
+Built-in default font: `AssetHandler::GetDefaultFont()` returns a Droid Sans Mono MSDF atlas baked into the binary; no asset file needed.
+
+### Filesystem rules
+
+- Read paths route through PhysFS (search path = `assets/` next to the exe plus any mounted `.zip`/`.pak`).
+- Writes use `FileHandler::GetWritableDirectory()` (OS user data) or `GetSystemDirectory()` (engine internal — shader/font cache).
+- For browser-persistent caches use the persistent storage API:
+  ```cpp
+  FileHandler::InitPersistentStorage();
+  std::string path = FileHandler::GetPersistentStorageDirectory() + "save.dat";
+  FileHandler::WriteFile(path, blob.data(), blob.size());
+  FileHandler::FlushPersistentStorage();   // pushes MEMFS → IndexedDB on web
+  ```
 
 ---
 
-## Easing Functions
+## 8. Drawing — the high-level `Draw` API
 
-All have the signature `float EaseXxx(float t, float b, float c, float d)`:
+Issue draws inside your `render()` (between `StartFrame` and `EndFrame`). The target framebuffer defaults to the primary FB's sprite pass.
 
-- `t` — current time (any unit, same as `d`)
-- `b` — starting value
-- `c` — total change (end value = `b + c`)
-- `d` — total duration
+```cpp
+// Textures
+Draw::Texture(textureAsset.textureView, pos, size);      // textureView is a Texture struct
+Draw::Texture(tex, x, y);                                // size from tex.width/height
+Draw::Sprite(tex, x, y, srcRect, scale, rotation, color);
 
+// Primitives
+Draw::Rectangle({100, 100}, {200, 50}, WHITE);           // outline
+Draw::RectangleFilled({100, 100}, {200, 50}, RED);
+Draw::Circle({400, 300}, 60.0f, GREEN);
+Draw::CircleFilled({400, 300}, 60.0f, BLUE);
+Draw::Line({0,0}, {800, 600}, YELLOW);
+Draw::RoundedRectangle(pos, size, cornerRadius, color);
+
+// Z-ordering
+Draw::SetZIndex(10);   // higher = drawn later
+int z = Draw::GetZIndex();
+
+// Choosing a target render pass (any custom RT or "uiLayer", etc.)
+Draw::SetTargetRenderPass("uiLayer");
+Draw::Rectangle(...);
+Draw::ResetTargetRenderPass();
 ```
-EaseLinearNone / EaseLinearIn / EaseLinearOut / EaseLinearInOut
-EaseSineIn / EaseSineOut / EaseSineInOut
-EaseCircIn / EaseCircOut / EaseCircInOut
-EaseCubicIn / EaseCubicOut / EaseCubicInOut
-EaseQuadIn / EaseQuadOut / EaseQuadInOut
-EaseExpoIn / EaseExpoOut / EaseExpoInOut
-EaseBackIn / EaseBackOut / EaseBackInOut
-EaseBounceIn / EaseBounceOut / EaseBounceInOut
-EaseElasticIn / EaseElasticOut / EaseElasticInOut
-```
+
+Colors are 0–255 RGBA — predefined names live in `src/config.h` (`WHITE`, `RED`, `SKYBLUE`, …). Construct your own with `Color{r, g, b, a}`.
 
 ---
 
-## UniformBuffer
-
-Used by `EffectAsset` and render passes.
+## 9. Text
 
 ```cpp
-class UniformBuffer {
-    void addVariable(const std::string& name, size_t typeSize, size_t offset);
-    void setAlignment(size_t newAlignment);
+Text::DrawText(font, {x, y}, "Hello world", WHITE);
+Text::DrawText(font, pos, str, color, /*renderSize=*/24.0f);
 
-    template<typename T>
-    void setVariable(const std::string& name, const T& value);
+Text::DrawWrappedText(font, {x, y}, longString, /*maxWidth=*/300.0f, WHITE);
 
-    template<typename T>
-    T getVariable(const std::string& name) const;
+vf2d size  = Text::GetRenderedTextSize(font, "abc", 16.0f);
+int  width = Text::MeasureText(font, "abc", 16.0f);
 
-    const void* getBufferPointer() const;
-    size_t      getBufferSize() const;
-
-    // Proxy-based assignment:
-    buffer["variableName"] = someValue;
-};
+// Draw text into a one-off texture for re-use
+TextureAsset textTex = Text::DrawTextToTexture(font, "Static label", WHITE);
 ```
+
+Fonts are MSDF (multi-channel signed distance field) — bring any TTF, the engine generates the atlas on first load and caches it.
 
 ---
 
-## ResourcePack
+## 10. Effects (sprite post-processing)
+
+Effects are vert+frag shader pairs applied as ping-pong passes between sprite drawing and final composite. Stack multiple to chain them.
 
 ```cpp
-class ResourcePack {
-    ResourcePack(std::string sFile, std::string sKey);
+EffectAsset glow    = Draw::CreateEffect("shaders/effect_glow.vert",    "shaders/effect_glow.frag");
+EffectAsset outline = Draw::CreateEffect("shaders/effect_outline.vert", "shaders/effect_outline.frag");
 
-    bool AddFile(const std::string& sFile);
-    bool AddFile(const std::string& sFile, std::vector<unsigned char> bytes);
-    bool HasFile(const std::string& sFile);
-    bool LoadPack();
-    bool SavePack();
-    ResourceBuffer GetFileBuffer(const std::string& sFile);
-    bool Loaded();
-};
+// Single effect on one sprite
+Draw::SetEffect(glow);
+Draw::Texture(playerTex, pos, size);
+Draw::ClearEffects();
+
+// Chain — applied in the order they're added
+Draw::SetEffect(outline);
+Draw::AddEffect(glow);
+Draw::Texture(enemyTex, pos, size);
+Draw::ClearEffects();
+
+// Effect with custom uniforms (variable name must match the GLSL uniform block field)
+glow.uniforms->Set("u_intensity", 2.5f);
+glow.uniforms->Set("u_color", glm::vec4{1, 0.5f, 0, 1});
+
+// Extra sampler textures (sampler binding indices > 0)
+Draw::SetEffectTexture(/*binding=*/1, normalMapTex.gpuTexture, ScaleMode::Linear);
 ```
+
+Effect fragment shaders sample the previous result via `sampler2D s_input` (binding 0) and any extras via additional samplers.
 
 ---
 
-## BufferManager
+## 11. Particles
+
+GPU-driven particle systems with built-in physics compute. Configure once, update each frame, draw via the engine's particle render pass.
 
 ```cpp
-class BufferManager {
-    template<typename T>
-    static Buffer<T>* Create(const std::string& name, size_t capacity,
-                              BufferType type = BufferType::CPU);
+// Init (typically in AppInit, after Renderer::InitRendering)
+Particles::Init();
 
-    static void   ResetAll();
-    static void   DestroyAll();
-    static size_t TotalBytesUsed();
-    static size_t TotalBytesAllocated();
-    static size_t BufferCount();
-    static const std::vector<std::unique_ptr<BufferBase>>& GetBuffers();
-};
+// Define a system
+ParticleSystemConfig fire{};
+fire.maxParticles    = 5000;
+fire.spawnPos        = { 400, 300, 0, /*radius=*/8.0f };
+fire.spawnVel        = { 0, -120, 0, /*magnitude=*/40.0f };
+fire.gravityAndDrag  = { 0, -50, 0, /*drag=*/0.5f };
+fire.lifetimeMin     = 0.5f;
+fire.lifetimeMax     = 1.8f;
+fire.emitRate        = 500.0f;
+fire.sizeStartMin    = 8.0f; fire.sizeStartMax = 14.0f;
+fire.sizeEndMin      = 0.0f; fire.sizeEndMax   = 2.0f;
+fire.colors[0] = {1.0f, 0.9f, 0.3f, 1.0f};   // start
+fire.colors[3] = {0.5f, 0.0f, 0.0f, 0.0f};   // end
+fire.colorPositions = {0.0f, 0.4f, 0.7f, 1.0f};
+fire.flags = ParticleSystemFlags::Emitting;
 
-template<typename T>
-class Buffer : public BufferBase {
-    T*     Add();             // default-constructs a new item in-place
-    T*     Add(const T& item);
+ParticleSystemHandle h = Particles::CreateSystem(fire);
 
-    T&     operator[](size_t i);
-    T*     Data();
-    size_t Count() const;
-    size_t Capacity() const;
-    size_t BytesUsed() const;
-    size_t BytesAllocated() const;
-    size_t HighWatermark() const;
+// Per frame
+Particles::Update(Window::GetFrameTime());       // accumulate dt (safe to call many times)
+Particles::QueueDraw(h);                          // OR: Draw::Particles(h)
 
-    void Reset();    // resets count; destroys non-trivial items
-    void Release();  // frees memory
-};
+// Optional 2D colliders (planes and circles)
+Particles::SetColliders({
+    { ColliderKind::Plane,  /*normal+offset*/{0, 1, 100, 0}, /*restitution=*/0.5f, /*friction=*/0.1f },
+    { ColliderKind::Circle, /*center+radius*/{200, 400, 32, 0}, 0.8f, 0.05f },
+});
+
+// Preset workflow (export from the in-engine particle editor)
+ParticleSystemHandle p = Particles::CreateSystemFromPreset(base64String, /*maxParticles=*/3000);
+
+// Shutdown
+Particles::Quit();   // before Renderer::Close (Window::Close handles this)
 ```
+
+Particle limits in `src/config.h`: `LUMINOVEAU_MAX_PARTICLES` (50M native, 1.5M web). The renderer can also be in `Particles::PovMode` for shrink-on-distance camera-space rendering.
 
 ---
 
-## Log (Macros)
+## 12. Compute dispatches
 
-Use the macros — do not call the implementation methods directly.
+For your own compute work — postprocess, sims, etc.
 
 ```cpp
-LOG_DEBUG("message {}", value);     // verbose debug info
-LOG_INFO("message {}", value);      // general info
-LOG_WARNING("message {}", value);   // non-critical warning
-LOG_ERROR("message {}", value);     // logs then throws std::runtime_error
-LOG_CRITICAL("message {}", value);  // logs, flushes, then calls std::exit(EXIT_FAILURE)
+auto pipe = AssetHandler::GetComputePipeline("shaders/blur.comp");
+
+Compute::SetPipeline(pipe);
+Compute::BindReadTexture(0, srcTex);
+Compute::BindReadWriteTexture(0, dstTex);
+Compute::BindReadBuffer(0, paramsBuf);
+Compute::BindReadWriteBuffer(0, scratchBuf);
+
+struct Uniforms { uint32_t w, h; float strength; uint32_t pad; } u { width, height, 1.5f, 0 };
+Compute::PushUniform(0, &u, sizeof(u));
+
+Compute::DispatchAuto(width, height, 1);    // rounds to workgroup size from reflection
 ```
 
-Format strings use `{fmt}` style.
+Dispatches are deferred to `_PrepareFrame` inside `Renderer::EndFrame` so the engine always builds them at frame boundaries (avoids SDL_AppIterate spinning issues).
 
 ---
 
-## QuadTree
+## 13. 3D models + scenes
 
 ```cpp
-struct QuadTree::qtPoint {
-    float x, y;
-    void* entity = nullptr;
-};
+ModelAsset* cube = AssetHandler::LoadModel("models/cube.gltf");
 
-struct QuadTree::AABB {
-    float _left, _top, _width, _height;
-    float getLeft(); float getRight();
-    float getTop();  float getBottom();
-    bool containsPoint(const qtPoint& point);
-    bool intersectsAABB(const AABB& other);
-    rectf getRectangle();
-    AABB(float left, float top, float width, float height);
-};
+ModelInstance instance;
+instance.model     = cube;
+instance.position  = {0, 0, 0};
+instance.rotation  = {0, 0, 0};
+instance.scale     = {1, 1, 1};
+Scene::AddModel(cube, instance);
 
-struct QuadTree::AABBCircle {
-    float _x, _y, _r;
-    bool containsPoint(const qtPoint& point);
-    bool intersectsAABB(const AABB& range);
-    AABBCircle(float x, float y, float r);
-};
+// Camera
+Camera3D cam;
+cam.position = {3, 2, 5};
+cam.target   = {0, 0, 0};
+cam.fov      = 60.0f;
+Scene::SetCamera(cam);
 
-class QuadTree {
-    QuadTree(rectf boundary);
-
-    bool insert(const qtPoint& point);
-    void subdivide();
-
-    void query(AABB range,       std::vector<void*>* found);
-    void query(AABBCircle range, std::vector<void*>* found);
-
-    void reset();   // clears points and deletes child nodes (frees memory)
-
-    void draw(Color col);
-    void draw(int x, int y, Color col);
-    void draw();    // draws in white
-};
+// Lights
+Light sun;
+sun.type       = LightType::Directional;
+sun.direction  = {-0.3f, -1.0f, -0.2f};
+sun.color      = {1.0f, 0.95f, 0.85f};
+sun.intensity  = 1.0f;
+Scene::AddLight(sun);
 ```
+
+`Model3DRenderPass` is attached to the primary FB by default and renders everything in `Scene::GetModels()`. Edit `models[i].rotation.y += dt * speed` from your `update()` to spin things.
 
 ---
 
-## Helpers
+## 14. Custom render targets
+
+Use for postprocessing, mini-maps, light buffers — anything you want to render off-screen and either sample later or composite onto the swapchain.
 
 ```cpp
-class Helpers {
-    static int   clamp(int input, int min, int max);
-    static float mapValues(float x, float in_min, float in_max,
-                           float out_min, float out_max);
+// Render-to-screen UI layer at logical-window size
+Renderer::CreateFrameBuffer("uiLayer");                  // size defaults to display bounds
+Renderer::SetFramebufferRenderToScreen("uiLayer", true); // composite at present time
 
-    static bool  randomChance(float required);     // required: 0.0–1.0
-    static int   GetRandomValue(int min, int max);
+auto* uiPass = new SpriteRenderPass();
+uiPass->UpdateRenderPassBlendState(GpuPresets::AlphaBlendPreserveAlpha);
+uiPass->init(Renderer::GetGpu().getSwapchainFormat(),
+             Window::GetWidth(), Window::GetHeight(), "uiLayer");
+uiPass->color_target_info_loadop = GpuLoadOp::Clear;
+Renderer::AttachRenderPassToFrameBuffer(uiPass, "uiLayer", "uiLayer");
 
-    static bool  lineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, rectf rect);
-    static std::vector<std::pair<vf2d, vf2d>> getLinesFromRectangle(rectf rect);
+// Offscreen RT for postprocessing (fixed-size, sampled later)
+SpriteRenderTargetConfig cfg;
+cfg.width  = 1280; cfg.height = 720;
+cfg.format = GpuTextureFormat::R16G16B16A16_Float;       // HDR
+cfg.clearOnLoad     = true;
+cfg.clearColor      = {0, 0, 0, 0};
+cfg.blendMode       = BlendMode::None;
+cfg.preComputeFlush = true;                              // fires BEFORE compute (lets compute read it)
+Renderer::CreateSpriteRenderTarget("scene", cfg);
 
-    // printf-style formatting into a rotating buffer (4 slots, max 1024 chars each)
-    static const char* TextFormat(const char* text, ...);
+// During render
+Draw::SetTargetRenderPass("scene");
+Draw::Texture(...);
+Draw::ResetTargetRenderPass();
 
-    static std::string Slugify(std::string input);
-    static uint64_t    GetTotalSystemMemory();
-    static time_t      GetFileModificationTime(const std::string& filepath);
+// Sample the RT later
+TextureAsset sceneView = Renderer::GetFramebuffer("scene_framebuffer")->textureView;
+Draw::Texture(sceneView, {0, 0}, {1280, 720});
 
-    static void DrawMainMenu();         // internal debug menu
-
-    // ImGui panel visibility flags (when LUMINOVEAU_WITH_IMGUI defined):
-    static bool imguiTexturesVisible;
-    static bool imguiAudioVisible;
-    static bool imguiInputVisible;
-    static bool imguiDemoVisible;
-};
+// Cleanup when the state owning the RT exits
+Renderer::RemoveSpriteRenderTarget("scene");
 ```
+
+`fixedSize` RTs (any RT created with explicit `width`/`height`) receive an FB-sized camera ortho instead of the canvas camera. So a 1280×720 RT lets you draw at coords 0..1280 directly.
+
+---
+
+## 15. Custom render passes
+
+Inherit `RenderPass` if you need bespoke draw logic. Standard pattern:
+
+```cpp
+class MyPass : public RenderPass {
+public:
+    bool init(GpuTextureFormat fmt, uint32_t w, uint32_t h, std::string name,
+              bool logInit = true, size_t cap = 0, bool noMSAA = false) override;
+    void release(bool logRelease = true) override;
+    void render(GpuCmdBufferHandle cmd, GpuTextureHandle target, const glm::mat4& camera) override;
+    void addToRenderQueue(const Renderable& r) override { /* ... */ }
+    void resetRenderQueue() override { /* clear */ }
+    UniformBuffer& getUniformBuffer() override { return m_uniformBuffer; }
+};
+
+Renderer::AttachRenderPassToFrameBuffer(new MyPass(), "myPassName", "primaryFramebuffer");
+```
+
+For sprite-style passes attach to the primary FB; for compute-feeding scene passes use a custom FB with `preComputeFlush = true`.
+
+---
+
+## 16. ImGui debug menu
+
+`<F11>+<LShift>` toggles a built-in debug overlay (frame time, FPS, sample count, GPU memory, render passes). Disable in release if you don't want it shipped.
+
+Custom ImGui inside your `render()`:
+
+```cpp
+ImGui::Begin("Tweaks");
+ImGui::SliderFloat("Gravity", &gravity, -200.0f, 0.0f);
+if (ImGui::Button("Reset")) reset();
+ImGui::End();
+```
+
+ImGui's input is consumed automatically — check `ImGui::GetIO().WantCaptureMouse / WantCaptureKeyboard` in your input handling to avoid double-handling.
+
+---
+
+## 17. Audio
+
+```cpp
+Audio::Init();              // called from Window::InitWindow
+
+SoundAsset shoot = AssetHandler::GetSound("sfx/laser.wav");
+Audio::PlaySound(shoot);
+Audio::PlaySound(shoot, /*volume=*/0.8f, /*pitch=*/1.2f);
+
+MusicAsset track = AssetHandler::GetMusic("music/level.ogg");
+Audio::PlayMusic(track, /*loop=*/true);
+Audio::StopMusic();
+
+Audio::SetMasterVolume(0.7f);
+Audio::SetSoundVolume(1.0f);
+Audio::SetMusicVolume(0.6f);
+
+Audio::Close();             // called from Window::Close
+```
+
+Backed by miniaudio — supports WAV, OGG, MP3, FLAC. PCM sounds (synthesized) live in `PCMSound`.
+
+---
+
+## 18. Events + global state
+
+```cpp
+EventBus::Subscribe(SystemEvent::WINDOW_RESIZE, [](const EventData& d) {
+    int w = std::any_cast<int>(d.at("width"));
+    int h = std::any_cast<int>(d.at("height"));
+    LOG_INFO("Resized to {}x{}", w, h);
+});
+
+EventBus::Fire(MyAppEvent::PlayerDied, { {"score", 1200} });
+```
+
+App-defined events: add entries to your own enum (the bus is type-tagged).
+
+---
+
+## 19. Logging
+
+```cpp
+LOG_INFO("Loaded {} sprites", count);
+LOG_WARNING("Texture {} not found, using fallback", path);
+LOG_ERROR("Failed to compile shader: {}", err);
+LOG_CRITICAL("GPU device lost — bailing");
+```
+
+Output goes to stdout + an in-engine ring buffer the debug menu shows.
+
+---
+
+## 20. Settings (persisted config)
+
+```cpp
+Settings::Load("settings.ini");
+
+int   width   = Settings::GetInt("graphics.width", 1280);
+bool  vsync   = Settings::GetBool("graphics.vsync", true);
+float vol     = Settings::GetFloat("audio.master_volume", 0.8f);
+std::string lang = Settings::GetString("locale", "en");
+
+Settings::Set("audio.master_volume", 0.5f);
+Settings::Save();   // writes back to the .ini
+```
+
+File lives under `FileHandler::GetWritableDirectory()`.
+
+---
+
+## 21. Common pitfalls
+
+### Frame timing
+- `GetFrameTime()` is per-StartFrame interval (can be µs-scale on native SDL_AppIterate if SDL spins). Use it for variable-step integration but **don't compute FPS as `1/GetFrameTime()`** — use `Window::GetFPS(ms)` which counts real presents.
+
+### Coordinate systems
+- Draw at logical (canvas) coords. The engine takes care of physical-pixel mapping.
+- `_getSize()` returns canvas dims; `_getPhysicalSize()` returns the actual swapchain pixel buffer. Match the right one to your use case.
+
+### LightToy-style custom RT pipelines
+- If you size an RT at `Window::GetPhysicalWidth()`, recreate it when the window grows past that size (engine doesn't auto-resize fixed-size RTs).
+
+### WebGPU specifics
+- `Window::GetPhysicalWidth/Height` on Native scale mode returns the canvas's actual pixel dims (not SDL_GetWindowSizeInPixels which can drift on emscripten).
+- The Float32-Filterable WebGPU feature isn't always available — `rgba32f` textures are bound as `UnfilterableFloat` with a `NonFiltering` sampler. Use linear filtering only on `rgba8`/`bgra8`/`r16f` targets.
+- Persistent storage requires `FileHandler::InitPersistentStorage()` + `FlushPersistentStorage()` after writes.
+
+### SDL specifics
+- Window flags: `SDL_WINDOW_HIGH_PIXEL_DENSITY` is set automatically. HighDPI swapchain by default.
+- Screenshots use the engine's `stb_image_write` path — same code on both backends.
+
+### Particles
+- Don't call `Particles::Update` from `render()` — call it from `update()` so the dt accumulation lines up with the compute dispatch at frame boundary.
+- Compute pipeline is built lazily on first `Particles::Init()`. Call after `Renderer::InitRendering` (done implicitly if your AppInit creates objects after `Window::InitWindow`).
+
+---
+
+## 22. Useful reference paths
+
+| Topic | File |
+|---|---|
+| Window/lifecycle | `src/platform/window/window.h` |
+| Input | `src/platform/input/input.h` |
+| Drawing | `src/draw/draw.h` |
+| Particles | `src/draw/particles.h` |
+| Renderer / FBs | `src/renderer/renderer.h` |
+| Asset loading | `src/assets/assethandler.h` |
+| IGpu abstraction | `src/gpu/IGpu.h` |
+| Type defs (handles, enums) | `src/gpu/types.h` |
+| Presets (blend states, samplers) | `src/gpu/presets.h` |
+| Color constants + config | `src/config.h` |
+| Math (vectors, rectangles, easings) | `src/math/` |
+| Test/example states | `E:\lumifps\src\` (LightToy, Test3D, EffectTest, SpriteCountTest) |
+| Backend split rules | this doc §1 + the architecture diagram |
+
+---
+
+## 23. Minimum viable game
+
+```cpp
+#include "luminoveau.h"
+
+struct Player { vf2d pos = {640, 360}; float speed = 300; } player;
+TextureAsset sprite;
+
+Lumi::Result AppInit(int, char*[]) {
+    Window::InitWindow("Tiny", 1280, 720, 1, SDL_WINDOW_RESIZABLE);
+    sprite = AssetHandler::GetTexture("sprites/ship.png");
+    return Lumi::Result::Continue;
+}
+
+Lumi::Result AppIterate(void*) {
+    float dt = (float)Window::GetFrameTime();
+    if (Input::KeyDown(SDLK_W)) player.pos.y -= player.speed * dt;
+    if (Input::KeyDown(SDLK_S)) player.pos.y += player.speed * dt;
+    if (Input::KeyDown(SDLK_A)) player.pos.x -= player.speed * dt;
+    if (Input::KeyDown(SDLK_D)) player.pos.x += player.speed * dt;
+
+    Window::StartFrame();
+    Draw::Texture(sprite, player.pos - vf2d{32, 32}, {64, 64});
+    Text::DrawText(AssetHandler::GetDefaultFont(),
+                   {10, 10},
+                   Helpers::TextFormat("%d fps", Window::GetFPS()),
+                   WHITE);
+    Window::EndFrame();
+    return Lumi::Result::Continue;
+}
+
+Lumi::Result AppEvent(void*, SDL_Event*) { return Lumi::Result::Continue; }
+void AppQuit(void*, Lumi::Result) { Window::Close(); }
+```
+
+That's it. Build on this skeleton.
