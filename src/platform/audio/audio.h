@@ -9,6 +9,7 @@
 #include "assets/audio/sound.h"
 #include "assets/audio/music.h"
 #include "assets/audio/pcmsound.h"
+#include "assets/audio/soundinstance.h"
 
 /**
  * @brief Audio mix channels for routing sounds through volume/panning groups.
@@ -102,6 +103,53 @@ public:
      */
     static void PlaySound(Sound sound, float volume, float panning, AudioChannel channel = AudioChannel::SFX) {
         get()._playSound(sound, volume, panning, channel);
+    }
+
+    /**
+     * @brief Plays a controllable instance of a sound.
+     *
+     * Unlike PlaySound, the returned handle can be looped, re-panned, volume-adjusted,
+     * queried, and stopped while playing. The Sound must have been loaded via
+     * AssetHandler::GetSound first (registers + caches the decoded data).
+     *
+     * @param sound   The Sound asset to play.
+     * @param volume  Volume from 0.0f to 1.0f.
+     * @param panning Panning from -1.0f (left) to 1.0f (right).
+     * @param looping Whether the instance loops until stopped.
+     * @param channel The audio channel to route through (default: SFX).
+     * @return A SoundInstance handle. Caller owns it and must call StopSoundInstance().
+     */
+    static SoundInstance PlaySoundInstance(Sound sound, float volume, float panning,
+                                           bool looping, AudioChannel channel = AudioChannel::SFX) {
+        return get()._playSoundInstance(sound, volume, panning, looping, channel);
+    }
+
+    /**
+     * @brief Sets the volume of a playing sound instance.
+     */
+    static void SetSoundInstanceVolume(SoundInstance &instance, float volume) {
+        get()._setSoundInstanceVolume(instance, volume);
+    }
+
+    /**
+     * @brief Sets the panning of a playing sound instance.
+     */
+    static void SetSoundInstancePanning(SoundInstance &instance, float panning) {
+        get()._setSoundInstancePanning(instance, panning);
+    }
+
+    /**
+     * @brief Returns whether a sound instance is currently playing.
+     */
+    static bool IsSoundInstancePlaying(const SoundInstance &instance) {
+        return get()._isSoundInstancePlaying(instance);
+    }
+
+    /**
+     * @brief Stops and releases a sound instance. Do not use the handle afterwards.
+     */
+    static void StopSoundInstance(SoundInstance &instance) {
+        get()._stopSoundInstance(instance);
     }
 
     /**
@@ -283,6 +331,19 @@ private:
     void _playSound(Sound sound, AudioChannel channel);
 
     void _playSound(Sound sound, float volume, float panning, AudioChannel channel);
+
+    // ── Controllable sound instances ──
+
+    SoundInstance _playSoundInstance(Sound sound, float volume, float panning,
+                                     bool looping, AudioChannel channel);
+
+    void _setSoundInstanceVolume(SoundInstance &instance, float volume);
+
+    void _setSoundInstancePanning(SoundInstance &instance, float panning);
+
+    bool _isSoundInstancePlaying(const SoundInstance &instance);
+
+    void _stopSoundInstance(SoundInstance &instance);
 
     // ── Music playback ──
 

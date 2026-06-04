@@ -165,6 +165,64 @@ void Audio::_playSound(Sound sound, float volume, float panning, AudioChannel ch
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Controllable sound instances
+// ═══════════════════════════════════════════════════════════════════
+
+SoundInstance Audio::_playSoundInstance(Sound sound, float volume, float panning,
+                                        bool looping, AudioChannel channel) {
+    SoundInstance inst{};
+
+    ma_sound_group* group = nullptr;
+    if (channel != AudioChannel::Master) {
+        int idx = channelIndex(channel);
+        if (idx >= 0 && idx < NUM_GROUPS && _channels[idx].initialized) {
+            group = &_channels[idx].group;
+        }
+    }
+
+    inst.impl = new SoundInstanceAsset::Internal{};
+    if (ma_sound_init_from_file(&engine, sound.fileName.c_str(),
+                                MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC,
+                                group, nullptr, &inst.impl->sound) != MA_SUCCESS) {
+        delete inst.impl;
+        inst.impl = nullptr;
+        return inst;
+    }
+
+    volume  = std::clamp(volume, 0.0f, 1.0f);
+    panning = std::clamp(panning, -1.0f, 1.0f);
+
+    inst.initialized = true;
+    ma_sound_set_looping(&inst.impl->sound, looping ? MA_TRUE : MA_FALSE);
+    ma_sound_set_volume(&inst.impl->sound, volume);
+    ma_sound_set_pan(&inst.impl->sound, panning);
+    ma_sound_start(&inst.impl->sound);
+    return inst;
+}
+
+void Audio::_setSoundInstanceVolume(SoundInstance &instance, float volume) {
+    if (!instance.impl) return;
+    ma_sound_set_volume(&instance.impl->sound, std::clamp(volume, 0.0f, 1.0f));
+}
+
+void Audio::_setSoundInstancePanning(SoundInstance &instance, float panning) {
+    if (!instance.impl) return;
+    ma_sound_set_pan(&instance.impl->sound, std::clamp(panning, -1.0f, 1.0f));
+}
+
+bool Audio::_isSoundInstancePlaying(const SoundInstance &instance) {
+    return instance.impl && ma_sound_is_playing(&instance.impl->sound);
+}
+
+void Audio::_stopSoundInstance(SoundInstance &instance) {
+    if (!instance.impl) return;
+    ma_sound_uninit(&instance.impl->sound);
+    delete instance.impl;
+    instance.impl        = nullptr;
+    instance.initialized = false;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Music playback
 // ═══════════════════════════════════════════════════════════════════
 
