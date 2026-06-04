@@ -275,6 +275,18 @@ void Audio::_rewindMusic(Music &music) {
     ma_sound_seek_to_pcm_frame(music.music, 0);
 }
 
+void Audio::_pauseMusic(Music &music) {
+    if (music.music) ma_sound_stop(music.music);
+}
+
+void Audio::_resumeMusic(Music &music) {
+    if (music.music) ma_sound_start(music.music);
+}
+
+void Audio::_setMusicLooping(Music &music, bool looping) {
+    if (music.music) ma_sound_set_looping(music.music, looping ? MA_TRUE : MA_FALSE);
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Channel control
 // ═══════════════════════════════════════════════════════════════════

@@ -84,6 +84,27 @@ public:
     }
 
     /**
+     * @brief Pauses music playback, preserving the playback position.
+     */
+    static void PauseMusic(Music &music) {
+        get()._pauseMusic(music);
+    }
+
+    /**
+     * @brief Resumes music playback from where it was paused.
+     */
+    static void ResumeMusic(Music &music) {
+        get()._resumeMusic(music);
+    }
+
+    /**
+     * @brief Sets whether the music loops when it reaches the end.
+     */
+    static void SetMusicLooping(Music &music, bool looping) {
+        get()._setMusicLooping(music, looping);
+    }
+
+    /**
      * @brief Plays a sound effect (non-polyphonic, reuses the pre-loaded ma_sound).
      *
      * @param sound The Sound asset to play.
@@ -358,6 +379,12 @@ private:
     void _setMusicVolume(Music &music, float volume);
 
     void _rewindMusic(Music music);
+
+    void _pauseMusic(Music &music);
+
+    void _resumeMusic(Music &music);
+
+    void _setMusicLooping(Music &music, bool looping);
 
     // ── Channel control ──
 
