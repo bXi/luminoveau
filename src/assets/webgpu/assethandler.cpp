@@ -173,6 +173,14 @@ ShaderAsset AssetHandler::_loadShaderFromDisk(const std::string &fileName) {
         wgsl = std::regex_replace(wgsl, re, "@group(1u)");
     }
 
+    // Vertex shaders authored against SDL_GPU place uniforms at set=1. The WebGPU
+    // backend's graphics pipeline layout expects vertex uniforms at group(0). Remap
+    // @group(1u) → @group(0u) so the same GLSL works in both backends without source forks.
+    if (gpuStage == GpuShaderStage::Vertex) {
+        std::regex re(R"(@group\(1u?\))");
+        wgsl = std::regex_replace(wgsl, re, "@group(0u)");
+    }
+
     GpuShaderCreateInfo shaderCI;
     shaderCI.code                = reinterpret_cast<const uint8_t*>(wgsl.c_str());
     shaderCI.codeSize            = wgsl.size();
