@@ -221,10 +221,11 @@ SDL_GPUSamplerCreateInfo toSDL(const GpuSamplerCreateInfo& info) {
         .address_mode_u = toSDL(info.addressU),
         .address_mode_v = toSDL(info.addressV),
         .address_mode_w = toSDL(info.addressW),
-        .mip_lod_bias   = info.mipLodBias,
-        .max_anisotropy = info.maxAniso,
-        .min_lod        = info.minLod,
-        .max_lod        = info.maxLod,
+        .mip_lod_bias      = info.mipLodBias,
+        .max_anisotropy    = info.maxAniso,
+        .min_lod           = info.minLod,
+        .max_lod           = info.maxLod,
+        .enable_anisotropy = info.maxAniso > 1.0f,   // SDL_GPU ignores max_anisotropy without this
     };
 }
 
