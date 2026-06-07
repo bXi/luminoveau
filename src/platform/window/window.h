@@ -101,6 +101,14 @@ public:
     static SDL_Window *GetWindow() { return get()._getWindow(); }
 
     /**
+     * @brief Whether the window currently holds keyboard/input focus.
+     *
+     * False while another window is focused or during an OS modal move/resize of this
+     * window. Useful to release relative-mouse capture so the title bar can be dragged.
+     */
+    static bool HasInputFocus() { return get()._hasInputFocus(); }
+
+    /**
      * @brief Sets the scale factor of the window.
      *
      * @param scalefactor The scale factor to set.
@@ -363,6 +371,7 @@ private:
     int _getFPS(float milliseconds);
 
     SDL_Window *_getWindow();
+    bool _hasInputFocus();
 
     void _setScale(int scalefactor);
 

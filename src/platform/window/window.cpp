@@ -425,6 +425,11 @@ SDL_Window *Window::_getWindow() {
     return m_window;
 }
 
+bool Window::_hasInputFocus() {
+    if (!m_window) return true;
+    return (SDL_GetWindowFlags(m_window) & SDL_WINDOW_INPUT_FOCUS) != 0;
+}
+
 void Window::_toggleDebugMenu() {
 #ifdef LUMINOVEAU_WITH_IMGUI
     EngineState::_debugMenuVisible = !EngineState::_debugMenuVisible;
