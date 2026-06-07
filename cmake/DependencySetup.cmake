@@ -150,6 +150,32 @@ else()
     lumi_warn("SDL3_image - fetch failed")
 endif()
 
+# Fetching SDL3_net (networking — native only; browsers can't do raw TCP/UDP).
+if(NOT EMSCRIPTEN)
+    set(SDL3NET_INSTALL    OFF CACHE BOOL "Disable SDL3_net installation"   FORCE)
+    set(SDL3NET_SAMPLES    OFF CACHE BOOL "Disable SDL3_net samples"        FORCE)
+    set(SDL3NET_TESTS      OFF CACHE BOOL "Disable SDL3_net tests"          FORCE)
+    set(BUILD_SHARED_LIBS  OFF CACHE BOOL "Build static libraries"          FORCE)
+
+    lumi_msg("Fetching SDL3_net")
+    CPMAddPackage(
+        NAME SDL3_net
+        GITHUB_REPOSITORY libsdl-org/SDL_net
+        GIT_TAG 4ffa92a
+        EXCLUDE_FROM_ALL YES
+    )
+    if(SDL3_net_ADDED)
+        if(EXISTS "${SDL3_net_SOURCE_DIR}/include")
+            target_include_directories(luminoveau SYSTEM PUBLIC "${SDL3_net_SOURCE_DIR}/include")
+        endif()
+        target_link_libraries(luminoveau PUBLIC SDL3_net::SDL3_net-static)
+        target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_NET=1)
+        lumi_done("SDL3_net")
+    else()
+        lumi_warn("SDL3_net - fetch failed (networking disabled)")
+    endif()
+endif()
+
 # Fetching freetype (required by MSDF-atlas-gen's msdfgen)
 if (NOT ANDROID)
 lumi_msg("Fetching freetype")

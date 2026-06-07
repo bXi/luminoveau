@@ -36,6 +36,7 @@
 #include <platform/audio/audio.h>
 #include <core/eventbus/eventbus.h>
 #include <platform/input/input.h>
+#include <platform/net/net.h>
 #include <renderer/renderer.h>
 #include <platform/window/window.h>
 

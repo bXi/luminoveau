@@ -38,6 +38,7 @@ set(LUMINOVEAU_SOURCES
     src/platform/input/input.cpp
     src/platform/input/virtualcontrols.cpp
     src/platform/window/window.cpp
+    src/platform/net/net.cpp
 
     # Core
     src/core/eventbus/eventbus.cpp
@@ -100,6 +101,7 @@ if(LUMINOVEAU_WEBGPU_BACKEND)
         src/platform/input/webgpu/mouseinput.cpp
         src/platform/window/webgpu/window_backend.cpp
         src/renderer/webgpu/shaders.cpp
+        src/platform/net/webgpu/transport_web.cpp
     )
 else()
     list(APPEND LUMINOVEAU_SOURCES
@@ -114,6 +116,7 @@ else()
         src/platform/input/sdl/mouseinput.cpp
         src/platform/window/sdl/window_backend.cpp
         src/renderer/shaders.cpp
+        src/platform/net/sdl/transport_sdlnet.cpp
     )
 endif()
 
