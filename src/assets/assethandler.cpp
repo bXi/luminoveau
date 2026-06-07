@@ -405,10 +405,18 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
                                                    nullptr, _sound.sound);
 
         if (result != MA_SUCCESS) {
-            free(filedata.data);  // Free on error
+            // Non-fatal: a single undecodable sound must not kill the app (LOG_CRITICAL
+            // exits). Fully clean up so no half-registered data lingers in the resource
+            // manager (which crashes later): unregister the encoded data, then free it.
+            ma_resource_manager_unregister_data(Audio::GetAudioEngine()->pResourceManager,
+                                                fileName.c_str());
+            free(filedata.data);
             delete _sound.sound;
-
-            LOG_CRITICAL("GetSound failed: {}", fileName.c_str());
+            _sound.sound    = nullptr;
+            _sound.fileData = nullptr;
+            // LOG_WARNING, not LOG_ERROR/LOG_CRITICAL — both of those are fatal here
+            // (Error throws [[noreturn]], Critical exits). A bad sound must not abort.
+            LOG_WARNING("GetSound failed (sound will be silent): {}", fileName.c_str());
         }
 
         _sounds[fileName] = _sound;
@@ -440,9 +448,11 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
                                                    nullptr, _music.music);
 
         if (result != MA_SUCCESS) {
-            free(filedata.data);  // Free on error
+            // Non-fatal (LOG_CRITICAL exits). Keep filedata (registered with the
+            // resource manager; tracked in _music.fileData for cleanup).
             delete _music.music;
-            LOG_CRITICAL("GetMusic failed: {}", fileName.c_str());
+            _music.music = nullptr;
+            LOG_WARNING("GetMusic failed (music will be silent): {}", fileName.c_str());
         }
 
         _musics[fileName] = _music;
