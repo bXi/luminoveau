@@ -176,6 +176,35 @@ if(NOT EMSCRIPTEN)
     endif()
 endif()
 
+# KTX2/Basis texture support is standard (on by default). Escape hatch for build issues:
+# configure with -DLUMINOVEAU_KTX2=OFF to drop it (AssetHandler then loads RGBA only).
+option(LUMINOVEAU_KTX2 "KTX2/Basis (UASTC->BC7) texture support" ON)
+if(LUMINOVEAU_KTX2)
+    # Fetch basis_universal and compile only its transcoder .cpp (no encoder/CMake build) plus
+    # the bundled decompress-only zstd (KTX2 supercompression). Defines LUMINOVEAU_WITH_KTX2.
+    lumi_msg("Fetching basis_universal")
+    CPMAddPackage(
+        NAME basis_universal
+        GITHUB_REPOSITORY BinomialLLC/basis_universal
+        GIT_TAG 1.16.4
+        DOWNLOAD_ONLY YES
+    )
+    if(basis_universal_ADDED AND EXISTS "${basis_universal_SOURCE_DIR}/transcoder/basisu_transcoder.cpp")
+        set(_basis_srcs "${basis_universal_SOURCE_DIR}/transcoder/basisu_transcoder.cpp")
+        if(EXISTS "${basis_universal_SOURCE_DIR}/zstd/zstddeclib.c")
+            list(APPEND _basis_srcs "${basis_universal_SOURCE_DIR}/zstd/zstddeclib.c")
+        endif()
+        target_sources(luminoveau PRIVATE ${_basis_srcs})
+        target_include_directories(luminoveau SYSTEM PUBLIC "${basis_universal_SOURCE_DIR}/transcoder")
+        target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_KTX2=1)
+        lumi_done("basis_universal")
+    else()
+        message(FATAL_ERROR "basis_universal fetch failed. Fix the network/tag, or configure with -DLUMINOVEAU_KTX2=OFF.")
+    endif()
+else()
+    lumi_msg("KTX2 disabled (LUMINOVEAU_KTX2=OFF)")
+endif()
+
 # Fetching freetype (required by MSDF-atlas-gen's msdfgen)
 if (NOT ANDROID)
 lumi_msg("Fetching freetype")

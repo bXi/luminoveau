@@ -12,6 +12,11 @@
 
 #include <SDL3_image/SDL_image.h>
 
+#if defined(LUMINOVEAU_WITH_KTX2)
+#include "basisu_transcoder.h"
+#endif
+
+#include <cstring>
 
 #include <msdf-atlas-gen/msdf-atlas-gen.h>
 #include <msdfgen/msdfgen.h>
@@ -281,6 +286,20 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     TextureAsset texture;
 
     auto filedata = FileHandler::ReadFile(fileName);
+
+    // KTX2/Basis containers can't go through SDL_image — transcode them (UASTC -> BC7).
+    // Same TextureAsset out, so callers/shaders are oblivious to the format.
+    static const uint8_t KTX2_MAGIC[12] =
+        { 0xAB,0x4B,0x54,0x58,0x20,0x32,0x30,0xBB,0x0D,0x0A,0x1A,0x0A };
+    if (filedata.data && filedata.fileSize >= 12 &&
+        memcmp(filedata.data, KTX2_MAGIC, 12) == 0) {
+        texture = _loadKtx2(reinterpret_cast<const uint8_t *>(filedata.data), filedata.fileSize);
+        free(filedata.data);
+        _textures[std::string(fileName)] = texture;
+        _textures[fileName].filename = _textures.find(fileName)->first.c_str();
+        return _textures[fileName];
+    }
+
     SDL_IOStream* io = SDL_IOFromMem(filedata.data, filedata.fileSize);
     SDL_Surface* surface = IMG_Load_IO(io, true); // SDL_TRUE = close IO after reading
 
@@ -332,11 +351,111 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
     LOG_INFO("loaded texture {} ({}x{})", fileName.c_str(), texture.width, texture.height);
 
     _textures[std::string(fileName)] = texture;
-    
+
     // FIX: Point filename to the stable string in the map, not the local variable!
     _textures[fileName].filename = _textures.find(fileName)->first.c_str();
 
     return texture;
+}
+
+// Uncached load to a GPU asset; dispatches KTX2/Basis (transcode -> BC) vs SDL_image (RGBA8).
+TextureAsset AssetHandler::_loadTextureFile(const std::string &path) {
+    TextureAsset out;
+    if (!Renderer::IsReady()) return out;
+
+    auto fd = FileHandler::ReadFile(path);
+    if (!fd.data || fd.fileSize < 12) { if (fd.data) free(fd.data); return out; }
+
+    static const uint8_t KTX2_MAGIC[12] =
+        { 0xAB,0x4B,0x54,0x58,0x20,0x32,0x30,0xBB,0x0D,0x0A,0x1A,0x0A };   // «KTX 20»\r\n\x1A\n
+    bool isKtx2 = (memcmp(fd.data, KTX2_MAGIC, 12) == 0);
+
+    if (isKtx2) {
+        out = _loadKtx2(reinterpret_cast<const uint8_t *>(fd.data), fd.fileSize);
+        free(fd.data);
+        return out;
+    }
+
+    // SDL_image path (RGBA8), uncached.
+    SDL_IOStream *io = SDL_IOFromMem(fd.data, fd.fileSize);
+    SDL_Surface  *surface = IMG_Load_IO(io, true);
+    if (!surface) { LOG_WARNING("LoadTextureFile: decode failed: {}", path.c_str()); free(fd.data); return out; }
+    if (surface->format != SDL_PIXELFORMAT_RGBA32) {
+        SDL_Surface *conv = SDL_ConvertSurface(surface, SDL_PIXELFORMAT_RGBA32);
+        SDL_DestroySurface(surface);
+        surface = conv;
+    }
+
+    auto &gpu = Renderer::GetGpu();
+    GpuTextureCreateInfo tci{
+        .width = (uint32_t)surface->w, .height = (uint32_t)surface->h,
+        .depthOrLayers = 1, .numLevels = 1,
+        .format = GpuTextureFormat::R8G8B8A8_Unorm, .sampleCount = GpuSampleCount::x1,
+        .usage = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
+    };
+    GpuTextureHandle tex = gpu.createTexture(tci);
+    _copy_to_texture(surface->pixels, (uint32_t)(surface->w * surface->h * 4), tex, surface->w, surface->h);
+    out.gpuTexture = tex;
+    out.gpuSampler = Renderer::GetSampler(ScaleMode::Linear);
+    out.width = surface->w; out.height = surface->h;
+    SDL_DestroySurface(surface);
+    free(fd.data);
+    return out;
+}
+
+// Transcode a KTX2/Basis container to a GPU-compressed BC7 texture (all mip levels).
+TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
+    TextureAsset out;
+#if defined(LUMINOVEAU_WITH_KTX2)
+    static bool s_basisInit = false;
+    if (!s_basisInit) { basist::basisu_transcoder_init(); s_basisInit = true; }
+
+    basist::ktx2_transcoder t;
+    if (!t.init(data, (uint32_t)size))      { LOG_WARNING("KTX2: init failed");            return out; }
+    if (!t.start_transcoding())             { LOG_WARNING("KTX2: start_transcoding failed"); return out; }
+
+    const basist::transcoder_texture_format tfmt = basist::transcoder_texture_format::cTFBC7_RGBA;
+    const uint32_t bytesPerBlock = basist::basis_get_bytes_per_block_or_pixel(tfmt);   // 16 for BC7
+    uint32_t levels = t.get_levels(); if (levels < 1) levels = 1;
+
+    auto &gpu = Renderer::GetGpu();
+    GpuTextureCreateInfo tci{
+        .width = t.get_width(), .height = t.get_height(),
+        .depthOrLayers = 1, .numLevels = levels,
+        .format = GpuTextureFormat::BC7_Unorm, .sampleCount = GpuSampleCount::x1,
+        .usage = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
+    };
+    GpuTextureHandle tex = gpu.createTexture(tci);
+
+    for (uint32_t lvl = 0; lvl < levels; lvl++) {
+        basist::ktx2_image_level_info li{};
+        if (!t.get_image_level_info(li, lvl, 0, 0)) continue;
+        uint32_t dstBytes = li.m_total_blocks * bytesPerBlock;
+
+        GpuTransferBufferCreateInfo tbci{ dstBytes, GpuTransferUsage::Upload };
+        GpuTransferBufferHandle tb = gpu.createTransferBuffer(tbci);
+        void *dst = gpu.mapTransferBuffer(tb, false);
+        bool ok = t.transcode_image_level(lvl, 0, 0, dst, li.m_total_blocks, tfmt);
+        gpu.unmapTransferBuffer(tb);
+        if (!ok) { gpu.releaseTransferBuffer(tb); LOG_WARNING("KTX2: transcode level {} failed", lvl); continue; }
+
+        GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
+        GpuTransferBufferRegion src{ tb, 0, 0, 0 };   // pixels_per_row 0 = infer (block-aligned)
+        GpuTextureRegion       dr { tex, lvl, 0, 0, 0, 0, li.m_orig_width, li.m_orig_height, 1 };
+        gpu.uploadToTexture(cmd, src, dr, false);
+        gpu.submitCommandBuffer(cmd);
+        gpu.releaseTransferBuffer(tb);
+    }
+
+    out.gpuTexture = tex;
+    out.gpuSampler = Renderer::GetSampler(ScaleMode::Linear);
+    out.width  = (int)t.get_width();
+    out.height = (int)t.get_height();
+#else
+    (void)data; (void)size;
+    LOG_WARNING("KTX2 requested but engine built without LUMINOVEAU_WITH_KTX2");
+#endif
+    return out;
 }
 
 TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {

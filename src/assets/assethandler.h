@@ -53,6 +53,17 @@ public:
      */
     static void LoadTexture(const char *fileName) { get()._loadTexture(fileName); }
 
+    /**
+     * @brief Load a texture file to a GPU asset WITHOUT caching (caller owns it).
+     *
+     * Dispatches by format: KTX2/Basis is transcoded to a GPU-compressed BC format
+     * (BC7) and uploaded directly; everything else goes through SDL_image (RGBA8).
+     * Returns an empty TextureAsset (gpuTexture == 0) on failure.
+     */
+    static TextureAsset LoadTextureFile(const std::string &path) {
+        return get()._loadTextureFile(path);
+    }
+
 
 
     static TextureAsset LoadFromPixelData(const vf2d& size, void *pixelData, std::string fileName) { return get()._loadFromPixelData(size, pixelData, std::move(fileName)); }
@@ -207,6 +218,9 @@ private:
     Texture _getTexture(const std::string &fileName);
 
     TextureAsset _loadTexture(const std::string &fileName);
+
+    TextureAsset _loadTextureFile(const std::string &path);     // uncached; dispatches KTX2/SDL_image
+    TextureAsset _loadKtx2(const uint8_t *data, size_t size);   // transcode KTX2/Basis -> BC GPU texture
 
     TextureAsset _loadFromPixelData(const vf2d &size, void *pixelData, std::string fileName);
 
