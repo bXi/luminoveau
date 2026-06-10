@@ -414,11 +414,12 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
     if (!t.init(data, (uint32_t)size))      { LOG_WARNING("KTX2: init failed");            return out; }
     if (!t.start_transcoding())             { LOG_WARNING("KTX2: start_transcoding failed"); return out; }
 
-    const basist::transcoder_texture_format tfmt = basist::transcoder_texture_format::cTFBC7_RGBA;
-    const uint32_t bytesPerBlock = basist::basis_get_bytes_per_block_or_pixel(tfmt);   // 16 for BC7
     uint32_t levels = t.get_levels(); if (levels < 1) levels = 1;
-
     auto &gpu = Renderer::GetGpu();
+
+    // Prefer BC7 (4x smaller in VRAM). If the device/backend can't create a BC7 texture
+    // (some drivers/backends don't expose BC), fall back to an RGBA8 transcode so HD textures
+    // still show (at 4x the VRAM) instead of silently dropping to the 8-bit base.
     GpuTextureCreateInfo tci{
         .width = t.get_width(), .height = t.get_height(),
         .depthOrLayers = 1, .numLevels = levels,
@@ -426,21 +427,36 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
         .usage = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
     };
     GpuTextureHandle tex = gpu.createTexture(tci);
+    bool useBC7 = (tex != 0);
+    if (!useBC7) {
+        LOG_WARNING("KTX2: BC7 texture create failed ({}x{}) -> RGBA8 fallback",
+                    t.get_width(), t.get_height());
+        tci.format = GpuTextureFormat::R8G8B8A8_Unorm;
+        tex = gpu.createTexture(tci);
+        if (!tex) { LOG_WARNING("KTX2: RGBA8 fallback create also failed"); return out; }
+    }
+
+    const basist::transcoder_texture_format tfmt =
+        useBC7 ? basist::transcoder_texture_format::cTFBC7_RGBA
+               : basist::transcoder_texture_format::cTFRGBA32;
 
     for (uint32_t lvl = 0; lvl < levels; lvl++) {
         basist::ktx2_image_level_info li{};
         if (!t.get_image_level_info(li, lvl, 0, 0)) continue;
-        uint32_t dstBytes = li.m_total_blocks * bytesPerBlock;
+        // BC7 works in 4x4 blocks (16 B each); RGBA32 works per pixel (4 B each).
+        uint32_t count    = useBC7 ? li.m_total_blocks : (li.m_orig_width * li.m_orig_height);
+        uint32_t dstBytes = useBC7 ? li.m_total_blocks * 16u : count * 4u;
+        uint32_t rowPx    = useBC7 ? 0u : li.m_orig_width;   // BC7: infer block-aligned; RGBA: explicit
 
         GpuTransferBufferCreateInfo tbci{ dstBytes, GpuTransferUsage::Upload };
         GpuTransferBufferHandle tb = gpu.createTransferBuffer(tbci);
         void *dst = gpu.mapTransferBuffer(tb, false);
-        bool ok = t.transcode_image_level(lvl, 0, 0, dst, li.m_total_blocks, tfmt);
+        bool ok = t.transcode_image_level(lvl, 0, 0, dst, count, tfmt);
         gpu.unmapTransferBuffer(tb);
         if (!ok) { gpu.releaseTransferBuffer(tb); LOG_WARNING("KTX2: transcode level {} failed", lvl); continue; }
 
         GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
-        GpuTransferBufferRegion src{ tb, 0, 0, 0 };   // pixels_per_row 0 = infer (block-aligned)
+        GpuTransferBufferRegion src{ tb, 0, rowPx, 0 };
         GpuTextureRegion       dr { tex, lvl, 0, 0, 0, 0, li.m_orig_width, li.m_orig_height, 1 };
         gpu.uploadToTexture(cmd, src, dr, false);
         gpu.submitCommandBuffer(cmd);
