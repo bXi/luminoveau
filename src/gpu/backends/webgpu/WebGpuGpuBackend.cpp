@@ -1239,29 +1239,28 @@ GpuGraphicsPipelineHandle WebGpuGpuBackend::createGraphicsPipeline(const GpuGrap
         attrBase += vbufs[i].attributeCount;
     }
 
-    // Blend state
-    WGPUBlendState blend{};
-    blend.color = {
-        .operation = toWGPU(info.blend.colorOp),
-        .srcFactor = toWGPU(info.blend.srcColorFactor),
-        .dstFactor = toWGPU(info.blend.dstColorFactor),
-    };
-    blend.alpha = {
-        .operation = toWGPU(info.blend.alphaOp),
-        .srcFactor = toWGPU(info.blend.srcAlphaFactor),
-        .dstFactor = toWGPU(info.blend.dstAlphaFactor),
-    };
-
-    WGPUColorTargetState colorTarget{};
-    colorTarget.format     = toWGPU(info.colorTargetFormat);
-    colorTarget.blend      = info.blend.blendEnabled ? &blend : nullptr;
-    colorTarget.writeMask  = WGPUColorWriteMask_All;
+    // Color targets. colorTargetCount == 0 → the single colorTargetFormat/blend; otherwise MRT.
+    uint32_t numColor = info.colorTargetCount ? info.colorTargetCount : 1u;
+    std::vector<WGPUBlendState>       blends(numColor);
+    std::vector<WGPUColorTargetState> colorTargets(numColor);
+    for (uint32_t i = 0; i < numColor; ++i) {
+        const GpuColorTargetBlendState &b = info.colorTargetCount ? info.colorTargetBlends[i] : info.blend;
+        blends[i].color = { .operation = toWGPU(b.colorOp),
+                            .srcFactor = toWGPU(b.srcColorFactor),
+                            .dstFactor = toWGPU(b.dstColorFactor) };
+        blends[i].alpha = { .operation = toWGPU(b.alphaOp),
+                            .srcFactor = toWGPU(b.srcAlphaFactor),
+                            .dstFactor = toWGPU(b.dstAlphaFactor) };
+        colorTargets[i].format    = toWGPU(info.colorTargetCount ? info.colorTargetFormats[i] : info.colorTargetFormat);
+        colorTargets[i].blend     = b.blendEnabled ? &blends[i] : nullptr;
+        colorTargets[i].writeMask = WGPUColorWriteMask_All;
+    }
 
     WGPUFragmentState fragState{};
     fragState.module      = sh_f ? sh_f->module : nullptr;
     fragState.entryPoint  = wgpuStr(sh_f ? sh_f->entrypoint.c_str() : "main");
-    fragState.targetCount = 1;
-    fragState.targets     = &colorTarget;
+    fragState.targetCount = numColor;
+    fragState.targets     = colorTargets.data();
 
     WGPURenderPipelineDescriptor rpDesc{};
     rpDesc.layout = pl->layout;

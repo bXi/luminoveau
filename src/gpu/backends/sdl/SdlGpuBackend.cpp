@@ -393,10 +393,15 @@ GpuGraphicsPipelineHandle SdlGpuBackend::createGraphicsPipeline(const GpuGraphic
         };
     }
 
-    SDL_GPUColorTargetDescription colorDesc{
-        .format      = toSDL(info.colorTargetFormat),
-        .blend_state = toSDL(info.blend),
-    };
+    // One or more color targets (MRT). colorTargetCount == 0 → the single colorTargetFormat.
+    uint32_t numColor = info.colorTargetCount ? info.colorTargetCount : 1u;
+    std::vector<SDL_GPUColorTargetDescription> colorDescs(numColor);
+    for (uint32_t i = 0; i < numColor; ++i) {
+        colorDescs[i] = {
+            .format      = toSDL(info.colorTargetCount ? info.colorTargetFormats[i] : info.colorTargetFormat),
+            .blend_state = toSDL(info.colorTargetCount ? info.colorTargetBlends[i]  : info.blend),
+        };
+    }
 
     SDL_GPUGraphicsPipelineCreateInfo ci{
         .vertex_shader   = reinterpret_cast<SDL_GPUShader*>(info.vertexShader),
@@ -422,8 +427,8 @@ GpuGraphicsPipelineHandle SdlGpuBackend::createGraphicsPipeline(const GpuGraphic
             .enable_depth_write = info.hasDepthTarget,
         },
         .target_info = {
-            .color_target_descriptions     = &colorDesc,
-            .num_color_targets             = 1,
+            .color_target_descriptions     = colorDescs.data(),
+            .num_color_targets             = numColor,
             .depth_stencil_format          = toSDL(info.depthTargetFormat),
             .has_depth_stencil_target      = info.hasDepthTarget,
         },

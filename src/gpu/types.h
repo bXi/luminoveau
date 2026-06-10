@@ -321,9 +321,15 @@ struct GpuGraphicsPipelineCreateInfo {
     GpuCullMode                  cullMode       = GpuCullMode::None;
     GpuFrontFace                 frontFace      = GpuFrontFace::CounterClockwise;
 
-    // render target
+    // render target. Single target: set colorTargetFormat (+ blend). Multiple render targets
+    // (MRT): set colorTargetCount > 0 and fill colorTargetFormats[]/colorTargetBlends[]; the
+    // single colorTargetFormat/blend above are then ignored.
+    static constexpr uint32_t    MAX_COLOR_TARGETS = 4;
     GpuTextureFormat             colorTargetFormat  = GpuTextureFormat::R8G8B8A8_Unorm;
     GpuColorTargetBlendState     blend              = {};
+    uint32_t                     colorTargetCount   = 0;   // 0 = use the single colorTargetFormat
+    GpuTextureFormat             colorTargetFormats[MAX_COLOR_TARGETS] = {};
+    GpuColorTargetBlendState     colorTargetBlends[MAX_COLOR_TARGETS]  = {};
     bool                         hasDepthTarget     = false;
     GpuTextureFormat             depthTargetFormat  = GpuTextureFormat::D32_Float;
     GpuSampleCount               sampleCount        = GpuSampleCount::x1;
