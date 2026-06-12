@@ -111,11 +111,42 @@ void Renderer::_updateCameraProjection() {
 }
 
 void Renderer::_onResize() {
-    // Update camera projection
+    // Fast resize path. The framebuffer content + per-pass render targets are desktop-sized and
+    // the render viewport is read per-frame, so they survive a resize untouched. Only the camera
+    // projection and the (window-sized) MSAA textures actually depend on window size — recreate
+    // just those. Crucially we do NOT release()/init() the passes, which would recompile every
+    // pipeline (a Metal shader-compile storm) and re-upload all map geometry/textures for nothing.
     _updateCameraProjection();
 
-    // Reset render passes to recreate window-sized textures
-    _reset();
+    int w = Window::GetPhysicalWidth(), h = Window::GetPhysicalHeight();
+    if (w <= 0 || h <= 0) return;
+
+    // Let each pass refresh its surface-sized targets (e.g. the 2D sprite layer's depth +
+    // effect temps) so 2D content rescales — without recompiling pipelines or re-uploading geo.
+    for (auto &[fbName, framebuffer] : frameBuffers)
+        for (auto &[passname, renderpass] : framebuffer->renderpasses)
+            renderpass->onResize((uint32_t)w, (uint32_t)h);
+
+    if (currentSampleCount <= GpuSampleCount::x1) return;   // no MSAA targets -> nothing more
+    GpuTextureFormat swapchainFmt = m_gpu->getSwapchainFormat();
+
+    for (auto &[fbName, framebuffer] : frameBuffers) {
+        if (framebuffer->noMSAA) continue;
+        if (framebuffer->fbContentMSAA) { m_gpu->releaseTexture(framebuffer->fbContentMSAA); framebuffer->fbContentMSAA = 0; }
+        if (framebuffer->fbDepthMSAA)   { m_gpu->releaseTexture(framebuffer->fbDepthMSAA);   framebuffer->fbDepthMSAA   = 0; }
+
+        GpuTextureCreateInfo colorInfo{
+            .width = (uint32_t)w, .height = (uint32_t)h, .depthOrLayers = 1, .numLevels = 1,
+            .format = swapchainFmt, .sampleCount = currentSampleCount, .usage = GpuTextureUsage::ColorTarget,
+        };
+        framebuffer->fbContentMSAA = m_gpu->createTexture(colorInfo);
+        GpuTextureCreateInfo depthInfo{
+            .width = (uint32_t)w, .height = (uint32_t)h, .depthOrLayers = 1, .numLevels = 1,
+            .format = GpuTextureFormat::D32_Float, .sampleCount = currentSampleCount, .usage = GpuTextureUsage::DepthStencilTarget,
+        };
+        framebuffer->fbDepthMSAA = m_gpu->createTexture(depthInfo);
+    }
+    m_gpu->waitIdle();
 }
 
 void Renderer::_clearBackground(Color color) {

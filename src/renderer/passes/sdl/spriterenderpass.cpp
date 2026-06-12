@@ -445,6 +445,33 @@ void SpriteRenderPass::render(
 
 // ── Effect resources (SDL) ───────────────────────────────────────────────────
 
+void SpriteRenderPass::onResize(uint32_t surfaceWidth, uint32_t surfaceHeight) {
+    if (surfaceWidth == 0 || surfaceHeight == 0) return;
+    if (surfaceWidth == m_surface_width && surfaceHeight == m_surface_height) return;
+
+    IGpu& gpu = Renderer::GetGpu();
+    gpu.waitIdle();
+
+    // Recreate only the surface-sized targets (depth + effect temps). Pipelines, shaders and
+    // the render queue are untouched — no recompile.
+    if (m_depth_texture.gpuTexture) { gpu.releaseTexture(m_depth_texture.gpuTexture); m_depth_texture.gpuTexture = 0; }
+    if (effectTempA.gpuTexture)     { gpu.releaseTexture(effectTempA.gpuTexture);     effectTempA.gpuTexture = 0; }
+    if (effectTempB.gpuTexture)     { gpu.releaseTexture(effectTempB.gpuTexture);     effectTempB.gpuTexture = 0; }
+
+    m_surface_width  = surfaceWidth;
+    m_surface_height = surfaceHeight;
+
+    GpuTextureCreateInfo depthInfo{};
+    depthInfo.width       = surfaceWidth;
+    depthInfo.height      = surfaceHeight;
+    depthInfo.format      = GpuTextureFormat::D32_Float;
+    depthInfo.usage       = GpuTextureUsage::DepthStencilTarget;
+    depthInfo.sampleCount = GpuSampleCount::x1;
+    m_depth_texture.gpuTexture = gpu.createTexture(depthInfo);
+
+    createEffectResources();
+}
+
 void SpriteRenderPass::createEffectResources() {
     IGpu& gpu = Renderer::GetGpu();
 

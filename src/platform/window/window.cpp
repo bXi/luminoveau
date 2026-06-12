@@ -387,8 +387,11 @@ void Window::_startFrame() {
 
     Window::HandleInput();
 
-    // Only update camera on resize - render passes stay at desktop size
-    if (_sizeDirty || Renderer::ConsumePendingReset()) {
+    // A pending reset (format/MSAA-class change) needs a full rebuild; a plain resize only
+    // needs the cheap path (camera + window-sized MSAA targets) — pipelines and desktop-sized
+    // targets/geometry survive, so we skip the costly pass release()+init() on resize.
+    if (Renderer::ConsumePendingReset()) Renderer::Reset();
+    if (_sizeDirty) {
         Renderer::OnResize();
         _sizeDirty = false;
     }

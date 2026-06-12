@@ -255,6 +255,8 @@ public:
 
     void release(bool logRelease = true) override;
 
+    void onResize(uint32_t surfaceWidth, uint32_t surfaceHeight) override;
+
     void render(
         GpuCmdBufferHandle cmdBuffer, GpuTextureHandle targetTexture, const glm::mat4 &camera
     ) override;

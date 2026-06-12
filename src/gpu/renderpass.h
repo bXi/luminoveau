@@ -60,6 +60,10 @@ public:
 
     virtual void release(bool logRelease = true) = 0;
 
+    // Cheap window-resize hook: recreate ONLY size-dependent targets (not pipelines/geometry).
+    // Default no-op for passes whose targets are framebuffer/desktop-sized with a live viewport.
+    virtual void onResize(uint32_t /*surfaceWidth*/, uint32_t /*surfaceHeight*/) {}
+
     virtual void render(GpuCmdBufferHandle  cmdBuffer,
                         GpuTextureHandle    targetTexture,
                         const glm::mat4&    camera) = 0;
