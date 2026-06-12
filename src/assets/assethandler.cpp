@@ -440,6 +440,13 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
         useBC7 ? basist::transcoder_texture_format::cTFBC7_RGBA
                : basist::transcoder_texture_format::cTFRGBA32;
 
+    // Upload ALL mip levels through a single command buffer + one submit. The previous
+    // per-level acquire/submit cost ~one command-buffer commit per mip — thousands per map
+    // load — which is brutal on backends with high submit overhead (Metal). Transfer buffers
+    // stay alive until after the submit; SDL defers their actual free until the GPU is done.
+    GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
+    std::vector<GpuTransferBufferHandle> staging;
+    staging.reserve(levels);
     for (uint32_t lvl = 0; lvl < levels; lvl++) {
         basist::ktx2_image_level_info li{};
         if (!t.get_image_level_info(li, lvl, 0, 0)) continue;
@@ -455,13 +462,13 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
         gpu.unmapTransferBuffer(tb);
         if (!ok) { gpu.releaseTransferBuffer(tb); LOG_WARNING("KTX2: transcode level {} failed", lvl); continue; }
 
-        GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
         GpuTransferBufferRegion src{ tb, 0, rowPx, 0 };
         GpuTextureRegion       dr { tex, lvl, 0, 0, 0, 0, li.m_orig_width, li.m_orig_height, 1 };
         gpu.uploadToTexture(cmd, src, dr, false);
-        gpu.submitCommandBuffer(cmd);
-        gpu.releaseTransferBuffer(tb);
+        staging.push_back(tb);
     }
+    gpu.submitCommandBuffer(cmd);
+    for (GpuTransferBufferHandle tb : staging) gpu.releaseTransferBuffer(tb);
 
     out.gpuTexture = tex;
     out.gpuSampler = Renderer::GetSampler(ScaleMode::Linear);
