@@ -46,6 +46,9 @@ set(LUMINOVEAU_SOURCES
     src/core/state/state.cpp
     src/core/log/log.cpp
 
+    # Profiler
+    src/profiler/perf.cpp
+
     # File
     src/file/filehandler.cpp
     src/file/resourcepack.cpp

@@ -41,6 +41,20 @@ public:
 
     virtual GpuCmdBufferHandle acquireCommandBuffer() = 0;
     virtual void submitCommandBuffer(GpuCmdBufferHandle cmd) = 0;
+
+    // GPU timing fence (optional). Default: just submit, no fence (0) — backends without
+    // fence support report no GPU time. SDL overrides these for the perf HUD.
+    virtual GpuFenceHandle submitCommandBufferAndAcquireFence(GpuCmdBufferHandle cmd) {
+        submitCommandBuffer(cmd); return 0;
+    }
+    virtual void waitFence(GpuFenceHandle /*fence*/) {}      // block until the GPU work completes
+    virtual void releaseFence(GpuFenceHandle /*fence*/) {}
+
+    // Perf HUD: per-frame draw stats + backend name. Defaults = unsupported.
+    virtual uint32_t frameDrawCalls() const { return 0; }
+    virtual uint64_t frameDrawVerts() const { return 0; }
+    virtual void     resetFrameDrawStats()   {}
+    virtual const char *backendName() const  { return "GPU"; }
     // Releases the current swapchain texture/view; called once per frame after the final submit.
     // Default no-op covers backends where the swapchain is presented implicitly by submit.
     virtual void presentSwapchain() {}

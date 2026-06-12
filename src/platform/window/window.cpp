@@ -11,6 +11,8 @@
 
 #include "renderer/renderer.h"
 #include "platform/window/window_backend.h"
+#include "profiler/perf.h"
+#include "draw/draw.h"
 
 #include <SDL3_image/SDL_image.h>
 
@@ -399,15 +401,23 @@ void Window::_startFrame() {
             EngineState::_currentTime - EngineState::_previousTime).count() / 1e9;
 
     Renderer::StartFrame();
+
+    Perf::FrameStart();   // mark the start of this frame's CPU work
 }
 
 void Window::_endFrame() {
+
+    Perf::FrameEnd();     // CPU ms + sample + draw the perf HUD (before the frame is submitted)
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     if (EngineState::_debugMenuVisible) {
         ImGuiIntegration::DrawDebugMenu();
     }
 #endif
+
+    // Engine-drawn perf HUD: renders into its own render-to-screen overlay framebuffer
+    // (created last -> composited on top of everything). No-op if hidden.
+    Perf::Render();
 
     Renderer::EndFrame();
 

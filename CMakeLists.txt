@@ -90,6 +90,16 @@ include(cmake/Sources.cmake)
 
 add_library(luminoveau STATIC ${LUMINOVEAU_SOURCES})
 
+# ── Perf HUD: platform hardware-name queries ──────────────────────────────────
+if(WIN32)
+    target_link_libraries(luminoveau PRIVATE dxgi)           # GPU name via DXGI
+elseif(APPLE)
+    target_sources(luminoveau PRIVATE src/profiler/perf_metal.mm)  # GPU name via Metal
+    target_link_libraries(luminoveau PRIVATE "-framework Metal" "-framework Foundation")
+elseif(UNIX)
+    target_link_libraries(luminoveau PRIVATE ${CMAKE_DL_LIBS})  # dlopen libvulkan for GPU name
+endif()
+
 # Compile definitions that depend on the target existing
 if(LUMINOVEAU_WEBGPU_BACKEND)
     target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WEBGPU_BACKEND)

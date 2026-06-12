@@ -1,9 +1,57 @@
 #include "gpu/backends/sdl/SdlGpuBackend.h"
 #include "gpu/backends/sdl/sdlgpu.h"
+#include "profiler/perf.h"
 
 #include <SDL3/SDL.h>
 #include <vector>
 #include <cstring>
+#include <unordered_map>
+
+// ── VRAM accounting (tracked allocations -> Perf HUD) ─────────────────────────
+namespace {
+    std::unordered_map<void*, size_t> s_allocSizes;
+    int64_t s_vramTotal = 0;
+
+    // Bits per pixel for the formats we allocate (BC7 is 8bpp; uncompressed by channel size).
+    int bppOf(GpuTextureFormat f) {
+        switch (f) {
+            case GpuTextureFormat::R8_Unorm:                                   return 8;
+            case GpuTextureFormat::R8G8_Unorm: case GpuTextureFormat::R16_Float:
+            case GpuTextureFormat::D16_Unorm:                                  return 16;
+            case GpuTextureFormat::R8G8B8A8_Unorm: case GpuTextureFormat::B8G8R8A8_Unorm:
+            case GpuTextureFormat::R8G8B8A8_Unorm_SRGB: case GpuTextureFormat::B8G8R8A8_Unorm_SRGB:
+            case GpuTextureFormat::R16G16_Float: case GpuTextureFormat::R32_Float:
+            case GpuTextureFormat::R10G10B10A2_Unorm: case GpuTextureFormat::D32_Float:
+            case GpuTextureFormat::D24_Unorm:                                  return 32;
+            case GpuTextureFormat::R16G16B16A16_Float: case GpuTextureFormat::R32G32_Float:
+            case GpuTextureFormat::D32_Float_S8_Uint:                          return 64;
+            case GpuTextureFormat::R32G32B32A32_Float:                         return 128;
+            case GpuTextureFormat::BC7_Unorm: case GpuTextureFormat::B5G6R5_Unorm: return 8;
+            default:                                                           return 32;
+        }
+    }
+    size_t texBytes(const GpuTextureCreateInfo& i) {
+        uint32_t layers = i.depthOrLayers ? i.depthOrLayers : 1;
+        double base = (double)i.width * i.height * layers * bppOf(i.format) / 8.0;
+        if (i.numLevels > 1) base *= 1.34;   // approx mip chain
+        return (size_t)base;
+    }
+    void vramAdd(void* h, size_t bytes) {
+        if (!h || !bytes) return;
+        s_allocSizes[h] = bytes; s_vramTotal += (int64_t)bytes;
+        Perf::ReportVRAM(s_vramTotal);
+    }
+    void vramRemove(void* h) {
+        auto it = s_allocSizes.find(h);
+        if (it == s_allocSizes.end()) return;
+        s_vramTotal -= (int64_t)it->second; s_allocSizes.erase(it);
+        if (s_vramTotal < 0) s_vramTotal = 0;
+        Perf::ReportVRAM(s_vramTotal);
+    }
+
+    uint32_t s_drawCalls = 0;
+    uint64_t s_drawVerts = 0;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lifecycle
@@ -41,6 +89,21 @@ GpuCmdBufferHandle SdlGpuBackend::acquireCommandBuffer() {
 
 void SdlGpuBackend::submitCommandBuffer(GpuCmdBufferHandle cmd) {
     SDL_SubmitGPUCommandBuffer(reinterpret_cast<SDL_GPUCommandBuffer*>(cmd));
+}
+
+GpuFenceHandle SdlGpuBackend::submitCommandBufferAndAcquireFence(GpuCmdBufferHandle cmd) {
+    SDL_GPUFence* f = SDL_SubmitGPUCommandBufferAndAcquireFence(reinterpret_cast<SDL_GPUCommandBuffer*>(cmd));
+    return reinterpret_cast<GpuFenceHandle>(f);
+}
+
+void SdlGpuBackend::waitFence(GpuFenceHandle fence) {
+    if (!fence) return;
+    SDL_GPUFence* f = reinterpret_cast<SDL_GPUFence*>(fence);
+    SDL_WaitForGPUFences(m_device, true, &f, 1);   // block until the GPU finishes this submission
+}
+
+void SdlGpuBackend::releaseFence(GpuFenceHandle fence) {
+    if (fence) SDL_ReleaseGPUFence(m_device, reinterpret_cast<SDL_GPUFence*>(fence));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -284,6 +347,7 @@ void SdlGpuBackend::drawPrimitives(GpuRenderPassHandle pass,
                                     uint32_t firstVertex,  uint32_t firstInstance) {
     SDL_DrawGPUPrimitives(reinterpret_cast<SDL_GPURenderPass*>(pass),
                           vertexCount, instanceCount, firstVertex, firstInstance);
+    s_drawCalls++; s_drawVerts += (uint64_t)vertexCount * (instanceCount ? instanceCount : 1);
 }
 
 void SdlGpuBackend::drawIndexedPrimitives(GpuRenderPassHandle pass,
@@ -292,7 +356,13 @@ void SdlGpuBackend::drawIndexedPrimitives(GpuRenderPassHandle pass,
                                            uint32_t firstInstance) {
     SDL_DrawGPUIndexedPrimitives(reinterpret_cast<SDL_GPURenderPass*>(pass),
                                  indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    s_drawCalls++; s_drawVerts += (uint64_t)indexCount * (instanceCount ? instanceCount : 1);
 }
+
+uint32_t SdlGpuBackend::frameDrawCalls() const { return s_drawCalls; }
+uint64_t SdlGpuBackend::frameDrawVerts() const { return s_drawVerts; }
+void     SdlGpuBackend::resetFrameDrawStats()  { s_drawCalls = 0; s_drawVerts = 0; }
+const char *SdlGpuBackend::backendName() const { return SDL_GetGPUDeviceDriver(m_device); }
 
 void SdlGpuBackend::dispatchCompute(GpuComputePassHandle pass,
                                      uint32_t groupsX, uint32_t groupsY, uint32_t groupsZ) {
@@ -322,12 +392,16 @@ void SdlGpuBackend::setViewport(GpuRenderPassHandle pass,
 
 GpuTextureHandle SdlGpuBackend::createTexture(const GpuTextureCreateInfo& info) {
     SDL_GPUTextureCreateInfo ci = toSDL(info);
-    return reinterpret_cast<GpuTextureHandle>(SDL_CreateGPUTexture(m_device, &ci));
+    auto tex = reinterpret_cast<GpuTextureHandle>(SDL_CreateGPUTexture(m_device, &ci));
+    vramAdd((void*)tex, texBytes(info));
+    return tex;
 }
 
 GpuBufferHandle SdlGpuBackend::createBuffer(const GpuBufferCreateInfo& info) {
     SDL_GPUBufferCreateInfo ci = toSDL(info);
-    return reinterpret_cast<GpuBufferHandle>(SDL_CreateGPUBuffer(m_device, &ci));
+    auto buf = reinterpret_cast<GpuBufferHandle>(SDL_CreateGPUBuffer(m_device, &ci));
+    vramAdd((void*)buf, info.size);
+    return buf;
 }
 
 GpuTransferBufferHandle SdlGpuBackend::createTransferBuffer(const GpuTransferBufferCreateInfo& info) {
@@ -461,11 +535,11 @@ GpuComputePipelineHandle SdlGpuBackend::createComputePipeline(const GpuComputePi
 // ─────────────────────────────────────────────────────────────────────────────
 
 void SdlGpuBackend::releaseTexture(GpuTextureHandle handle) {
-    if (handle) SDL_ReleaseGPUTexture(m_device, reinterpret_cast<SDL_GPUTexture*>(handle));
+    if (handle) { vramRemove((void*)handle); SDL_ReleaseGPUTexture(m_device, reinterpret_cast<SDL_GPUTexture*>(handle)); }
 }
 
 void SdlGpuBackend::releaseBuffer(GpuBufferHandle handle) {
-    if (handle) SDL_ReleaseGPUBuffer(m_device, reinterpret_cast<SDL_GPUBuffer*>(handle));
+    if (handle) { vramRemove((void*)handle); SDL_ReleaseGPUBuffer(m_device, reinterpret_cast<SDL_GPUBuffer*>(handle)); }
 }
 
 void SdlGpuBackend::releaseTransferBuffer(GpuTransferBufferHandle handle) {

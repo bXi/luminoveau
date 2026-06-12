@@ -24,6 +24,14 @@ public:
 
     GpuCmdBufferHandle acquireCommandBuffer() override;
     void submitCommandBuffer(GpuCmdBufferHandle cmd) override;
+    GpuFenceHandle submitCommandBufferAndAcquireFence(GpuCmdBufferHandle cmd) override;
+    void waitFence(GpuFenceHandle fence) override;
+    void releaseFence(GpuFenceHandle fence) override;
+
+    uint32_t frameDrawCalls() const override;
+    uint64_t frameDrawVerts() const override;
+    void     resetFrameDrawStats() override;
+    const char *backendName() const override;
 
     GpuTextureHandle acquireSwapchainTexture(GpuCmdBufferHandle cmd,
                                              uint32_t& outWidth,

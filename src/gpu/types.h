@@ -19,6 +19,7 @@ using GpuComputePipelineHandle  = uintptr_t;
 using GpuCmdBufferHandle        = uintptr_t;
 using GpuRenderPassHandle       = uintptr_t;
 using GpuComputePassHandle      = uintptr_t;
+using GpuFenceHandle            = uintptr_t;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Texture formats

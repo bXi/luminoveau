@@ -45,6 +45,7 @@
 #include <renderer/compute.h>
 #include <draw/particles.h>
 #include <draw/text.h>
+#include <profiler/perf.h>
 
 // ── Scene ────────────────────────────────────────────────────────────────────
 #include <scene/camera.h>

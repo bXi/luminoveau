@@ -2,7 +2,9 @@
 
 #include <stdexcept>
 #include <regex>
+#include <chrono>
 #include "platform/audio/audio.h"
+#include "profiler/perf.h"
 
 #include "assets/assethandler.h"
 #include "assets/shaders_generated.h"
@@ -251,13 +253,44 @@ void Renderer::_endFrame() {
     }
 
     // ── Submit and reset ──────────────────────────────────────────────────────
-    m_gpu->submitCommandBuffer(m_cmdbuf);
+    // When the perf HUD is open, fence the final submit and wait for GPU completion to time
+    // real GPU work. Near-free when vsync-bound (the CPU would idle for the GPU anyway); zero
+    // cost when the HUD is hidden.
+    if (Perf::Visible()) {
+        auto t0 = std::chrono::high_resolution_clock::now();
+        GpuFenceHandle fence = m_gpu->submitCommandBufferAndAcquireFence(m_cmdbuf);
+        if (fence) {
+            m_gpu->waitFence(fence);
+            double ms = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            std::chrono::high_resolution_clock::now() - t0).count() / 1.0e6;
+            Perf::ReportGPUms(ms);
+            m_gpu->releaseFence(fence);
+        }
+    } else {
+        m_gpu->submitCommandBuffer(m_cmdbuf);
+    }
     m_gpu->presentSwapchain();
 
     // Increment the present counter — Window::GetFPS reads this over its caller-supplied
     // averaging window. Decoupled from _lastFrameTime so SDL_AppIterate's spin rate
     // doesn't poison the FPS report.
     EngineState::_presentCount++;
+
+    // Real per-present frame time -> perf HUD graph (matches the present-based FPS).
+    {
+        static auto s_lastPresent = std::chrono::high_resolution_clock::now();
+        static bool s_have = false;
+        auto nowP = std::chrono::high_resolution_clock::now();
+        if (s_have) {
+            double dt = std::chrono::duration_cast<std::chrono::nanoseconds>(nowP - s_lastPresent).count() / 1.0e6;
+            Perf::ReportFrameMs(dt);
+        }
+        s_lastPresent = nowP; s_have = true;
+    }
+
+    // Per-frame draw stats -> perf HUD.
+    if (Perf::Visible()) Perf::ReportDraws(m_gpu->frameDrawCalls(), m_gpu->frameDrawVerts());
+    m_gpu->resetFrameDrawStats();
     for (auto &[fbName, framebuffer]: frameBuffers) {
         for (auto &[passname, renderpass]: framebuffer->renderpasses) {
             renderpass->resetRenderQueue();
