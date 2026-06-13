@@ -159,11 +159,16 @@ public:
     void* getRawDevice() const override { return m_device; }
     void* getRawSampler(int /*scaleModeInt*/) const override { return nullptr; }
 
+    // BC creation throws (not null-returns) on WebGPU when the feature is off, so the KTX2
+    // loader must check support up-front instead of relying on a failed createTexture.
+    bool supportsBCTextures() const override { return m_textureCompressionBC; }
+
 private:
     WGPUInstance m_instance = nullptr;
     WGPUAdapter  m_adapter  = nullptr;
     WGPUDevice   m_device   = nullptr;
     bool         m_float32Filterable = false;
+    bool         m_textureCompressionBC = false;   // BC7/BCn upload support (else KTX2 -> RGBA8)
     WGPUQueue    m_queue    = nullptr;
     WGPUSurface  m_surface  = nullptr;
 
@@ -233,7 +238,11 @@ private:
 
     WGPUBindGroupLayout _makeEmptyBGL();
     WGPUBindGroupLayout _makeUniformBGL(uint32_t count, WGPUShaderStageFlags visibility);
-    WGPUBindGroupLayout _makeSamplerBGL(uint32_t pairCount, WGPUShaderStageFlags visibility);
+    // texFirst=false: binding even=sampler, odd=texture (graphics convention, post pair-swap).
+    // texFirst=true:  binding even=texture, odd=sampler (compute — matches Tint's native order,
+    //                 which the compute path does not pair-swap, and bindComputeSamplers).
+    WGPUBindGroupLayout _makeSamplerBGL(uint32_t pairCount, WGPUShaderStageFlags visibility,
+                                        bool texFirst = false);
     WGPUBindGroupLayout _makeStorageTexBGL(uint32_t count, WGPUShaderStageFlags visibility,
                                            WGPUStorageTextureAccess access,
                                            const GpuTextureFormat* perBindingFormats = nullptr,

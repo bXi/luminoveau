@@ -115,6 +115,11 @@ bool WebGpuGpuBackend::init(void* windowHandle) {
     WGPULimits requiredLimits                        = WGPU_LIMITS_INIT;
     requiredLimits.maxBufferSize                     = clampMin(536870912ULL, adapterLimits.maxBufferSize);
     requiredLimits.maxStorageBufferBindingSize       = clampMin(536870912ULL, adapterLimits.maxStorageBufferBindingSize);
+    // BSP data is packed into single-row data textures that can exceed the default 8192-wide
+    // limit (e.g. 12288 on larger maps). Request the adapter's full maxTextureDimension2D
+    // (commonly 16384) so those createTexture calls don't fail and leave null render targets.
+    if (adapterLimits.maxTextureDimension2D > 0)
+        requiredLimits.maxTextureDimension2D = adapterLimits.maxTextureDimension2D;
 
     // TextureFormatsTier1: unlocks read_write storage texture access on
     // rgba8unorm, rgba16float, rgba32float. Optional — only requested if adapter exposes it.
@@ -133,6 +138,16 @@ bool WebGpuGpuBackend::init(void* windowHandle) {
     } else {
         m_float32Filterable = false;
         LOG_WARNING("WebGPU: Float32Filterable not supported — sampling rgba32f textures must use Nearest filter");
+    }
+    // TextureCompressionBC: lets us upload the HD pack's BC7 (KTX2) textures directly. Optional —
+    // when absent (e.g. some mobile adapters) the KTX2 loader transcodes to RGBA8 instead.
+    if (wgpuAdapterHasFeature(m_adapter, WGPUFeatureName_TextureCompressionBC)) {
+        requiredFeatures.push_back(WGPUFeatureName_TextureCompressionBC);
+        m_textureCompressionBC = true;
+        LOG_INFO("WebGPU: TextureCompressionBC supported, requesting feature");
+    } else {
+        m_textureCompressionBC = false;
+        LOG_WARNING("WebGPU: TextureCompressionBC not supported — KTX2 textures fall back to RGBA8");
     }
 
     WGPUDeviceDescriptor deviceDesc{};
@@ -718,7 +733,9 @@ void WebGpuGpuBackend::bindVertexStorageBuffers(GpuRenderPassHandle pass, uint32
 void WebGpuGpuBackend::bindComputeSamplers(GpuComputePassHandle pass, uint32_t first,
                                             const GpuTextureSamplerBinding* bindings, uint32_t count) {
     auto* cp = reinterpret_cast<WgpuComputePass*>(pass);
-    if (!cp->currentPipeline || !cp->currentPipeline->bgLayouts[3]) return;
+    // Samplers live in group 1 (SDL set0 -> group 1 via the compute @group remap), with the
+    // sampler+texture BGL built in createComputePipeline. (Group 3 is unused for compute.)
+    if (!cp->currentPipeline || !cp->currentPipeline->bgLayouts[1]) return;
 
     std::vector<WGPUBindGroupEntry> entries;
     entries.reserve(count * 2);
@@ -732,11 +749,11 @@ void WebGpuGpuBackend::bindComputeSamplers(GpuComputePassHandle pass, uint32_t f
     }
 
     WGPUBindGroupDescriptor bgDesc{};
-    bgDesc.layout     = cp->currentPipeline->bgLayouts[3];
+    bgDesc.layout     = cp->currentPipeline->bgLayouts[1];
     bgDesc.entryCount = entries.size();
     bgDesc.entries    = entries.data();
     WGPUBindGroup bg = wgpuDeviceCreateBindGroup(m_device, &bgDesc);
-    wgpuComputePassEncoderSetBindGroup(cp->encoder, 3, bg, 0, nullptr);
+    wgpuComputePassEncoderSetBindGroup(cp->encoder, 1, bg, 0, nullptr);
     cp->cmdBuf->cleanup.tempBindGroups.push_back(bg);
 }
 
@@ -990,7 +1007,8 @@ WGPUBindGroupLayout WebGpuGpuBackend::_makeUniformBGL(uint32_t count, WGPUShader
     return wgpuDeviceCreateBindGroupLayout(m_device, &desc);
 }
 
-WGPUBindGroupLayout WebGpuGpuBackend::_makeSamplerBGL(uint32_t pairCount, WGPUShaderStageFlags vis) {
+WGPUBindGroupLayout WebGpuGpuBackend::_makeSamplerBGL(uint32_t pairCount, WGPUShaderStageFlags vis,
+                                                      bool texFirst) {
     if (pairCount == 0) return nullptr;
     // If Float32Filterable is not enabled, declare textures as UnfilterableFloat so rgba32f
     // textures bind without validation errors. Sampler is downgraded to NonFiltering to match.
@@ -1000,14 +1018,18 @@ WGPUBindGroupLayout WebGpuGpuBackend::_makeSamplerBGL(uint32_t pairCount, WGPUSh
         ? WGPUSamplerBindingType_Filtering : WGPUSamplerBindingType_NonFiltering;
     std::vector<WGPUBindGroupLayoutEntry> entries(pairCount * 2);
     for (uint32_t i = 0; i < pairCount; ++i) {
-        // binding N*2+0 = sampler, binding N*2+1 = texture (matches WGSL @binding(0)=sampler, @binding(1)=texture)
+        // Pair layout: graphics uses even=sampler/odd=texture (post pair-swap); compute keeps
+        // Tint's native even=texture/odd=sampler (texFirst). Pick the bindings accordingly.
+        uint32_t texBinding = texFirst ? (i * 2)     : (i * 2 + 1);
+        uint32_t smpBinding = texFirst ? (i * 2 + 1) : (i * 2);
+
         entries[i * 2] = {};
-        entries[i * 2].binding         = i * 2;
+        entries[i * 2].binding         = smpBinding;
         entries[i * 2].visibility      = vis;
         entries[i * 2].sampler.type    = samplerType;
 
         entries[i * 2 + 1] = {};
-        entries[i * 2 + 1].binding               = i * 2 + 1;
+        entries[i * 2 + 1].binding               = texBinding;
         entries[i * 2 + 1].visibility            = vis;
         entries[i * 2 + 1].texture.sampleType    = texSampleType;
         entries[i * 2 + 1].texture.viewDimension = WGPUTextureViewDimension_2D;
@@ -1305,11 +1327,16 @@ GpuComputePipelineHandle WebGpuGpuBackend::createComputePipeline(const GpuComput
     pl->roStorageTexCount    = info.readonlyStorageTextureCount;
     pl->rwStorageTexCount    = info.readwriteStorageTextureCount;
 
-    // Compute pipeline uses three bind groups: 0 = uniforms, 1 = RO (buffer OR storage texture),
-    // 2 = RW (buffer OR storage texture). A single shader's WGSL group N is either buffer-only
-    // or texture-only (never mixed) so the BGL type is chosen per pipeline.
+    // Compute bind groups: 0 = uniforms (SDL set2), 1 = the "read" group (SDL set0:
+    // sampled textures+samplers OR RO storage texture OR RO storage buffer), 2 = RW (SDL set1:
+    // buffer OR storage texture). A single shader's set0 is one resource kind, so group 1's BGL
+    // type is chosen per pipeline: samplers take priority (matches probe_gi.comp's sampler2D
+    // data textures), then RO storage texture, then RO storage buffer.
     pl->bgLayouts[0] = _makeUniformBGL(pl->uniformCount, WGPUShaderStage_Compute);
-    if (pl->roStorageTexCount > 0) {
+    if (pl->samplerCount > 0) {
+        // texFirst=true: compute WGSL keeps Tint's even=texture/odd=sampler binding order.
+        pl->bgLayouts[1] = _makeSamplerBGL(pl->samplerCount, WGPUShaderStage_Compute, /*texFirst=*/true);
+    } else if (pl->roStorageTexCount > 0) {
         pl->bgLayouts[1] = _makeStorageTexBGL(pl->roStorageTexCount, WGPUShaderStage_Compute,
                                               WGPUStorageTextureAccess_ReadOnly,
                                               info.readonlyStorageTextureFormats);
@@ -1726,7 +1753,10 @@ WGPULoadOp WebGpuGpuBackend::toWGPU(GpuLoadOp op) {
     switch (op) {
         case GpuLoadOp::Load:     return WGPULoadOp_Load;
         case GpuLoadOp::Clear:    return WGPULoadOp_Clear;
-        case GpuLoadOp::DontCare: return WGPULoadOp_Undefined;
+        // WebGPU has no "don't care" load op, and Undefined(0) is rejected on a color
+        // attachment that has a view. Our DontCare passes are fullscreen overwrites, so Clear
+        // is a safe equivalent (the cleared contents are immediately overwritten).
+        case GpuLoadOp::DontCare: return WGPULoadOp_Clear;
         default:                  return WGPULoadOp_Load;
     }
 }

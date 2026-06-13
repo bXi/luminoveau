@@ -55,6 +55,11 @@ public:
     virtual uint64_t frameDrawVerts() const { return 0; }
     virtual void     resetFrameDrawStats()   {}
     virtual const char *backendName() const  { return "GPU"; }
+    // Whether BC/BCn compressed textures can be created. Default true: backends that simply
+    // null-return on an unsupported format (SDL/Metal) let the KTX2 loader fall back via that.
+    // WebGPU overrides false when the device lacks texture-compression-bc, because there
+    // createTexture *throws* instead of returning null, so the loader must skip BC up-front.
+    virtual bool supportsBCTextures() const { return true; }
     // Releases the current swapchain texture/view; called once per frame after the final submit.
     // Default no-op covers backends where the swapchain is presented implicitly by submit.
     virtual void presentSwapchain() {}

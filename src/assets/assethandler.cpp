@@ -417,6 +417,22 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
     uint32_t levels = t.get_levels(); if (levels < 1) levels = 1;
     auto &gpu = Renderer::GetGpu();
 
+    // Only attempt BC7 if the backend reports support — on WebGPU createTexture(BC7) THROWS
+    // (aborting wasm) when texture-compression-bc is off, so we can't rely on a null return
+    // there. SDL/Metal report true and still null-return on a genuinely unsupported format,
+    // caught below.
+    bool useBC7 = gpu.supportsBCTextures();
+
+    // BC works in 4x4 blocks, and WebGPU's writeTexture rejects compressed copies for mips
+    // smaller than the block (the 2x2 / 1x1 tail: "copySize.width is not a multiple of 4").
+    // Cap the BC mip chain at the smallest level still >= 4px in both dims; sampling just
+    // clamps LOD there. (RGBA8 has no block constraint but a slightly shorter chain is fine.)
+    if (useBC7) {
+        uint32_t n = 0;
+        while (n < levels && (t.get_width() >> n) >= 4 && (t.get_height() >> n) >= 4) n++;
+        levels = (n < 1) ? 1 : n;
+    }
+
     // Prefer BC7 (4x smaller in VRAM). If the device/backend can't create a BC7 texture
     // (some drivers/backends don't expose BC), fall back to an RGBA8 transcode so HD textures
     // still show (at 4x the VRAM) instead of silently dropping to the 8-bit base.
@@ -426,11 +442,16 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
         .format = GpuTextureFormat::BC7_Unorm, .sampleCount = GpuSampleCount::x1,
         .usage = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
     };
-    GpuTextureHandle tex = gpu.createTexture(tci);
-    bool useBC7 = (tex != 0);
+    GpuTextureHandle tex = 0;
+    if (useBC7) {
+        tex = gpu.createTexture(tci);
+        if (!tex) {
+            LOG_WARNING("KTX2: BC7 texture create failed ({}x{}) -> RGBA8 fallback",
+                        t.get_width(), t.get_height());
+            useBC7 = false;
+        }
+    }
     if (!useBC7) {
-        LOG_WARNING("KTX2: BC7 texture create failed ({}x{}) -> RGBA8 fallback",
-                    t.get_width(), t.get_height());
         tci.format = GpuTextureFormat::R8G8B8A8_Unorm;
         tex = gpu.createTexture(tci);
         if (!tex) { LOG_WARNING("KTX2: RGBA8 fallback create also failed"); return out; }
