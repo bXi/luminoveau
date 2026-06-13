@@ -399,6 +399,15 @@ void SpriteRenderPass::createShaders() {
     }
 }
 
+// Resize fast-path counterpart of the SDL backend. The WebGPU sprite pass has no depth target
+// and grows its effect ping-pong textures on demand inside render() (capped at the surface
+// size), so resizing just needs to update the surface dims — no texture recreation here.
+void SpriteRenderPass::onResize(uint32_t surfaceWidth, uint32_t surfaceHeight) {
+    if (surfaceWidth == 0 || surfaceHeight == 0) return;
+    m_surface_width  = surfaceWidth;
+    m_surface_height = surfaceHeight;
+}
+
 // ── render (WebGPU) ──────────────────────────────────────────────────────────
 
 void SpriteRenderPass::render(
