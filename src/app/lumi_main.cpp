@@ -1,8 +1,22 @@
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
+#include <SDL3/SDL_filesystem.h>
 #include "app/app.h"
 
+#if defined(_WIN32)
+  #include <direct.h>
+  #define LUMI_CHDIR _chdir
+#else
+  #include <unistd.h>
+  #define LUMI_CHDIR chdir
+#endif
+
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
+    // Anchor the working directory to the executable's folder before anything touches the
+    // filesystem. Double-clicking from Finder (or Explorer) launches with CWD = "/" or the
+    // user's home, which breaks relative asset/pak mounts. SDL_GetBasePath resolves the
+    // executable dir on every platform (and Contents/Resources for a macOS .app bundle).
+    if (const char* base = SDL_GetBasePath(); base && *base) (void)LUMI_CHDIR(base);
     return static_cast<SDL_AppResult>(AppInit(appstate, argc, argv));
 }
 
