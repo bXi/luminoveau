@@ -176,7 +176,8 @@ void UploadBufferData(GpuBufferHandle buffer, const void* data, uint32_t size) {
     GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
     gpu.uploadToBuffer(cmd, tb, 0, buffer, 0, size);
     gpu.submitCommandBuffer(cmd);
-    gpu.waitIdle();
+    // No waitIdle: queue ordering guarantees the upload completes before any later dispatch
+    // that reads the buffer, and releasing the transfer buffer after submit is deferred-safe.
     gpu.releaseTransferBuffer(tb);
 }
 
