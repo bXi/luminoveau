@@ -358,6 +358,13 @@ vf2d Window::_getPhysicalSize() {
     if (WindowBackend::GetPhysicalSizeOverride(m_window, _webGpuScaleMode, backendSize)) {
         return backendSize;
     }
+    // Prefer the actual swapchain dimensions from the last acquire -- that's the size we truly
+    // present into, and the viewport/blit must match it. SDL_GetWindowSizeInPixels can disagree
+    // on Wayland fractional scaling (scene rendered bigger than the window). Fall back to the
+    // SDL size before the first frame's acquire, or if a backend reports nothing.
+    if (EngineState::_swapchainWidth > 0 && EngineState::_swapchainHeight > 0) {
+        return {(float) EngineState::_swapchainWidth, (float) EngineState::_swapchainHeight};
+    }
     int w, h;
     SDL_GetWindowSizeInPixels(m_window, &w, &h);
     return {(float) w, (float) h};

@@ -41,7 +41,7 @@ struct Mode7Parameters {
  * @brief Provides functionality for 2D rendering operations.
  */
 class Draw {
-    using TextureType = Texture;
+    using TextureType = TextureAsset&;  // not "= Texture": naming the Texture type in-class clashes with the Texture() method (GCC -Wchanges-meaning)
 public:
     /**
      * @brief Draws a pixel at the specified position with the given color.
@@ -218,7 +218,7 @@ public:
      * @param size The size of the drawn texture.
      * @param color The color of the drawn texture.
      */
-    static void Texture(Texture texture, vf2d pos, vf2d size, Color color = WHITE) {
+    static void Texture(TextureType texture, vf2d pos, vf2d size, Color color = WHITE) {
         get()._drawTexture(texture, pos, size, color);
     };
 

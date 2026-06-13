@@ -7,6 +7,12 @@ namespace EngineState {
     //from Window::
     inline int   _scaleFactor      = 1;
     inline float _displayScale     = 1.0f;  // HiDPI scale factor (e.g. 2.0 on Retina)
+
+    // Actual swapchain texture dimensions from the last acquire (the size we truly present
+    // into). Authoritative for viewport/blit -- SDL_GetWindowSizeInPixels can disagree on
+    // Wayland fractional scaling. 0 = not acquired yet (callers fall back to the SDL size).
+    inline int   _swapchainWidth   = 0;
+    inline int   _swapchainHeight  = 0;
     inline bool  _shouldQuit       = false;
     inline int  _frameCount       = 0;
     inline bool _debugMenuVisible = false;

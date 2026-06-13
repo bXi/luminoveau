@@ -181,6 +181,13 @@ void Renderer::_endFrame() {
 
     uint32_t scWidth = 0, scHeight = 0;
     swapchain_texture = m_gpu->acquireSwapchainTexture(m_cmdbuf, scWidth, scHeight);
+    if (scWidth > 0 && scHeight > 0) {
+        // Authoritative present size -> Window::GetPhysicalWidth/Height. Drives viewport + blit
+        // UV so they match the swapchain even when SDL_GetWindowSizeInPixels lies (Wayland
+        // fractional scaling), which otherwise renders the scene bigger than the window.
+        EngineState::_swapchainWidth  = (int)scWidth;
+        EngineState::_swapchainHeight = (int)scHeight;
+    }
     if (scWidth > 0 && scHeight > 0 && (scWidth != m_canvasWidth || scHeight != m_canvasHeight)) {
         m_canvasWidth  = scWidth;
         m_canvasHeight = scHeight;
