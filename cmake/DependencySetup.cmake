@@ -180,24 +180,19 @@ endif()
 # configure with -DLUMINOVEAU_KTX2=OFF to drop it (AssetHandler then loads RGBA only).
 option(LUMINOVEAU_KTX2 "KTX2/Basis (UASTC->BC7) texture support" ON)
 if(LUMINOVEAU_KTX2)
-    # Fetch basis_universal and compile only its transcoder .cpp (no encoder/CMake build) plus
-    # the bundled decompress-only zstd (KTX2 supercompression). Defines LUMINOVEAU_WITH_KTX2.
+    # Source-only, same pattern as SPIRV-Cross/glslang: clone the repo and compile just the
+    # transcoder .cpp (no encoder) plus the bundled decompress-only zstd (KTX2 supercompression).
+    # No CPM / add_subdirectory -> no configure-time CMake for basis. Defines LUMINOVEAU_WITH_KTX2.
     lumi_msg("Fetching basis_universal")
-    CPMAddPackage(
-        NAME basis_universal
-        GITHUB_REPOSITORY BinomialLLC/basis_universal
-        GIT_TAG 1.16.4
-        DOWNLOAD_ONLY YES
-    )
-    if(basis_universal_ADDED AND EXISTS "${basis_universal_SOURCE_DIR}/transcoder/basisu_transcoder.cpp")
-        set(_basis_srcs "${basis_universal_SOURCE_DIR}/transcoder/basisu_transcoder.cpp")
-        if(EXISTS "${basis_universal_SOURCE_DIR}/zstd/zstddeclib.c")
-            list(APPEND _basis_srcs "${basis_universal_SOURCE_DIR}/zstd/zstddeclib.c")
+    lumi_fetch("basis_universal" "https://github.com/BinomialLLC/basis_universal.git" "1.16.4" BASIS_ROOT)
+    if(BASIS_ROOT AND EXISTS "${BASIS_ROOT}/transcoder/basisu_transcoder.cpp")
+        target_sources(luminoveau PRIVATE "${BASIS_ROOT}/transcoder/basisu_transcoder.cpp")
+        if(EXISTS "${BASIS_ROOT}/zstd/zstddeclib.c")
+            target_sources(luminoveau PRIVATE "${BASIS_ROOT}/zstd/zstddeclib.c")
         endif()
-        target_sources(luminoveau PRIVATE ${_basis_srcs})
-        target_include_directories(luminoveau SYSTEM PUBLIC "${basis_universal_SOURCE_DIR}/transcoder")
+        target_include_directories(luminoveau SYSTEM PUBLIC "${BASIS_ROOT}/transcoder")
         target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_KTX2=1)
-        lumi_done("basis_universal")
+        lumi_done("basis_universal (source-only)")
     else()
         message(FATAL_ERROR "basis_universal fetch failed. Fix the network/tag, or configure with -DLUMINOVEAU_KTX2=OFF.")
     endif()
