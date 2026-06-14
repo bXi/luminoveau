@@ -52,6 +52,7 @@ enum class GpuTextureFormat : uint32_t {
     BC4_Unorm,
     BC5_Unorm,
     BC7_Unorm,
+    ASTC_4x4_Unorm,   // native on Apple/mobile GPUs; same 16 B / 4x4 block size as BC7
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

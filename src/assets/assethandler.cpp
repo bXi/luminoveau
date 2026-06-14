@@ -421,7 +421,15 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
     // (aborting wasm) when texture-compression-bc is off, so we can't rely on a null return
     // there. SDL/Metal report true and still null-return on a genuinely unsupported format,
     // caught below.
+#if defined(__APPLE__)
+    // Apple: force RGBA8 (uncompressed). The UASTC->BC7 *pack* is ~5s per map of SIMD-less scalar
+    // work even at -O2 (the UASTC->RGBA *unpack* is ~1ms), and Apple GPUs don't sample BC natively.
+    // RGBA8 costs 4x VRAM but loads near-instantly. TODO: revisit with a threaded transcode or an
+    // on-disk cache of pre-transcoded blocks if VRAM becomes a concern.
+    bool useBC7 = false;
+#else
     bool useBC7 = gpu.supportsBCTextures();
+#endif
 
     // BC works in 4x4 blocks, and WebGPU's writeTexture rejects compressed copies for mips
     // smaller than the block (the 2x2 / 1x1 tail: "copySize.width is not a multiple of 4").

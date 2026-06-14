@@ -26,7 +26,8 @@ namespace {
             case GpuTextureFormat::R16G16B16A16_Float: case GpuTextureFormat::R32G32_Float:
             case GpuTextureFormat::D32_Float_S8_Uint:                          return 64;
             case GpuTextureFormat::R32G32B32A32_Float:                         return 128;
-            case GpuTextureFormat::BC7_Unorm: case GpuTextureFormat::B5G6R5_Unorm: return 8;
+            case GpuTextureFormat::BC7_Unorm: case GpuTextureFormat::ASTC_4x4_Unorm:
+            case GpuTextureFormat::B5G6R5_Unorm:                               return 8;
             default:                                                           return 32;
         }
     }

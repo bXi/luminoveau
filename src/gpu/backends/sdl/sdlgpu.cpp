@@ -29,6 +29,7 @@ SDL_GPUTextureFormat toSDL(GpuTextureFormat fmt) {
         case GpuTextureFormat::BC4_Unorm:             return SDL_GPU_TEXTUREFORMAT_BC4_R_UNORM;
         case GpuTextureFormat::BC5_Unorm:             return SDL_GPU_TEXTUREFORMAT_BC5_RG_UNORM;
         case GpuTextureFormat::BC7_Unorm:             return SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM;
+        case GpuTextureFormat::ASTC_4x4_Unorm:        return SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM;
         default:                                      return SDL_GPU_TEXTUREFORMAT_INVALID;
     }
 }
@@ -64,6 +65,8 @@ GpuTextureFormat fromSDL(SDL_GPUTextureFormat fmt) {
         case SDL_GPU_TEXTUREFORMAT_D32_FLOAT:             return GpuTextureFormat::D32_Float;
         case SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT:     return GpuTextureFormat::D24_Unorm_S8_Uint;
         case SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT:     return GpuTextureFormat::D32_Float_S8_Uint;
+        case SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM:        return GpuTextureFormat::BC7_Unorm;
+        case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM:        return GpuTextureFormat::ASTC_4x4_Unorm;
         default:                                          return GpuTextureFormat::Invalid;
     }
 }
