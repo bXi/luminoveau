@@ -473,9 +473,10 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
     // per-level acquire/submit cost ~one command-buffer commit per mip — thousands per map
     // load — which is brutal on backends with high submit overhead (Metal). Transfer buffers
     // stay alive until after the submit; SDL defers their actual free until the GPU is done.
-    GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
-    std::vector<GpuTransferBufferHandle> staging;
-    staging.reserve(levels);
+    // _batchAcquire/_batchFinishUpload additionally fold this whole texture's upload into a
+    // map-wide batch (see Begin/EndUploadBatch) when one is active, so the per-TEXTURE submit
+    // also collapses — one commit per flush instead of one per HD texture.
+    GpuCmdBufferHandle cmd = _batchAcquire();
     for (uint32_t lvl = 0; lvl < levels; lvl++) {
         basist::ktx2_image_level_info li{};
         if (!t.get_image_level_info(li, lvl, 0, 0)) continue;
@@ -494,10 +495,9 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
         GpuTransferBufferRegion src{ tb, 0, rowPx, 0 };
         GpuTextureRegion       dr { tex, lvl, 0, 0, 0, 0, li.m_orig_width, li.m_orig_height, 1 };
         gpu.uploadToTexture(cmd, src, dr, false);
-        staging.push_back(tb);
+        _batchTrack(tb, dstBytes);
     }
-    gpu.submitCommandBuffer(cmd);
-    for (GpuTransferBufferHandle tb : staging) gpu.releaseTransferBuffer(tb);
+    _batchFinishUpload(cmd);
 
     out.gpuTexture = tex;
     out.gpuSampler = Renderer::GetSampler(ScaleMode::Linear);
@@ -815,7 +815,7 @@ bool AssetHandler::_copy_to_texture(void* src_data, uint32_t src_data_len,
     std::memcpy(ptr, src_data, src_data_len);
     gpu.unmapTransferBuffer(tb);
 
-    GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
+    GpuCmdBufferHandle cmd = _batchAcquire();
     if (!cmd) { gpu.releaseTransferBuffer(tb); return false; }
 
     GpuTransferBufferRegion src{ .transferBuffer = tb, .offset = 0 };
@@ -826,9 +826,67 @@ bool AssetHandler::_copy_to_texture(void* src_data, uint32_t src_data_len,
         .width = dst_texture_width, .height = dst_texture_height, .depth = 1,
     };
     gpu.uploadToTexture(cmd, src, dst, false);
-    gpu.submitCommandBuffer(cmd);
-    gpu.releaseTransferBuffer(tb);
+    _batchTrack(tb, src_data_len);
+    _batchFinishUpload(cmd);
     return true;
+}
+
+// ── Upload batching ───────────────────────────────────────────────────────────
+// Outside a batch these behave exactly like the original acquire→upload→submit→release per
+// texture. Inside a batch (Begin/EndUploadBatch) uploads share one command buffer and defer
+// transfer-buffer release to a flush, so a map's hundreds of HD-texture uploads collapse from
+// one GPU commit each to one per flush — the win on Metal's relatively costly per-submit path.
+
+void AssetHandler::_beginUploadBatch() {
+    if (m_uploadBatching) { LOG_WARNING("BeginUploadBatch: already batching (nesting unsupported)"); return; }
+    m_uploadBatching = true;
+    m_batchCmd       = 0;
+    m_batchStaging.clear();
+    m_batchBytes     = 0;
+}
+
+void AssetHandler::_endUploadBatch() {
+    if (!m_uploadBatching) return;
+    _batchFlush();                 // submit whatever's pending + release its transfer buffers
+    m_uploadBatching = false;
+}
+
+GpuCmdBufferHandle AssetHandler::_batchAcquire() {
+    auto &gpu = Renderer::GetGpu();
+    if (!m_uploadBatching) return gpu.acquireCommandBuffer();
+    if (!m_batchCmd) m_batchCmd = gpu.acquireCommandBuffer();
+    return m_batchCmd;
+}
+
+void AssetHandler::_batchTrack(GpuTransferBufferHandle tb, uint32_t bytes) {
+    // Used in both modes: while batching this is the deferred-release list (freed at flush);
+    // otherwise it's this single upload's transient list, freed by _batchFinishUpload below.
+    m_batchStaging.push_back(tb);
+    m_batchBytes += bytes;
+}
+
+void AssetHandler::_batchFinishUpload(GpuCmdBufferHandle cmd) {
+    auto &gpu = Renderer::GetGpu();
+    if (!m_uploadBatching) {
+        gpu.submitCommandBuffer(cmd);
+        for (GpuTransferBufferHandle tb : m_batchStaging) gpu.releaseTransferBuffer(tb);
+        m_batchStaging.clear();
+        m_batchBytes = 0;
+        return;
+    }
+    // Batching: keep recording into the shared command buffer. Flush opportunistically once the
+    // pending transfer buffers exceed a budget so a large map doesn't pin hundreds of MB of
+    // host-visible staging at once. (BC7 512^2 + mips ≈ 0.35 MB; x4 maps x hundreds of surfaces.)
+    static constexpr size_t kBatchFlushBytes = 64u * 1024u * 1024u;
+    if (m_batchBytes >= kBatchFlushBytes) _batchFlush();
+}
+
+void AssetHandler::_batchFlush() {
+    auto &gpu = Renderer::GetGpu();
+    if (m_batchCmd) { gpu.submitCommandBuffer(m_batchCmd); m_batchCmd = 0; }
+    for (GpuTransferBufferHandle tb : m_batchStaging) gpu.releaseTransferBuffer(tb);
+    m_batchStaging.clear();
+    m_batchBytes = 0;
 }
 
 TextureAsset AssetHandler::_createDepthTarget(uint32_t width, uint32_t height) {

@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 #include <mutex>
+#include <vector>
 
 #include "SDL3/SDL.h"
 
@@ -63,6 +64,20 @@ public:
     static TextureAsset LoadTextureFile(const std::string &path) {
         return get()._loadTextureFile(path);
     }
+
+    /**
+     * @brief Coalesce many texture uploads into shared command buffers.
+     *
+     * Between Begin/EndUploadBatch, the texture loaders record their copy passes into one shared
+     * command buffer and defer transfer-buffer release, replacing the per-texture
+     * acquire+submit (a GPU commit each) with one submit per flush. The batch auto-flushes once
+     * its pending transfer buffers exceed an internal byte budget, so peak host memory stays
+     * bounded. Used during map load, where hundreds of HD/KTX2 textures upload back-to-back —
+     * on Metal the per-texture commit overhead is otherwise significant. Calls must be paired;
+     * nesting is not supported (Begin while already batching is a no-op-with-warning).
+     */
+    static void BeginUploadBatch() { get()._beginUploadBatch(); }
+    static void EndUploadBatch()   { get()._endUploadBatch(); }
 
 
 
@@ -226,6 +241,21 @@ private:
 
     bool _copy_to_texture(void *src_data, uint32_t src_data_len, GpuTextureHandle dst_texture,
                           uint32_t dst_texture_width, uint32_t dst_texture_height);
+
+    // ── Upload batching (see Begin/EndUploadBatch) ────────────────────────────
+    // While batching, texture uploads share m_batchCmd and defer transfer-buffer release until a
+    // flush; otherwise each upload acquires + submits its own command buffer (original behavior).
+    void               _beginUploadBatch();
+    void               _endUploadBatch();
+    GpuCmdBufferHandle _batchAcquire();                       // shared cmd while batching, else fresh
+    void               _batchTrack(GpuTransferBufferHandle tb, uint32_t bytes);  // defer release + budget
+    void               _batchFinishUpload(GpuCmdBufferHandle cmd);  // submit+release now, or defer to flush
+    void               _batchFlush();                         // submit shared cmd + release tracked buffers
+
+    bool                                 m_uploadBatching = false;
+    GpuCmdBufferHandle                   m_batchCmd       = 0;
+    std::vector<GpuTransferBufferHandle> m_batchStaging;
+    size_t                               m_batchBytes     = 0;
 
     void _setDefaultTextureScaleMode(ScaleMode mode);
 
