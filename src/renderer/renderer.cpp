@@ -191,9 +191,14 @@ void Renderer::_endFrame() {
     if (scWidth > 0 && scHeight > 0 && (scWidth != m_canvasWidth || scHeight != m_canvasHeight)) {
         m_canvasWidth  = scWidth;
         m_canvasHeight = scHeight;
-        // Framebuffer is desktop-sized and not recreated on resize. Just refresh the
-        // camera projection so logical-coordinate draws follow the new window size.
-        _updateCameraProjection();
+        // The swapchain can change size WITHOUT an SDL window-resize event — most importantly on
+        // the first frame, when a HiDPI window realizes its true physical drawable (e.g. a 1280x720
+        // logical window backed by a 2560x1440 Metal layer). Run the full resize path, not just the
+        // camera: passes that cap their viewport to m_surface_width (SpriteRenderPass, used for the
+        // HUD/console layer) would otherwise stay pinned to the pre-realization size and fill only
+        // part of the screen, while passes that read GetPhysicalWidth live (the 3D world) fill it.
+        // _onResize() reads GetPhysicalWidth/Height, which == the swapchain size set just above.
+        _onResize();
     }
 
     if (!swapchain_texture) {
