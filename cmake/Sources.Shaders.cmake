@@ -1,5 +1,5 @@
 # Auto-generated shader sources - DO NOT EDIT
-# Available backends: wgsl
+# Available backends: metallib
 
 # Set default GPU backend if not specified
 if(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
@@ -48,6 +48,10 @@ elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "METALLIB")
         src/assets/shaders/fullscreen_quad_frag.metallib.cpp
         src/assets/shaders/model3d_vert.metallib.cpp
         src/assets/shaders/model3d_frag.metallib.cpp
+        src/assets/shaders/particles_pov_vert.metallib.cpp
+        src/assets/shaders/particles_pov_frag.metallib.cpp
+        src/assets/shaders/particles_vert.metallib.cpp
+        src/assets/shaders/particles_frag.metallib.cpp
         src/assets/shaders/sprite_vert.metallib.cpp
         src/assets/shaders/sprite_frag.metallib.cpp
     )

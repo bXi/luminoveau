@@ -1,7 +1,6 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: /Users/bxi/shmoipa/libs/luminoveau/assethandler/shaders/fullscreen_quad_vert.metallib
+// Source: luminoveau/src/assets/shaders/fullscreen_quad_vert.metallib
 // Backend: METALLIB
-// Generated: 2026-02-07 10:20:53
 
 #include <cstdint>
 #include <cstddef>

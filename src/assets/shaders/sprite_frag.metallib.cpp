@@ -1,7 +1,6 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: /Users/bxi/lumisynth/libs/luminoveau/assethandler/shaders/sprite_frag.metallib
+// Source: luminoveau/src/assets/shaders/sprite_frag.metallib
 // Backend: METALLIB
-// Generated: 2026-02-16 19:32:51
 
 #include <cstdint>
 #include <cstddef>

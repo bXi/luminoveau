@@ -1,7 +1,6 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: /Users/bxi/shmoipa/libs/luminoveau/assethandler/shaders/sprite_vert.metallib
+// Source: luminoveau/src/assets/shaders/sprite_vert.metallib
 // Backend: METALLIB
-// Generated: 2026-02-07 21:23:10
 
 #include <cstdint>
 #include <cstddef>

@@ -1,7 +1,6 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: /Users/bxi/shmoipa/libs/luminoveau/assethandler/shaders/model3d_frag.metallib
+// Source: luminoveau/src/assets/shaders/model3d_frag.metallib
 // Backend: METALLIB
-// Generated: 2026-02-07 10:20:53
 
 #include <cstdint>
 #include <cstddef>
