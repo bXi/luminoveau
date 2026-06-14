@@ -422,56 +422,55 @@ function Fix-MSLBindings
     $content = [System.IO.File]::ReadAllText($MslFile)
     $modified = $false
 
+    # Buffers: rewrite every '<name> [[buffer(N)]]' in a single evaluator pass, keyed on the
+    # parameter identifier that immediately precedes each attribute. Looking up the real MSL
+    # name (rather than searching outward from a reflection name) is order-independent and
+    # collision-proof. The old per-resource lookbehind mis-fired when two StructuredBuffers
+    # sit adjacent in the signature: spirv-cross emits them at buffer(0)/buffer(1), and the
+    # second remap never landed -- leaving e.g. both 'particles' and 'systems' at buffer(1),
+    # which xcrun metal rejects ("cannot reserve 'buffer' resource location at index 1").
+    $bufferRegex = '(?<name>\b\w+)(?<pre>\s+\[\[buffer\()\d+(?<post>\)\]\])'
+    $newContent = [regex]::Replace($content, $bufferRegex, {
+        param($m)
+        $entry = $BindingMap[$m.Groups['name'].Value]
+        if ($entry -and $entry.type -eq 'buffer')
+        {
+            # Re-emit the captured name -- it's part of the match, so dropping it would
+            # delete the parameter identifier and leave a nameless '& [[buffer(N)]]'.
+            return $m.Groups['name'].Value + $m.Groups['pre'].Value + $entry.msl_index.ToString() + $m.Groups['post'].Value
+        }
+        return $m.Value
+    })
+    if ($newContent -ne $content)
+    {
+        $content = $newContent
+        $modified = $true
+    }
+
+    # Textures / samplers: handled per-resource. Unlike adjacent buffers these don't collide,
+    # and a sampler is remapped to match its paired texture's index.
     foreach ($resourceName in $BindingMap.Keys)
     {
         $entry = $BindingMap[$resourceName]
+        if ($entry.type -ne "texture") { continue }
         $targetIndex = $entry.msl_index
 
-        if ($entry.type -eq "buffer")
+        # Fix texture binding: [[texture(N)]]
+        $pattern = "(?<=" + [regex]::Escape($resourceName) + "[^\[]*\[\[texture\()\d+(?=\)\]\])"
+        if ($content -match $pattern)
         {
-            # Match patterns like: SomeVar [[buffer(N)]] or _123 [[buffer(N)]]
-            # Resource names may appear as-is, with type_ prefix, or mangled
-            # We search for the resource name near a [[buffer(N)]] attribute
-            $pattern = "(?<=" + [regex]::Escape($resourceName) + "[^\[]*\[\[buffer\()\d+(?=\)\]\])"
-            if ($content -match $pattern)
-            {
-                $content = $content -replace $pattern, $targetIndex.ToString()
-                $modified = $true
-            }
-            else
-            {
-                # Try with type_ prefix (spirv-cross sometimes prefixes struct types)
-                $pattern2 = "(?<=type_" + [regex]::Escape($resourceName) + "[^\[]*\[\[buffer\()\d+(?=\)\]\])"
-                if ($content -match $pattern2)
-                {
-                    $content = $content -replace $pattern2, $targetIndex.ToString()
-                    $modified = $true
-                }
-                else
-                {
-                    Write-Info "    WARNING: Could not find MSL binding for '$resourceName' - may already be correct"
-                }
-            }
+            $content = $content -replace $pattern, $targetIndex.ToString()
+            $modified = $true
         }
-        elseif ($entry.type -eq "texture")
-        {
-            # Fix texture binding: [[texture(N)]]
-            $pattern = "(?<=" + [regex]::Escape($resourceName) + "[^\[]*\[\[texture\()\d+(?=\)\]\])"
-            if ($content -match $pattern)
-            {
-                $content = $content -replace $pattern, $targetIndex.ToString()
-                $modified = $true
-            }
 
-            # Fix matching sampler binding: [[sampler(N)]]
-            # Samplers derived from HLSL separate samplers get their own name
-            # but SDL expects msl_sampler = binding (same as texture)
-            $samplerPattern = "(?<=" + [regex]::Escape($resourceName) + "[^\[]*\[\[sampler\()\d+(?=\)\]\])"
-            if ($content -match $samplerPattern)
-            {
-                $content = $content -replace $samplerPattern, $targetIndex.ToString()
-                $modified = $true
-            }
+        # Fix matching sampler binding: [[sampler(N)]]
+        # Samplers derived from HLSL separate samplers get their own name
+        # but SDL expects msl_sampler = binding (same as texture)
+        $samplerPattern = "(?<=" + [regex]::Escape($resourceName) + "[^\[]*\[\[sampler\()\d+(?=\)\]\])"
+        if ($content -match $samplerPattern)
+        {
+            $content = $content -replace $samplerPattern, $targetIndex.ToString()
+            $modified = $true
         }
     }
 
