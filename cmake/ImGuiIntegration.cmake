@@ -10,11 +10,18 @@ endif()
 # Checking if ImGui integration is enabled
 if(LUMINOVEAU_BUILD_IMGUI)
 
-    lumi_msg("Fetching ImGui")
+    # Docking mode (opt-in) pulls the docking branch; otherwise the pinned master.
+    if(LUMINOVEAU_IMGUI_DOCKING)
+        set(_lumi_imgui_tag 2af6dd9)
+        lumi_msg("Fetching ImGui (docking branch)")
+    else()
+        set(_lumi_imgui_tag fbcf951)
+        lumi_msg("Fetching ImGui")
+    endif()
     CPMAddPackage(
         NAME Imgui
         GITHUB_REPOSITORY ocornut/imgui
-        GIT_TAG fbcf951
+        GIT_TAG ${_lumi_imgui_tag}
         EXCLUDE_FROM_ALL YES
         OPTIONS
             "IMGUI_BUILD_SDL3_BACKEND OFF"
@@ -24,6 +31,9 @@ if(LUMINOVEAU_BUILD_IMGUI)
     if(Imgui_ADDED)
         # Adding ImGui compile definition
         target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_IMGUI)
+        if(LUMINOVEAU_IMGUI_DOCKING)
+            target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_IMGUI_DOCKING)
+        endif()
 
         # Including ImGui source directory
         if(NOT EXISTS "${Imgui_SOURCE_DIR}")

@@ -22,6 +22,7 @@ endif()
 
 # ── Build options ─────────────────────────────────────────────────────────────
 option(LUMINOVEAU_BUILD_IMGUI    "Include ImGui support"                        OFF)
+option(LUMINOVEAU_IMGUI_DOCKING  "Use the ImGui docking branch + enable docking" OFF)
 option(LUMINOVEAU_BUILD_RMLUI    "Include RmlUi support"                        OFF)
 option(LUMINOVEAU_ENABLE_LOGGING "Include logging support"                      ON)
 option(LUMINOVEAU_ENABLE_WARNINGS "Enable all compiler warnings"                OFF)

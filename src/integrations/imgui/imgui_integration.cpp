@@ -64,6 +64,9 @@ SDL_Window* g_imguiWindow = nullptr;
 void SetupStyle() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+#ifdef LUMINOVEAU_WITH_IMGUI_DOCKING
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+#endif
 
     ImGuiStyle& style = ImGui::GetStyle();
 
@@ -220,6 +223,8 @@ void NewFrame() {
 #endif
     ImGuiBackend::NewFrame();
     ImGui::NewFrame();
+    // Docking is enabled via the flag in SetupStyle; the application owns the
+    // dockspace + layout (so it can lay panels out / save arrangements).
 }
 
 void RenderFrame(GpuCmdBufferHandle cmd, GpuTextureHandle swapchain) {
