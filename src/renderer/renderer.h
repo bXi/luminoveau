@@ -356,6 +356,12 @@ public:
      */
     static IGpu& GetGpu() { return *get().m_gpu; }
 
+    /**
+     * @brief True while the GPU backend is alive. False after Renderer::Close()
+     * resets it, so late teardown (e.g. static singleton dtors) can skip GPU calls.
+     */
+    static bool HasGpu() { return (bool)get().m_gpu; }
+
     static ComputePipelineAsset CreateComputePipelineAsset(const std::string& shaderPath);
 
 

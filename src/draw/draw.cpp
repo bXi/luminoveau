@@ -142,15 +142,19 @@ void Draw::_releaseFramePixelTextures() {
 }
 
 void Draw::_cleanupPixelBuffer() {
-    IGpu& gpu = Renderer::GetGpu();
-    for (GpuTextureHandle tex : _pixelFrameTextures)     gpu.releaseTexture(tex);
-    for (GpuTextureHandle tex : _pixelPrevFrameTextures) gpu.releaseTexture(tex);
+    // May run at static teardown, after Renderer::Close() has reset the GPU and the
+    // device shutdown already freed these handles. Only touch the GPU if it's alive.
+    if (Renderer::HasGpu()) {
+        IGpu& gpu = Renderer::GetGpu();
+        for (GpuTextureHandle tex : _pixelFrameTextures)     gpu.releaseTexture(tex);
+        for (GpuTextureHandle tex : _pixelPrevFrameTextures) gpu.releaseTexture(tex);
+        if (_pixelTransferBuffer) {
+            gpu.releaseTransferBuffer(_pixelTransferBuffer);
+        }
+    }
     _pixelFrameTextures.clear();
     _pixelPrevFrameTextures.clear();
-    if (_pixelTransferBuffer) {
-        gpu.releaseTransferBuffer(_pixelTransferBuffer);
-        _pixelTransferBuffer = 0;
-    }
+    _pixelTransferBuffer = 0;
     _pixelBufferData.clear();
 }
 
