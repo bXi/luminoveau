@@ -104,7 +104,11 @@ void Renderer::_updateCameraProjection() {
     // available so logical coords still cover the visible area.
     if (Window::GetWebGpuScaleMode() == WebGpuScaleMode::Native &&
         m_canvasWidth > 0 && m_canvasHeight > 0) {
-        m_camera = glm::ortho(0.0f, (float)m_canvasWidth, (float)m_canvasHeight, 0.0f);
+        // The integer window scale (Window::SetScale) is independent of the HiDPI scale
+        // modes: it zooms the logical canvas. Divide the physical canvas by the scale
+        // factor so logical coords still map across the visible area (web: scale==1, no-op).
+        const float s = Window::GetScale() > 0.0f ? Window::GetScale() : 1.0f;
+        m_camera = glm::ortho(0.0f, (float)m_canvasWidth / s, (float)m_canvasHeight / s, 0.0f);
         return;
     }
     m_camera = glm::ortho(0.0f, (float)Window::GetWidth(), (float)Window::GetHeight(), 0.0f);
