@@ -111,11 +111,11 @@ std::string FileHandler::_getWritableDirectory() {
 }
 
 std::string FileHandler::_getBaseDirectory() {
+    // SDL3: SDL_GetBasePath() returns a const string owned/cached by SDL.
+    // The caller must NOT free it (unlike SDL2). Do not SDL_free this.
     const char* basePath = SDL_GetBasePath();
     if (basePath) {
-        std::string path(basePath);
-        SDL_free((void*)basePath);
-        return path;
+        return std::string(basePath);
     }
     
     LOG_ERROR("SDL_GetBasePath failed: {}", SDL_GetError());
