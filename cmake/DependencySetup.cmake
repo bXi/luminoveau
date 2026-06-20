@@ -198,7 +198,9 @@ if(LUMINOVEAU_KTX2)
         # which is why only the compressed path was slow. Per-file flag so the rest of the engine
         # stays debuggable. (Xcode/Ninja/Make: the later -O wins over the config's -O0; MSVC: /O2.)
         if(MSVC)
-            set_source_files_properties(${BASIS_SRCS} PROPERTIES COMPILE_OPTIONS "/O2")
+            # /O2 is incompatible with Debug's /RTC1 (D8016), so skip it in Debug.
+            # KTX2 transcode is slow in MSVC Debug as a result; fine for debugging.
+            set_source_files_properties(${BASIS_SRCS} PROPERTIES COMPILE_OPTIONS "$<$<NOT:$<CONFIG:Debug>>:/O2>")
         else()
             set_source_files_properties(${BASIS_SRCS} PROPERTIES COMPILE_OPTIONS "-O2")
         endif()
