@@ -417,9 +417,19 @@ public:
         get()._removeSpriteRenderTarget(name, removeFramebuffer);
     }
 
+    /**
+     * @brief Queues a PNG capture of a framebuffer's resolved content. Captured at
+     * end of frame (after its passes render) and written asynchronously, like the
+     * swapchain screenshot path. Lets callers persist offscreen render targets.
+     */
+    static void CaptureFramebuffer(const std::string& fbName, const std::string& filename) {
+        get().m_pendingFbCaptures.push_back({fbName, filename});
+    }
+
 private:
     SDL_GPUDevice        *m_device = nullptr;  // null under WebGPU backend
     GpuCmdBufferHandle    m_cmdbuf = 0;
+    std::vector<std::pair<std::string, std::string>> m_pendingFbCaptures;  // (fbName, file)
 
     std::unique_ptr<IGpu> m_gpu;
 

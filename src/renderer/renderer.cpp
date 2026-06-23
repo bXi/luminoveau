@@ -299,6 +299,14 @@ void Renderer::_endFrame() {
         m_gpu->requestScreenshot(m_cmdbuf, swapchain_texture, width, height, filename);
     }
 
+    // Offscreen framebuffer captures (queued via CaptureFramebuffer). Their passes
+    // have already rendered into fbContent above, so stage the download now.
+    for (auto& [fbName, filename] : m_pendingFbCaptures) {
+        if (FrameBuffer* fb = _getFramebuffer(fbName); fb && fb->fbContent)
+            m_gpu->requestScreenshot(m_cmdbuf, fb->fbContent, fb->width, fb->height, filename);
+    }
+    m_pendingFbCaptures.clear();
+
     // ── Submit and reset ──────────────────────────────────────────────────────
     // When the perf HUD is open, fence the final submit and wait for GPU completion to time
     // real GPU work. Near-free when vsync-bound (the CPU would idle for the GPU anyway); zero
