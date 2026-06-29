@@ -1074,7 +1074,7 @@ static constexpr uint32_t FONT_CACHE_VERSION = 1;
 
 void AssetHandler::_initFontCache() {
     FileHandler::InitPersistentStorage();
-    std::string path = FileHandler::GetPersistentStorageDirectory() + "font.cache";
+    std::string path = FileHandler::GetCacheDirectory() + "font.cache";
     _fontCache = new ResourcePack(path, "luminoveau_fonts");
     if (_fontCache->Loaded()) {
         LOG_INFO("Loaded existing font cache from font.cache");

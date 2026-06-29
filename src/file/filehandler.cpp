@@ -122,6 +122,18 @@ std::string FileHandler::_getBaseDirectory() {
     return "./";  // Ultimate fallback
 }
 
+std::string FileHandler::_getCacheDirectory() {
+    // Default: next to the executable (portable). Overridable via SetCacheDirectory.
+    return _cacheDirectory.empty() ? _getBaseDirectory() : _cacheDirectory;
+}
+
+void FileHandler::_setCacheDirectory(const std::string& dir) {
+    if (dir.empty()) { _cacheDirectory.clear(); return; }
+    _cacheDirectory = dir;
+    if (_cacheDirectory.back() != '/' && _cacheDirectory.back() != '\\')
+        _cacheDirectory += '/';
+}
+
 bool FileHandler::_createDirectoryRecursive(const std::string& path) {
     try {
         std::filesystem::path fsPath(path);
@@ -175,14 +187,21 @@ PhysFSFileData FileHandler::_readFile(const std::string& filename) {
     result.fileSize = static_cast<int>(fileSize);
     return result;
 #else
+    // Absolute paths are never PhysFS-bundled assets (writable caches/saves live in
+    // the cache/system dir). Skip the PhysFS probe so callers fall back to real-file
+    // I/O without a spurious "does not exist" log.
+    if (std::filesystem::path(filename).is_absolute()) {
+        return result;
+    }
+
     // Desktop: Use PhysFS (auto-initialize if needed)
     _ensurePhysFS();
-    
+
     if (!PHYSFS_isInit()) {
         std::cerr << "PhysFS failed to initialize, cannot read file: " << filename << std::endl;
         return result;
     }
-    
+
     if (!PHYSFS_exists(filename.c_str())) {
         std::cerr << "File does not exist: " << filename << std::endl;
         return result;

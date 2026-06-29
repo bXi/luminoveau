@@ -112,7 +112,8 @@ void Init() {
     }
     LOG_INFO("SDL_shadercross initialized successfully");
 
-    s_shaderCache = new ResourcePack("shader.cache", "luminoveau_shaders");
+    s_shaderCache = new ResourcePack(FileHandler::GetCacheDirectory() + "shader.cache",
+                                     "luminoveau_shaders");
     if (!s_shaderCache->Loaded()) {
         LOG_INFO("No existing shader cache found, will create on first save");
     } else {

@@ -73,6 +73,20 @@ public:
      * @return Path to executable directory with trailing slash
      */
     static std::string GetBaseDirectory() { return get()._getBaseDirectory(); }
+
+    /**
+     * @brief Directory for regenerable engine caches (font/shader cache, etc.).
+     * Defaults to the executable directory (portable, next to the .exe). Override
+     * with SetCacheDirectory() for installed/read-only layouts.
+     * @return Cache directory with trailing slash.
+     */
+    static std::string GetCacheDirectory() { return get()._getCacheDirectory(); }
+
+    /**
+     * @brief Overrides the cache directory. Empty string restores the default
+     * (executable directory). A trailing slash is added if missing.
+     */
+    static void SetCacheDirectory(const std::string& dir) { get()._setCacheDirectory(dir); }
     
     // ========================================================================
     // FILE READING
@@ -246,6 +260,9 @@ private:
     // Path management
     std::string _getWritableDirectory();
     std::string _getBaseDirectory();
+    std::string _getCacheDirectory();
+    void _setCacheDirectory(const std::string& dir);
+    std::string _cacheDirectory;  // empty = default to the executable directory
     bool _createDirectoryRecursive(const std::string& path);
     
     // File reading
