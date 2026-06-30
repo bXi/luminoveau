@@ -56,10 +56,16 @@ public:
                         if (stop && tasks.empty()) return;
                         task = std::move(tasks.front());
                         tasks.pop();
+                        // Count under the lock so wait_all() never observes an empty queue
+                        // while a popped-but-not-yet-counted task is still in flight.
+                        tasks_running++;
                     }
-                    tasks_running++;
                     (*task)();
-                    tasks_running--;
+                    {
+                        std::unique_lock<std::mutex> lock(queue_mutex);
+                        if (--tasks_running == 0 && tasks.empty())
+                            done_condition.notify_all();
+                    }
                 }
             });
         }
@@ -75,6 +81,12 @@ public:
 
     template<typename F>
     void enqueue(F&& task) {
+        // No workers (e.g. Emscripten without -pthread): run inline so callers that
+        // enqueue + wait_all() still make progress instead of deadlocking.
+        if (workers.empty()) {
+            task();
+            return;
+        }
         {
             std::unique_lock<std::mutex> lock(queue_mutex);
             tasks.push(std::make_unique<TaskImpl<F>>(std::forward<F>(task)));
@@ -83,7 +95,8 @@ public:
     }
 
     void wait_all() {
-        while (tasks_running > 0 || !tasks.empty()) std::this_thread::yield();
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        done_condition.wait(lock, [this] { return tasks.empty() && tasks_running == 0; });
     }
 
     int get_thread_count() {
@@ -94,8 +107,9 @@ public:
 private:
     std::queue<Task> tasks;
     std::mutex queue_mutex;
-    std::condition_variable condition;
-    std::atomic<size_t> tasks_running;
+    std::condition_variable condition;       // signals workers: work available / stop
+    std::condition_variable done_condition;  // signals wait_all(): queue drained
+    size_t tasks_running;                    // guarded by queue_mutex
     bool stop = false;
 };
 
