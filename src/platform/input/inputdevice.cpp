@@ -91,6 +91,10 @@ int InputDevice::getGamepadID() const {
     return gamepadID;
 }
 
+void InputDevice::setGamepadID(int id) {
+    gamepadID = id;
+}
+
 InputDevice::InputDevice(InputType _type) {
     type = _type;
     gamepadID = -1;

@@ -38,6 +38,7 @@ InputDevice *Input::_getController(int index) {
 }
 
 void Input::_clear() {
+    for (auto *device : inputs) delete device;
     inputs.clear();
 }
 
@@ -171,14 +172,36 @@ void Input::_addGamepadDevice(SDL_JoystickID joystickID) {
 }
 
 void Input::_removeGamepadDevice(SDL_JoystickID joystickID) {
-    // Use std::remove_if to move the gamepad with the specified joystickID to the end
-    auto newEnd = std::remove_if(gamepads.begin(), gamepads.end(),
-                                 [joystickID](const auto &gamepad) {
-                                     return gamepad.joystickId == joystickID;
-                                 });
+    // Locate the gamepad. gamepadID on each InputDevice is a direct index into `gamepads`,
+    // so removing one entry shifts every later index — we must compact both vectors in lockstep
+    // and fix up the surviving devices, or stale indices read the wrong (or an out-of-bounds)
+    // gamepad later.
+    auto it = std::find_if(gamepads.begin(), gamepads.end(),
+                           [joystickID](const auto &gamepad) {
+                               return gamepad.joystickId == joystickID;
+                           });
+    if (it == gamepads.end()) return;
 
-    // Erase the removed gamepads from the vector
-    gamepads.erase(newEnd, gamepads.end());
+    int removedIdx = static_cast<int>(std::distance(gamepads.begin(), it));
+
+    if (it->gamepad) SDL_CloseGamepad(it->gamepad);
+    gamepads.erase(it);
+
+    // Drop the matching InputDevice (its gamepadID == removedIdx) and shift down every
+    // device that indexed a gamepad after the removed one.
+    for (auto deviceIt = inputs.begin(); deviceIt != inputs.end();) {
+        InputDevice *device = *deviceIt;
+        if (device->getType() != InputType::GAMEPAD) { ++deviceIt; continue; }
+
+        int id = device->getGamepadID();
+        if (id == removedIdx) {
+            delete device;
+            deviceIt = inputs.erase(deviceIt);
+        } else {
+            if (id > removedIdx) device->setGamepadID(id - 1);
+            ++deviceIt;
+        }
+    }
 }
 
 void Input::_updateScroll(int scrollDir) {

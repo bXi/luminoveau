@@ -34,6 +34,14 @@ public:
     [[nodiscard]] int getGamepadID() const;
 
     /**
+     * @brief Sets the gamepad index this device maps to.
+     *
+     * Used when the gamepads list is compacted after a disconnect so device
+     * indices stay aligned with the gamepads vector.
+     */
+    void setGamepadID(int id);
+
+    /**
      * @brief Constructs an input device with the specified type.
      *
      * @param _type The type of the input device.
