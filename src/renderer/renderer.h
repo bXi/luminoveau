@@ -506,7 +506,8 @@ private:
         glm::mat4 model;
         glm::vec2 flipped;
 
-        // TODO: fix this ugly mess
+        // Flat uv0..uv5, not uv[6]: HLSL cbuffer arrays 16-byte-align each element
+        // (48 -> 96 bytes), desyncing this CPU struct from the shader. Keep them separate.
         glm::vec2 uv0 = glm::vec2(1.0, 1.0);
         glm::vec2 uv1 = glm::vec2(0.0, 1.0);
         glm::vec2 uv2 = glm::vec2(1.0, 0.0);
