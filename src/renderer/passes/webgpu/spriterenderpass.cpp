@@ -561,6 +561,9 @@ void SpriteRenderPass::render(
         gpu.bindGraphicsPipeline(rp, m_pipeline);
         gpu.bindVertexStorageBuffers(rp, 0, &SpriteDataBuffer, 1);
 
+        // Camera is identical for every batch; push once and let it persist across draws.
+        gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
+
         for (const auto& batch : batches) {
             if (!batch.texture || !batch.sampler || !batch.vertexBuffer || !batch.indexBuffer) continue;
             GpuBufferBinding vb{ batch.vertexBuffer, 0 };
@@ -569,7 +572,6 @@ void SpriteRenderPass::render(
             gpu.bindIndexBuffer(rp, ib, true);
             GpuTextureSamplerBinding tsb{ batch.texture, batch.sampler };
             gpu.bindFragmentSamplers(rp, 0, &tsb, 1);
-            gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
             uint32_t instOff[8] = {};
             instOff[0] = static_cast<uint32_t>(batch.offset);
             gpu.pushVertexUniformData(cmdBuffer, 1, instOff, 32);
@@ -594,6 +596,8 @@ void SpriteRenderPass::render(
             currentPass = gpu.beginRenderPass(cmdBuffer, &ct, 1, nullptr);
             gpu.bindGraphicsPipeline(currentPass, m_pipeline);
             gpu.bindVertexStorageBuffers(currentPass, 0, &SpriteDataBuffer, 1);
+            // Push once per pass; camera is constant across the batches drawn into it.
+            gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
             // Same viewport restriction as the direct (no-effect-batches) path — without
             // this, non-effect batches that happen to share a render() with an effect batch
             // render into the full FB texture instead of the window-physical region.
@@ -631,7 +635,6 @@ void SpriteRenderPass::render(
                 gpu.bindIndexBuffer(currentPass, ib, true);
                 GpuTextureSamplerBinding tsb{ batch.texture, batch.sampler };
                 gpu.bindFragmentSamplers(currentPass, 0, &tsb, 1);
-                gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
                 uint32_t instOff[8] = {};
                 instOff[0] = static_cast<uint32_t>(batch.offset);
                 gpu.pushVertexUniformData(cmdBuffer, 1, instOff, 32);

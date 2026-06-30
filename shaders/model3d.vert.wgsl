@@ -13,6 +13,13 @@ struct SceneUniforms {
 
 @group(3) @binding(0) var<storage, read> sceneData : array<SceneUniforms>;
 
+// Per-draw base instance: lets one mesh-group draw index its own contiguous slice of models[].
+struct InstanceOffset {
+    baseInstance : u32,
+    _pad         : vec3<u32>,
+}
+@group(0) @binding(0) var<uniform> instOffset : InstanceOffset;
+
 struct VertIn {
     @location(0) position : vec3<f32>,
     @location(1) normal   : vec3<f32>,
@@ -31,7 +38,7 @@ struct VertOut {
 @vertex
 fn vs_main(in : VertIn, @builtin(instance_index) instanceIndex : u32) -> VertOut {
     let scene = sceneData[0];
-    let model = scene.models[instanceIndex];
+    let model = scene.models[instanceIndex + instOffset.baseInstance];
 
     let worldPos = model * vec4<f32>(in.position, 1.0);
     let clipPos  = scene.viewProj * worldPos;

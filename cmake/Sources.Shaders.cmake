@@ -1,5 +1,5 @@
 # Auto-generated shader sources - DO NOT EDIT
-# Available backends: metallib
+# Available backends: wgsl, spirv, dxil
 
 # Set default GPU backend if not specified
 if(NOT DEFINED LUMINOVEAU_GPU_BACKEND)

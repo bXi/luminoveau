@@ -300,6 +300,9 @@ void SpriteRenderPass::render(
         gpu.bindGraphicsPipeline(rp, m_pipeline);
         gpu.bindVertexStorageBuffers(rp, 0, &SpriteDataBuffer, 1);
 
+        // Camera is identical for every batch; push once and let it persist across draws.
+        gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
+
         for (size_t batchIdx = 0; batchIdx < batches.size(); ++batchIdx) {
             const auto &batch = batches[batchIdx];
             if (!batch.texture || !batch.sampler || !batch.vertexBuffer || !batch.indexBuffer) continue;
@@ -313,7 +316,6 @@ void SpriteRenderPass::render(
             GpuTextureSamplerBinding tsb{ batch.texture, batch.sampler };
             gpu.bindFragmentSamplers(rp, 0, &tsb, 1);
 
-            gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
             uint32_t batchOffset = static_cast<uint32_t>(batch.offset);
             gpu.pushVertexUniformData(cmdBuffer, 1, &batchOffset, sizeof(uint32_t));
 
@@ -354,6 +356,8 @@ void SpriteRenderPass::render(
                     }
                     gpu.bindGraphicsPipeline(currentPass, m_pipeline);
                     gpu.bindVertexStorageBuffers(currentPass, 0, &SpriteDataBuffer, 1);
+                    // Push once per pass; camera is constant across the batches drawn into it.
+                    gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
                 }
 
                 GpuBufferBinding vb{ batch.vertexBuffer, 0 };
@@ -363,7 +367,6 @@ void SpriteRenderPass::render(
 
                 GpuTextureSamplerBinding tsb{ batch.texture, batch.sampler };
                 gpu.bindFragmentSamplers(currentPass, 0, &tsb, 1);
-                gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
 
                 uint32_t batchOffset = static_cast<uint32_t>(batch.offset);
                 gpu.pushVertexUniformData(cmdBuffer, 1, &batchOffset, sizeof(uint32_t));
@@ -547,6 +550,10 @@ void SpriteRenderPass::releaseEffectResources() {
         if (pipeline) gpu.releaseGraphicsPipeline(pipeline);
     }
     m_effectPipelineCache.clear();
+    if (m_effectQuadVbuf) { gpu.releaseBuffer(m_effectQuadVbuf); m_effectQuadVbuf = 0; }
+    if (m_effectQuadIbuf) { gpu.releaseBuffer(m_effectQuadIbuf); m_effectQuadIbuf = 0; }
+    m_effectQuadUvScaleX = -1.0f;
+    m_effectQuadUvScaleY = -1.0f;
 }
 
 void SpriteRenderPass::applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vector<EffectAsset>& effects,
@@ -563,26 +570,38 @@ void SpriteRenderPass::applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vec
     struct Vertex { float x, y, u, v; };
     float uvScaleX = (float)Window::GetPhysicalWidth()  / (float)m_surface_width;
     float uvScaleY = (float)Window::GetPhysicalHeight() / (float)m_surface_height;
-    Vertex quadVertices[] = {
-        {0.0f, 0.0f, 0.0f,     uvScaleY},
-        {1.0f, 0.0f, uvScaleX, uvScaleY},
-        {0.0f, 1.0f, 0.0f,     0.0f},
-        {1.0f, 1.0f, uvScaleX, 0.0f},
-    };
-    uint16_t quadIndices[] = {0, 1, 2, 2, 1, 3};
 
-    GpuTransferBufferHandle vertexTransfer = gpu.createTransferBuffer({ sizeof(quadVertices), GpuTransferUsage::Upload });
-    GpuTransferBufferHandle indexTransfer  = gpu.createTransferBuffer({ sizeof(quadIndices),  GpuTransferUsage::Upload });
-    GpuBufferHandle         vertexBuffer   = gpu.createBuffer({ sizeof(quadVertices), GpuBufferUsage::Vertex });
-    GpuBufferHandle         indexBuffer    = gpu.createBuffer({ sizeof(quadIndices),  GpuBufferUsage::Index  });
+    // Lazily create the static quad buffers once; index data never changes.
+    if (!m_effectQuadVbuf) {
+        m_effectQuadVbuf = gpu.createBuffer({ sizeof(Vertex) * 4, GpuBufferUsage::Vertex });
+        m_effectQuadIbuf = gpu.createBuffer({ sizeof(uint16_t) * 6, GpuBufferUsage::Index });
 
-    memcpy(gpu.mapTransferBuffer(vertexTransfer, false), quadVertices, sizeof(quadVertices));
-    gpu.unmapTransferBuffer(vertexTransfer);
-    memcpy(gpu.mapTransferBuffer(indexTransfer,  false), quadIndices,  sizeof(quadIndices));
-    gpu.unmapTransferBuffer(indexTransfer);
+        uint16_t quadIndices[] = {0, 1, 2, 2, 1, 3};
+        GpuTransferBufferHandle idxXfer = gpu.createTransferBuffer({ sizeof(quadIndices), GpuTransferUsage::Upload });
+        memcpy(gpu.mapTransferBuffer(idxXfer, false), quadIndices, sizeof(quadIndices));
+        gpu.unmapTransferBuffer(idxXfer);
+        gpu.uploadToBuffer(cmdBuffer, idxXfer, 0, m_effectQuadIbuf, 0, sizeof(quadIndices));
+        gpu.releaseTransferBuffer(idxXfer);
+        m_effectQuadUvScaleX = -1.0f;  // force the vertex upload below
+    }
 
-    gpu.uploadToBuffer(cmdBuffer, vertexTransfer, 0, vertexBuffer, 0, sizeof(quadVertices));
-    gpu.uploadToBuffer(cmdBuffer, indexTransfer,  0, indexBuffer,  0, sizeof(quadIndices));
+    // Re-upload vertices only when the UV scale changed (resize); otherwise the persistent
+    // buffer already holds the right geometry from a previous frame.
+    if (uvScaleX != m_effectQuadUvScaleX || uvScaleY != m_effectQuadUvScaleY) {
+        Vertex quadVertices[] = {
+            {0.0f, 0.0f, 0.0f,     uvScaleY},
+            {1.0f, 0.0f, uvScaleX, uvScaleY},
+            {0.0f, 1.0f, 0.0f,     0.0f},
+            {1.0f, 1.0f, uvScaleX, 0.0f},
+        };
+        GpuTransferBufferHandle vtxXfer = gpu.createTransferBuffer({ sizeof(quadVertices), GpuTransferUsage::Upload });
+        memcpy(gpu.mapTransferBuffer(vtxXfer, false), quadVertices, sizeof(quadVertices));
+        gpu.unmapTransferBuffer(vtxXfer);
+        gpu.uploadToBuffer(cmdBuffer, vtxXfer, 0, m_effectQuadVbuf, 0, sizeof(quadVertices));
+        gpu.releaseTransferBuffer(vtxXfer);
+        m_effectQuadUvScaleX = uvScaleX;
+        m_effectQuadUvScaleY = uvScaleY;
+    }
 
     GpuTextureHandle readTex  = sourceTexture;
     GpuTextureHandle writeTex = (effects.size() == 1) ? targetTexture : effectTempB.gpuTexture;
@@ -696,9 +715,9 @@ void SpriteRenderPass::applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vec
             gpu.pushFragmentUniformData(cmdBuffer, 0, &dummy, sizeof(dummy));
         }
 
-        GpuBufferBinding vb{ vertexBuffer, 0 };
+        GpuBufferBinding vb{ m_effectQuadVbuf, 0 };
         gpu.bindVertexBuffers(effectPass, 0, &vb, 1);
-        GpuBufferBinding ib{ indexBuffer, 0 };
+        GpuBufferBinding ib{ m_effectQuadIbuf, 0 };
         gpu.bindIndexBuffer(effectPass, ib, true);
 
         gpu.drawIndexedPrimitives(effectPass, 6, 1, 0, 0, 0);
@@ -711,9 +730,4 @@ void SpriteRenderPass::applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vec
             writeTex = (readTex == effectTempA.gpuTexture) ? effectTempB.gpuTexture : effectTempA.gpuTexture;
         }
     }
-
-    gpu.releaseBuffer(vertexBuffer);
-    gpu.releaseBuffer(indexBuffer);
-    gpu.releaseTransferBuffer(vertexTransfer);
-    gpu.releaseTransferBuffer(indexTransfer);
 }

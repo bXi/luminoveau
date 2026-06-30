@@ -21,7 +21,7 @@ void Model3DRenderPass::createShaders() {
     vsi.entrypoint          = "vs_main";
     vsi.stage               = GpuShaderStage::Vertex;
     vsi.samplerCount        = 0;
-    vsi.uniformBufferCount  = 0;
+    vsi.uniformBufferCount  = 1;  // InstanceOffset (per-draw base instance)
     vsi.storageBufferCount  = 1;
     vsi.storageTextureCount = 0;
     vertex_shader = gpu.createShader(vsi);
@@ -234,31 +234,50 @@ void Model3DRenderPass::render(
     gpu.bindGraphicsPipeline(rp, m_pipeline);
     gpu.bindVertexStorageBuffers(rp, 0, &uniformBuffer, 1);
 
-    if (!models.empty() && models[0].model && models[0].model->vertexBuffer && models[0].model->indexBuffer) {
-        GpuBufferBinding vb{ models[0].model->vertexBuffer, 0 };
-        gpu.bindVertexBuffers(rp, 0, &vb, 1);
+    GpuSamplerHandle sampler = Renderer::GetSampler(ScaleMode::Linear);
 
-        GpuBufferBinding ib{ models[0].model->indexBuffer, 0 };
-        gpu.bindIndexBuffer(rp, ib, /*use16BitIndices=*/false);
+    auto effectiveTexture = [](const ModelInstance& m) -> GpuTextureHandle {
+        if (m.textureOverride.gpuTexture)            return m.textureOverride.gpuTexture;
+        if (m.model && m.model->texture.gpuTexture)  return m.model->texture.gpuTexture;
+        return Renderer::WhitePixel().gpuTexture;
+    };
 
-        GpuTextureHandle texture = 0;
-        if (models[0].textureOverride.gpuTexture) {
-            texture = models[0].textureOverride.gpuTexture;
-        } else if (models[0].model->texture.gpuTexture) {
-            texture = models[0].model->texture.gpuTexture;
-        } else {
-            texture = Renderer::WhitePixel().gpuTexture;
+    // Draw contiguous runs sharing the same mesh + texture as one instanced call. The shader
+    // reads models[instanceIndex + baseInstance], so a run's matrices stay contiguous in the
+    // uniform array (uploaded in original order). Capped at 16 — the size of SceneUniforms.models.
+    const size_t maxModels = std::min(models.size(), static_cast<size_t>(16));
+    size_t runStart = 0;
+    while (runStart < maxModels) {
+        const ModelAsset* mesh = models[runStart].model;
+        GpuTextureHandle tex   = effectiveTexture(models[runStart]);
+
+        size_t runEnd = runStart + 1;
+        while (runEnd < maxModels && models[runEnd].model == mesh
+               && effectiveTexture(models[runEnd]) == tex) {
+            ++runEnd;
+        }
+        const uint32_t runCount = static_cast<uint32_t>(runEnd - runStart);
+
+        if (mesh && mesh->vertexBuffer && mesh->indexBuffer) {
+            GpuBufferBinding vb{ mesh->vertexBuffer, 0 };
+            gpu.bindVertexBuffers(rp, 0, &vb, 1);
+
+            GpuBufferBinding ib{ mesh->indexBuffer, 0 };
+            gpu.bindIndexBuffer(rp, ib, /*use16BitIndices=*/false);
+
+            GpuTextureSamplerBinding tsb{ tex, sampler };
+            gpu.bindFragmentSamplers(rp, 0, &tsb, 1);
+
+            uint32_t baseInstance[8] = {};
+            baseInstance[0] = static_cast<uint32_t>(runStart);
+            gpu.pushVertexUniformData(cmdBuffer, 0, baseInstance, 32);
+
+            gpu.drawIndexedPrimitives(rp,
+                static_cast<uint32_t>(mesh->indices.size()),
+                runCount, 0, 0, 0);
         }
 
-        GpuSamplerHandle sampler = Renderer::GetSampler(ScaleMode::Linear);
-
-        GpuTextureSamplerBinding tsb{ texture, sampler };
-        gpu.bindFragmentSamplers(rp, 0, &tsb, 1);
-
-        gpu.drawIndexedPrimitives(rp,
-            static_cast<uint32_t>(models[0].model->indices.size()),
-            static_cast<uint32_t>(models.size()),
-            0, 0, 0);
+        runStart = runEnd;
     }
 
     gpu.endRenderPass(rp);

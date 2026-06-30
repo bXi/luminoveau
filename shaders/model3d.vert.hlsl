@@ -37,15 +37,22 @@ struct SceneUniforms
 // Storage buffer for scene uniforms
 StructuredBuffer<SceneUniforms> SceneData : register(t0, space0);
 
+// Per-draw base instance: lets one mesh-group draw index its own contiguous slice of
+// scene.models[] (SDL3 expects vertex uniforms at space1).
+cbuffer InstanceOffset : register(b0, space1)
+{
+    uint baseInstance;
+};
+
 VertexOutput main(VertexInput input, uint instanceID : SV_InstanceID)
 {
     VertexOutput output;
-    
+
     // Get scene uniforms
     SceneUniforms scene = SceneData[0];
-    
-    // Use instance ID to get the correct model matrix
-    float4x4 model = scene.models[instanceID];
+
+    // Use instance ID (+ this draw's base) to get the correct model matrix
+    float4x4 model = scene.models[instanceID + baseInstance];
     
     // Transform position
     float4 worldPos = mul(model, float4(input.Position, 1.0));

@@ -335,6 +335,14 @@ public:
                                          GpuTextureFormat, GpuSampleCount>;
     std::map<EffectPipelineKey, GpuGraphicsPipelineHandle> m_effectPipelineCache;
 
+    // Static fullscreen-quad geometry for the effect blit. Created once and reused across
+    // frames (index data never changes); vertices re-uploaded only when the UV scale
+    // (physical/surface ratio) changes on resize. Avoids 4 GPU buffer alloc+free per effect frame.
+    GpuBufferHandle m_effectQuadVbuf     = 0;
+    GpuBufferHandle m_effectQuadIbuf     = 0;
+    float           m_effectQuadUvScaleX = -1.0f;
+    float           m_effectQuadUvScaleY = -1.0f;
+
     void createEffectResources();
     void releaseEffectResources();
     void applyEffects(GpuCmdBufferHandle cmd_buffer, const std::vector<EffectAsset>& effects,
