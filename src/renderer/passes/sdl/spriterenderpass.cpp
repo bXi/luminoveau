@@ -543,6 +543,10 @@ void SpriteRenderPass::releaseEffectResources() {
     if (effectPipeline)           { gpu.releaseGraphicsPipeline(effectPipeline);    effectPipeline       = 0; }
     if (effectSpritePipeline)     { gpu.releaseGraphicsPipeline(effectSpritePipeline); effectSpritePipeline = 0; }
     if (effectVertShader)         { gpu.releaseShader(effectVertShader);            effectVertShader     = 0; }
+    for (auto& [key, pipeline] : m_effectPipelineCache) {
+        if (pipeline) gpu.releaseGraphicsPipeline(pipeline);
+    }
+    m_effectPipelineCache.clear();
 }
 
 void SpriteRenderPass::applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vector<EffectAsset>& effects,
@@ -645,10 +649,18 @@ void SpriteRenderPass::applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vec
         pi.hasDepthTarget    = false;
         pi.sampleCount       = pipelineSampleCount;
 
-        GpuGraphicsPipelineHandle pipeline = gpu.createGraphicsPipeline(pi);
-        if (!pipeline) {
-            LOG_ERROR("Failed to create effect pipeline: {}", SDL_GetError());
-            continue;
+        EffectPipelineKey key{ effect.vertShader.gpuShader, effect.fragShader.gpuShader,
+                               isLast, pi.colorTargetFormat, pipelineSampleCount };
+        GpuGraphicsPipelineHandle pipeline = 0;
+        if (auto it = m_effectPipelineCache.find(key); it != m_effectPipelineCache.end()) {
+            pipeline = it->second;
+        } else {
+            pipeline = gpu.createGraphicsPipeline(pi);
+            if (!pipeline) {
+                LOG_ERROR("Failed to create effect pipeline: {}", SDL_GetError());
+                continue;
+            }
+            m_effectPipelineCache.emplace(key, pipeline);
         }
 
         GpuColorTargetInfo ct{};
@@ -692,8 +704,7 @@ void SpriteRenderPass::applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vec
         gpu.drawIndexedPrimitives(effectPass, 6, 1, 0, 0, 0);
         gpu.endRenderPass(effectPass);
 
-        // TODO: cache per-effect pipelines to avoid per-frame recreation
-        gpu.releaseGraphicsPipeline(pipeline);
+        // Pipeline owned by m_effectPipelineCache; released in releaseEffectResources().
 
         if (!isLast) {
             readTex  = writeTex;

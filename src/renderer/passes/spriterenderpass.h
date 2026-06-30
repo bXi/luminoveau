@@ -4,10 +4,12 @@
 #include <cmath>
 #include <condition_variable>
 #include <future>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -311,6 +313,13 @@ public:
     GpuGraphicsPipelineHandle   effectPipeline       = 0;
     GpuGraphicsPipelineHandle   effectSpritePipeline = 0;
     GpuShaderHandle             effectVertShader     = 0;
+
+    // Cache of per-effect pipelines, keyed by the state that affects pipeline creation:
+    // (vert shader, frag shader, isLast, target format, sample count). m_noMSAA is fixed at
+    // init so blend state is fully determined by isLast. Avoids recreating pipelines every frame.
+    using EffectPipelineKey = std::tuple<GpuShaderHandle, GpuShaderHandle, bool,
+                                         GpuTextureFormat, GpuSampleCount>;
+    std::map<EffectPipelineKey, GpuGraphicsPipelineHandle> m_effectPipelineCache;
 
     void createEffectResources();
     void releaseEffectResources();
