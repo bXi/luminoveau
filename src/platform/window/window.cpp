@@ -1,5 +1,6 @@
 #include "window.h"
 
+#include <algorithm>
 #include <chrono>
 #include <stdexcept>
 #include <thread>
@@ -406,9 +407,19 @@ void Window::_startFrame() {
     EngineState::_frameCount++;
     EngineState::_previousTime = EngineState::_currentTime;
     EngineState::_currentTime  = std::chrono::high_resolution_clock::now();
-    EngineState::_lastFrameTime =
+
+    double rawFrameTime =
         (double) std::chrono::duration_cast<std::chrono::nanoseconds>(
             EngineState::_currentTime - EngineState::_previousTime).count() / 1e9;
+
+    // The first frame's "delta" spans all of startup (asset loading, shader + pipeline
+    // compilation) and can be several seconds. Report 0 for it so nothing integrates that
+    // startup time. Cap every other frame too, so a hitch — a debugger pause, a stall, a
+    // window drag — can't inject a multi-second step into gameplay or the GPU particle sim
+    // (which would otherwise emit one huge synchronized burst). 100 ms == a 10 FPS floor.
+    constexpr double kMaxFrameTime = 0.1;
+    EngineState::_lastFrameTime =
+        (EngineState::_frameCount <= 1) ? 0.0 : std::min(rawFrameTime, kMaxFrameTime);
 
     Renderer::StartFrame();
 
