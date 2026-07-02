@@ -87,6 +87,30 @@ bool InputDevice::is(Buttons button, Action action) {
     return false;
 }
 
+vf2d InputDevice::getLeftStick() {
+    switch (type) {
+        case InputType::GAMEPAD:
+            return { Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTX),
+                     Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) };
+        case InputType::MOUSE_KB:
+            return { float(Input::KeyDown(SDLK_D) - Input::KeyDown(SDLK_A)),
+                     float(Input::KeyDown(SDLK_S) - Input::KeyDown(SDLK_W)) };
+    }
+    return {0.0f, 0.0f};
+}
+
+vf2d InputDevice::getRightStick() {
+    switch (type) {
+        case InputType::GAMEPAD:
+            return { Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_RIGHTX),
+                     Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_RIGHTY) };
+        case InputType::MOUSE_KB:
+            return { float(Input::KeyDown(SDLK_RIGHT) - Input::KeyDown(SDLK_LEFT)),
+                     float(Input::KeyDown(SDLK_DOWN)  - Input::KeyDown(SDLK_UP)) };
+    }
+    return {0.0f, 0.0f};
+}
+
 int InputDevice::getGamepadID() const {
     return gamepadID;
 }

@@ -6,6 +6,7 @@
 #include "SDL3/SDL.h"
 
 #include "platform/input/inputconstants.h"
+#include "math/vectors.h"
 
 /**
  * @brief Represents an input device for handling user input.
@@ -25,6 +26,26 @@ public:
      * @return True if the button is in the specified action state, false otherwise.
      */
     bool is(Buttons button, Action action);
+
+    /**
+     * @brief Analog left stick as a vector, unified across device types.
+     *
+     * Gamepad: the physical left analog stick (deadzoned, components in [-1, 1]).
+     * Keyboard/mouse: derived from WASD (x = D - A, y = S - W).
+     * +x is right, +y is down (screen space). Magnitude may exceed 1 on keyboard diagonals —
+     * callers that care should clamp/normalise.
+     */
+    [[nodiscard]] vf2d getLeftStick();
+
+    /**
+     * @brief Analog right stick as a vector, unified across device types.
+     *
+     * Gamepad: the physical right analog stick (deadzoned, components in [-1, 1]).
+     * Keyboard/mouse: derived from the arrow keys (x = Right - Left, y = Down - Up).
+     * Lets a twin-stick control scheme work identically on a pad (two sticks) and a keyboard
+     * (WASD to move, arrows to aim/fire).
+     */
+    [[nodiscard]] vf2d getRightStick();
 
     /**
      * @brief Retrieves the ID of the gamepad associated with the input device.
