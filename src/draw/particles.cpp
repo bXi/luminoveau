@@ -1063,6 +1063,11 @@ bool ParticleRenderPass::init(GpuTextureFormat swapchainFormat,
     pipelineInfo.hasDepthTarget     = false;
     pipelineInfo.vertexStorageBufferCount = 2;
     pipelineInfo.blend              = additiveBlend;
+    // Match the framebuffer's MSAA sample count so particles draw into the multisampled target.
+    // The pass is re-initialised on sample-count changes, so this recreates correctly.
+    // NOTE: the POV accumulation path renders into single-sample POV textures, so POV + MSAA is
+    // not supported (would need MSAA POV textures + a resolve before compositing).
+    pipelineInfo.sampleCount        = Renderer::GetSampleCount();
 
     m_pipeline = gpu.createGraphicsPipeline(pipelineInfo);
     if (!m_pipeline) { LOG_ERROR("ParticleRenderPass: failed to create pipeline"); return false; }
@@ -1184,9 +1189,23 @@ void ParticleRenderPass::release(bool logRelease) {
 void ParticleRenderPass::render(GpuCmdBufferHandle cmdBuf,
                                 GpuTextureHandle   target,
                                 const glm::mat4&   camera) {
-    if (m_drawQueue.empty()) return;
-
     IGpu& gpu = Renderer::GetGpu();
+
+    if (m_drawQueue.empty()) {
+        // No particles to draw — but if we're the MSAA resolve owner (typically the last pass on
+        // the framebuffer), we must still resolve the multisampled target down to fbContent, or the
+        // whole frame stays black under MSAA. A draw-less Load+Resolve pass does exactly that.
+        if (renderTargetResolve != 0) {
+            GpuColorTargetInfo resolveInfo{};
+            resolveInfo.texture        = target;
+            resolveInfo.resolveTexture = renderTargetResolve;
+            resolveInfo.loadOp         = GpuLoadOp::Load;
+            resolveInfo.storeOp        = GpuStoreOp::Resolve;
+            GpuRenderPassHandle rp = gpu.beginRenderPass(cmdBuf, &resolveInfo, 1, nullptr);
+            gpu.endRenderPass(rp);
+        }
+        return;
+    }
 
     // Scale surface pixels to window-logical so particles at logical (x, y) line up with sprites
     // at logical (x, y). Works for both backends: on SDL the surface is desktop-sized (so camW
@@ -1286,11 +1305,14 @@ void ParticleRenderPass::render(GpuCmdBufferHandle cmdBuf,
         m_povIndex ^= 1u;
 
     } else {
-        // Standard path — render directly to swapchain
+        // Standard path — render into the framebuffer. Under MSAA this pass is typically last, so
+        // it owns the resolve of the multisampled target down to the single-sample fbContent that
+        // the final blit reads. Without this the whole frame stays black under MSAA.
         GpuColorTargetInfo colorInfo{};
-        colorInfo.texture = target;
-        colorInfo.loadOp  = GpuLoadOp::Load;
-        colorInfo.storeOp = GpuStoreOp::Store;
+        colorInfo.texture        = target;
+        colorInfo.resolveTexture = renderTargetResolve;
+        colorInfo.loadOp         = GpuLoadOp::Load;
+        colorInfo.storeOp        = (renderTargetResolve != 0) ? GpuStoreOp::Resolve : GpuStoreOp::Store;
         GpuRenderPassHandle rp = gpu.beginRenderPass(cmdBuf, &colorInfo, 1, nullptr);
         drawParticles(rp);
         gpu.endRenderPass(rp);
