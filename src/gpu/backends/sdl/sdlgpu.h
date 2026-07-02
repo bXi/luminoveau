@@ -5,6 +5,7 @@
 
 // ── Scalar / enum converters (engine → SDL) ────────────────────────────────
 SDL_GPUTextureFormat       toSDL(GpuTextureFormat fmt);
+SDL_GPUTextureType         toSDL(GpuTextureType t);
 SDL_GPUSampleCount         toSDL(GpuSampleCount count);
 SDL_GPUTextureUsageFlags   texUsageToSDL(GpuTextureUsage usage);
 SDL_GPUBufferUsageFlags    bufUsageToSDL(GpuBufferUsage usage);

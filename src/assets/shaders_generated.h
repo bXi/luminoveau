@@ -31,6 +31,16 @@ namespace Shaders {
     extern const size_t Particles_Vert_Size;
     extern const uint8_t Particles_Frag[];
     extern const size_t Particles_Frag_Size;
+    // Shadow Shaders
+    extern const uint8_t Shadow_Vert[];
+    extern const size_t Shadow_Vert_Size;
+    extern const uint8_t Shadow_Frag[];
+    extern const size_t Shadow_Frag_Size;
+    // Shadowcube Shaders
+    extern const uint8_t Shadowcube_Vert[];
+    extern const size_t Shadowcube_Vert_Size;
+    extern const uint8_t Shadowcube_Frag[];
+    extern const size_t Shadowcube_Frag_Size;
     // Sprite Shaders
     extern const uint8_t Sprite_Vert[];
     extern const size_t Sprite_Vert_Size;

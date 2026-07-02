@@ -1024,12 +1024,19 @@ ModelAsset AssetHandler::_createCube(float size, CubeUVLayout layout) {
             // Row 1: West, South, East, North
             // Row 2: X, Bottom, X, X
             // Row 3: Random (not used)
-            cube.SetCubeFaceUVs(CubeFace::Front,  insetUV(0.25f, 0.25f, 0.5f,  0.5f));   // South
-            cube.SetCubeFaceUVs(CubeFace::Back,   insetUV(0.75f, 0.25f, 1.0f,  0.5f));   // North
-            cube.SetCubeFaceUVs(CubeFace::Top,    insetUV(0.25f, 0.0f,  0.5f,  0.25f));  // Top
-            cube.SetCubeFaceUVs(CubeFace::Bottom, insetUV(0.25f, 0.5f,  0.5f,  0.75f));  // Bottom
-            cube.SetCubeFaceUVs(CubeFace::Right,  insetUV(0.5f,  0.25f, 0.75f, 0.5f));   // East
-            cube.SetCubeFaceUVs(CubeFace::Left,   insetUV(0.0f,  0.25f, 0.25f, 0.5f));   // West
+            // Left-handed camera mirrors the scene horizontally, so face textures render flipped
+            // left-to-right — flipU (swap uMin/uMax) un-mirrors each face. Front/Back are also
+            // swapped so North lands on +Z and South on -Z (matching +Z = North).
+            {
+                auto flipU  = [](const FaceUV& f) { return FaceUV(f.uMax, f.vMin, f.uMin, f.vMax); };
+                auto rot180 = [](const FaceUV& f) { return FaceUV(f.uMax, f.vMax, f.uMin, f.vMin); };
+                cube.SetCubeFaceUVs(CubeFace::Front,  flipU(insetUV(0.75f, 0.25f, 1.0f,  0.5f)));          // North (+Z)
+                cube.SetCubeFaceUVs(CubeFace::Back,   flipU(insetUV(0.25f, 0.25f, 0.5f,  0.5f)));          // South (-Z)
+                cube.SetCubeFaceUVs(CubeFace::Top,    rot180(flipU(insetUV(0.25f, 0.0f, 0.5f, 0.25f))));   // Top   (+Y), rotated 180°
+                cube.SetCubeFaceUVs(CubeFace::Bottom, flipU(insetUV(0.25f, 0.5f,  0.5f,  0.75f)));         // Bottom(-Y)
+                cube.SetCubeFaceUVs(CubeFace::Right,  flipU(insetUV(0.5f,  0.25f, 0.75f, 0.5f)));          // East  (+X)
+                cube.SetCubeFaceUVs(CubeFace::Left,   flipU(insetUV(0.0f,  0.25f, 0.25f, 0.5f)));          // West  (-X)
+            }
             break;
             
         case CubeUVLayout::Atlas3x2:

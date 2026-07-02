@@ -25,6 +25,65 @@ private:
         int       padding[2];
     };
 
+    // Fragment uniform block: the lighting inputs the per-pixel fragment shader needs. Mirrors the
+    // light fields of SceneUniforms; pushed to the fragment stage each frame. Lighting moved from
+    // per-vertex (Gouraud) to per-pixel so point lights work on large low-poly surfaces (e.g. a
+    // floor that's a single big cube). Layout must match the LightData cbuffer in model3d.frag.
+    struct LightData {
+        glm::mat4 shadowViewProj;      // directional shadow caster's view-projection
+        glm::vec4 cameraPos;
+        glm::vec4 ambientLight;
+        glm::vec4 lightPositions[4];
+        glm::vec4 lightColors[4];
+        glm::vec4 lightParams[4];
+        glm::vec4 pointLightPosFar;    // xyz = point shadow caster world pos, w = far range
+        int       lightCount;
+        int       shadowLight;         // directional caster index, or -1
+        int       pointShadowLight;    // point (cube) caster index, or -1
+        int       padding;
+    };
+
+    // Vertex uniform for the directional shadow depth pass. Matches ShadowParams in shadow.vert.
+    struct ShadowParams {
+        glm::mat4 lightViewProj;
+        uint32_t  baseInstance;
+        uint32_t  pad[3];
+    };
+
+    // Vertex uniform for a point-light cube shadow face. Matches CubeShadowParams in shadowcube.vert.
+    struct CubeShadowParams {
+        glm::mat4 faceViewProj;
+        uint32_t  baseInstance;
+        uint32_t  pad[3];
+    };
+
+    // Fragment uniform for the cube shadow depth pass. Matches CubeShadowFragParams in shadowcube.frag.
+    struct CubeShadowFragParams {
+        glm::vec4 lightPosFar;         // xyz = light pos, w = far range
+    };
+
+    static constexpr uint32_t kShadowRes     = 8192;   // directional shadow map resolution (keep in sync with 'res' in model3d.frag)
+    static constexpr uint32_t kCubeShadowRes = 2048;   // per-face point shadow resolution
+    static constexpr float    kPointFar      = 30.0f;  // point-shadow far range (distance normaliser)
+
+    // Shadow resources (directional caster). The shadow map stores clip-space depth in R32F;
+    // a depth buffer resolves the nearest occluder during the shadow render.
+    GpuShaderHandle           shadow_vert_shader = 0;
+    GpuShaderHandle           shadow_frag_shader = 0;
+    GpuGraphicsPipelineHandle m_shadowPipeline   = 0;
+    GpuTextureHandle          shadowColorTex     = 0;   // R32F depth map (sampled in main pass)
+    GpuTextureHandle          shadowDepthTex     = 0;   // D32F throwaway for occlusion
+    GpuSamplerHandle          shadowSampler      = 0;
+
+    // Shadow resources (point-light cube caster). Stores linear distance-to-light in an R32F cube;
+    // rendered one face at a time into a color layer (SDL depth targets can't select a layer).
+    GpuShaderHandle           shadowcube_vert_shader = 0;
+    GpuShaderHandle           shadowcube_frag_shader = 0;
+    GpuGraphicsPipelineHandle m_cubeShadowPipeline   = 0;
+    GpuTextureHandle          shadowCubeTex          = 0;   // R32F cube (6 layers), sampled in main pass
+    GpuTextureHandle          shadowCubeDepthTex     = 0;   // D32F per-face throwaway
+    GpuSamplerHandle          shadowCubeSampler      = 0;
+
     // ── Shared resources ──────────────────────────────────────────────────────
     GpuShaderHandle           vertex_shader         = 0;
     GpuShaderHandle           fragment_shader       = 0;

@@ -241,6 +241,12 @@ enum class GpuBlendOp : uint8_t {
 // Resource creation structs
 // ─────────────────────────────────────────────────────────────────────────────
 
+enum class GpuTextureType : uint8_t {
+    Tex2D,       // standard 2D texture
+    Tex2DArray,  // array of 2D layers (depthOrLayers = layer count)
+    TexCube,     // cube map (depthOrLayers must be 6)
+};
+
 struct GpuTextureCreateInfo {
     uint32_t         width        = 1;
     uint32_t         height       = 1;
@@ -249,6 +255,7 @@ struct GpuTextureCreateInfo {
     GpuTextureFormat format       = GpuTextureFormat::R8G8B8A8_Unorm;
     GpuSampleCount   sampleCount  = GpuSampleCount::x1;
     GpuTextureUsage  usage        = GpuTextureUsage::Sampler;
+    GpuTextureType   type         = GpuTextureType::Tex2D;
 };
 
 struct GpuBufferCreateInfo {

@@ -20,19 +20,20 @@ struct Camera3D {
      * @brief Gets the view matrix for this camera
      */
     glm::mat4 GetViewMatrix() const {
-        return glm::lookAt(
+        // Left-handed: X+ = right, Y+ = up, Z+ = into the screen (forward/north).
+        return glm::lookAtLH(
             glm::vec3(position.x, position.y, position.z),
             glm::vec3(target.x, target.y, target.z),
             glm::vec3(up.x, up.y, up.z)
         );
     }
-    
+
     /**
      * @brief Gets the projection matrix for this camera
      * @param aspectRatio Width/height ratio of the viewport
      */
     glm::mat4 GetProjectionMatrix(float aspectRatio) const {
-        return glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
+        return glm::perspectiveLH_ZO(glm::radians(fov), aspectRatio, nearPlane, farPlane);
     }
     
     /**

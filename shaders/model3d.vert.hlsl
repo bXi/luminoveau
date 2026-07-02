@@ -57,67 +57,21 @@ VertexOutput main(VertexInput input, uint instanceID : SV_InstanceID)
     // Transform position
     float4 worldPos = mul(model, float4(input.Position, 1.0));
     output.Position = mul(scene.viewProj, worldPos);
-    
-    // Transform normal to world space
-    // Extract 3x3 from model matrix for normal transformation
-    float3x3 normalMatrix = transpose((float3x3)model);
+
+    // Normal matrix = inverse-transpose of the model's upper 3x3, built from column cross products
+    // (the cofactor matrix). Equals the inverse-transpose up to a positive scale that normalize()
+    // removes — correct for rotation + non-uniform scale, no matrix inverse needed.
+    float3 ma = model._m00_m10_m20;   // column 0
+    float3 mb = model._m01_m11_m21;   // column 1
+    float3 mc = model._m02_m12_m22;   // column 2
+    float3x3 normalMatrix = float3x3(cross(mb, mc), cross(mc, ma), cross(ma, mb));
     float3 normal = normalize(mul(normalMatrix, input.Normal));
-    
-    // Compute lighting (Gouraud shading - per vertex)
-    float3 viewDir = normalize(scene.cameraPos.xyz - worldPos.xyz);
-    
-    // Start with ambient light
-    float3 lighting = scene.ambientLight.rgb * scene.ambientLight.a;
-    
-    // Add contribution from each light
-    for (int i = 0; i < scene.lightCount && i < 4; i++)
-    {
-        int lightType = (int)scene.lightPositions[i].w;
-        float3 lightColor = scene.lightColors[i].rgb;
-        float intensity = scene.lightColors[i].a;
-        
-        float3 lightDir;
-        float attenuation = 1.0;
-        
-        if (lightType == 1)
-        {
-            // Directional light - use direction as-is (direction toward light source)
-            lightDir = normalize(scene.lightPositions[i].xyz);
-            attenuation = 1.0; // No attenuation for directional lights
-        }
-        else
-        {
-            // Point light - calculate direction from position
-            float3 lightPos = scene.lightPositions[i].xyz;
-            lightDir = normalize(lightPos - worldPos.xyz);
-            
-            // Attenuation for point lights
-            float distance = length(lightPos - worldPos.xyz);
-            float constantAtten = scene.lightParams[i].x;
-            float linearAtten = scene.lightParams[i].y;
-            float quadraticAtten = scene.lightParams[i].z;
-            attenuation = 1.0 / (constantAtten + linearAtten * distance + quadraticAtten * (distance * distance));
-        }
-        
-        // Diffuse lighting
-        float diff = max(dot(normal, lightDir), 0.0);
-        float3 diffuse = diff * lightColor * intensity;
-        
-        // Specular lighting (Blinn-Phong) - reduced intensity
-        float3 halfwayDir = normalize(lightDir + viewDir);
-        float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
-        float3 specular = spec * lightColor * intensity * 0.2;  // Reduced intensity
-        
-        lighting += (diffuse + specular) * attenuation;
-    }
-    
-    // Apply lighting to vertex color
-    output.Color = float4(input.Color.rgb * lighting, input.Color.a);
-    
-    // Pass through other attributes
+
+    // Lighting is done per-pixel in the fragment shader; forward interpolants + raw vertex colour.
+    output.Color = input.Color;
     output.WorldPosition = worldPos.xyz;
     output.Normal = normal;
     output.TexCoord = input.TexCoord;
-    
+
     return output;
 }

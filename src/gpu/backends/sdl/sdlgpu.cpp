@@ -232,9 +232,18 @@ SDL_GPUSamplerCreateInfo toSDL(const GpuSamplerCreateInfo& info) {
     };
 }
 
+SDL_GPUTextureType toSDL(GpuTextureType t) {
+    switch (t) {
+        case GpuTextureType::Tex2DArray: return SDL_GPU_TEXTURETYPE_2D_ARRAY;
+        case GpuTextureType::TexCube:    return SDL_GPU_TEXTURETYPE_CUBE;
+        case GpuTextureType::Tex2D:      break;
+    }
+    return SDL_GPU_TEXTURETYPE_2D;
+}
+
 SDL_GPUTextureCreateInfo toSDL(const GpuTextureCreateInfo& info) {
     return {
-        .type                  = SDL_GPU_TEXTURETYPE_2D,
+        .type                  = toSDL(info.type),
         .format                = toSDL(info.format),
         .usage                 = texUsageToSDL(info.usage),
         .width                 = info.width,

@@ -32,7 +32,7 @@ void Model3DRenderPass::createShaders() {
     fsi.entrypoint          = "fs_main";
     fsi.stage               = GpuShaderStage::Fragment;
     fsi.samplerCount        = 1;
-    fsi.uniformBufferCount  = 0;
+    fsi.uniformBufferCount  = 1;  // LightData (per-pixel lighting inputs)
     fsi.storageBufferCount  = 0;
     fsi.storageTextureCount = 0;
     fragment_shader = gpu.createShader(fsi);
@@ -174,6 +174,7 @@ void Model3DRenderPass::render(
     Color ambient                      = Scene::GetAmbientLight();
 
     SceneUniforms u{};
+    LightData     lightData{};
     if (!models.empty() && m_pipeline) {
         float aspect    = (float)Window::GetWidth() / (float)Window::GetHeight();
         u.viewProj      = camera.GetViewProjectionMatrix(aspect);
@@ -190,6 +191,16 @@ void Model3DRenderPass::render(
                 u.lightPositions[i] = glm::vec4(L.position.x, L.position.y, L.position.z, (float)L.type);
             u.lightColors[i] = glm::vec4(L.color.r / 255.f, L.color.g / 255.f, L.color.b / 255.f, L.intensity);
             u.lightParams[i] = glm::vec4(L.constant, L.linear, L.quadratic, 0.0f);
+        }
+
+        // Same light data, packed for the per-pixel fragment shader (LightData uniform).
+        lightData.cameraPos    = u.cameraPos;
+        lightData.ambientLight = u.ambientLight;
+        lightData.lightCount   = u.lightCount;
+        for (int i = 0; i < u.lightCount; ++i) {
+            lightData.lightPositions[i] = u.lightPositions[i];
+            lightData.lightColors[i]    = u.lightColors[i];
+            lightData.lightParams[i]    = u.lightParams[i];
         }
 
         if (uniformTransferBuffer && uniformBuffer) {
@@ -233,6 +244,9 @@ void Model3DRenderPass::render(
 
     gpu.bindGraphicsPipeline(rp, m_pipeline);
     gpu.bindVertexStorageBuffers(rp, 0, &uniformBuffer, 1);
+
+    // Lighting inputs for the per-pixel fragment shader (fragment uniform slot 0).
+    gpu.pushFragmentUniformData(cmdBuffer, 0, &lightData, sizeof(lightData));
 
     GpuSamplerHandle sampler = Renderer::GetSampler(ScaleMode::Linear);
 
