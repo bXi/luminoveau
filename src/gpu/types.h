@@ -290,6 +290,9 @@ struct GpuShaderCreateInfo {
     uint32_t        uniformBufferCount   = 0;
     uint32_t        storageBufferCount   = 0;
     uint32_t        storageTextureCount  = 0;
+    // Bit i set = fragment sampler pair i binds a cube texture, so its WebGPU bind-group layout
+    // entry needs a Cube view dimension. Default 0 = all 2D. Ignored by SDL_GPU.
+    uint32_t        samplerCubeMask      = 0;
 };
 
 struct GpuVertexAttribute {

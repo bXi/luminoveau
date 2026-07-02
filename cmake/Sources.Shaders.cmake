@@ -74,6 +74,10 @@ elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "WGSL")
         src/assets/shaders/particles_pov_frag.wgsl.cpp
         src/assets/shaders/particles_vert.wgsl.cpp
         src/assets/shaders/particles_frag.wgsl.cpp
+        src/assets/shaders/shadow_vert.wgsl.cpp
+        src/assets/shaders/shadow_frag.wgsl.cpp
+        src/assets/shaders/shadowcube_vert.wgsl.cpp
+        src/assets/shaders/shadowcube_frag.wgsl.cpp
         src/assets/shaders/sprite_vert.wgsl.cpp
         src/assets/shaders/sprite_frag.wgsl.cpp
     )

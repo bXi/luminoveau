@@ -1,10 +1,17 @@
 // WebGPU-backend implementation for Model3DRenderPass.
 // Compiled only when LUMINOVEAU_WEBGPU_BACKEND is set.
+//
+// Mirrors the SDL implementation: per-pixel Phong lighting plus a directional shadow map and a
+// point-light distance cube. The render/matrix logic is backend-agnostic (IGpu calls); the only
+// WebGPU-specific detail is createShaders declaring the fragment's cube sampler via samplerCubeMask.
 
 #include "renderer/passes/model3drenderpass.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
+
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "core/log/log.h"
 #include "gpu/IGpu.h"
@@ -20,10 +27,8 @@ void Model3DRenderPass::createShaders() {
     vsi.codeSize            = Luminoveau::Shaders::Model3d_Vert_Size;
     vsi.entrypoint          = "vs_main";
     vsi.stage               = GpuShaderStage::Vertex;
-    vsi.samplerCount        = 0;
     vsi.uniformBufferCount  = 1;  // InstanceOffset (per-draw base instance)
     vsi.storageBufferCount  = 1;
-    vsi.storageTextureCount = 0;
     vertex_shader = gpu.createShader(vsi);
 
     GpuShaderCreateInfo fsi{};
@@ -31,13 +36,48 @@ void Model3DRenderPass::createShaders() {
     fsi.codeSize            = Luminoveau::Shaders::Model3d_Frag_Size;
     fsi.entrypoint          = "fs_main";
     fsi.stage               = GpuShaderStage::Fragment;
-    fsi.samplerCount        = 1;
+    fsi.samplerCount        = 3;  // model texture (0) + directional shadow (1) + point cube (2)
+    fsi.samplerCubeMask     = (1u << 2);  // pair 2 (shadowCube) is a cube texture
     fsi.uniformBufferCount  = 1;  // LightData (per-pixel lighting inputs)
-    fsi.storageBufferCount  = 0;
-    fsi.storageTextureCount = 0;
     fragment_shader = gpu.createShader(fsi);
 
-    if (!vertex_shader || !fragment_shader) {
+    // Directional shadow depth pass shaders.
+    GpuShaderCreateInfo svi{};
+    svi.code                = Luminoveau::Shaders::Shadow_Vert;
+    svi.codeSize            = Luminoveau::Shaders::Shadow_Vert_Size;
+    svi.entrypoint          = "vs_main";
+    svi.stage               = GpuShaderStage::Vertex;
+    svi.uniformBufferCount  = 1;  // ShadowParams (lightViewProj + baseInstance)
+    svi.storageBufferCount  = 1;
+    shadow_vert_shader = gpu.createShader(svi);
+
+    GpuShaderCreateInfo sfi{};
+    sfi.code                = Luminoveau::Shaders::Shadow_Frag;
+    sfi.codeSize            = Luminoveau::Shaders::Shadow_Frag_Size;
+    sfi.entrypoint          = "fs_main";
+    sfi.stage               = GpuShaderStage::Fragment;
+    shadow_frag_shader = gpu.createShader(sfi);
+
+    // Point-light cube shadow shaders.
+    GpuShaderCreateInfo csvi{};
+    csvi.code                = Luminoveau::Shaders::Shadowcube_Vert;
+    csvi.codeSize            = Luminoveau::Shaders::Shadowcube_Vert_Size;
+    csvi.entrypoint          = "vs_main";
+    csvi.stage               = GpuShaderStage::Vertex;
+    csvi.uniformBufferCount  = 1;  // CubeShadowParams (faceViewProj + baseInstance)
+    csvi.storageBufferCount  = 1;
+    shadowcube_vert_shader = gpu.createShader(csvi);
+
+    GpuShaderCreateInfo csfi{};
+    csfi.code                = Luminoveau::Shaders::Shadowcube_Frag;
+    csfi.codeSize            = Luminoveau::Shaders::Shadowcube_Frag_Size;
+    csfi.entrypoint          = "fs_main";
+    csfi.stage               = GpuShaderStage::Fragment;
+    csfi.uniformBufferCount  = 1;  // CubeShadowFragParams (lightPos + far)
+    shadowcube_frag_shader = gpu.createShader(csfi);
+
+    if (!vertex_shader || !fragment_shader || !shadow_vert_shader || !shadow_frag_shader
+        || !shadowcube_vert_shader || !shadowcube_frag_shader) {
         LOG_ERROR("Model3DRenderPass: shader creation failed");
     }
 }
@@ -112,6 +152,100 @@ bool Model3DRenderPass::init(
         return false;
     }
 
+    // ── Directional shadow resources ─────────────────────────────────────────
+    {
+        GpuTextureCreateInfo sc{};
+        sc.width  = kShadowRes;
+        sc.height = kShadowRes;
+        sc.format = GpuTextureFormat::R32_Float;
+        sc.usage  = GpuTextureUsage::Sampler | GpuTextureUsage::ColorTarget;
+        shadowColorTex = gpu.createTexture(sc);
+
+        GpuTextureCreateInfo sd{};
+        sd.width  = kShadowRes;
+        sd.height = kShadowRes;
+        sd.format = GpuTextureFormat::D32_Float;
+        sd.usage  = GpuTextureUsage::DepthStencilTarget;
+        shadowDepthTex = gpu.createTexture(sd);
+
+        GpuSamplerCreateInfo ss{};
+        ss.minFilter = GpuFilter::Nearest; ss.magFilter = GpuFilter::Nearest; ss.mipFilter = GpuFilter::Nearest;
+        ss.addressU  = GpuSamplerAddressMode::ClampToEdge;
+        ss.addressV  = GpuSamplerAddressMode::ClampToEdge;
+        ss.addressW  = GpuSamplerAddressMode::ClampToEdge;
+        shadowSampler = gpu.createSampler(ss);
+
+        GpuGraphicsPipelineCreateInfo spci{};
+        spci.vertexShader             = shadow_vert_shader;
+        spci.fragmentShader           = shadow_frag_shader;
+        spci.attributes               = attrs;
+        spci.attributeCount           = 4;
+        spci.bindings                 = &vbind;
+        spci.bindingCount             = 1;
+        spci.fillMode                 = GpuFillMode::Fill;
+        spci.cullMode                 = GpuCullMode::None;
+        spci.frontFace                = GpuFrontFace::CounterClockwise;
+        spci.colorTargetFormat        = GpuTextureFormat::R32_Float;
+        spci.blend                    = GpuPresets::Opaque;
+        spci.hasDepthTarget           = true;
+        spci.depthTargetFormat        = GpuTextureFormat::D32_Float;
+        spci.sampleCount              = GpuSampleCount::x1;
+        spci.vertexStorageBufferCount = 1;
+        m_shadowPipeline = gpu.createGraphicsPipeline(spci);
+        if (!shadowColorTex || !shadowDepthTex || !m_shadowPipeline) {
+            LOG_ERROR("Model3DRenderPass: shadow resource creation failed");
+            return false;
+        }
+    }
+
+    // ── Point-light cube shadow resources ────────────────────────────────────
+    {
+        GpuTextureCreateInfo cc{};
+        cc.width         = kCubeShadowRes;
+        cc.height        = kCubeShadowRes;
+        cc.depthOrLayers = 6;                       // cube = 6 faces
+        cc.format        = GpuTextureFormat::R32_Float;
+        cc.usage         = GpuTextureUsage::Sampler | GpuTextureUsage::ColorTarget;
+        cc.type          = GpuTextureType::TexCube;
+        shadowCubeTex = gpu.createTexture(cc);
+
+        GpuTextureCreateInfo cd{};
+        cd.width  = kCubeShadowRes;
+        cd.height = kCubeShadowRes;
+        cd.format = GpuTextureFormat::D32_Float;
+        cd.usage  = GpuTextureUsage::DepthStencilTarget;
+        shadowCubeDepthTex = gpu.createTexture(cd);   // reused per face
+
+        GpuSamplerCreateInfo cs{};
+        cs.minFilter = GpuFilter::Nearest; cs.magFilter = GpuFilter::Nearest; cs.mipFilter = GpuFilter::Nearest;
+        cs.addressU  = GpuSamplerAddressMode::ClampToEdge;
+        cs.addressV  = GpuSamplerAddressMode::ClampToEdge;
+        cs.addressW  = GpuSamplerAddressMode::ClampToEdge;
+        shadowCubeSampler = gpu.createSampler(cs);
+
+        GpuGraphicsPipelineCreateInfo cpci{};
+        cpci.vertexShader             = shadowcube_vert_shader;
+        cpci.fragmentShader           = shadowcube_frag_shader;
+        cpci.attributes               = attrs;
+        cpci.attributeCount           = 4;
+        cpci.bindings                 = &vbind;
+        cpci.bindingCount             = 1;
+        cpci.fillMode                 = GpuFillMode::Fill;
+        cpci.cullMode                 = GpuCullMode::None;
+        cpci.frontFace                = GpuFrontFace::CounterClockwise;
+        cpci.colorTargetFormat        = GpuTextureFormat::R32_Float;
+        cpci.blend                    = GpuPresets::Opaque;
+        cpci.hasDepthTarget           = true;
+        cpci.depthTargetFormat        = GpuTextureFormat::D32_Float;
+        cpci.sampleCount              = GpuSampleCount::x1;
+        cpci.vertexStorageBufferCount = 1;
+        m_cubeShadowPipeline = gpu.createGraphicsPipeline(cpci);
+        if (!shadowCubeTex || !shadowCubeDepthTex || !m_cubeShadowPipeline) {
+            LOG_ERROR("Model3DRenderPass: cube shadow resource creation failed");
+            return false;
+        }
+    }
+
     if (logInit) {
         LOG_INFO("Model3DRenderPass initialized: {}", passname);
     }
@@ -127,6 +261,20 @@ void Model3DRenderPass::release(bool logRelease) {
     if (m_pipeline)            { gpu.releaseGraphicsPipeline(m_pipeline);           m_pipeline            = 0; }
     if (vertex_shader)         { gpu.releaseShader(vertex_shader);                  vertex_shader         = 0; }
     if (fragment_shader)       { gpu.releaseShader(fragment_shader);                fragment_shader       = 0; }
+
+    if (m_shadowPipeline)      { gpu.releaseGraphicsPipeline(m_shadowPipeline);     m_shadowPipeline      = 0; }
+    if (shadow_vert_shader)    { gpu.releaseShader(shadow_vert_shader);             shadow_vert_shader    = 0; }
+    if (shadow_frag_shader)    { gpu.releaseShader(shadow_frag_shader);             shadow_frag_shader    = 0; }
+    if (shadowColorTex)        { gpu.releaseTexture(shadowColorTex);                shadowColorTex        = 0; }
+    if (shadowDepthTex)        { gpu.releaseTexture(shadowDepthTex);                shadowDepthTex        = 0; }
+    if (shadowSampler)         { gpu.releaseSampler(shadowSampler);                 shadowSampler         = 0; }
+
+    if (m_cubeShadowPipeline)  { gpu.releaseGraphicsPipeline(m_cubeShadowPipeline); m_cubeShadowPipeline  = 0; }
+    if (shadowcube_vert_shader){ gpu.releaseShader(shadowcube_vert_shader);         shadowcube_vert_shader = 0; }
+    if (shadowcube_frag_shader){ gpu.releaseShader(shadowcube_frag_shader);         shadowcube_frag_shader = 0; }
+    if (shadowCubeTex)         { gpu.releaseTexture(shadowCubeTex);                 shadowCubeTex         = 0; }
+    if (shadowCubeDepthTex)    { gpu.releaseTexture(shadowCubeDepthTex);            shadowCubeDepthTex    = 0; }
+    if (shadowCubeSampler)     { gpu.releaseSampler(shadowCubeSampler);             shadowCubeSampler     = 0; }
 
     if (logRelease) {
         LOG_INFO("Released 3D model render pass");
@@ -193,7 +341,40 @@ void Model3DRenderPass::render(
             u.lightParams[i] = glm::vec4(L.constant, L.linear, L.quadratic, 0.0f);
         }
 
-        // Same light data, packed for the per-pixel fragment shader (LightData uniform).
+        // Directional shadow caster = the first directional light. Same zero-to-one ortho matrix
+        // drives the shadow render (shadow.vert) and the lookup (model3d.frag). See SDL impl.
+        int       shadowLight = -1;
+        glm::mat4 lightViewProj(1.0f);
+        for (int i = 0; i < u.lightCount; ++i)
+            if (lights[i].type == LightType::Directional) { shadowLight = i; break; }
+        if (shadowLight >= 0) {
+            glm::vec3 dir = glm::normalize(glm::vec3(lights[shadowLight].direction.x,
+                                                     lights[shadowLight].direction.y,
+                                                     lights[shadowLight].direction.z));
+            const glm::vec3 center(0.0f);
+            const float dist = 45.0f, ext = 29.0f, nearP = 12.0f, farP = 82.0f;
+            // Directional light vectors point TOWARD the light, so it sits in +dir.
+            glm::vec3 eye = center + dir * dist;
+            glm::vec3 up  = (std::fabs(dir.y) > 0.95f) ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+            lightViewProj = glm::orthoRH_ZO(-ext, ext, -ext, ext, nearP, farP)
+                          * glm::lookAtRH(eye, center, up);
+        }
+
+        // Point (cube) shadow caster = the first point light.
+        int       pointShadowLight = -1;
+        glm::vec3 pointPos(0.0f);
+        for (int i = 0; i < u.lightCount; ++i)
+            if (lights[i].type == LightType::Point) {
+                pointShadowLight = i;
+                pointPos = glm::vec3(lights[i].position.x, lights[i].position.y, lights[i].position.z);
+                break;
+            }
+
+        // Light data packed for the per-pixel fragment shader (LightData uniform).
+        lightData.shadowViewProj   = lightViewProj;
+        lightData.shadowLight      = shadowLight;
+        lightData.pointShadowLight = pointShadowLight;
+        lightData.pointLightPosFar = glm::vec4(pointPos, kPointFar);
         lightData.cameraPos    = u.cameraPos;
         lightData.ambientLight = u.ambientLight;
         lightData.lightCount   = u.lightCount;
@@ -210,6 +391,115 @@ void Model3DRenderPass::render(
         }
 
         for (auto& inst : models) if (inst.model) uploadModelToGPU(inst.model);
+
+        // ── Directional shadow depth pass ──────────────────────────────────────
+        if (shadowLight >= 0 && m_shadowPipeline) {
+            GpuColorTargetInfo sct{};
+            sct.texture = shadowColorTex;
+            sct.loadOp  = GpuLoadOp::Clear;
+            sct.storeOp = GpuStoreOp::Store;
+            sct.clearR  = 1.0f; sct.clearG = 1.0f; sct.clearB = 1.0f; sct.clearA = 1.0f;  // far
+
+            GpuDepthStencilTargetInfo sdt{};
+            sdt.texture    = shadowDepthTex;
+            sdt.loadOp     = GpuLoadOp::Clear;
+            sdt.storeOp    = GpuStoreOp::DontCare;
+            sdt.clearDepth = 1.0f;
+
+            GpuRenderPassHandle sp = gpu.beginRenderPass(cmdBuffer, &sct, 1, &sdt);
+            gpu.setViewport(sp, 0.0f, 0.0f, (float)kShadowRes, (float)kShadowRes, 0.0f, 1.0f);
+            gpu.bindGraphicsPipeline(sp, m_shadowPipeline);
+            gpu.bindVertexStorageBuffers(sp, 0, &uniformBuffer, 1);
+
+            const size_t maxM = std::min(models.size(), static_cast<size_t>(16));
+            size_t rs = 0;
+            while (rs < maxM) {
+                const ModelAsset* mesh = models[rs].model;
+                size_t re = rs + 1;
+                while (re < maxM && models[re].model == mesh) ++re;
+                uint32_t rc = static_cast<uint32_t>(re - rs);
+                if (mesh && mesh->vertexBuffer && mesh->indexBuffer) {
+                    GpuBufferBinding vb{ mesh->vertexBuffer, 0 };
+                    gpu.bindVertexBuffers(sp, 0, &vb, 1);
+                    GpuBufferBinding ib{ mesh->indexBuffer, 0 };
+                    gpu.bindIndexBuffer(sp, ib, false);
+
+                    ShadowParams spp{};
+                    spp.lightViewProj = lightViewProj;
+                    spp.baseInstance  = static_cast<uint32_t>(rs);
+                    gpu.pushVertexUniformData(cmdBuffer, 0, &spp, sizeof(spp));
+
+                    gpu.drawIndexedPrimitives(sp, static_cast<uint32_t>(mesh->indices.size()), rc, 0, 0, 0);
+                }
+                rs = re;
+            }
+            gpu.endRenderPass(sp);
+        }
+
+        // ── Point-light cube shadow pass (6 faces) ─────────────────────────────
+        if (pointShadowLight >= 0 && m_cubeShadowPipeline) {
+            // LH view + projection with D3D face orientations, matching texture_cube sampling.
+            // Layer order +X,-X,+Y,-Y,+Z,-Z.
+            glm::mat4 proj = glm::perspectiveLH_ZO(glm::radians(90.0f), 1.0f, 0.5f, kPointFar);
+            struct Face { glm::vec3 dir, up; };
+            const Face faces[6] = {
+                {{ 1, 0, 0}, {0,  1,  0}},   // +X
+                {{-1, 0, 0}, {0,  1,  0}},   // -X
+                {{ 0, 1, 0}, {0,  0, -1}},   // +Y
+                {{ 0,-1, 0}, {0,  0,  1}},   // -Y
+                {{ 0, 0, 1}, {0,  1,  0}},   // +Z
+                {{ 0, 0,-1}, {0,  1,  0}},   // -Z
+            };
+            CubeShadowFragParams cfp{};
+            cfp.lightPosFar = glm::vec4(pointPos, kPointFar);
+
+            for (int f = 0; f < 6; ++f) {
+                glm::mat4 faceVP = proj * glm::lookAtLH(pointPos, pointPos + faces[f].dir, faces[f].up);
+
+                GpuColorTargetInfo cct{};
+                cct.texture = shadowCubeTex;
+                cct.layer   = static_cast<uint32_t>(f);     // render into cube face f
+                cct.loadOp  = GpuLoadOp::Clear;
+                cct.storeOp = GpuStoreOp::Store;
+                cct.clearR  = 1.0f; cct.clearG = 1.0f; cct.clearB = 1.0f; cct.clearA = 1.0f;  // far
+
+                GpuDepthStencilTargetInfo cdt{};
+                cdt.texture    = shadowCubeDepthTex;
+                cdt.loadOp     = GpuLoadOp::Clear;
+                cdt.storeOp    = GpuStoreOp::DontCare;
+                cdt.clearDepth = 1.0f;
+
+                GpuRenderPassHandle cp = gpu.beginRenderPass(cmdBuffer, &cct, 1, &cdt);
+                gpu.setViewport(cp, 0.0f, 0.0f, (float)kCubeShadowRes, (float)kCubeShadowRes, 0.0f, 1.0f);
+                gpu.bindGraphicsPipeline(cp, m_cubeShadowPipeline);
+                gpu.bindVertexStorageBuffers(cp, 0, &uniformBuffer, 1);
+                gpu.pushFragmentUniformData(cmdBuffer, 0, &cfp, sizeof(cfp));
+
+                const size_t maxM = std::min(models.size(), static_cast<size_t>(16));
+                size_t rs = 0;
+                while (rs < maxM) {
+                    const ModelAsset* mesh = models[rs].model;
+                    size_t re = rs + 1;
+                    while (re < maxM && models[re].model == mesh) ++re;
+                    uint32_t rc = static_cast<uint32_t>(re - rs);
+                    if (mesh && mesh->vertexBuffer && mesh->indexBuffer) {
+                        GpuBufferBinding vb{ mesh->vertexBuffer, 0 };
+                        gpu.bindVertexBuffers(cp, 0, &vb, 1);
+                        GpuBufferBinding ib{ mesh->indexBuffer, 0 };
+                        gpu.bindIndexBuffer(cp, ib, false);
+
+                        CubeShadowParams csp{};
+                        csp.faceViewProj = faceVP;
+                        csp.baseInstance = static_cast<uint32_t>(rs);
+                        gpu.pushVertexUniformData(cmdBuffer, 0, &csp, sizeof(csp));
+
+                        gpu.drawIndexedPrimitives(cp, static_cast<uint32_t>(mesh->indices.size()), rc, 0, 0, 0);
+                    }
+                    rs = re;
+                }
+                gpu.endRenderPass(cp);
+            }
+        }
     }
 
     bool shouldResolve = (renderTargetResolve != 0);
@@ -256,9 +546,7 @@ void Model3DRenderPass::render(
         return Renderer::WhitePixel().gpuTexture;
     };
 
-    // Draw contiguous runs sharing the same mesh + texture as one instanced call. The shader
-    // reads models[instanceIndex + baseInstance], so a run's matrices stay contiguous in the
-    // uniform array (uploaded in original order). Capped at 16 — the size of SceneUniforms.models.
+    // Draw contiguous runs sharing the same mesh + texture as one instanced call.
     const size_t maxModels = std::min(models.size(), static_cast<size_t>(16));
     size_t runStart = 0;
     while (runStart < maxModels) {
@@ -279,8 +567,12 @@ void Model3DRenderPass::render(
             GpuBufferBinding ib{ mesh->indexBuffer, 0 };
             gpu.bindIndexBuffer(rp, ib, /*use16BitIndices=*/false);
 
-            GpuTextureSamplerBinding tsb{ tex, sampler };
-            gpu.bindFragmentSamplers(rp, 0, &tsb, 1);
+            GpuTextureSamplerBinding tsb[3] = {
+                { tex, sampler },
+                { shadowColorTex, shadowSampler },       // directional shadow map at binding 1
+                { shadowCubeTex,  shadowCubeSampler },   // point-light cube shadow at binding 2
+            };
+            gpu.bindFragmentSamplers(rp, 0, tsb, 3);
 
             uint32_t baseInstance[8] = {};
             baseInstance[0] = static_cast<uint32_t>(runStart);

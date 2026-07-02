@@ -453,7 +453,13 @@ GpuRenderPassHandle WebGpuGpuBackend::beginRenderPass(GpuCmdBufferHandle cmd,
             view = m_currentSurfaceView;
         } else {
             auto* tex = reinterpret_cast<WgpuTexture*>(ct.texture);
-            view = tex ? tex->defaultView : nullptr;
+            // For cube/array targets, render into the selected face/layer via its 2D view; the
+            // default view is the (unrenderable) cube/array sampling view.
+            if (tex && tex->layerCount > 1 && ct.layer < 6 && tex->faceViews[ct.layer]) {
+                view = tex->faceViews[ct.layer];
+            } else {
+                view = tex ? tex->defaultView : nullptr;
+            }
         }
 
         WGPUTextureView resolveView = nullptr;
@@ -1008,7 +1014,7 @@ WGPUBindGroupLayout WebGpuGpuBackend::_makeUniformBGL(uint32_t count, WGPUShader
 }
 
 WGPUBindGroupLayout WebGpuGpuBackend::_makeSamplerBGL(uint32_t pairCount, WGPUShaderStageFlags vis,
-                                                      bool texFirst) {
+                                                      bool texFirst, uint32_t cubeMask) {
     if (pairCount == 0) return nullptr;
     // If Float32Filterable is not enabled, declare textures as UnfilterableFloat so rgba32f
     // textures bind without validation errors. Sampler is downgraded to NonFiltering to match.
@@ -1032,7 +1038,8 @@ WGPUBindGroupLayout WebGpuGpuBackend::_makeSamplerBGL(uint32_t pairCount, WGPUSh
         entries[i * 2 + 1].binding               = texBinding;
         entries[i * 2 + 1].visibility            = vis;
         entries[i * 2 + 1].texture.sampleType    = texSampleType;
-        entries[i * 2 + 1].texture.viewDimension = WGPUTextureViewDimension_2D;
+        entries[i * 2 + 1].texture.viewDimension = (cubeMask & (1u << i))
+            ? WGPUTextureViewDimension_Cube : WGPUTextureViewDimension_2D;
     }
     WGPUBindGroupLayoutDescriptor desc{};
     desc.entryCount = pairCount * 2;
@@ -1089,25 +1096,44 @@ GpuTextureHandle WebGpuGpuBackend::createTexture(const GpuTextureCreateInfo& inf
     t->width  = info.width;
     t->height = info.height;
 
+    const bool isCube = (info.type == GpuTextureType::TexCube);
+    t->layerCount = isCube ? 6u : info.depthOrLayers;
+
     WGPUTextureDescriptor desc{};
     desc.usage         = toWGPUUsage(info.usage);
-    desc.dimension     = WGPUTextureDimension_2D;
-    desc.size          = { info.width, info.height, info.depthOrLayers };
+    desc.dimension     = WGPUTextureDimension_2D;   // cube is a 2D texture with 6 array layers
+    desc.size          = { info.width, info.height, isCube ? 6u : info.depthOrLayers };
     desc.format        = t->format;
     desc.mipLevelCount = info.numLevels;
     desc.sampleCount   = static_cast<uint32_t>(info.sampleCount);
     t->texture = wgpuDeviceCreateTexture(m_device, &desc);
 
+    // Sampling view: cube dimension for cube maps (so texture_cube<f32> binds), else 2D.
     WGPUTextureViewDescriptor vd{};
     vd.format          = t->format;
-    vd.dimension       = WGPUTextureViewDimension_2D;
+    vd.dimension       = isCube ? WGPUTextureViewDimension_Cube : WGPUTextureViewDimension_2D;
     vd.mipLevelCount   = info.numLevels;
-    vd.arrayLayerCount = info.depthOrLayers;
+    vd.arrayLayerCount = t->layerCount;
     t->defaultView = wgpuTextureCreateView(t->texture, &vd);
     if (!t->defaultView) {
         LOG_WARNING("createTexture: defaultView is null (fmt={}, usage={}, size={}x{}, samples={}, tex_ptr={:#x})",
                     (int)t->format, (uint32_t)desc.usage, info.width, info.height,
                     (int)info.sampleCount, (uintptr_t)t);
+    }
+
+    // Per-layer 2D render views: cube/array color targets are rendered one face/layer at a time
+    // (GpuColorTargetInfo.layer selects which). Only needed when the texture can be a render target.
+    if (t->layerCount > 1 && (info.usage & GpuTextureUsage::ColorTarget)) {
+        const uint32_t faces = (t->layerCount < 6u) ? t->layerCount : 6u;
+        for (uint32_t f = 0; f < faces; ++f) {
+            WGPUTextureViewDescriptor fv{};
+            fv.format          = t->format;
+            fv.dimension       = WGPUTextureViewDimension_2D;
+            fv.baseArrayLayer  = f;
+            fv.arrayLayerCount = 1;
+            fv.mipLevelCount   = 1;
+            t->faceViews[f] = wgpuTextureCreateView(t->texture, &fv);
+        }
     }
 
     return reinterpret_cast<GpuTextureHandle>(t);
@@ -1170,6 +1196,7 @@ GpuShaderHandle WebGpuGpuBackend::createShader(const GpuShaderCreateInfo& info) 
     sh->uniformBufferCount  = info.uniformBufferCount;
     sh->storageBufferCount  = info.storageBufferCount;
     sh->storageTextureCount = info.storageTextureCount;
+    sh->samplerCubeMask     = info.samplerCubeMask;
 
     // Code must be null-terminated WGSL text.
     WGPUShaderSourceWGSL wgslDesc{};
@@ -1191,13 +1218,15 @@ GpuGraphicsPipelineHandle WebGpuGpuBackend::createGraphicsPipeline(const GpuGrap
     pl->vertexUniformCount      = sh_v ? sh_v->uniformBufferCount  : 0;
     pl->fragmentUniformCount    = sh_f ? sh_f->uniformBufferCount  : 0;
     pl->fragmentSamplerCount    = sh_f ? sh_f->samplerCount        : 0;
+    pl->fragmentSamplerCubeMask = sh_f ? sh_f->samplerCubeMask     : 0;
     pl->fragmentStorageTexCount = sh_f ? sh_f->storageTextureCount : 0;
     pl->vertexStorageBufCount   = info.vertexStorageBufferCount;
 
     // Build bind group layouts
     pl->bgLayouts[0] = _makeUniformBGL(pl->vertexUniformCount,   WGPUShaderStage_Vertex);
     pl->bgLayouts[1] = _makeUniformBGL(pl->fragmentUniformCount, WGPUShaderStage_Fragment);
-    pl->bgLayouts[2] = _makeSamplerBGL(pl->fragmentSamplerCount, WGPUShaderStage_Fragment);
+    pl->bgLayouts[2] = _makeSamplerBGL(pl->fragmentSamplerCount, WGPUShaderStage_Fragment,
+                                       /*texFirst=*/false, pl->fragmentSamplerCubeMask);
     if (pl->vertexStorageBufCount > 0) {
         pl->bgLayouts[3] = _makeStorageBufBGL(pl->vertexStorageBufCount, WGPUShaderStage_Vertex,
                                                WGPUBufferBindingType_ReadOnlyStorage);
@@ -1428,6 +1457,7 @@ void WebGpuGpuBackend::releaseTexture(GpuTextureHandle handle) {
     auto* t = reinterpret_cast<WgpuTexture*>(handle);
     if (t->defaultView) _evictSamplerBgsByView(t->defaultView);
     if (t->defaultView) wgpuTextureViewRelease(t->defaultView);
+    for (auto& fv : t->faceViews) if (fv) wgpuTextureViewRelease(fv);
     if (t->texture)     wgpuTextureRelease(t->texture);
     delete t;
 }

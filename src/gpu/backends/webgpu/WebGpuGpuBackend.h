@@ -242,7 +242,7 @@ private:
     // texFirst=true:  binding even=texture, odd=sampler (compute — matches Tint's native order,
     //                 which the compute path does not pair-swap, and bindComputeSamplers).
     WGPUBindGroupLayout _makeSamplerBGL(uint32_t pairCount, WGPUShaderStageFlags visibility,
-                                        bool texFirst = false);
+                                        bool texFirst = false, uint32_t cubeMask = 0);
     WGPUBindGroupLayout _makeStorageTexBGL(uint32_t count, WGPUShaderStageFlags visibility,
                                            WGPUStorageTextureAccess access,
                                            const GpuTextureFormat* perBindingFormats = nullptr,

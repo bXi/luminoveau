@@ -35,10 +35,12 @@ static constexpr uint32_t kWgpuMaxUniformSlots = 8;
 
 struct WgpuTexture {
     WGPUTexture     texture     = nullptr;
-    WGPUTextureView defaultView = nullptr;
+    WGPUTextureView defaultView = nullptr;         // sampling view (Cube dimension for cube maps)
+    WGPUTextureView faceViews[6] = {};             // per-layer 2D render views (cube/array targets)
     WGPUTextureFormat format    = WGPUTextureFormat_Undefined;
     uint32_t width  = 0;
     uint32_t height = 0;
+    uint32_t layerCount = 1;
 };
 
 struct WgpuBuffer {
@@ -66,6 +68,7 @@ struct WgpuShader {
     uint32_t uniformBufferCount   = 0;
     uint32_t storageBufferCount   = 0;
     uint32_t storageTextureCount  = 0;
+    uint32_t samplerCubeMask      = 0;   // bit i = sampler pair i is a cube texture
 };
 
 struct WgpuGraphicsPipeline {
@@ -82,6 +85,7 @@ struct WgpuGraphicsPipeline {
     uint32_t vertexUniformCount         = 0;
     uint32_t fragmentUniformCount       = 0;
     uint32_t fragmentSamplerCount       = 0;
+    uint32_t fragmentSamplerCubeMask    = 0;
     uint32_t fragmentStorageTexCount    = 0;
     uint32_t vertexStorageBufCount      = 0;
 };
