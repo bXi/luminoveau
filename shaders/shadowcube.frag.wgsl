@@ -5,7 +5,7 @@
 struct CubeShadowFragParams {
     lightPosFar : vec4<f32>,   // xyz = light world position, w = far range
 }
-@group(3) @binding(0) var<uniform> params : CubeShadowFragParams;
+@group(1) @binding(0) var<uniform> params : CubeShadowFragParams;
 
 struct FragIn {
     @location(0) worldPos : vec3<f32>,

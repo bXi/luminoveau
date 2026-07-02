@@ -19,7 +19,11 @@ struct SceneUniforms {
 struct CubeShadowParams {
     faceViewProj : mat4x4<f32>,
     baseInstance : u32,
-    _pad         : vec3<u32>,
+    // Three separate u32 (not vec3<u32>): vec3's 16-byte alignment would pad to 96 and mismatch
+    // the 80-byte C++ CubeShadowParams the CPU uploads.
+    _pad0        : u32,
+    _pad1        : u32,
+    _pad2        : u32,
 }
 @group(0) @binding(0) var<uniform> params : CubeShadowParams;
 

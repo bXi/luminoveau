@@ -19,7 +19,11 @@ struct SceneUniforms {
 struct ShadowParams {
     lightViewProj : mat4x4<f32>,
     baseInstance  : u32,
-    _pad          : vec3<u32>,
+    // Three separate u32 (not vec3<u32>): vec3 has 16-byte alignment, which would pad the struct
+    // to 96 bytes and mismatch the 80-byte C++ ShadowParams the CPU uploads.
+    _pad0         : u32,
+    _pad1         : u32,
+    _pad2         : u32,
 }
 @group(0) @binding(0) var<uniform> params : ShadowParams;
 

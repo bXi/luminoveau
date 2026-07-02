@@ -25,7 +25,7 @@ struct LightData {
     pointShadowLight : i32,                // point (cube) caster index, or -1
     _pad             : i32,
 }
-@group(3) @binding(0) var<uniform> lights : LightData;
+@group(1) @binding(0) var<uniform> lights : LightData;
 
 struct FragIn {
     @location(0) worldPos : vec3<f32>,
