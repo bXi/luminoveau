@@ -125,7 +125,7 @@ WARN_LOGFILE           =
 #---------------------------------------------------------------------------
 # Configuration options related to the input files
 #---------------------------------------------------------------------------
-INPUT                  = .
+INPUT                  = src luminoveau.h
 INPUT_ENCODING         = UTF-8
 INPUT_FILE_ENCODING    =
 FILE_PATTERNS          = *.c \
@@ -161,7 +161,7 @@ EXCLUDE                = audio/miniaudio.h \
                          window/imgui_impl_win32.cpp \
                          window/imgui_impl_win32.h
 EXCLUDE_SYMLINKS       = NO
-EXCLUDE_PATTERNS       =
+EXCLUDE_PATTERNS       = */extern/* */cmake-build-*/* */_deps/* */build/* */assets/shaders/* */gpu/* */renderer/passes/* */renderer/sdl/* */interfaces/* */integrations/imgui/* */integrations/rmlui/* */shaders_generated.h */util/quadtree.h
 EXCLUDE_SYMBOLS        =
 EXAMPLE_PATH           =
 EXAMPLE_PATTERNS       = *

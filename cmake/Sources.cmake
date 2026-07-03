@@ -43,7 +43,6 @@ set(LUMINOVEAU_SOURCES
     # Core
     src/core/eventbus/eventbus.cpp
     src/core/settings/settings.cpp
-    src/core/state/state.cpp
     src/core/log/log.cpp
 
     # Profiler

@@ -9,11 +9,13 @@
 
 #include "assets/font/font.h"
 
+/// @cond INTERNAL
 typedef struct Vertex {
     glm::vec3  pos;
     SDL_FColor color;
     glm::vec2  uv;
 } Vertex;
+/// @endcond
 
 typedef struct GeometryData {
     Vertex *vertices;

@@ -24,6 +24,7 @@
 #include <vector>
 #include <unordered_map>
 
+/// @cond INTERNAL
 struct Mode7Parameters {
     int h = 0;
     int v = 0;
@@ -36,6 +37,7 @@ struct Mode7Parameters {
     int snesScreenWidth = 256;
     int snesScreenHeight = 224;
 };
+/// @endcond
 
 /**
  * @brief Provides functionality for 2D rendering operations.

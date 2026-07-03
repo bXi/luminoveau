@@ -6,12 +6,14 @@
 #include "assets/texture/texture.h"
 #include "core/log/log.h"
 
+/// @cond INTERNAL
 struct Vertex3D {
     float x, y, z;     // position
     float nx, ny, nz;  // normal
     float u, v;        // texture coordinates
     float r, g, b, a;  // vertex color
 };
+/// @endcond
 
 /**
  * @brief Defines which face of the cube

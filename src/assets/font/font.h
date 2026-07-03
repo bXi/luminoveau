@@ -5,6 +5,7 @@
 
 #include "gpu/types.h"
 
+/// @cond INTERNAL
 /**
  * @brief Lightweight cached glyph data — stores only what's needed for rendering.
  * Replaces msdf_atlas::GlyphGeometry in the hot path.
@@ -12,13 +13,14 @@
 struct CachedGlyph {
     uint32_t codepoint = 0;
     double advance = 0.0;
-    
+
     // Plane bounds (em-square coordinates)
     double pl = 0.0, pb = 0.0, pr = 0.0, pt = 0.0;
-    
+
     // Atlas bounds (pixel coordinates in atlas)
     double al = 0.0, ab = 0.0, ar = 0.0, at = 0.0;
 };
+/// @endcond
 
 /**
  * @brief Represents a font asset for rendering text using MSDF.
