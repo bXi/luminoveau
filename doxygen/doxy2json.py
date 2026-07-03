@@ -26,6 +26,7 @@ Usage:  python3 doxy2json.py <doxygen-xml-dir> <output.json>
 """
 
 import json
+import os
 import re
 import sys
 import datetime
@@ -252,9 +253,17 @@ def main():
             g["category"] = cat_by_root.get(g["name"].split("::")[0], "Other")
 
     groups.sort(key=lambda g: g["name"].lower())
+    # Engine concept doc shown as the Docs landing page (rendered as markdown by the site).
+    overview_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "overview.md")
+    overview = ""
+    if os.path.exists(overview_path):
+        with open(overview_path, encoding="utf-8") as f:
+            overview = f.read()
+
     data = {
         "project": "Luminoveau",
         "generated": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "overview": overview,
         "categoryOrder": CATEGORY_ORDER,
         "groups": groups,
     }
