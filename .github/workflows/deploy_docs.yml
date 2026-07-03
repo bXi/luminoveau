@@ -1,4 +1,4 @@
-run-name: Deploy to docs.luminovaeu.tech
+run-name: Publish API docs (api.json) to the site
 
 on: [push]
 
@@ -12,19 +12,26 @@ jobs:
       run: sudo apt-get update -y
     - name: Install rsync
       run: sudo apt-get install rsync -y
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
     - name: Doxygen Action
       uses: mattnotmitt/doxygen-action@1.9.8
       with:
         working-directory: './'
         doxyfile-path: 'doxygen/Doxyfile'
-    - name: Deploy to Server
+    # Doxygen (GENERATE_XML=YES) writes ./xml. Flatten it to a single api.json the website renders.
+    - name: Flatten Doxygen XML -> api.json
+      run: |
+        mkdir -p docs_out
+        python3 doxygen/doxy2json.py xml docs_out/api.json
+    # Deploy ONLY api.json. Point REMOTE_TARGET at the site's web root /docs directory
+    # (e.g. /var/www/luminoveau/docs) so the site can fetch docs/api.json same-origin.
+    - name: Deploy api.json
       uses: easingthemes/ssh-deploy@main
       env:
           SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          REMOTE_PORT: "10025" 
+          REMOTE_PORT: "10025"
           ARGS: "-rltgoDzvO --delete"
-          SOURCE: "html/"
+          SOURCE: "docs_out/"
           REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
           REMOTE_USER: ${{ secrets.REMOTE_USER }}
           TARGET: ${{ secrets.REMOTE_TARGET }}
