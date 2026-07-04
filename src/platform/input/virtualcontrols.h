@@ -13,19 +13,21 @@
  */
 class VirtualControls {
 public:
+    /// @brief How the onscreen joystick is positioned and shown.
     enum class JoystickMode {
-        DISABLED,   // No joystick shown
-        STATIC,     // Fixed position joystick
-        RELATIVE    // Joystick appears where you first touch
+        DISABLED,   ///< No joystick shown.
+        STATIC,     ///< Joystick fixed at a set position.
+        RELATIVE    ///< Joystick appears where you first touch.
     };
 
+    /// @brief One onscreen touch button (state, layout and optional custom texture).
     struct VirtualButton {
-        vf2d individualOffset;          // Offset from anchor point (for this button's layout)
-        float radius;                   // Button radius
-        bool isPressed;                 // Current state
-        bool wasPressed;                // Previous state
-        SDL_FingerID activeFinger;      // Which finger is pressing this button
-        TextureAsset *customTexture;    // Custom texture (nullptr = use default)
+        vf2d individualOffset;          ///< Offset from the anchor point, for this button's layout.
+        float radius;                   ///< Button radius in pixels.
+        bool isPressed;                 ///< True while the button is currently held.
+        bool wasPressed;                ///< Press state from the previous frame (for edge detection).
+        SDL_FingerID activeFinger;      ///< Finger currently pressing this button, if any.
+        TextureAsset *customTexture;    ///< Custom texture, or nullptr to use the default.
         
         /**
          * @brief Get the actual screen position of this button
@@ -34,6 +36,7 @@ public:
         vf2d GetScreenPosition(const vf2d& anchorOffset) const;
     };
 
+    /// @cond INTERNAL
     struct JoystickState {
         vf2d direction;                 // Normalized direction vector
         float magnitude;                // 0.0 to 1.0
@@ -42,9 +45,12 @@ public:
         SDL_FingerID activeFinger;      // Which finger is controlling
         bool isActive;
     };
+    /// @endcond
 
+    /// @cond INTERNAL
     VirtualControls();
     ~VirtualControls();
+    /// @endcond
 
     // === Lifecycle ===
     /**

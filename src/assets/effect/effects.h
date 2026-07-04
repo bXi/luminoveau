@@ -6,6 +6,11 @@
 
 class EffectHandler {
 public:
+    /// @brief Creates an effect from a vertex + fragment shader, wiring up its uniforms
+    ///        from shader reflection.
+    /// @param vertShader Vertex shader.
+    /// @param fragShader Fragment shader (its reflected uniforms populate the effect).
+    /// @return The created effect asset.
     static EffectAsset Create(const ShaderAsset& vertShader, const ShaderAsset& fragShader) {
         return get()._create(vertShader, fragShader);
     }
@@ -28,18 +33,24 @@ private:
     }
 
 public:
+    /// @cond INTERNAL
     EffectHandler(const EffectHandler&) = delete;
 
     static EffectHandler& get() {
         static EffectHandler instance;
         return instance;
     }
+    /// @endcond
 
 private:
     EffectHandler() = default;
 };
 
 namespace Effects {
+    /// @brief Creates an effect from a vertex + fragment shader (convenience wrapper over EffectHandler::Create).
+    /// @param vertShader Vertex shader.
+    /// @param fragShader Fragment shader (its reflected uniforms populate the effect).
+    /// @return The created effect asset.
     inline EffectAsset Create(const ShaderAsset& vertShader, const ShaderAsset& fragShader) {
         return EffectHandler::Create(vertShader, fragShader);
     }

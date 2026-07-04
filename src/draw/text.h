@@ -17,11 +17,12 @@ typedef struct Vertex {
 } Vertex;
 /// @endcond
 
+/// @brief CPU-side vertex/index geometry produced when laying out text.
 typedef struct GeometryData {
-    Vertex *vertices;
-    int    vertex_count;
-    int    *indices;
-    int    index_count;
+    Vertex *vertices;   ///< Pointer to the vertex array.
+    int    vertex_count; ///< Number of vertices.
+    int    *indices;    ///< Pointer to the index array.
+    int    index_count; ///< Number of indices.
 } GeometryData;
 
 /**
@@ -106,12 +107,14 @@ private:
     TextureAsset _drawTextToTexture(Font font, std::string textToDraw, Color color);
 
 public:
+    /// @cond INTERNAL
     Text(const Text &) = delete;
 
     static Text &get() {
         static Text instance;
         return instance;
     }
+    /// @endcond
 
 private:
     Text() = default;

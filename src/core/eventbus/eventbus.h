@@ -99,12 +99,14 @@ private:
     std::unordered_map<std::string, std::vector<EventCallbackData>> _eventsData;
     std::unordered_map<SystemEvent, std::vector<EventCallbackData>> _systemEvents;
 public:
+    /// @cond INTERNAL
     EventBus(const EventBus &) = delete;
 
     static EventBus &get() {
         static EventBus instance;
         return instance;
     }
+    /// @endcond
 
 private:
     EventBus() = default;

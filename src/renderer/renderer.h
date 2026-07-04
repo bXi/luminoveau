@@ -45,37 +45,37 @@ struct SDL_GPUDevice;
 // Forward declare RenderPass before FrameBuffer uses it
 class RenderPass;
 
+/// @brief Configuration for creating a sprite render target (off-screen or on-screen).
 struct SpriteRenderTargetConfig {
-    BlendMode       blendMode     = BlendMode::SrcAlpha;
-    bool            clearOnLoad   = true;
-    Color           clearColor    = BLACK;
-    bool            renderToScreen = false;
-    uint32_t        width         = 0;  // 0 = use desktop size
-    uint32_t        height        = 0;  // 0 = use desktop size
-    size_t          maxSprites    = 0;  // 0 = use MAX_SPRITES default
-    // Invalid = use swapchain format. Set to e.g. R16G16B16A16_Float for HDR.
-    GpuTextureFormat format       = GpuTextureFormat::Invalid;
-    // Render this target's passes BEFORE compute dispatches so compute can read same-frame results.
-    bool            preComputeFlush = false;
+    BlendMode       blendMode     = BlendMode::SrcAlpha; ///< Blend mode used when drawing into the target.
+    bool            clearOnLoad   = true;                ///< Whether to clear the target at the start of each frame.
+    Color           clearColor    = BLACK;              ///< Clear color used when clearOnLoad is true.
+    bool            renderToScreen = false;             ///< If true, composite this target onto the swapchain.
+    uint32_t        width         = 0;                  ///< Target width in pixels (0 = desktop size).
+    uint32_t        height        = 0;                  ///< Target height in pixels (0 = desktop size).
+    size_t          maxSprites    = 0;                  ///< Sprite batch capacity (0 = MAX_SPRITES default).
+    GpuTextureFormat format       = GpuTextureFormat::Invalid; ///< Pixel format (Invalid = swapchain format; e.g. R16G16B16A16_Float for HDR).
+    bool            preComputeFlush = false;            ///< Render this target's passes before compute dispatches (same-frame compute reads).
 };
 
+/// @brief A render target: its textures, the passes that draw into it, and compositing flags.
 struct FrameBuffer {
-    GpuTextureHandle fbContent     = 0;  // resolved non-MSAA texture (for screen display)
-    GpuTextureHandle fbContentMSAA = 0;  // MSAA texture (for rendering when MSAA enabled)
-    GpuTextureHandle fbDepthMSAA   = 0;  // MSAA depth texture (shared by all passes)
+    GpuTextureHandle fbContent     = 0;  ///< Resolved non-MSAA texture (for screen display).
+    GpuTextureHandle fbContentMSAA = 0;  ///< MSAA color texture (used when MSAA is enabled).
+    GpuTextureHandle fbDepthMSAA   = 0;  ///< MSAA depth texture (shared by all passes).
 
-    uint32_t width  = 0;
-    uint32_t height = 0;
+    uint32_t width  = 0;                 ///< Framebuffer width in pixels.
+    uint32_t height = 0;                 ///< Framebuffer height in pixels.
 
-    std::vector<std::pair<std::string, RenderPass*>> renderpasses;
+    std::vector<std::pair<std::string, RenderPass*>> renderpasses; ///< Named render passes drawn into this target, in order.
 
-    bool renderToScreen    = false;
-    bool noMSAA            = false;  // true for custom effect targets that always render to 1x textures
-    bool additiveBlend     = false;  // use additive pipeline when compositing onto swapchain
-    bool fixedSize         = false;  // true when caller specified explicit width/height; skip canvas-resize in _reset
-    bool preComputeFlush   = false;  // run passes before compute dispatches (eliminates 1-frame GI lag)
+    bool renderToScreen    = false;      ///< Whether this target is composited onto the swapchain.
+    bool noMSAA            = false;      ///< True for effect targets that always render to 1× textures.
+    bool additiveBlend     = false;      ///< Use the additive pipeline when compositing onto the swapchain.
+    bool fixedSize         = false;      ///< True when width/height were set explicitly (skip canvas-resize).
+    bool preComputeFlush   = false;      ///< Run passes before compute dispatches (eliminates 1-frame GI lag).
 
-    TextureAsset textureView;
+    TextureAsset textureView;            ///< A TextureAsset view over fbContent for sampling.
 };
 
 /**
@@ -107,6 +107,7 @@ public:
     // Returns the underlying SDL_GPUDevice on the SDL backend; nullptr on WebGPU.
     // Forward-declared SDL_GPUDevice* keeps this signature backend-neutral.
     static SDL_GPUDevice *GetDevice() { return get()._getDevice(); }
+    /// @brief Returns true once the GPU backend is initialized and ready to render.
     static bool IsReady() { return get().m_gpu != nullptr; }
 
     /**
@@ -293,6 +294,7 @@ public:
      */
     static void OnResize() { get()._onResize(); }
 
+    /// @cond INTERNAL
     // Returns true and clears the flag if a deferred reset is pending.
     // Call from Window::_startFrame(), before ImGui::NewFrame(), so _reset()
     // runs before the frame begins (not mid-frame where waitIdle() would abort).
@@ -302,6 +304,7 @@ public:
         r.m_pendingReset = false;
         return true;
     }
+    /// @endcond
 
     /**
      * @brief Updates the camera projection matrix to match current window size.
@@ -362,18 +365,29 @@ public:
      */
     static bool HasGpu() { return (bool)get().m_gpu; }
 
+    /// @brief Compiles a compute pipeline from a shader file.
+    /// @param shaderPath Path to the compute shader source.
+    /// @return The created compute pipeline asset (invalid handle on failure).
     static ComputePipelineAsset CreateComputePipelineAsset(const std::string& shaderPath);
 
 
+    /// @brief Returns the current MSAA sample count of the main render target.
     static GpuSampleCount GetSampleCount() { return get().currentSampleCount; }
 
+    /// @brief Returns the canvas/swapchain width in pixels.
     static uint32_t GetCanvasWidth()  { return get().m_canvasWidth;  }
+    /// @brief Returns the canvas/swapchain height in pixels.
     static uint32_t GetCanvasHeight() { return get().m_canvasHeight; }
 
-    // Lets the GPU backend publish the canvas/swapchain dims as soon as it knows them,
-    // before the first frame is acquired. Without this, code that runs between backend
-    // init and the first acquireSwapchainTexture (e.g. lumifps MenuManager::Init which
-    // queries Window::GetWidth) sees stale SDL window-creation dims.
+    /**
+     * @brief Publishes the canvas/swapchain dimensions before the first frame is acquired.
+     *
+     * Lets the GPU backend set the dims as soon as it knows them, so code running between
+     * backend init and the first swapchain acquire doesn't see stale window-creation dims.
+     *
+     * @param w Canvas width in pixels.
+     * @param h Canvas height in pixels.
+     */
     static void     SetCanvasSize(uint32_t w, uint32_t h) {
         get().m_canvasWidth  = w;
         get().m_canvasHeight = h;
@@ -543,12 +557,14 @@ private:
     float m_blitLogicalOffsetY = 0.0f;
 
 public:
+    /// @cond INTERNAL
     Renderer(const Renderer &) = delete;
 
     static Renderer &get() {
         static Renderer instance;
         return instance;
     }
+    /// @endcond
 
 private:
     Renderer() {

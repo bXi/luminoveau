@@ -114,12 +114,14 @@ private:
     void _updateLerps();
 
 public:
+    /// @cond INTERNAL
     Lerp(const Lerp &) = delete;
 
     static Lerp &get() {
         static Lerp instance;
         return instance;
     }
+    /// @endcond
 
 private:
     Lerp() {}

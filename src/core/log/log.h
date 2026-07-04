@@ -38,6 +38,7 @@ enum class LogLevel {
     Critical    // Critical error - logs, flushes, and exits program
 };
 
+/// @cond INTERNAL
 // Single log entry
 struct LogEntry {
     std::chrono::system_clock::time_point timestamp;  // Actual timestamp
@@ -105,11 +106,13 @@ private:
     size_t maxEntries;
     mutable std::mutex mutex;
 };
+/// @endcond
 
 // Main logging class
 class Log {
 public:
 
+    /// @cond INTERNAL
     // Internal implementation - called by macros
     template<typename... Args>
     static void DebugImpl(const char* file, int line, const char* func, fmt::format_string<Args...> fmt, Args&&... args) {
@@ -146,6 +149,7 @@ public:
         static Log instance;
         return instance;
     }
+    /// @endcond
 
 private:
     // Constructors/destructors

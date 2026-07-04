@@ -12,22 +12,22 @@
  * The gpuShader handle is opaque — the active backend owns the native object.
  */
 struct ShaderAsset {
-    GpuShaderHandle gpuShader = 0;
+    GpuShaderHandle gpuShader = 0;     ///< Opaque backend handle to the compiled shader.
 
-    std::string shaderFilename;
+    std::string shaderFilename;        ///< Source file the shader was loaded from.
 
-    uint32_t samplerCount        = 0;
-    uint32_t uniformBufferCount  = 0;
-    uint32_t storageBufferCount  = 0;
-    uint32_t storageTextureCount = 0;
+    uint32_t samplerCount        = 0;  ///< Number of sampler bindings the shader declares.
+    uint32_t uniformBufferCount  = 0;  ///< Number of uniform buffer bindings.
+    uint32_t storageBufferCount  = 0;  ///< Number of storage buffer bindings.
+    uint32_t storageTextureCount = 0;  ///< Number of storage texture bindings.
 
-    std::vector<uint8_t> fileData;
+    std::vector<uint8_t> fileData;     ///< Raw shader bytecode/source bytes.
 
-    std::unordered_map<std::string, std::string> frameBufferToSamplerMapping;
+    std::unordered_map<std::string, std::string> frameBufferToSamplerMapping; ///< Maps framebuffer names to sampler slots.
 
-    // Inline uniform layout (populated by the asset loader on WebGPU at shader-load time).
-    // SDL reads its uniform layout from Shaders::GetShaderMetadata cache instead.
+    /// Inline uniform byte offsets by name (WebGPU; SDL uses the Shaders metadata cache).
     std::unordered_map<std::string, size_t> uniformOffsets;
+    /// Inline uniform byte sizes by name (WebGPU; SDL uses the Shaders metadata cache).
     std::unordered_map<std::string, size_t> uniformSizes;
 };
 

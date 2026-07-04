@@ -12,6 +12,8 @@
 
 namespace Net {
 
+/// @cond INTERNAL
+
 struct TransportEvent {
     enum Type { Connect, Disconnect, Receive } type;
     Peer                 peer = 0;
@@ -42,5 +44,6 @@ public:
 
 // Implemented per backend (sdl/transport_sdlnet.cpp or webgpu/transport_web.cpp).
 ITransport* createTransport();
+/// @endcond
 
 } // namespace Net

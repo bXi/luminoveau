@@ -25,7 +25,9 @@ public:
 };
 }
 
+/// @cond INTERNAL
 ITransport* createTransport() { return new WebTransport(); }
+/// @endcond
 
 // Thin UDP path — unavailable on web.
 namespace Udp {

@@ -22,10 +22,14 @@ enum class CubeFace {
     Front, Back, Top, Bottom, Right, Left
 };
 
+/// @brief A UV rectangle (min/max corners) applied to a cube face.
 struct FaceUV {
-    float uMin, vMin;
-    float uMax, vMax;
+    float uMin;  ///< Left U coordinate.
+    float vMin;  ///< Top V coordinate.
+    float uMax;  ///< Right U coordinate.
+    float vMax;  ///< Bottom V coordinate.
 
+    /// @brief Constructs a UV rectangle; defaults to the full 0..1 range.
     FaceUV(float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f)
         : uMin(u0), vMin(v0), uMax(u1), vMax(v1) {}
 };
@@ -42,21 +46,26 @@ enum class CubeUVLayout {
  * @brief Represents a 3D model asset with vertices, indices, and GPU buffers.
  */
 struct ModelAsset {
-    std::vector<Vertex3D> vertices;
-    std::vector<uint32_t> indices;
+    std::vector<Vertex3D> vertices;   ///< CPU-side vertex data.
+    std::vector<uint32_t> indices;    ///< CPU-side triangle indices.
 
-    TextureAsset texture;  // defaults to white pixel
+    TextureAsset texture;             ///< Model texture (defaults to a white pixel).
 
-    GpuBufferHandle         vertexBuffer         = 0;
-    GpuBufferHandle         indexBuffer          = 0;
-    GpuTransferBufferHandle vertexTransferBuffer  = 0;
-    GpuTransferBufferHandle indexTransferBuffer   = 0;
+    GpuBufferHandle         vertexBuffer         = 0;  ///< GPU vertex buffer handle.
+    GpuBufferHandle         indexBuffer          = 0;  ///< GPU index buffer handle.
+    GpuTransferBufferHandle vertexTransferBuffer  = 0; ///< Staging buffer for vertex uploads.
+    GpuTransferBufferHandle indexTransferBuffer   = 0; ///< Staging buffer for index uploads.
 
-    const char* name = nullptr;
+    const char* name = nullptr;       ///< Optional model name.
 
+    /// @brief Returns the number of vertices in the model.
     size_t GetVertexCount() const { return vertices.size(); }
+    /// @brief Returns the number of indices in the model.
     size_t GetIndexCount()  const { return indices.size(); }
 
+    /// @brief Sets the UV rectangle for one face of a 24-vertex cube model.
+    /// @param face Which cube face to set.
+    /// @param uvs The UV rectangle to apply to that face.
     void SetCubeFaceUVs(CubeFace face, const FaceUV& uvs) {
         if (vertices.size() != 24) {
             LOG_WARNING("SetCubeFaceUVs called on non-cube model (expected 24 vertices, got {})", vertices.size());

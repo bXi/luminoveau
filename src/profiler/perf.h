@@ -12,19 +12,27 @@
  */
 class Perf {
 public:
+    /// @brief Marks the start of CPU frame work (called by the engine frame loop).
     static void FrameStart()              { get()._frameStart(); }
+    /// @brief Marks the end of the frame; computes CPU ms, samples and draws the HUD if visible.
     static void FrameEnd()                { get()._frameEnd(); }
-    // Real per-present frame time (ms), pushed by the renderer so the graph matches the FPS.
+    /// @brief Reports the real per-present frame time in ms so the graph matches the FPS.
     static void ReportFrameMs(double ms)  { get()._pushFrame((float)ms); }
-    // Draw the HUD (no-op unless visible). Call from the app where its 2D layer composites to
-    // the final target — the engine frame loop can leave a custom target-render-pass set.
+    /// @brief Draws the performance HUD (no-op unless visible).
     static void Render()                  { get()._render(); }
+    /// @brief Reports GPU frame time in ms (from the renderer's fence timing).
     static void ReportGPUms(double ms)    { get()._gpuMs = ms; }
+    /// @brief Reports current VRAM usage in bytes (from the GPU backend).
     static void ReportVRAM(int64_t bytes) { get()._vramBytes = bytes; }
+    /// @brief Reports this frame's draw-call and vertex counts.
+    /// @param calls Number of draw calls. @param verts Number of vertices submitted.
     static void ReportDraws(uint32_t calls, uint64_t verts) { get()._drawCalls = calls; get()._drawVerts = verts; }
 
+    /// @brief Shows or hides the performance HUD.
     static void SetVisible(bool v)        { get()._visible = v; }
+    /// @brief Toggles HUD visibility.
     static void Toggle()                  { get()._visible = !get()._visible; }
+    /// @brief Returns whether the HUD is currently visible.
     static bool Visible()                 { return get()._visible; }
 
 private:

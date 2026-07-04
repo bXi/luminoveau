@@ -123,12 +123,14 @@ private:
     bool Moved = false;
     bool Active = false;
 public:
+    /// @cond INTERNAL
     Camera(const Camera &) = delete;
 
     static Camera &get() {
         static Camera instance;
         return instance;
     }
+    /// @endcond
 
 private:
     Camera() = default;

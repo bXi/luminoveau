@@ -14,6 +14,7 @@ namespace Compute {
 // Internal dispatch record
 // -----------------------------------------------------------------
 
+/// @cond INTERNAL
 struct RWTextureBind {
     GpuTextureHandle tex;
     uint32_t         mipLevel;
@@ -32,7 +33,9 @@ struct DispatchRecord {
 
     uint32_t groupX = 1, groupY = 1, groupZ = 1;
 };
+/// @endcond
 
+/// @cond INTERNAL
 // -----------------------------------------------------------------
 // Builder state
 // -----------------------------------------------------------------
@@ -59,6 +62,7 @@ static void _clearBuilderState() {
     s_readWriteBuffers.clear();
     s_uniforms.clear();
 }
+/// @endcond
 
 // -----------------------------------------------------------------
 // Public API
@@ -111,6 +115,7 @@ void PushUniform(uint32_t slot, const void* data, uint32_t size) {
     }
 }
 
+/// @cond INTERNAL
 static void _enqueueDispatch(uint32_t gx, uint32_t gy, uint32_t gz) {
     if (!s_pipeline) {
         LOG_ERROR("Compute::Dispatch called without SetPipeline");
@@ -132,6 +137,7 @@ static void _enqueueDispatch(uint32_t gx, uint32_t gy, uint32_t gz) {
     s_queue.push_back(std::move(rec));
     _clearBuilderState();
 }
+/// @endcond
 
 void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) {
     _enqueueDispatch(groupX, groupY, groupZ);
@@ -185,6 +191,7 @@ void DestroyBuffer(GpuBufferHandle buffer) {
     if (buffer) Renderer::GetGpu().releaseBuffer(buffer);
 }
 
+/// @cond INTERNAL
 // -----------------------------------------------------------------
 // Internal
 // -----------------------------------------------------------------
@@ -255,5 +262,6 @@ void _Reset() {
     s_queue.clear();
     _clearBuilderState();
 }
+/// @endcond
 
 } // namespace Compute

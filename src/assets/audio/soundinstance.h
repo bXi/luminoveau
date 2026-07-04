@@ -20,8 +20,8 @@ struct SoundInstanceAsset {
     struct Internal {
         ma_sound sound;
     };
-    Internal* impl        = nullptr;
-    bool      initialized = false;
+    Internal* impl        = nullptr;  ///< Heap-allocated internal state (ma_sound).
+    bool      initialized = false;    ///< True once the instance has been successfully created.
 };
 
 using SoundInstance = SoundInstanceAsset;

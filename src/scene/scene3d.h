@@ -16,14 +16,14 @@
  * @brief Instance of a 3D model with transform
  */
 struct ModelInstance {
-    ModelAsset* model = nullptr;
+    ModelAsset* model = nullptr;         ///< Model this instance draws (not owned).
     
-    vf3d position = {0.0f, 0.0f, 0.0f};
-    vf3d rotation = {0.0f, 0.0f, 0.0f};  // Euler angles in degrees
-    vf3d scale = {1.0f, 1.0f, 1.0f};
+    vf3d position = {0.0f, 0.0f, 0.0f};  ///< World-space position.
+    vf3d rotation = {0.0f, 0.0f, 0.0f};  ///< Euler angles in degrees (Z, Y, X order).
+    vf3d scale = {1.0f, 1.0f, 1.0f};     ///< Per-axis scale factor.
     
-    Color tint = WHITE;
-    TextureAsset textureOverride;  // Optional: overrides model's default texture (use model.texture if not set)
+    Color tint = WHITE;                  ///< Color multiplied over the model.
+    TextureAsset textureOverride;        ///< Optional texture overriding the model's default.
     
     /**
      * @brief Gets the model matrix for this instance
@@ -59,24 +59,23 @@ enum class LightType {
  * @brief Light in 3D space
  */
 struct Light {
-    LightType type = LightType::Point;
+    LightType type = LightType::Point;     ///< Light kind (point, directional or spot).
     
-    vf3d position = {0.0f, 0.0f, 0.0f};      // For point/spot lights
-    vf3d direction = {0.0f, -1.0f, 0.0f};    // For directional/spot lights
+    vf3d position = {0.0f, 0.0f, 0.0f};    ///< World position (point/spot lights).
+    vf3d direction = {0.0f, -1.0f, 0.0f};  ///< Direction the light points (directional/spot lights).
     
-    Color color = WHITE;
-    float intensity = 1.0f;
+    Color color = WHITE;                   ///< Light color.
+    float intensity = 1.0f;                ///< Brightness multiplier.
     
-    // Point light attenuation
-    float constant = 1.0f;
-    float linear = 0.09f;
-    float quadratic = 0.032f;
+    float constant = 1.0f;                 ///< Constant attenuation term (point lights).
+    float linear = 0.09f;                  ///< Linear attenuation term (point lights).
+    float quadratic = 0.032f;              ///< Quadratic attenuation term (point lights).
     
-    // Spot light properties
-    float cutoffAngle = 12.5f;     // Inner cone angle in degrees
-    float outerCutoffAngle = 17.5f; // Outer cone angle in degrees
+    float cutoffAngle = 12.5f;             ///< Inner cone angle in degrees (spot lights).
+    float outerCutoffAngle = 17.5f;        ///< Outer cone angle in degrees (spot lights).
 };
 
+/// @cond INTERNAL
 /**
  * @brief Internal 3D scene data
  */
@@ -92,6 +91,7 @@ struct SceneData {
         camera.target = {0.0f, 0.0f, 0.0f};
     }
 };
+/// @endcond
 
 /**
  * @brief Singleton manager for 3D scenes
@@ -285,6 +285,7 @@ private:
     void _delete(const std::string& name);
     
 public:
+    /// @cond INTERNAL
     Scene(const Scene&) = delete;
     Scene& operator=(const Scene&) = delete;
     
@@ -292,6 +293,7 @@ public:
         static Scene instance;
         return instance;
     }
+    /// @endcond
     
 private:
     Scene() {

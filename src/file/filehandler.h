@@ -6,11 +6,13 @@
 
 #include <SDL3/SDL.h>
 
+/// @cond INTERNAL
 struct PhysFSFileData {
     void* data;
     int fileSize;
     std::vector<uint8_t> fileDataVector;
 };
+/// @endcond
 
 /**
  * @brief Handles cross-platform file I/O operations.
@@ -233,18 +235,28 @@ public:
     // PERSISTENT STORAGE
     // ========================================================================
 
-    // Engine init hook. On Emscripten, mounts IDBFS at a known prefix and pulls
-    // existing data out of IndexedDB into MEMFS so subsequent reads see prior
-    // sessions' content. On native, ensures the system directory exists. Idempotent.
+    /**
+     * @brief Initializes persistent (reload-surviving) storage. Idempotent.
+     *
+     * On Emscripten, mounts IDBFS at a known prefix and pulls existing data out of
+     * IndexedDB into MEMFS so subsequent reads see prior sessions' content. On native,
+     * ensures the system directory exists.
+     */
     static bool InitPersistentStorage() { return get()._initPersistentStorage(); }
 
-    // Path prefix (with trailing slash) where reload-surviving cache files should
-    // live. Native: same as GetSystemDirectory(). Web: the IDBFS mount point.
+    /**
+     * @brief Returns the directory prefix (trailing slash) for reload-surviving cache files.
+     *
+     * Native: same as GetSystemDirectory(). Web: the IDBFS mount point.
+     */
     static std::string GetPersistentStorageDirectory() { return get()._getPersistentStorageDirectory(); }
 
-    // Pushes pending writes from MEMFS into IndexedDB on Emscripten so the data
-    // survives a page reload. No-op on native (writes already hit disk). Callers
-    // should invoke this after a batch of writes to persistent storage.
+    /**
+     * @brief Flushes pending persistent-storage writes so they survive a reload.
+     *
+     * On Emscripten, pushes MEMFS writes into IndexedDB; call after a batch of writes.
+     * No-op on native (writes already hit disk).
+     */
     static bool FlushPersistentStorage() { return get()._flushPersistentStorage(); }
 
 private:
@@ -290,12 +302,14 @@ private:
     bool _persistentStorageMounted = false;
 
 public:
+    /// @cond INTERNAL
     FileHandler(const FileHandler &) = delete;
 
     static FileHandler &get() {
         static FileHandler instance;
         return instance;
     }
+    /// @endcond
 
 private:
     FileHandler() = default;

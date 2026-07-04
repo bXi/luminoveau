@@ -139,8 +139,10 @@ public:
      */
     static bool MouseButtonDown(int button) { return get()._mouseButtonDown(button); };
 
+    /// @brief Returns the mouse wheel scroll-up amount this frame (0 if none).
     static Uint32 MouseScrolledUp() { return get()._mouseScrolledUp(); };
 
+    /// @brief Returns the mouse wheel scroll-down amount this frame (0 if none).
     static Uint32 MouseScrolledDown() { return get()._mouseScrolledDown(); };
 
     // === Virtual Controls (Onscreen Joystick/Buttons) ===
@@ -154,6 +156,7 @@ public:
      */
     static void HandleTouchEvent(const SDL_Event* event) { get()._handleTouchEvent(event); }
 
+    /// @cond INTERNAL
     //For internal use. handle with care
     static void UpdateInputs(std::vector<Uint8> keys, bool held) { get()._updateInputs(keys, held); }
 
@@ -162,6 +165,7 @@ public:
     static void RemoveGamepadDevice(SDL_JoystickID joystickID) { get()._removeGamepadDevice(joystickID); }
 
     static void UpdateScroll(int scrollDir) { get()._updateScroll(scrollDir); }
+    /// @endcond
 
     /**
      * @brief Accumulates relative mouse motion (from SDL mouse-motion events).
@@ -174,7 +178,9 @@ public:
      */
     static vf2d GetMouseDelta() { return get()._getMouseDelta(); }
 
+    /// @cond INTERNAL
     std::vector<Uint8> currentKeyboardState;
+    /// @endcond
 private:
     std::vector<InputDevice *> inputs;
 
@@ -234,12 +240,14 @@ private:
 
     const SDL_JoystickID *joystickIds = nullptr;
 
+    /// @cond INTERNAL
     struct gamepadInfo {
         SDL_JoystickID joystickId;
         SDL_Gamepad *gamepad;
         std::vector<bool> currentButtonState;
         std::vector<bool> previousButtonState;
     };
+    /// @endcond
 
     std::vector<gamepadInfo> gamepads;
 
@@ -248,12 +256,14 @@ private:
     bool _didInit = false;
     void _handleTouchEvent(const SDL_Event* event);
 public:
+    /// @cond INTERNAL
     Input(const Input &) = delete;
 
     static Input &get() {
         static Input instance;
         return instance;
     }
+    /// @endcond
 
 private:
     Input() {

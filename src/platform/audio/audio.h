@@ -331,6 +331,7 @@ public:
         get()._removeChannelEffect(channel);
     }
 
+    /// @brief Returns the underlying miniaudio engine for advanced/direct access.
     static ma_engine* GetAudioEngine() {
         return &get().engine;
     }
@@ -431,6 +432,7 @@ private:
     /// Number of real mix groups (everything except Master)
     static constexpr int NUM_GROUPS = static_cast<int>(AudioChannel::Count) - 1;
 
+    /// @cond INTERNAL
     struct ChannelState {
         ma_sound_group group;
         float volume  = 1.0f;
@@ -440,6 +442,7 @@ private:
 
         LumiEffectNode effectNode;
     };
+    /// @endcond
 
     std::array<ChannelState, NUM_GROUPS> _channels;
     float _masterVolume = 1.0f;
@@ -469,12 +472,14 @@ private:
     static void ma_data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount);
 
 public:
+    /// @cond INTERNAL
     Audio(const Audio &) = delete;
 
     static Audio &get() {
         static Audio instance;
         return instance;
     }
+    /// @endcond
 
 private:
     Audio() {}

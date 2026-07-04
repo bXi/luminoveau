@@ -77,10 +77,14 @@ public:
      * nesting is not supported (Begin while already batching is a no-op-with-warning).
      */
     static void BeginUploadBatch() { get()._beginUploadBatch(); }
+    /// @brief Ends an upload batch started with BeginUploadBatch(), flushing pending uploads.
     static void EndUploadBatch()   { get()._endUploadBatch(); }
 
-
-
+    /// @brief Creates a texture from raw RGBA pixel data.
+    /// @param size Texture dimensions.
+    /// @param pixelData Pointer to tightly-packed RGBA8 pixels.
+    /// @param fileName Name to register the resulting texture under.
+    /// @return The created texture asset.
     static TextureAsset LoadFromPixelData(const vf2d& size, void *pixelData, std::string fileName) { return get()._loadFromPixelData(size, pixelData, std::move(fileName)); }
 
     /**
@@ -112,6 +116,10 @@ public:
      * @return The created empty texture.
      */
     static TextureAsset CreateEmptyTexture(const vf2d &size) { return get()._createEmptyTexture(size); }
+    /// @brief Creates an empty texture with an explicit pixel format.
+    /// @param size The size of the empty texture.
+    /// @param format The GPU pixel format to allocate.
+    /// @return The created empty texture.
     static TextureAsset CreateEmptyTexture(const vf2d &size, GpuTextureFormat format) { return get()._createEmptyTexture(size, format); }
 
     /**
@@ -184,10 +192,15 @@ public:
         return get()._getComputePipeline(fileName);
     }
 
+    /// @brief Creates a depth texture usable as a depth render target.
+    /// @param width Target width in pixels.
+    /// @param height Target height in pixels.
+    /// @return The created depth-target texture.
     static TextureAsset CreateDepthTarget(uint32_t width, uint32_t height) {
         return get()._createDepthTarget(width, height);
     }
 
+    /// @brief Creates a 1×1 opaque white texture, handy as a tint/solid-fill source.
     static TextureAsset CreateWhitePixel() {
         return get()._createWhitePixel();
     }
@@ -203,11 +216,15 @@ public:
         return get()._createCube(size, layout);
     }
 
+    /// @brief Releases an asset's GPU/CPU resources and drops it from the cache.
+    /// @tparam T The asset type (deduced from the argument).
+    /// @param asset The asset to delete.
     template<typename T>
     static void Delete(T &asset) {
         get()._delete(asset);
     }
 
+    /// @brief Returns the map of currently loaded music assets, keyed by file name.
     static std::unordered_map<std::string, MusicAsset> &GetLoadedMusics() {
         return get()._musics;
     }
@@ -318,6 +335,10 @@ private:
     void _saveFontToCache(const std::string& fileName, const FontAsset& font, const std::vector<unsigned char>& rgbaData, const std::string& precomputedHash = "");
     std::string _computeFontCacheKey(const std::string& fileName);
     std::string _computeFontCacheKeyFromData(const void* data, size_t size);
+#if defined(LUMINOVEAU_HAVE_FONT_ATLAS_BLOB)
+    // Load the default font from the baked atlas blob (tools/font_baker) instead of generating it.
+    bool _loadDefaultFontFromBlob(FontAsset& font);
+#endif
 
     // Cleanup
     void _cleanup();
@@ -409,6 +430,7 @@ private:
     };
 
 public:
+    /// @cond INTERNAL
     AssetHandler(const AssetHandler &) = delete;
 
     ~AssetHandler() {
@@ -419,6 +441,7 @@ public:
         static AssetHandler instance;
         return instance;
     }
+    /// @endcond
 
 private:
     AssetHandler();

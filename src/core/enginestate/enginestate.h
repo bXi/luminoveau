@@ -4,6 +4,7 @@
 
 namespace EngineState {
 
+    /// @cond INTERNAL
     //from Window::
     inline int   _scaleFactor      = 1;
     inline float _displayScale     = 1.0f;  // HiDPI scale factor (e.g. 2.0 on Retina)
@@ -27,4 +28,5 @@ namespace EngineState {
     inline std::chrono::high_resolution_clock::time_point _startTime;
     inline std::chrono::high_resolution_clock::time_point _currentTime;
     inline std::chrono::high_resolution_clock::time_point _previousTime;
+    /// @endcond
 }

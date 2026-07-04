@@ -315,10 +315,14 @@ public:
      */
     static void EndMode2D() { get()._endMode2D(); };
 
+    /// @brief Resets the target render pass so draws go to the default pass again.
     static void ResetTargetRenderPass() { get()._resetTargetRenderPass(); }
 
+    /// @brief Routes subsequent draw calls into the named render pass.
+    /// @param newTargetRenderPass Name of the render pass to draw into.
     static void SetTargetRenderPass(const std::string& newTargetRenderPass) { get()._setTargetRenderPass(newTargetRenderPass); }
 
+    /// @brief Returns the name of the render pass draws are currently routed to.
     static std::string GetTargetRenderPass() { return get()._getTargetRenderPass(); }
 
     /**
@@ -377,6 +381,7 @@ public:
      * @brief Gets the effect store for the current frame (for internal use by render passes).
      */
     static const std::vector<std::vector<EffectAsset>>& GetEffectStore() { return get()._effectStore; }
+    /// @brief Returns the per-pass effect input-texture store used when applying effects.
     static const std::vector<std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>>>& GetEffectTextureStore() { return get()._effectTextureStore; }
 
     /**
@@ -513,12 +518,14 @@ private:
 
 //Singleton part
 public:
+    /// @cond INTERNAL
     Draw(const Draw &) = delete;
 
     static Draw &get() {
         static Draw instance;
         return instance;
     }
+    /// @endcond
 
 private:
     Draw() {

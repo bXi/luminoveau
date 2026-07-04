@@ -14,15 +14,17 @@
  * but have different parameter values.
  */
 struct EffectAsset {
-    ShaderAsset vertShader;
-    ShaderAsset fragShader;
+    ShaderAsset vertShader;   ///< Vertex shader used by the effect.
+    ShaderAsset fragShader;   ///< Fragment shader used by the effect.
     
-    std::shared_ptr<UniformBuffer> uniforms;
+    std::shared_ptr<UniformBuffer> uniforms;  ///< Shared uniform parameter buffer.
     
-    // Default constructor
+    /// @brief Constructs an effect with an empty uniform buffer and no shaders.
     EffectAsset() : uniforms(std::make_shared<UniformBuffer>()) {}
     
-    // Constructor with shaders
+    /// @brief Constructs an effect from vertex and fragment shaders.
+    /// @param vert Vertex shader.
+    /// @param frag Fragment shader.
     EffectAsset(const ShaderAsset& vert, const ShaderAsset& frag) 
         : vertShader(vert), fragShader(frag), uniforms(std::make_shared<UniformBuffer>()) {}
     
@@ -43,7 +45,9 @@ struct EffectAsset {
         std::string name;
     };
     
-    // Array subscript operator for setting uniforms
+    /// @brief Accesses a named uniform for assignment, e.g. `effect["strength"] = 0.5f`.
+    /// @param name The uniform variable name.
+    /// @return A proxy that writes the assigned value into the uniform buffer.
     UniformProxy operator[](const std::string& name) {
         return UniformProxy(uniforms, name);
     }

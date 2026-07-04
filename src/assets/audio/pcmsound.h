@@ -5,9 +5,10 @@
 
 // ── PCM format descriptor ──
 
+/// @brief Sample rate + channel count describing a PCM audio stream.
 struct PCMFormat {
-    uint32_t sampleRate = 48000;
-    uint32_t channels   = 2;
+    uint32_t sampleRate = 48000;  ///< Sample rate in Hz.
+    uint32_t channels   = 2;      ///< Number of interleaved channels.
 };
 
 // ── Callback types (raw function pointers — safe for audio thread) ──
@@ -41,6 +42,7 @@ using PCMEffectCallback = void(*)(float* samples, uint32_t frameCount,
 
 // ── Custom miniaudio data source for PCM generators ──
 
+/// @cond INTERNAL
 struct LumiPCMDataSource {
     ma_data_source_base base; ///< Must be first member
     PCMGenerateCallback callback;
@@ -58,6 +60,7 @@ struct LumiEffectNode {
     uint32_t channels;
     bool     initialized = false;
 };
+/// @endcond
 
 // ── PCM sound handle (user-owned) ──
 
@@ -77,8 +80,8 @@ struct PCMSoundAsset {
         ma_sound          sound;
         LumiPCMDataSource dataSource;
     };
-    Internal* impl = nullptr;
-    bool initialized = false;
+    Internal* impl = nullptr;   ///< Heap-allocated internal state (ma_sound + data source).
+    bool initialized = false;   ///< True once the sound has been successfully created.
 };
 
 using PCMSound = PCMSoundAsset;

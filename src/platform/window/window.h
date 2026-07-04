@@ -300,8 +300,11 @@ public:
         get()._webGpuRenderHeight = renderHeight;
     }
 
+    /// @brief Returns the WebGPU canvas scaling mode (no-op on native builds).
     static WebGpuScaleMode GetWebGpuScaleMode()  { return get()._webGpuScaleMode;    }
+    /// @brief Returns the WebGPU internal render width in pixels (web builds).
     static int GetWebGpuRenderWidth()             { return get()._webGpuRenderWidth;  }
+    /// @brief Returns the WebGPU internal render height in pixels (web builds).
     static int GetWebGpuRenderHeight()            { return get()._webGpuRenderHeight; }
     
     /**
@@ -416,12 +419,14 @@ private:
     std::vector<Uint8> _bufferedKeysUp;
 
 public:
+    /// @cond INTERNAL
     Window(const Window &) = delete;
 
     static Window &get() {
         static Window instance;
         return instance;
     }
+    /// @endcond
 
 private:
     Window() {

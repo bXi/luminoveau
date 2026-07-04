@@ -30,23 +30,23 @@ namespace msdfgen {
     class FontHandle;
 }
 
+/// @brief A loaded font with its MSDF glyph atlas and metrics.
 struct FontAsset {
-    msdfgen::FontHandle *fontHandle = nullptr;
-    GpuTextureHandle atlasTexture = 0;
-    int atlasWidth = 0;
-    int atlasHeight = 0;
-    
-    std::vector<CachedGlyph> *glyphs = nullptr;
-    std::unordered_map<uint32_t, size_t> *glyphMap = nullptr;  // codepoint -> glyph index
-    
-    void *fontData = nullptr;  // For cleanup
-    int generatedSize = 0;
-    int defaultRenderSize = -1;
-    
-    // Font metrics (in em-square units, multiply by generatedSize to get pixels)
-    double ascender = 0.0;
-    double descender = 0.0;
-    double lineHeight = 0.0;
+    msdfgen::FontHandle *fontHandle = nullptr;  ///< Underlying msdfgen font handle.
+    GpuTextureHandle atlasTexture = 0;          ///< GPU texture holding the MSDF glyph atlas.
+    int atlasWidth = 0;                         ///< Atlas texture width in pixels.
+    int atlasHeight = 0;                        ///< Atlas texture height in pixels.
+
+    std::vector<CachedGlyph> *glyphs = nullptr; ///< Cached per-glyph atlas/metric data.
+    std::unordered_map<uint32_t, size_t> *glyphMap = nullptr;  ///< Maps codepoint to glyph index.
+
+    void *fontData = nullptr;                   ///< Owned font file bytes (kept for cleanup).
+    int generatedSize = 0;                      ///< Pixel size the atlas was generated at.
+    int defaultRenderSize = -1;                 ///< Default render size in pixels (-1 = use generatedSize).
+
+    double ascender = 0.0;                       ///< Ascender height in em-square units (× generatedSize for pixels).
+    double descender = 0.0;                      ///< Descender depth in em-square units.
+    double lineHeight = 0.0;                     ///< Line height in em-square units.
 };
 
 using Font = FontAsset &;

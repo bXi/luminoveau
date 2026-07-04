@@ -17,6 +17,7 @@
 
 namespace Net {
 
+/// @cond INTERNAL
 // SDL_net must be initialized before any socket/address call. Both the typed transport and
 // the Net::Udp thin path go through this (Quake uses Udp without creating a transport).
 static bool s_netInit = false;
@@ -27,6 +28,7 @@ static bool ensureNetInit() {
     }
     return true;
 }
+/// @endcond
 
 // ── Net::Udp: thin raw datagram path ──────────────────────────────────────────
 namespace Udp {
@@ -333,9 +335,11 @@ private:
 
 } // namespace
 
+/// @cond INTERNAL
 ITransport* createTransport() {
     if (!ensureNetInit()) return nullptr;
     return new SdlNetTransport();
 }
+/// @endcond
 
 } // namespace Net

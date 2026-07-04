@@ -77,6 +77,7 @@ ShaderMetadata ShaderMetadata::deserialize(const std::string& data) {
 // ── Shaders namespace implementation ─────────────────────────────────────────────
 namespace Shaders {
 
+/// @cond INTERNAL
 // File-local state (formerly Shaders-class members).
 static std::unordered_map<std::string, ShaderMetadata> s_metadataCache;
 static std::unordered_map<std::string, PhysFSFileData> s_shaderDataCache;
@@ -93,6 +94,7 @@ static void                saveCachedMetadata(const std::string &metadataKey, co
 static ShaderMetadata      extractMetadataFromSPIRV(const std::vector<uint32_t> &spirv);
 static std::vector<uint32_t> compileGLSLtoSPIRV(const std::string& source, EShLanguage shaderStage);
 static void                fillResources(TBuiltInResource *resource);
+/// @endcond
 
 // ── Entry-point name accessors (cross-backend public API) ────────────────────────
 const char* GetVertexEntryPoint() {
@@ -137,6 +139,7 @@ void Quit() {
     LOG_INFO("SDL_shadercross shut down");
 }
 
+/// @cond INTERNAL
 // ── File-local cache + reflection helpers ────────────────────────────────────────
 static std::string computeSourceHash(const std::string &source) {
     return picosha2::hash256_hex_string(source);
@@ -650,5 +653,6 @@ static void fillResources(TBuiltInResource *resource) {
     resource->limits.generalVariableIndexing              = 1;
     resource->limits.generalConstantMatrixVectorIndexing  = 1;
 }
+/// @endcond
 
 } // namespace Shaders
