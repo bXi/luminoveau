@@ -27,6 +27,7 @@ option(LUMINOVEAU_BUILD_RMLUI    "Include RmlUi support"                        
 option(LUMINOVEAU_ENABLE_LOGGING "Include logging support"                      ON)
 option(LUMINOVEAU_ENABLE_WARNINGS "Enable all compiler warnings"                OFF)
 option(LUMINOVEAU_BUILD_TESTS    "Build test suite"                             OFF)
+option(LUMINOVEAU_BUILD_EXAMPLES "Build the example demos in examples/"         OFF)
 option(LUMINOVEAU_USE_CALLBACKS  "Use SDL3 callback-based main loop"            OFF)
 option(LUMINOVEAU_WEBGPU_BACKEND "Use WebGPU renderer (required for Emscripten)" OFF)
 
@@ -34,6 +35,12 @@ option(LUMINOVEAU_WEBGPU_BACKEND "Use WebGPU renderer (required for Emscripten)"
 if(EMSCRIPTEN)
     set(LUMINOVEAU_WEBGPU_BACKEND ON CACHE BOOL "" FORCE)
     set(LUMINOVEAU_USE_CALLBACKS  ON CACHE BOOL "" FORCE)
+endif()
+
+# The example demos use the AppInit/Iterate callback pattern, which lumi_main.cpp bridges
+# to SDL3's main loop — that bridge is only compiled in when USE_CALLBACKS is on.
+if(LUMINOVEAU_BUILD_EXAMPLES)
+    set(LUMINOVEAU_USE_CALLBACKS ON CACHE BOOL "" FORCE)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -90,6 +97,10 @@ endif()
 include(cmake/Sources.cmake)
 
 add_library(luminoveau STATIC ${LUMINOVEAU_SOURCES})
+
+# Web build helper: defines luminoveau_configure_web_target() for apps that embed the engine.
+# Global (functions persist to the parent scope after add_subdirectory), no-op off Emscripten.
+include(cmake/LuminoveauWeb.cmake)
 
 # ── Perf HUD: platform hardware-name queries ──────────────────────────────────
 if(WIN32)
@@ -208,6 +219,10 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CopyRuntimeDLLs.cmake)
 if(LUMINOVEAU_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(LUMINOVEAU_BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()
 
 # Baked default-font atlas blob (tools/font_baker output). If it's been generated, compile it in so
