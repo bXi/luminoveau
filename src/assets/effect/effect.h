@@ -16,18 +16,18 @@
 struct EffectAsset {
     ShaderAsset vertShader;   ///< Vertex shader used by the effect.
     ShaderAsset fragShader;   ///< Fragment shader used by the effect.
-    
+
     std::shared_ptr<UniformBuffer> uniforms;  ///< Shared uniform parameter buffer.
-    
+
     /// @brief Constructs an effect with an empty uniform buffer and no shaders.
     EffectAsset() : uniforms(std::make_shared<UniformBuffer>()) {}
-    
+
     /// @brief Constructs an effect from vertex and fragment shaders.
     /// @param vert Vertex shader.
     /// @param frag Fragment shader.
-    EffectAsset(const ShaderAsset& vert, const ShaderAsset& frag) 
+    EffectAsset(const ShaderAsset& vert, const ShaderAsset& frag)
         : vertShader(vert), fragShader(frag), uniforms(std::make_shared<UniformBuffer>()) {}
-    
+
     // Proxy class for assignment through []
     class UniformProxy {
     public:

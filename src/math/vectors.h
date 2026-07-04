@@ -386,7 +386,7 @@ struct v3d_generic {
     T mag() const { return T(std::sqrt(x * x + y * y + z * z)); }
     /// @brief Returns the squared length (cheaper than mag()).
     T mag2() const { return x * x + y * y + z * z; }
-    
+
     /// @brief Returns a unit-length copy in the same direction (zero vector stays zero).
     v3d_generic norm() const {
         T m = mag();
@@ -397,7 +397,7 @@ struct v3d_generic {
 
     /// @brief Returns the dot product with rhs.
     T dot(const v3d_generic &rhs) const { return this->x * rhs.x + this->y * rhs.y + this->z * rhs.z; }
-    
+
     /// @brief Returns the cross product with rhs.
     v3d_generic cross(const v3d_generic &rhs) const {
         return v3d_generic(
@@ -453,7 +453,7 @@ struct v3d_generic {
 
     /// @brief Returns a "(x,y,z)" string with 2-decimal formatting.
     const std::string str() const {
-        return std::string("(") + doTextFormat("%.2f", this->x) + "," + 
+        return std::string("(") + doTextFormat("%.2f", this->x) + "," +
                doTextFormat("%.2f", this->y) + "," + doTextFormat("%.2f", this->z) + ")";
     }
 

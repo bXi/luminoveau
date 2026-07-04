@@ -16,7 +16,7 @@ struct ResourceBuffer : public std::streambuf {
     /// @param offset Byte offset of the resource within the file.
     /// @param size Byte length of the resource.
     ResourceBuffer(std::ifstream &ifs, uint32_t offset, uint32_t size);
-    
+
     /// @brief Points the streambuf get-area at the in-memory buffer.
     void SetupMemoryBuffer() {
         setg(

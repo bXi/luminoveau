@@ -17,11 +17,11 @@
  */
 struct ModelInstance {
     ModelAsset* model = nullptr;         ///< Model this instance draws (not owned).
-    
+
     vf3d position = {0.0f, 0.0f, 0.0f};  ///< World-space position.
     vf3d rotation = {0.0f, 0.0f, 0.0f};  ///< Euler angles in degrees (Z, Y, X order).
     vf3d scale = {1.0f, 1.0f, 1.0f};     ///< Per-axis scale factor.
-    
+
     Color tint = WHITE;                  ///< Color multiplied over the model.
     TextureAsset textureOverride;        ///< Optional texture overriding the model's default.
     
@@ -60,17 +60,17 @@ enum class LightType {
  */
 struct Light {
     LightType type = LightType::Point;     ///< Light kind (point, directional or spot).
-    
+
     vf3d position = {0.0f, 0.0f, 0.0f};    ///< World position (point/spot lights).
     vf3d direction = {0.0f, -1.0f, 0.0f};  ///< Direction the light points (directional/spot lights).
-    
+
     Color color = WHITE;                   ///< Light color.
     float intensity = 1.0f;                ///< Brightness multiplier.
-    
+
     float constant = 1.0f;                 ///< Constant attenuation term (point lights).
     float linear = 0.09f;                  ///< Linear attenuation term (point lights).
     float quadratic = 0.032f;              ///< Quadratic attenuation term (point lights).
-    
+
     float cutoffAngle = 12.5f;             ///< Inner cone angle in degrees (spot lights).
     float outerCutoffAngle = 17.5f;        ///< Outer cone angle in degrees (spot lights).
 };
@@ -84,7 +84,7 @@ struct SceneData {
     std::vector<ModelInstance> models;
     std::vector<Light> lights;
     Color ambientLight = {50, 50, 50, 255};
-    
+
     SceneData() {
         // Default camera setup
         camera.position = {0.0f, 0.0f, 5.0f};
@@ -288,13 +288,13 @@ public:
     /// @cond INTERNAL
     Scene(const Scene&) = delete;
     Scene& operator=(const Scene&) = delete;
-    
+
     static Scene& get() {
         static Scene instance;
         return instance;
     }
     /// @endcond
-    
+
 private:
     Scene() {
         // Create default scene

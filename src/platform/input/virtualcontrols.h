@@ -28,7 +28,7 @@ public:
         bool wasPressed;                ///< Press state from the previous frame (for edge detection).
         SDL_FingerID activeFinger;      ///< Finger currently pressing this button, if any.
         TextureAsset *customTexture;    ///< Custom texture, or nullptr to use the default.
-        
+
         /**
          * @brief Get the actual screen position of this button
          * @param anchorOffset The anchor point offset (base position + group offset)
