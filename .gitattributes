@@ -1,0 +1,26 @@
+# Normalize all text files to LF in the repo; git auto-detects text vs binary.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Common binaries — never touch line endings.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.ttf  binary
+*.otf  binary
+*.wav  binary
+*.ogg  binary
+*.mp3  binary
+*.mp4  binary
+*.zip  binary
+*.pack binary
+*.cache binary
+*.spirv binary
+*.dxil binary
+*.metallib binary
