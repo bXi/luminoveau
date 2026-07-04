@@ -71,9 +71,10 @@ struct alignas(16) GPUCollider {
 };
 static_assert(sizeof(GPUCollider) == 32, "GPUCollider size mismatch");
 
+/// @brief Opaque handle to a collider registered on a particle system.
 struct ColliderHandle {
-    uint32_t index = 0;
-    bool     valid = false;
+    uint32_t index = 0;      ///< Slot index of the collider within its system.
+    bool     valid = false;  ///< True if the handle refers to a live collider.
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,37 +94,51 @@ enum class ParticleShape : uint32_t {
 // CPU-side configuration (converted to GPUParticleSystem internally)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * @brief CPU-side configuration for a particle system.
+ *
+ * Fill this in and pass it to Particles::CreateSystem(). Values are converted to the
+ * packed GPU representation internally, so you never touch the GPU structs directly.
+ * Ranges (min/max) are sampled per particle at spawn; the matching *Bias skews the
+ * random pick (1.0 = uniform, >1 = toward the min).
+ */
 struct ParticleSystemConfig {
-    uint32_t  maxParticles   = 1000;
+    uint32_t  maxParticles   = 1000;               ///< Maximum live particles the system can hold.
 
-    glm::vec3 spawnPosition  = {0.0f, 0.0f, 0.0f};
-    float     spawnRadius    = 0.0f;
+    glm::vec3 spawnPosition  = {0.0f, 0.0f, 0.0f}; ///< World-space emitter origin.
+    float     spawnRadius    = 0.0f;               ///< Particles spawn within this radius of the origin.
 
-    glm::vec3 spawnVelocity  = {0.0f, -120.0f, 0.0f};
-    float     velocitySpread = 60.0f;
+    glm::vec3 spawnVelocity  = {0.0f, -120.0f, 0.0f}; ///< Base velocity given to each particle at birth.
+    float     velocitySpread = 60.0f;              ///< Random deviation added to the base velocity.
 
-    glm::vec3 gravity        = {0.0f, 200.0f, 0.0f};
-    float     drag           = 0.5f;
+    glm::vec3 gravity        = {0.0f, 200.0f, 0.0f}; ///< Constant acceleration applied each frame.
+    float     drag           = 0.5f;               ///< Velocity damping coefficient (higher = more slowdown).
 
-    float     lifetimeMin    = 2.0f;
-    float     lifetimeMax    = 2.0f;
-    float     lifetimeBias   = 1.0f;    // 1.0 = uniform; >1 = more toward min
-    float     emitRate       = 500.0f;
+    float     lifetimeMin    = 2.0f;               ///< Minimum particle lifetime in seconds.
+    float     lifetimeMax    = 2.0f;               ///< Maximum particle lifetime in seconds.
+    float     lifetimeBias   = 1.0f;               ///< Lifetime range bias; 1.0 = uniform, >1 = toward min.
+    float     emitRate       = 500.0f;             ///< Particles emitted per second while emitting.
 
-    // Color gradient — use SetColors() rather than setting these directly.
-    // Defaults to a single opaque white stop.
+    /// Color gradient stops (RGBA). Prefer SetColors() over setting these directly; defaults to one opaque white stop.
     glm::vec4 colors[4]        = {
         {1.0f, 1.0f, 1.0f, 1.0f},
         {0.0f, 0.0f, 0.0f, 0.0f},
         {0.0f, 0.0f, 0.0f, 0.0f},
         {0.0f, 0.0f, 0.0f, 0.0f}
     };
-    glm::vec4 colorPositions = {0.0f, -1.0f, -1.0f, -1.0f};
+    glm::vec4 colorPositions = {0.0f, -1.0f, -1.0f, -1.0f}; ///< t-position of each color stop in [0,1]; -1 = unused.
 
-    // Configure up to 4 color stops.
-    //   SetColors({orange, red})              — 2 stops, auto-spaced at 0 and 1
-    //   SetColors({orange, yellow, red})      — 3 stops, auto-spaced at 0, 0.5, 1
-    //   SetColors({a, b, c}, {0, 0.2f, 1})   — 3 stops at explicit positions
+    /**
+     * @brief Sets up to 4 color gradient stops.
+     *
+     * Examples:
+     *   - `SetColors({orange, red})` — 2 stops, auto-spaced at 0 and 1
+     *   - `SetColors({orange, yellow, red})` — 3 stops, auto-spaced at 0, 0.5, 1
+     *   - `SetColors({a, b, c}, {0, 0.2f, 1})` — 3 stops at explicit positions
+     *
+     * @param colorList Up to 4 colors (extras ignored).
+     * @param positions Optional explicit t-positions; if empty, stops are auto-spaced.
+     */
     void SetColors(std::initializer_list<glm::vec4> colorList,
                    std::initializer_list<float>     positions = {})
     {
@@ -149,36 +164,40 @@ struct ParticleSystemConfig {
         }
     }
 
-    // Size — constant by default (startMin == startMax, endMin == endMax)
-    float     sizeStartMin   = 6.0f;
-    float     sizeStartMax   = 6.0f;
-    float     sizeStartBias  = 1.0f;   // 1.0 = uniform; >1 = skew toward min
-    float     sizeEndMin     = 6.0f;
-    float     sizeEndMax     = 6.0f;
-    float     sizeEndBias    = 1.0f;
+    float     sizeStartMin   = 6.0f;   ///< Minimum birth size in pixels (constant when min == max).
+    float     sizeStartMax   = 6.0f;   ///< Maximum birth size in pixels.
+    float     sizeStartBias  = 1.0f;   ///< Birth-size range bias; 1.0 = uniform, >1 = toward min.
+    float     sizeEndMin     = 6.0f;   ///< Minimum death size in pixels.
+    float     sizeEndMax     = 6.0f;   ///< Maximum death size in pixels.
+    float     sizeEndBias    = 1.0f;   ///< Death-size range bias; 1.0 = uniform, >1 = toward min.
 
-    ParticleShape shape      = ParticleShape::SoftCircle;
+    ParticleShape shape      = ParticleShape::SoftCircle; ///< Billboard shape (ignored when a texture is set).
 
-    // Angular velocity — range applied per-particle at spawn. Both values can be
-    // negative; set min < 0 and max > 0 for bidirectional spin.
-    float     angVelMin      = 0.0f;   // radians per second
+    /// Minimum angular velocity in rad/s applied per particle at spawn; may be negative.
+    float     angVelMin      = 0.0f;
+    /// Maximum angular velocity in rad/s; set min < 0 and max > 0 for bidirectional spin.
     float     angVelMax      = 0.0f;
-    float     angVelBias     = 1.0f;   // 1.0 = uniform, >1 = skew toward min
+    float     angVelBias     = 1.0f;   ///< Angular-velocity range bias; 1.0 = uniform, >1 = toward min magnitude.
 
-    // Stretch the billboard along the velocity vector proportional to speed.
-    // 0 = off (default). 0.05–0.2 works well for fire/spark trails.
-    // When active, the particle orients along its velocity (angular rotation ignored).
+    /**
+     * @brief Stretches the billboard along the velocity vector, proportional to speed.
+     *
+     * 0 = off (default); 0.05–0.2 suits fire/spark trails. When active the particle
+     * orients along its velocity and angular rotation is ignored.
+     */
     float     trailStretch   = 0.0f;
 
-    // When true the system is rendered with standard alpha blending
-    // (SRC_ALPHA, ONE_MINUS_SRC_ALPHA) instead of additive.  Combine with
-    // shape = Square and size = 1 to render each particle as a single opaque pixel.
+    /**
+     * @brief Renders with standard alpha blending instead of additive.
+     *
+     * (SRC_ALPHA, ONE_MINUS_SRC_ALPHA). Combine with shape = Square and size = 1 to
+     * render each particle as a single opaque pixel.
+     */
     bool          pixelMode  = false;
 
-    // Optional texture — when set, overrides shape with Textured rendering.
-    // The colour gradient acts as a per-particle tint multiplied over the image.
-    // Set sampler to 0 to let the particle system pick a linear sampler automatically.
+    /// Optional texture; when set, overrides shape with Textured rendering and the color gradient tints it.
     GpuTextureHandle texture = 0;
+    /// Sampler for the texture; leave 0 to let the system auto-pick a linear sampler.
     GpuSamplerHandle sampler = 0;
 };
 
@@ -186,17 +205,21 @@ struct ParticleSystemConfig {
 // Opaque handle returned to the caller
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// @brief Opaque handle to a live particle system, returned by Particles::CreateSystem().
 struct ParticleSystemHandle {
-    uint32_t systemIndex    = 0;
-    uint32_t particleOffset = 0;
-    uint32_t maxParticles   = 0;
-    bool     valid          = false;
+    uint32_t systemIndex    = 0;   ///< Index of the system in the GPU system buffer.
+    uint32_t particleOffset = 0;   ///< Offset of this system's particles in the shared particle buffer.
+    uint32_t maxParticles   = 0;   ///< Number of particle slots reserved for this system.
+    bool     valid          = false; ///< True if the handle refers to a live system.
 };
 
-/// Opaque handle to a user-supplied compute pipeline used as a custom particle
-/// update. Create with Particles::CreateCustomCompute(), destroy with
-/// Particles::DestroyCustomCompute(). Can be shared across multiple systems.
+/**
+ * @brief Opaque handle to a user-supplied compute pipeline used as a custom particle update.
+ *
+ * Create with Particles::CreateCustomCompute(), destroy with Particles::DestroyCustomCompute().
+ * Can be shared across multiple systems.
+ */
 struct ParticleComputeHandle {
-    uint32_t index = 0;
-    bool     valid = false;
+    uint32_t index = 0;      ///< Slot index of the custom compute pipeline.
+    bool     valid = false;  ///< True if the handle refers to a live pipeline.
 };

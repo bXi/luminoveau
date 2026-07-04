@@ -115,77 +115,11 @@ static bool ImportPreset(const char* encoded, ParticleSystemConfig& cfg) {
 // Particles namespace — implementation
 // ─────────────────────────────────────────────────────────────────────────────
 
-namespace Particles {
+// Particle system state and implementation methods are members of the Particles
+// singleton (declared in particles.h); the bodies below reference that instance
+// state (s_*) directly. Free helpers B64Dec/ImportPreset above stay file-local.
 
-// --- GPU resources ---
-static GpuBufferHandle         s_particleBuf    = 0;  // RW: compute + vertex read
-static GpuBufferHandle         s_systemBuf      = 0;  // RO: compute + vertex read
-static GpuTransferBufferHandle s_systemUploadBuf = 0; // CPU→GPU transfer
-
-// --- Compute pipelines ---
-static ComputePipelineAsset s_computePipeline;
-
-// --- CPU-side system data ---
-static GPUParticleSystem s_systemData[MAX_SYSTEMS]    = {};
-static bool              s_systemUsed[MAX_SYSTEMS]    = {};
-static GpuTextureHandle  s_systemTextures[MAX_SYSTEMS] = {};
-static GpuSamplerHandle  s_systemSamplers[MAX_SYSTEMS] = {};
-static bool              s_systemDirty = false;
-
-// --- Per-system render flags ---
-static bool s_systemPixelMode[MAX_SYSTEMS] = {};
-
-// --- Physics pass per-system state ---
-static uint32_t  s_systemPhysicsCompute[MAX_SYSTEMS] = {};  // pool index, INVALID = none
-static glm::vec2 s_systemPhysicsGravity[MAX_SYSTEMS] = {};
-static float     s_systemPhysicsDrag[MAX_SYSTEMS]    = {};
-
-// --- Spring pass per-system state ---
-// Pool index into s_customComputePool for the spring shader (INVALID = none)
-static uint32_t  s_systemSpringCompute[MAX_SYSTEMS]   = {};
-static float     s_systemSpringK[MAX_SYSTEMS]         = {};
-static float     s_systemSpringDamp[MAX_SYSTEMS]      = {};
-// Interaction: x, y, radius, force (force=0 = no interaction this frame)
-static glm::vec4 s_systemSpringInteract[MAX_SYSTEMS]  = {};
-
-// --- Custom compute pool ---
-static constexpr uint32_t INVALID_CUSTOM_COMPUTE = UINT32_MAX;
-static ComputePipelineAsset s_customComputePool[MAX_CUSTOM_COMPUTES] = {};
-static bool                 s_customComputeUsed[MAX_CUSTOM_COMPUTES] = {};
-// Per-system index into the pool (INVALID_CUSTOM_COMPUTE = none)
-static uint32_t             s_systemCustomCompute[MAX_SYSTEMS]       = {};
-
-// --- Collider resources ---
-static GpuBufferHandle         s_colliderBuf       = 0;
-static GpuTransferBufferHandle s_colliderUploadBuf = 0;
-static GPUCollider            s_colliderData[MAX_COLLIDERS] = {};
-static bool                   s_colliderUsed[MAX_COLLIDERS] = {};
-static uint32_t               s_colliderHighWater = 0;   // one past last used slot
-static bool                   s_colliderDirty     = false;
-
-// --- Fallback resources for non-textured draws ---
-static GpuTextureHandle s_whiteTexture  = 0;
-static GpuSamplerHandle s_linearSampler = 0;
-
-// --- Particle slot allocator ---
-static uint32_t s_nextParticleSlot = 0;
-// Per-slot particle ranges so DestroySystem can reclaim them
-static uint32_t s_slotParticleOffset[MAX_SYSTEMS] = {};
-static uint32_t s_slotParticleCount [MAX_SYSTEMS] = {};
-
-// --- Per-frame state ---
-static float    s_accumTime  = 0.0f;
-static float    s_pendingDt  = 0.0f;
-static bool     s_updateQueued = false;
-
-// --- Render pass ---
-static ParticleRenderPass* s_renderPass = nullptr;
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-void AttachToFramebuffer(const std::string& fbName); // defined below
-
-void Init() {
+void Particles::_init() {
     IGpu& gpu = Renderer::GetGpu();
 
     // Particle buffer: compute RW + vertex read
@@ -283,7 +217,7 @@ void Init() {
 
     // Create and attach the render pass to the primary framebuffer
     s_renderPass = new ParticleRenderPass();
-    AttachToFramebuffer("primaryFramebuffer");
+    _attachToFramebuffer("primaryFramebuffer");
 
     std::fill(std::begin(s_systemCustomCompute),  std::end(s_systemCustomCompute),  INVALID_CUSTOM_COMPUTE);
     std::fill(std::begin(s_systemPhysicsCompute), std::end(s_systemPhysicsCompute), INVALID_CUSTOM_COMPUTE);
@@ -293,7 +227,7 @@ void Init() {
              MAX_PARTICLES, MAX_SYSTEMS);
 }
 
-void Quit() {
+void Particles::_quit() {
     IGpu& gpu = Renderer::GetGpu();
 
     // Discard any compute dispatches queued this frame before releasing GPU resources.
@@ -357,7 +291,7 @@ void Quit() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-static uint32_t AllocateSystemSlot() {
+uint32_t Particles::_allocateSystemSlot() {
     for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
         if (!s_systemUsed[i]) {
             s_systemUsed[i] = true;
@@ -368,7 +302,7 @@ static uint32_t AllocateSystemSlot() {
     return 0;
 }
 
-ParticleSystemHandle CreateSystem(const ParticleSystemConfig& cfg) {
+ParticleSystemHandle Particles::_createSystem(const ParticleSystemConfig& cfg) {
     if (s_nextParticleSlot + cfg.maxParticles > MAX_PARTICLES) {
         LOG_ERROR("Particles: not enough particle slots for new system (wanted {}, have {})",
                   cfg.maxParticles, MAX_PARTICLES - s_nextParticleSlot);
@@ -376,7 +310,7 @@ ParticleSystemHandle CreateSystem(const ParticleSystemConfig& cfg) {
     }
 
     ParticleSystemHandle handle;
-    handle.systemIndex    = AllocateSystemSlot();
+    handle.systemIndex    = _allocateSystemSlot();
     handle.particleOffset = s_nextParticleSlot;
     handle.maxParticles   = cfg.maxParticles;
     handle.valid          = true;
@@ -462,7 +396,7 @@ ParticleSystemHandle CreateSystem(const ParticleSystemConfig& cfg) {
     return handle;
 }
 
-ParticleSystemHandle CreateSystemFromPreset(const char* encoded, uint32_t maxParticles,
+ParticleSystemHandle Particles::_createSystemFromPreset(const char* encoded, uint32_t maxParticles,
                                              glm::vec3 spawnPosition) {
     ParticleSystemConfig cfg;
     cfg.maxParticles  = maxParticles;
@@ -471,10 +405,10 @@ ParticleSystemHandle CreateSystemFromPreset(const char* encoded, uint32_t maxPar
         LOG_ERROR("Particles: CreateSystemFromPreset: malformed preset string");
         return {};
     }
-    return CreateSystem(cfg);
+    return _createSystem(cfg);
 }
 
-void DestroySystem(ParticleSystemHandle& handle) {
+void Particles::_destroySystem(ParticleSystemHandle& handle) {
     if (!handle.valid) return;
 
     uint32_t idx = handle.systemIndex;
@@ -505,19 +439,19 @@ void DestroySystem(ParticleSystemHandle& handle) {
     handle = {};
 }
 
-void Start(const ParticleSystemHandle& handle) {
+void Particles::_start(const ParticleSystemHandle& handle) {
     if (!handle.valid) return;
     s_systemData[handle.systemIndex].flags |= 1u;
     s_systemDirty = true;
 }
 
-void Stop(const ParticleSystemHandle& handle) {
+void Particles::_stop(const ParticleSystemHandle& handle) {
     if (!handle.valid) return;
     s_systemData[handle.systemIndex].flags &= ~1u;
     s_systemDirty = true;
 }
 
-void SetPosition(const ParticleSystemHandle& handle, glm::vec3 worldPos) {
+void Particles::_setPosition(const ParticleSystemHandle& handle, glm::vec3 worldPos) {
     if (!handle.valid) return;
     s_systemData[handle.systemIndex].spawnPos.x = worldPos.x;
     s_systemData[handle.systemIndex].spawnPos.y = worldPos.y;
@@ -525,7 +459,7 @@ void SetPosition(const ParticleSystemHandle& handle, glm::vec3 worldPos) {
     s_systemDirty = true;
 }
 
-void UpdateConfig(const ParticleSystemHandle& handle, const ParticleSystemConfig& cfg) {
+void Particles::_updateConfig(const ParticleSystemHandle& handle, const ParticleSystemConfig& cfg) {
     if (!handle.valid) return;
 
     GPUParticleSystem& sys   = s_systemData[handle.systemIndex];
@@ -567,7 +501,7 @@ void UpdateConfig(const ParticleSystemHandle& handle, const ParticleSystemConfig
     s_systemDirty = true;
 }
 
-ParticleSystemConfig GetConfig(const ParticleSystemHandle& handle) {
+ParticleSystemConfig Particles::_getConfig(const ParticleSystemHandle& handle) {
     ParticleSystemConfig cfg;
     if (!handle.valid) return cfg;
 
@@ -609,7 +543,7 @@ ParticleSystemConfig GetConfig(const ParticleSystemHandle& handle) {
     return cfg;
 }
 
-void SetTexture(const ParticleSystemHandle& handle,
+void Particles::_setTexture(const ParticleSystemHandle& handle,
                 GpuTextureHandle texture, GpuSamplerHandle sampler) {
     if (!handle.valid) return;
     s_systemTextures[handle.systemIndex] = texture;
@@ -624,7 +558,7 @@ void SetTexture(const ParticleSystemHandle& handle,
 // Custom compute
 // ─────────────────────────────────────────────────────────────────────────────
 
-ParticleComputeHandle CreateCustomCompute(const std::string& shaderPath) {
+ParticleComputeHandle Particles::_createCustomCompute(const std::string& shaderPath) {
     // Find a free pool slot
     for (uint32_t i = 0; i < MAX_CUSTOM_COMPUTES; ++i) {
         if (s_customComputeUsed[i]) continue;
@@ -646,7 +580,7 @@ ParticleComputeHandle CreateCustomCompute(const std::string& shaderPath) {
     return {};
 }
 
-void DestroyCustomCompute(ParticleComputeHandle& handle) {
+void Particles::_destroyCustomCompute(ParticleComputeHandle& handle) {
     if (!handle.valid) return;
 
     // Clear from any system currently using it (primary or spring slot)
@@ -668,7 +602,7 @@ void DestroyCustomCompute(ParticleComputeHandle& handle) {
     handle = {};
 }
 
-void SetCustomCompute(const ParticleSystemHandle& system,
+void Particles::_setCustomCompute(const ParticleSystemHandle& system,
                       const ParticleComputeHandle& compute) {
     if (!system.valid || !compute.valid) return;
     s_systemCustomCompute[system.systemIndex] = compute.index;
@@ -676,7 +610,7 @@ void SetCustomCompute(const ParticleSystemHandle& system,
     s_systemDirty = true;
 }
 
-void ClearCustomCompute(const ParticleSystemHandle& system) {
+void Particles::_clearCustomCompute(const ParticleSystemHandle& system) {
     if (!system.valid) return;
     s_systemCustomCompute[system.systemIndex]  = INVALID_CUSTOM_COMPUTE;
     s_systemData[system.systemIndex].flags    &= ~2u;
@@ -691,14 +625,14 @@ void ClearCustomCompute(const ParticleSystemHandle& system) {
 // Renderer::Render's no-swapchain path, dropping most of the simulation. So
 // we only accumulate dt + time here; the real dispatch happens in
 // _PrepareFrame, which the renderer calls once per actual frame.
-void Update(float deltaTime) {
+void Particles::_update(float deltaTime) {
     if (!s_computePipeline.pipeline) return;
     s_pendingDt    += deltaTime;
     s_accumTime    += deltaTime;
     s_updateQueued  = true;
 }
 
-static void _BuildDispatches() {
+void Particles::_buildDispatches() {
     if (!s_computePipeline.pipeline) return;
 
     float deltaTime = s_pendingDt;
@@ -813,7 +747,7 @@ static void _BuildDispatches() {
     }
 }
 
-void QueueDraw(const ParticleSystemHandle& handle) {
+void Particles::_queueDraw(const ParticleSystemHandle& handle) {
     if (!handle.valid || !s_renderPass) return;
     s_renderPass->addDraw({
         handle.particleOffset,
@@ -824,17 +758,17 @@ void QueueDraw(const ParticleSystemHandle& handle) {
     });
 }
 
-GpuBufferHandle     GetParticleBuffer() { return s_particleBuf; }
-GpuBufferHandle     GetSystemBuffer()   { return s_systemBuf; }
-ParticleRenderPass* GetRenderPass()     { return s_renderPass; }
-GpuTextureHandle    GetWhiteTexture()   { return s_whiteTexture; }
-GpuSamplerHandle    GetLinearSampler()  { return s_linearSampler; }
+GpuBufferHandle     Particles::_getParticleBuffer() { return s_particleBuf; }
+GpuBufferHandle     Particles::_getSystemBuffer()   { return s_systemBuf; }
+ParticleRenderPass* Particles::_getRenderPass()     { return s_renderPass; }
+GpuTextureHandle    Particles::_getWhiteTexture()   { return s_whiteTexture; }
+GpuSamplerHandle    Particles::_getLinearSampler()  { return s_linearSampler; }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Physics pass
 // ─────────────────────────────────────────────────────────────────────────────
 
-void EnablePhysicsPass(const ParticleSystemHandle& handle,
+void Particles::_enablePhysicsPass(const ParticleSystemHandle& handle,
                        const ParticleComputeHandle& physicsCompute,
                        glm::vec2 gravity, float drag) {
     if (!handle.valid || !physicsCompute.valid) return;
@@ -843,12 +777,12 @@ void EnablePhysicsPass(const ParticleSystemHandle& handle,
     s_systemPhysicsDrag   [handle.systemIndex] = drag;
 }
 
-void DisablePhysicsPass(const ParticleSystemHandle& handle) {
+void Particles::_disablePhysicsPass(const ParticleSystemHandle& handle) {
     if (!handle.valid) return;
     s_systemPhysicsCompute[handle.systemIndex] = INVALID_CUSTOM_COMPUTE;
 }
 
-void SetPhysicsPassParams(const ParticleSystemHandle& handle,
+void Particles::_setPhysicsPassParams(const ParticleSystemHandle& handle,
                           glm::vec2 gravity, float drag) {
     if (!handle.valid) return;
     s_systemPhysicsGravity[handle.systemIndex] = gravity;
@@ -859,7 +793,7 @@ void SetPhysicsPassParams(const ParticleSystemHandle& handle,
 // Spring pass
 // ─────────────────────────────────────────────────────────────────────────────
 
-void EnableSpringPass(const ParticleSystemHandle& handle,
+void Particles::_enableSpringPass(const ParticleSystemHandle& handle,
                       const ParticleComputeHandle& springCompute,
                       float springK, float damping) {
     if (!handle.valid || !springCompute.valid) return;
@@ -869,20 +803,20 @@ void EnableSpringPass(const ParticleSystemHandle& handle,
     s_systemSpringInteract[handle.systemIndex] = {};
 }
 
-void DisableSpringPass(const ParticleSystemHandle& handle) {
+void Particles::_disableSpringPass(const ParticleSystemHandle& handle) {
     if (!handle.valid) return;
     s_systemSpringCompute [handle.systemIndex] = INVALID_CUSTOM_COMPUTE;
     s_systemSpringInteract[handle.systemIndex] = {};
 }
 
-void SetSpringParams(const ParticleSystemHandle& handle,
+void Particles::_setSpringParams(const ParticleSystemHandle& handle,
                      float springK, float damping) {
     if (!handle.valid) return;
     s_systemSpringK   [handle.systemIndex] = springK;
     s_systemSpringDamp[handle.systemIndex] = damping;
 }
 
-void SetSpringInteraction(const ParticleSystemHandle& handle,
+void Particles::_setSpringInteraction(const ParticleSystemHandle& handle,
                           float x, float y, float r, float f) {
     if (!handle.valid) return;
     s_systemSpringInteract[handle.systemIndex] = {x, y, r, f};
@@ -892,7 +826,7 @@ void SetSpringInteraction(const ParticleSystemHandle& handle,
 // Colliders
 // ─────────────────────────────────────────────────────────────────────────────
 
-ColliderHandle AddCollider(ColliderType type, glm::vec4 params,
+ColliderHandle Particles::_addCollider(ColliderType type, glm::vec4 params,
                            float restitution, float friction) {
     for (uint32_t i = 0; i < MAX_COLLIDERS; ++i) {
         if (s_colliderUsed[i]) continue;
@@ -912,7 +846,7 @@ ColliderHandle AddCollider(ColliderType type, glm::vec4 params,
     return {};
 }
 
-void RemoveCollider(ColliderHandle& handle) {
+void Particles::_removeCollider(ColliderHandle& handle) {
     if (!handle.valid) return;
     s_colliderData[handle.index].enabled = 0u;
     s_colliderUsed[handle.index]         = false;
@@ -924,7 +858,7 @@ void RemoveCollider(ColliderHandle& handle) {
     handle          = {};
 }
 
-void ClearColliders() {
+void Particles::_clearColliders() {
     for (uint32_t i = 0; i < MAX_COLLIDERS; ++i) {
         s_colliderData[i].enabled = 0u;
         s_colliderUsed[i]         = false;
@@ -933,7 +867,7 @@ void ClearColliders() {
     s_colliderDirty     = true;
 }
 
-void UpdateCollider(const ColliderHandle& handle, glm::vec4 params,
+void Particles::_updateCollider(const ColliderHandle& handle, glm::vec4 params,
                     float restitution, float friction) {
     if (!handle.valid) return;
     s_colliderData[handle.index].params      = params;
@@ -942,14 +876,14 @@ void UpdateCollider(const ColliderHandle& handle, glm::vec4 params,
     s_colliderDirty = true;
 }
 
-void  SetPOV(bool enabled, float decay) { if (s_renderPass) s_renderPass->SetPOV(enabled, decay); }
-bool  GetPOVEnabled()                   { return s_renderPass ? s_renderPass->getPOVEnabled() : false; }
-float GetPOVDecay()                     { return s_renderPass ? s_renderPass->getPOVDecay()   : 0.92f; }
+void  Particles::_setPOV(bool enabled, float decay) { if (s_renderPass) s_renderPass->SetPOV(enabled, decay); }
+bool  Particles::_getPOVEnabled()                   { return s_renderPass ? s_renderPass->getPOVEnabled() : false; }
+float Particles::_getPOVDecay()                     { return s_renderPass ? s_renderPass->getPOVDecay()   : 0.92f; }
 
-void AttachToFramebuffer(const std::string& fbName) {
+void Particles::_attachToFramebuffer(const std::string& fbName) {
     FrameBuffer* fb = Renderer::GetFramebuffer(fbName);
     if (!fb) {
-        LOG_ERROR("Particles::AttachToFramebuffer: framebuffer '{}' not found", fbName);
+        LOG_ERROR("Particles::_attachToFramebuffer: framebuffer '{}' not found", fbName);
         return;
     }
     GpuTextureFormat fmt = Renderer::GetGpu().getSwapchainFormat();
@@ -958,13 +892,13 @@ void AttachToFramebuffer(const std::string& fbName) {
 }
 
 // Called by Renderer::_endFrame() BEFORE Compute::_ExecuteQueued()
-void _PrepareFrame(GpuCmdBufferHandle cmdBuf) {
+void Particles::_prepareFrame(GpuCmdBufferHandle cmdBuf) {
     // Build particle compute dispatches for this frame using accumulated dt.
     // Update() only accumulates; the actual enqueue happens here so it survives
     // even when Update() is called multiple times per rendered frame.
     if (s_updateQueued) {
         s_updateQueued = false;
-        _BuildDispatches();
+        _buildDispatches();
     }
 
     if (!s_systemDirty && !s_colliderDirty) return;
@@ -990,7 +924,6 @@ void _PrepareFrame(GpuCmdBufferHandle cmdBuf) {
     }
 }
 
-} // namespace Particles
 
 
 // ─────────────────────────────────────────────────────────────────────────────
