@@ -41,8 +41,14 @@ AssetHandler::AssetHandler() {
     // Compute hash of embedded font data for cache validation
     std::string embeddedHash = _computeFontCacheKeyFromData(DroidSansMono_ttf, DroidSansMono_ttf_len);
     
-    // Try loading from cache first
-    if (!_loadFontFromCache("__default_font__", 16, defaultFont, embeddedHash)) {
+    bool loaded = false;
+#if defined(LUMINOVEAU_HAVE_FONT_ATLAS_BLOB)
+    // Prefer the baked atlas blob: no MSDF generation, and no dependence on a persistent cache
+    // (Emscripten MEMFS is wiped each reload, so the runtime font cache never survives on the web).
+    loaded = _loadDefaultFontFromBlob(defaultFont);
+#endif
+    // Otherwise the on-disk font cache; generate from scratch only as a last resort.
+    if (!loaded && !_loadFontFromCache("__default_font__", 16, defaultFont, embeddedHash)) {
         // Cache miss — generate from scratch
         LOG_INFO("Default font not in cache, generating MSDF atlas");
         
@@ -1078,6 +1084,77 @@ ModelAsset AssetHandler::_createCube(float size, CubeUVLayout layout) {
 // ============================================================
 
 static constexpr uint32_t FONT_CACHE_VERSION = 1;
+
+#if defined(LUMINOVEAU_HAVE_FONT_ATLAS_BLOB)
+#include "font_atlas_generated.h"
+// The decode-only zstd bundled by basis_universal (zstddeclib.c) — declared here so we don't need
+// its header. Used to inflate the baked atlas.
+extern "C" {
+    size_t   ZSTD_decompress(void* dst, size_t dstCap, const void* src, size_t srcSize);
+    unsigned ZSTD_isError(size_t code);
+}
+
+// Load the default font from the baked blob (tools/font_baker output): parse the layout table (same
+// format as .fontmeta) + inflate the zstd RGBA atlas + upload it. No MSDF generation, no font cache.
+bool AssetHandler::_loadDefaultFontFromBlob(FontAsset& font) {
+    const uint8_t* p = lumi_font_atlas_meta;
+    size_t rem = lumi_font_atlas_meta_len;
+    auto rd = [&](auto& v) {
+        if (rem < sizeof(v)) return false;
+        std::memcpy(&v, p, sizeof(v)); p += sizeof(v); rem -= sizeof(v);
+        return true;
+    };
+
+    uint32_t version = 0, atlasW = 0, atlasH = 0, genSize = 0, glyphCount = 0;
+    if (!rd(version) || version != FONT_CACHE_VERSION) return false;
+    if (!rd(atlasW) || !rd(atlasH) || !rd(genSize) || !rd(glyphCount)) return false;
+    double asc = 0, desc = 0, lh = 0;
+    if (!rd(asc) || !rd(desc) || !rd(lh)) return false;
+
+    font.atlasWidth   = (int)atlasW;
+    font.atlasHeight  = (int)atlasH;
+    font.generatedSize = (int)genSize;
+    font.defaultRenderSize = 16;
+    font.ascender = asc; font.descender = desc; font.lineHeight = lh;
+    font.glyphs   = new std::vector<CachedGlyph>();
+    font.glyphMap = new std::unordered_map<uint32_t, size_t>();
+    for (uint32_t i = 0; i < glyphCount; ++i) {
+        CachedGlyph g;
+        if (!rd(g.codepoint) || !rd(g.advance) ||
+            !rd(g.pl) || !rd(g.pb) || !rd(g.pr) || !rd(g.pt) ||
+            !rd(g.al) || !rd(g.ab) || !rd(g.ar) || !rd(g.at)) return false;
+        font.glyphs->push_back(g);
+        if (g.codepoint > 0) (*font.glyphMap)[g.codepoint] = i;
+    }
+
+    std::vector<unsigned char> rgba(lumi_font_atlas_rgba_len);
+    size_t got = ZSTD_decompress(rgba.data(), rgba.size(),
+                                 lumi_font_atlas_rgba_zstd, lumi_font_atlas_rgba_zstd_len);
+    if (ZSTD_isError(got) || got != rgba.size()) {
+        LOG_WARNING("Font atlas blob: zstd inflate failed");
+        return false;
+    }
+
+    GpuTextureCreateInfo textureInfo{
+        .width        = atlasW,
+        .height       = atlasH,
+        .depthOrLayers = 1,
+        .numLevels    = 1,
+        .format       = GpuTextureFormat::R8G8B8A8_Unorm,
+        .sampleCount  = GpuSampleCount::x1,
+        .usage        = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
+    };
+    font.atlasTexture = Renderer::GetGpu().createTexture(textureInfo);
+    if (!font.atlasTexture ||
+        !_copy_to_texture(rgba.data(), (uint32_t)rgba.size(), font.atlasTexture, atlasW, atlasH)) {
+        LOG_WARNING("Font atlas blob: GPU upload failed");
+        return false;
+    }
+
+    LOG_INFO("Default font loaded from baked atlas blob ({}x{}, {} glyphs)", atlasW, atlasH, glyphCount);
+    return true;
+}
+#endif  // LUMINOVEAU_HAVE_FONT_ATLAS_BLOB
 
 void AssetHandler::_initFontCache() {
     FileHandler::InitPersistentStorage();

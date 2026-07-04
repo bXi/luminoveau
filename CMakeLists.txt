@@ -210,6 +210,26 @@ if(LUMINOVEAU_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
+# Baked default-font atlas blob (tools/font_baker output). If it's been generated, compile it in so
+# the engine loads the atlas from it instead of generating the MSDF at startup — kills the web-load
+# spike (Emscripten MEMFS wipes the runtime font cache each reload). Falls back to runtime generation
+# when the blob isn't present, so this is safe before the first bake.
+set(_font_blob "${CMAKE_CURRENT_SOURCE_DIR}/src/assets/font_atlas_generated.cpp")
+if(EXISTS "${_font_blob}")
+    target_sources(luminoveau PRIVATE "${_font_blob}")
+    target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_HAVE_FONT_ATLAS_BLOB=1)
+    lumi_msg("Default-font atlas blob: enabled")
+else()
+    lumi_msg("Default-font atlas blob: not baked; using runtime MSDF generation (build the font_baker target)")
+endif()
+
+# Offline atlas baker (host only; pulls in a zstd encoder). Off by default — enable to (re)bake:
+#   cmake -DLUMINOVEAU_BUILD_FONT_BAKER=ON ... && cmake --build . --target bake_font
+option(LUMINOVEAU_BUILD_FONT_BAKER "Build the offline default-font atlas baker" OFF)
+if(LUMINOVEAU_BUILD_FONT_BAKER AND NOT EMSCRIPTEN)
+    add_subdirectory(tools/font_baker)
+endif()
+
 # ── Install ───────────────────────────────────────────────────────────────────
 install(TARGETS luminoveau ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(FILES ${LUMINOVEAU_HEADERS} DESTINATION include/luminoveau)
