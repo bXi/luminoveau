@@ -1144,7 +1144,9 @@ GpuBufferHandle WebGpuGpuBackend::createBuffer(const GpuBufferCreateInfo& info) 
     b->size = info.size;
 
     WGPUBufferDescriptor desc{};
-    desc.size  = info.size;
+    // WebGPU requires buffer sizes (and writeBuffer sizes/offsets) to be 4-byte multiples; SDL_GPU's
+    // native backends don't, so unaligned uploads (e.g. an odd uint16 index count) crash only here.
+    desc.size  = (info.size + 3u) & ~3u;
     desc.usage = toWGPUUsage(info.usage) | WGPUBufferUsage_CopyDst | WGPUBufferUsage_CopySrc;
     b->buffer = wgpuDeviceCreateBuffer(m_device, &desc);
 
@@ -1159,11 +1161,12 @@ GpuTransferBufferHandle WebGpuGpuBackend::createTransferBuffer(const GpuTransfer
     if (tb->isDownload) {
         // GPU-side buffer for readback, mapped after copy
         WGPUBufferDescriptor desc{};
-        desc.size  = info.size;
+        desc.size  = (info.size + 3u) & ~3u;
         desc.usage = WGPUBufferUsage_MapRead | WGPUBufferUsage_CopyDst;
         tb->downloadBuffer = wgpuDeviceCreateBuffer(m_device, &desc);
     } else {
-        tb->stagingData.resize(info.size);
+        // Pad to a 4-byte multiple so a padded writeBuffer can't read past the staging data.
+        tb->stagingData.resize((info.size + 3u) & ~3u);
     }
 
     return reinterpret_cast<GpuTransferBufferHandle>(tb);
@@ -1606,8 +1609,19 @@ void WebGpuGpuBackend::uploadToBuffer(GpuCmdBufferHandle /*cmd*/,
                                        uint32_t size, bool /*cycle*/) {
     auto* tb  = reinterpret_cast<WgpuTransferBuffer*>(src);
     auto* buf = reinterpret_cast<WgpuBuffer*>(dst);
-    wgpuQueueWriteBuffer(m_queue, buf->buffer, dstOffset,
-                         tb->stagingData.data() + srcOffset, size);
+    // WebGPU rejects writeBuffer sizes that aren't a 4-byte multiple. Round up; the dst buffer is
+    // allocated padded (createBuffer) so it has room. If the padded read would run past the staging
+    // data (unaligned srcOffset), go through a zero-padded scratch instead.
+    uint32_t paddedSize = (size + 3u) & ~3u;
+    if (srcOffset + paddedSize <= tb->stagingData.size()) {
+        wgpuQueueWriteBuffer(m_queue, buf->buffer, dstOffset,
+                             tb->stagingData.data() + srcOffset, paddedSize);
+    } else {
+        static thread_local std::vector<uint8_t> scratch;
+        scratch.assign(tb->stagingData.data() + srcOffset, tb->stagingData.data() + srcOffset + size);
+        scratch.resize(paddedSize, 0);
+        wgpuQueueWriteBuffer(m_queue, buf->buffer, dstOffset, scratch.data(), paddedSize);
+    }
 }
 
 void WebGpuGpuBackend::downloadFromTexture(GpuCmdBufferHandle cmd,
