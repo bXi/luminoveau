@@ -37,8 +37,11 @@ struct VertOut {
 
 @vertex
 fn vs_main(in : VertIn, @builtin(instance_index) instanceIndex : u32) -> VertOut {
-    let scene = sceneData[0];
-    let model = scene.models[instanceIndex + instOffset.baseInstance];
+    // Index through the storage reference directly. Copying the whole struct to a value first
+    // (`let scene = sceneData[0]`) and then dynamic-indexing scene.models[..] makes naga (wgpu's
+    // WGSL translator, used by Firefox) emit a bad access chain -> garbage matrix -> w~=0 ->
+    // vertices explode to infinity. Dawn (Chrome) tolerates it; naga does not.
+    let model = sceneData[0].models[instanceIndex + instOffset.baseInstance];
 
     let worldPos = model * vec4<f32>(in.position, 1.0);
 
@@ -54,7 +57,7 @@ fn vs_main(in : VertIn, @builtin(instance_index) instanceIndex : u32) -> VertOut
     // Lighting is done per-pixel in the fragment shader; the vertex shader just forwards the
     // interpolated world position, normal, uv and raw vertex colour.
     var out : VertOut;
-    out.position = scene.viewProj * worldPos;
+    out.position = sceneData[0].viewProj * worldPos;
     out.worldPos = worldPos.xyz;
     out.normal   = worldNormal;
     out.texCoord = in.texCoord;

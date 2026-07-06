@@ -41,8 +41,9 @@ struct VertOut {
 
 @vertex
 fn vs_main(in : VertIn, @builtin(instance_index) instanceIndex : u32) -> VertOut {
-    let scene = sceneData[0];
-    let model = scene.models[instanceIndex + params.baseInstance];
+    // Index the storage reference directly; copy-then-dynamic-index miscompiles under naga (Firefox).
+    // See model3d.vert.wgsl for the full explanation.
+    let model = sceneData[0].models[instanceIndex + params.baseInstance];
 
     let world = model * vec4<f32>(in.position, 1.0);
 
