@@ -355,20 +355,33 @@ vf2d Window::_getPhysicalSize() {
     // WebGPU backend reports the swapchain's canvas-pixel dims here when in Native scale
     // mode (SDL_GetWindowSizeInPixels can disagree with the browser canvas attribute on
     // emscripten/SDL3 builds). SDL backend defers and we use the SDL value.
+    vf2d size;
     vf2d backendSize;
     if (WindowBackend::GetPhysicalSizeOverride(m_window, _webGpuScaleMode, backendSize)) {
-        return backendSize;
+        size = backendSize;
+    } else if (EngineState::_swapchainWidth > 0 && EngineState::_swapchainHeight > 0) {
+        // Prefer the actual swapchain dimensions from the last acquire -- that's the size we truly
+        // present into, and the viewport/blit must match it. SDL_GetWindowSizeInPixels can disagree
+        // on Wayland fractional scaling (scene rendered bigger than the window).
+        size = {(float) EngineState::_swapchainWidth, (float) EngineState::_swapchainHeight};
+    } else {
+        // Fall back to the SDL size before the first frame's acquire, or if a backend reports nothing.
+        int w, h;
+        SDL_GetWindowSizeInPixels(m_window, &w, &h);
+        size = {(float) w, (float) h};
     }
-    // Prefer the actual swapchain dimensions from the last acquire -- that's the size we truly
-    // present into, and the viewport/blit must match it. SDL_GetWindowSizeInPixels can disagree
-    // on Wayland fractional scaling (scene rendered bigger than the window). Fall back to the
-    // SDL size before the first frame's acquire, or if a backend reports nothing.
-    if (EngineState::_swapchainWidth > 0 && EngineState::_swapchainHeight > 0) {
-        return {(float) EngineState::_swapchainWidth, (float) EngineState::_swapchainHeight};
+
+    // Integer render scale (Window::SetScale): render the whole scene into a canvas/scaleFactor
+    // region of the framebuffer; the final blit upscales that region back to the full canvas, so
+    // every pixel — sprites, text AND fullscreen shaders — gets the same chunky N:N enlargement.
+    // This is the "render resolution divisor" model; WebGpuScaleMode still governs canvas-vs-app fit
+    // on top. scaleFactor == 1 is a no-op.
+    int s = EngineState::_scaleFactor > 1 ? EngineState::_scaleFactor : 1;
+    if (s > 1) {
+        size.x = (float) std::max(1, (int) size.x / s);
+        size.y = (float) std::max(1, (int) size.y / s);
     }
-    int w, h;
-    SDL_GetWindowSizeInPixels(m_window, &w, &h);
-    return {(float) w, (float) h};
+    return size;
 }
 
 void Window::_updateDisplayScale() {
@@ -468,7 +481,13 @@ void Window::_toggleDebugMenu() {
 }
 
 void Window::_setScale(int scalefactor) {
+    if (scalefactor < 1) scalefactor = 1;
+    if (EngineState::_scaleFactor == scalefactor) return;
     EngineState::_scaleFactor = scalefactor;
+    // A runtime scale change has to rebuild the camera projection (and refresh pass surfaces) so 2D
+    // content rescales immediately — that's what makes SetScale work outside of InitWindow. Skip
+    // before the first frame: the renderer isn't up yet and the projection is built on init anyway.
+    if (EngineState::_swapchainWidth > 0) Renderer::OnResize();
 }
 
 void Window::_setScaledSize(int widthInScaledPixels, int heightInScaledPixels, int scale) {

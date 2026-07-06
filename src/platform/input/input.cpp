@@ -123,7 +123,12 @@ bool Input::_keyDown(int key) {
 
 
 vf2d Input::_getMousePosition() {
-    return PlatformInputBackend::GetMousePosition();
+    vf2d p = PlatformInputBackend::GetMousePosition();
+    // The scene renders at canvas/scaleFactor and is upscaled to present (Window::SetScale), so the
+    // cursor — reported in canvas pixels — has to be divided by the scale to land in render space.
+    float s = Window::GetScale();
+    if (s > 1.0f) { p.x /= s; p.y /= s; }
+    return p;
 }
 
 
