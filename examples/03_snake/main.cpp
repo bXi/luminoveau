@@ -11,18 +11,22 @@
 #include "app/lumi.h"
 #include <SDL3/SDL_events.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <deque>
 #include <string>
 
-int cols = 24;
-int rows = 18;
-int cell = 28;          // pixels per grid cell
+int cell = 28;          // pixels per grid cell (fixed; the grid count adapts to the window)
 int hud  = 40;          // top strip for the score
 float stepTime = 0.12f; // seconds between moves
 
-int width  = cols * cell;
-int height = rows * cell + hud;
+// Grid size — recomputed from the window on each new game (see Reset). Locked in for the whole run
+// so a mid-game resize never moves the walls out from under the snake. These seed the initial window.
+int cols = 24;
+int rows = 18;
+
+int initWidth  = cols * cell;        // initial window size (desktop); the view is resizable
+int initHeight = rows * cell + hud;
 
 struct Cell { int x, y; };
 
@@ -41,6 +45,11 @@ void PlaceFood() {
 }
 
 void Reset() {
+    // Fit the grid to the current window at the fixed cell size. Done only on a new game, so the
+    // playfield stays constant through a run even if the window is resized mid-game.
+    cols = std::max(8, Window::GetWidth() / cell);
+    rows = std::max(6, (Window::GetHeight() - hud) / cell);
+
     snake.clear();
     snake.push_back({cols / 2, rows / 2});
     snake.push_back({cols / 2 - 1, rows / 2});
@@ -72,7 +81,7 @@ void Step() {
 }
 
 Lumi::Result AppInit(void** appstate, int argc, char* argv[]) {
-    Window::InitWindow("Luminoveau Example — Snake", width, height, 1, SDL_WINDOW_RESIZABLE);
+    Window::InitWindow("Luminoveau Example — Snake", initWidth, initHeight, 1, SDL_WINDOW_RESIZABLE);
     Renderer::ClearBackground({16, 20, 16, 255});
     font = &AssetHandler::GetDefaultFont();
     Reset();
@@ -94,26 +103,36 @@ Lumi::Result AppIterate(void* appstate) {
         while (stepTimer >= stepTime) { stepTimer -= stepTime; Step(); if (dead) break; }
     }
 
+    // Centre the board in the current window. The grid count is fixed for the run, so the origin
+    // is all that moves when the window is resized — the play stays put and centred.
+    float w = (float)Window::GetWidth();
+    float h = (float)Window::GetHeight();
+    float boardW = (float)(cols * cell);
+    float boardH = (float)(rows * cell);
+    float ox = (w - boardW) * 0.5f;
+    float oy = (float)hud + std::max(0.0f, (h - (float)hud - boardH) * 0.5f);
+
     Window::StartFrame();
 
     // HUD bar: a dark-blue strip across the top so the play area's upper edge is clear.
-    Draw::RectangleFilled({0.0f, 0.0f}, {(float)width, (float)hud}, {24, 28, 56, 255});
+    Draw::RectangleFilled({0.0f, 0.0f}, {w, (float)hud}, {24, 28, 56, 255});
 
     // Food.
-    Draw::RectangleFilled({(float)(food.x * cell), (float)(food.y * cell + hud)},
+    Draw::RectangleFilled({ox + food.x * cell, oy + food.y * cell},
                           {(float)cell, (float)cell}, {220, 70, 70, 255});
 
     // Snake body (the head is a lighter green).
     for (int i = 0; i < (int)snake.size(); i++) {
         Color c = (i == 0) ? Color{180, 240, 160, 255} : Color{90, 180, 90, 255};
-        Draw::RectangleFilled({(float)(snake[i].x * cell + 1), (float)(snake[i].y * cell + hud + 1)},
+        Draw::RectangleFilled({ox + snake[i].x * cell + 1, oy + snake[i].y * cell + 1},
                               {(float)(cell - 2), (float)(cell - 2)}, c);
     }
 
     Text::DrawText(*font, {10.0f, 6.0f}, "Score: " + std::to_string(score), WHITE, 28.0f);
     if (dead) {
-        Text::DrawText(*font, {width * 0.5f - 150.0f, height * 0.5f - 16.0f},
-                       "Game Over - press Space", WHITE, 30.0f);
+        std::string over = "Game Over - press Space";
+        float overW = (float)Text::MeasureText(*font, over, 30.0f);
+        Text::DrawText(*font, {(w - overW) * 0.5f, h * 0.5f - 16.0f}, over, WHITE, 30.0f);
     }
 
     Window::EndFrame();

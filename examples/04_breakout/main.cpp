@@ -74,6 +74,9 @@ Lumi::Result AppInit(void** appstate, int argc, char* argv[]) {
     Window::InitWindow("Luminoveau Example — Breakout", width, height, 1, SDL_WINDOW_RESIZABLE);
     Renderer::ClearBackground({12, 12, 20, 255});
 
+    width  = Window::GetWidth();   // adopt the real canvas size before the first board is laid out
+    height = Window::GetHeight();
+
     Audio::Init();   // start the audio engine before loading/playing any sounds
 
     font      = &AssetHandler::GetDefaultFont();
@@ -88,11 +91,26 @@ Lumi::Result AppInit(void** appstate, int argc, char* argv[]) {
 Lumi::Result AppIterate(void* appstate) {
     float dt = (float)Window::GetFrameTime();
 
+    // Lay out against the live window. The brick zone is a fixed fraction of the play height, so the
+    // ball's lane below the bricks keeps the same proportion whatever the window's aspect — a short
+    // window no longer squeezes the ball's space, it just makes the bricks a little shorter.
+    width  = Window::GetWidth();
+    height = Window::GetHeight();
+    brickWidth = (width - gap) / (float)cols - gap;
+    float playH     = (float)height - topPad;
+    float brickZone = playH * 0.36f;
+    brickHeight = std::max(10.0f, (brickZone - (rows - 1) * gap) / (float)rows);
+
+    // Ball speed scales with the window so the feel stays constant: a taller field means a longer
+    // trip across, so we speed the ball up to match. ballVel is kept in design units (600-tall
+    // reference) and only scaled here at integration time — bounces stay resolution-independent.
+    float speedScale = (float)height / 600.0f;
+
     // Paddle follows the mouse's X.
     paddleX = std::clamp(Input::GetMousePosition().x - paddleWidth * 0.5f, 0.0f, width - paddleWidth);
     vf2d paddlePos = {paddleX, height - 40.0f};
 
-    ballPos += ballVel * dt;
+    ballPos += ballVel * speedScale * dt;
 
     // Walls.
     if (ballPos.x < 0.0f)           { ballPos.x = 0.0f;           ballVel.x =  std::abs(ballVel.x); Play(sfxBounce); }

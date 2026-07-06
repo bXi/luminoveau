@@ -16,19 +16,20 @@
 #include "app/lumi.h"
 #include <SDL3/SDL_events.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
 #include <string>
 
-int width  = 640;
-int height = 480;
+int initWidth  = 640;   // initial window size (desktop); the view is fully resizable
+int initHeight = 480;
 
 // Sprite-sheet layout.
 int   facePx    = 64;   // each face is 64x64 in the sheet
 int   sheetCols = 3;
 int   sheetRows = 2;
-float drawScale = 3.0f; // on-screen size = 192x192
+float maxScale  = 3.0f; // cap on-screen size at 3x (192x192); shrinks to fit smaller windows
 
 // The faces on this sheet are NOT in value order. The 3x2 grid reads:
 //   cell 0 1 2  ->  6 1 2
@@ -60,7 +61,7 @@ void StartRoll() {
 }
 
 Lumi::Result AppInit(void** appstate, int argc, char* argv[]) {
-    Window::InitWindow("Luminoveau Example — Dice Roll", width, height, 1, SDL_WINDOW_RESIZABLE);
+    Window::InitWindow("Luminoveau Example — Dice Roll", initWidth, initHeight, 1, SDL_WINDOW_RESIZABLE);
     Renderer::ClearBackground({28, 30, 40, 255});
     std::srand((unsigned)std::time(nullptr));
 
@@ -93,19 +94,39 @@ Lumi::Result AppIterate(void* appstate) {
     int row  = cell / sheetCols;
     rectf src = {(float)(col * facePx), (float)(row * facePx), (float)facePx, (float)facePx};
 
-    vf2d drawSize = {facePx * drawScale, facePx * drawScale};
-    vf2d drawPos  = {(width - drawSize.x) * 0.5f, (height - drawSize.y) * 0.5f - 20.0f};
+    // Everything is laid out against the live window size so it always fits and stays centred.
+    float w = (float)Window::GetWidth();
+    float h = (float)Window::GetHeight();
+
+    const float margin = 40.0f;   // minimum breathing room at the edges
+    const float gap    = 26.0f;   // space between the die and the caption
+
+    // Caption first — measure it so we can centre it and reserve its exact height.
+    FontAsset& font = AssetHandler::GetDefaultFont();
+    std::string caption = rolling ? "Rolling..."
+                                  : "You rolled " + std::to_string(value) + " - Space to roll";
+    float capSize = 28.0f;
+    float capW    = (float)Text::MeasureText(font, caption, capSize);
+    if (capW > w - margin) { capSize *= (w - margin) / capW; capW = (float)Text::MeasureText(font, caption, capSize); }
+    float capH = Text::GetRenderedTextSize(font, caption, capSize).y;
+
+    // Cap the die at 3x, but shrink it so the whole die + gap + caption block fits with margins.
+    float fitW  = (w - margin * 2.0f) / (float)facePx;
+    float fitH  = (h - margin * 2.0f - gap - capH) / (float)facePx;
+    float scale = std::clamp(std::min({maxScale, fitW, fitH}), 0.5f, maxScale);
+
+    vf2d drawSize = {facePx * scale, facePx * scale};
+
+    // Centre the die + caption as one block. At 3x with room to spare it just sits in the middle;
+    // when the window is short the block shrinks (above) and stays centred.
+    float blockH = drawSize.y + gap + capH;
+    float top    = std::max(margin, (h - blockH) * 0.5f);
+    vf2d  drawPos = {(w - drawSize.x) * 0.5f, top};
+    float capY    = top + drawSize.y + gap;
 
     Window::StartFrame();
     Draw::TexturePart(sheet, drawPos, drawSize, src);
-
-    FontAsset& font = AssetHandler::GetDefaultFont();
-    if (rolling) {
-        Text::DrawText(font, {width * 0.5f - 100.0f, height - 70.0f}, "Rolling...", WHITE, 30.0f);
-    } else {
-        Text::DrawText(font, {width * 0.5f - 220.0f, height - 70.0f},
-                       "You rolled " + std::to_string(value) + " - Space to roll", WHITE, 26.0f);
-    }
+    Text::DrawText(font, {(w - capW) * 0.5f, capY}, caption, WHITE, capSize);
     Window::EndFrame();
     return Lumi::Result::Continue;
 }
