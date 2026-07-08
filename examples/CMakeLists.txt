@@ -38,7 +38,11 @@ function(add_lumi_example name)
         luminoveau_configure_web_target(${name} SOURCE_DIR ${demo_dir} OUTPUT_DIR ${demo_out}
             SHELL_FILE ${LUMINOVEAU_ROOT_DIR}/assets/shell_sample.html)
     else()
-        target_link_libraries(${name} PRIVATE -static-libgcc -static-libstdc++)
+        if(APPLE)
+            target_link_libraries(${name} PRIVATE)
+        else()
+            target_link_libraries(${name} PRIVATE -static-libgcc -static-libstdc+)
+        endif()
         # Register this demo's asset copy on the shared target, and make the demo depend on it so
         # building a single demo (e.g. in an IDE) still refreshes its assets.
         add_custom_command(TARGET examples_assets POST_BUILD
