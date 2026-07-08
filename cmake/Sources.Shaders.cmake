@@ -60,6 +60,10 @@ elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "METALLIB")
         src/assets/shaders/particles_pov_frag.metallib.cpp
         src/assets/shaders/particles_vert.metallib.cpp
         src/assets/shaders/particles_frag.metallib.cpp
+        src/assets/shaders/shadow_vert.metallib.cpp
+        src/assets/shaders/shadow_frag.metallib.cpp
+        src/assets/shaders/shadowcube_vert.metallib.cpp
+        src/assets/shaders/shadowcube_frag.metallib.cpp
         src/assets/shaders/sprite_vert.metallib.cpp
         src/assets/shaders/sprite_frag.metallib.cpp
     )
