@@ -1,8 +1,11 @@
 #include "platform/input/virtualcontrols.h"
 #include "platform/window/window.h"
 #include <cmath>
+#include <algorithm>
 
 #include "draw/draw.h"
+#include "draw/text.h"
+#include "assets/assethandler.h"
 
 #ifdef LUMINOVEAU_WITH_IMGUI
 #include "imgui.h"
@@ -50,7 +53,7 @@ float VirtualControls::cm(float wantedCM) const {
 #endif
 
     float scale = SDL_GetWindowDisplayScale(Window::GetWindow());
-    return wantedCM * logicalPerCm * scale;
+    return wantedCM * logicalPerCm * scale * m_controlScale;
 }
 
 float VirtualControls::pixelsToCm(float pixels) const {
@@ -64,26 +67,34 @@ float VirtualControls::pixelsToCm(float pixels) const {
     return pixels / (logicalPerCm * scale);
 }
 
+float VirtualControls::viewW() const {
+    return m_usePhysicalCoords ? (float)Window::GetPhysicalWidth() : (float)Window::GetWidth();
+}
+float VirtualControls::viewH() const {
+    return m_usePhysicalCoords ? (float)Window::GetPhysicalHeight() : (float)Window::GetHeight();
+}
+
 vf2d VirtualControls::GetJoystickPosition() const {
     // Calculate actual position from offset and window size
     // Offset is from bottom-left corner
     float x = m_joystickOffset.x;
-    float y = Window::GetHeight() + m_joystickOffset.y;  // Negative offset moves up
+    float y = viewH() + m_joystickOffset.y;  // Negative offset moves up
     return {x, y};
 }
 
 vf2d VirtualControls::VirtualButton::GetScreenPosition(const vf2d& anchorOffset) const {
     // Calculate actual position from individual offset + anchor offset
-    // Final position is from bottom-right corner
-    float x = Window::GetWidth() + anchorOffset.x + individualOffset.x;
-    float y = Window::GetHeight() + anchorOffset.y + individualOffset.y;
+    // Final position is from bottom-right corner. anchorOffset.z/w unused; the
+    // window extents are baked into anchorOffset by the caller (see GetButtonAnchorOffset).
+    float x = anchorOffset.x + individualOffset.x;
+    float y = anchorOffset.y + individualOffset.y;
     return {x, y};
 }
 
 vf2d VirtualControls::GetButtonAnchorOffset() const {
-    // Group offset moves the anchor point from bottom-right corner (0, 0)
-    // Default anchor is at bottom-right corner
-    return {m_buttonGroupOffset.x, m_buttonGroupOffset.y};
+    // Anchor at the bottom-right corner of the active-space window, shifted by the
+    // group offset. GetScreenPosition then just adds each button's individual offset.
+    return {viewW() + m_buttonGroupOffset.x, viewH() + m_buttonGroupOffset.y};
 }
 
 void VirtualControls::InitializeDefaultTexture() {
@@ -93,9 +104,44 @@ void VirtualControls::InitializeDefaultTexture() {
 void VirtualControls::Update() {
     if (!m_enabled) return;
 
+    // Rotation / window resize: re-fit viewport-relative controls.
+    if (m_relJoystickFrac > 0.0f && (viewW() != m_lastViewW || viewH() != m_lastViewH))
+        ApplyViewportScale();
+
     UpdateJoystick();
-    UpdateMouse();
+    if (m_mouseEmulation) UpdateMouse();
     UpdateButtons();
+}
+
+void VirtualControls::SetControlScale(float scale) {
+    m_relJoystickFrac = 0.0f;   // explicit absolute scale disables viewport mode
+    m_controlScale = (scale > 0.0f) ? scale : 1.0f;
+    // Recompute cm-derived geometry with the new scale.
+    m_joystickRadius = cm(3.0f);
+    m_joystickOffset = {cm(4.5f), -cm(4.5f)};
+    LayoutButtons();
+}
+
+void VirtualControls::SetControlScaleToViewport(float joystickFraction) {
+    m_relJoystickFrac = (joystickFraction > 0.0f) ? joystickFraction : 0.0f;
+    ApplyViewportScale();
+}
+
+void VirtualControls::ApplyViewportScale() {
+    if (m_relJoystickFrac <= 0.0f) return;
+    float minDim = std::min(viewW(), viewH());
+    if (minDim <= 0.0f) return;
+    // cm(3.0) is the joystick radius at scale 1.0; pick the scale that makes it
+    // m_relJoystickFrac * minDim. Because cm() includes the (unreliable) display
+    // scale, this cancels it out — the result is purely viewport-relative.
+    m_controlScale = 1.0f;
+    float base = cm(3.0f);
+    m_controlScale = (base > 0.0f) ? (m_relJoystickFrac * minDim / base) : 1.0f;
+    m_joystickRadius = cm(3.0f);
+    m_joystickOffset = {cm(4.5f), -cm(4.5f)};
+    LayoutButtons();
+    m_lastViewW = viewW();
+    m_lastViewH = viewH();
 }
 
 void VirtualControls::HandleTouchEvent(const SDL_Event *event) {
@@ -108,8 +154,8 @@ void VirtualControls::HandleTouchEvent(const SDL_Event *event) {
         case SDL_EVENT_FINGER_DOWN: {
             fingerID = event->tfinger.fingerID;
             touchPos = {
-                event->tfinger.x * Window::GetWidth(),
-                event->tfinger.y * Window::GetHeight()
+                event->tfinger.x * viewW(),
+                event->tfinger.y * viewH()
             };
 
             // Check joystick activation (left half of screen or static area)
@@ -125,12 +171,20 @@ void VirtualControls::HandleTouchEvent(const SDL_Event *event) {
 
                 m_joystick.touchCurrent = touchPos;
             }
-                // Check button activation
+                // Check button activation, then the look region.
             else {
                 int buttonIdx = GetButtonAtPosition(touchPos);
                 if (buttonIdx >= 0 && buttonIdx < (int) m_buttons.size()) {
                     m_buttons[buttonIdx].isPressed = true;
                     m_buttons[buttonIdx].activeFinger = fingerID;
+                }
+                // Not a button: a drag in the right half drives the look region.
+                else if (!m_lookActive && IsInLookRegion(touchPos)) {
+                    m_lookActive = true;
+                    m_lookFinger = fingerID;
+                    m_lookLast = touchPos;
+                    m_lookStart = touchPos;
+                    m_lookMaxDist2 = 0.0f;
                 }
             }
             break;
@@ -139,15 +193,24 @@ void VirtualControls::HandleTouchEvent(const SDL_Event *event) {
         case SDL_EVENT_FINGER_MOTION: {
             fingerID = event->tfinger.fingerID;
             touchPos = {
-                event->tfinger.x * Window::GetWidth(),
-                event->tfinger.y * Window::GetHeight()
+                event->tfinger.x * viewW(),
+                event->tfinger.y * viewH()
             };
 
             // Update joystick if this finger owns it
             if (m_joystick.isActive && m_joystick.activeFinger == fingerID) {
                 m_joystick.touchCurrent = touchPos;
             }
-            
+
+            // Accumulate look delta if this finger owns the look region
+            if (m_lookActive && m_lookFinger == fingerID) {
+                m_lookAccum = m_lookAccum + (touchPos - m_lookLast);
+                m_lookLast = touchPos;
+                vf2d off = touchPos - m_lookStart;
+                float d2 = off.x * off.x + off.y * off.y;
+                if (d2 > m_lookMaxDist2) m_lookMaxDist2 = d2;
+            }
+
             // Check if finger moved off any button it was pressing
             for (auto &button: m_buttons) {
                 if (button.activeFinger == fingerID && button.isPressed) {
@@ -181,6 +244,15 @@ void VirtualControls::HandleTouchEvent(const SDL_Event *event) {
                 m_joystick.activeFinger = -1;
             }
 
+            // Release the look region if owned by this finger. If the touch barely
+            // moved, it was a tap (not a swipe) → flag it for tap-to-fire.
+            if (m_lookActive && m_lookFinger == fingerID) {
+                float thr = 0.04f * std::min(viewW(), viewH());
+                if (m_lookMaxDist2 <= thr * thr) m_lookTap = true;
+                m_lookActive = false;
+                m_lookFinger = static_cast<SDL_FingerID>(-1);
+            }
+
             // Release any buttons owned by this finger
             for (auto &button: m_buttons) {
                 if (button.activeFinger == fingerID) {
@@ -196,7 +268,10 @@ void VirtualControls::HandleTouchEvent(const SDL_Event *event) {
 void VirtualControls::UpdateMouse() {
     bool mouseDown = Input::MouseButtonDown(SDL_BUTTON_LEFT);
     vf2d mousePos = Input::GetMousePosition();
-    float halfWidth = Window::GetWidth() * 0.5f;
+    // Input::GetMousePosition() is logical; convert to physical when needed so the
+    // mouse-as-finger test agrees with the (physical) render + hit-test.
+    if (m_usePhysicalCoords) mousePos = mousePos * Window::GetDisplayScale();
+    float halfWidth = viewW() * 0.5f;
 
     if (mouseDown) {
         // Joystick activation
@@ -230,6 +305,22 @@ void VirtualControls::UpdateMouse() {
                     b.isPressed = true;
                     b.activeFinger = MOUSE_FINGER_ID;
                 }
+            }
+        }
+
+        // Look region via mouse (right half, not on a button): drag = camera delta.
+        if (m_lookEnabled && !m_joystick.isActive && IsInLookRegion(mousePos)
+            && GetButtonAtPosition(mousePos) < 0) {
+            if (!m_lookActive) {
+                m_lookActive = true; m_lookFinger = MOUSE_FINGER_ID; m_lookLast = mousePos;
+                m_lookStart = mousePos; m_lookMaxDist2 = 0.0f;
+            }
+            else if (m_lookFinger == MOUSE_FINGER_ID) {
+                m_lookAccum = m_lookAccum + (mousePos - m_lookLast);
+                m_lookLast = mousePos;
+                vf2d off = mousePos - m_lookStart;
+                float d2 = off.x * off.x + off.y * off.y;
+                if (d2 > m_lookMaxDist2) m_lookMaxDist2 = d2;
             }
         }
         
@@ -267,6 +358,14 @@ void VirtualControls::UpdateMouse() {
                 b.isPressed = false;
                 b.activeFinger = -1;
             }
+        }
+
+        // Release the look region if the mouse owned it; barely-moved = tap.
+        if (m_lookActive && m_lookFinger == MOUSE_FINGER_ID) {
+            float thr = 0.04f * std::min(viewW(), viewH());
+            if (m_lookMaxDist2 <= thr * thr) m_lookTap = true;
+            m_lookActive = false;
+            m_lookFinger = static_cast<SDL_FingerID>(-1);
         }
     }
 }
@@ -387,6 +486,20 @@ void VirtualControls::RenderButtons() {
         } else {
             Draw::CircleFilled(screenPos, button.radius, {255, 255, 255, alpha});
         }
+
+        // Centered text label (default font), scaled to fit within the button.
+        if (!button.label.empty()) {
+            Font  font = AssetHandler::GetDefaultFont();
+            float size = button.radius * 0.55f;
+            vf2d  ts   = Text::GetRenderedTextSize(font, button.label, size);
+            float maxW = button.radius * 1.5f;          // keep the label inside the circle
+            if (ts.x > maxW && ts.x > 0.0f) {
+                size *= maxW / ts.x;
+                ts = Text::GetRenderedTextSize(font, button.label, size);
+            }
+            Text::DrawText(font, screenPos - ts * 0.5f, button.label,
+                           {35, 35, 35, alpha}, size);
+        }
     }
 }
 
@@ -473,7 +586,31 @@ bool VirtualControls::IsTouchInJoystickArea(const vf2d &touchPos) {
     }
 
     // RELATIVE mode: left half of screen
-    return touchPos.x < Window::GetWidth() / 2.0f;
+    return touchPos.x < viewW() / 2.0f;
+}
+
+bool VirtualControls::IsInLookRegion(const vf2d &pos) const {
+    // Right half of the screen; the look region only claims a drag once buttons
+    // and the joystick have had first refusal (checked by the caller).
+    return m_lookEnabled && pos.x >= viewW() / 2.0f;
+}
+
+vf2d VirtualControls::ConsumeLookDelta() {
+    vf2d d = m_lookAccum;
+    m_lookAccum = {0.0f, 0.0f};
+    return d;
+}
+
+bool VirtualControls::ConsumeLookTap() {
+    bool t = m_lookTap;
+    m_lookTap = false;
+    return t;
+}
+
+void VirtualControls::SetButtonLabel(int buttonIndex, const std::string &label) {
+    if (buttonIndex >= 0 && buttonIndex < (int) m_buttons.size()) {
+        m_buttons[buttonIndex].label = label;
+    }
 }
 
 int VirtualControls::GetButtonAtPosition(const vf2d &position) {

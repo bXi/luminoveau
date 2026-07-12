@@ -4,6 +4,7 @@
 #include "math/vectors.h"
 #include "assets/texture/texture.h"
 #include <vector>
+#include <string>
 
 /**
  * @brief Manages virtual onscreen controls for touch devices
@@ -28,6 +29,7 @@ public:
         bool wasPressed;                ///< Press state from the previous frame (for edge detection).
         SDL_FingerID activeFinger;      ///< Finger currently pressing this button, if any.
         TextureAsset *customTexture;    ///< Custom texture, or nullptr to use the default.
+        std::string label;              ///< Optional text label drawn centered on the button.
 
         /**
          * @brief Get the actual screen position of this button
@@ -178,6 +180,84 @@ public:
      */
     void SetButtonTexture(int buttonIndex, TextureAsset *texture);
 
+    /**
+     * @brief Set a text label drawn centered on a button (default font).
+     * @param buttonIndex Index of the button (0-3)
+     * @param label Text to show ("" to clear)
+     */
+    void SetButtonLabel(int buttonIndex, const std::string &label);
+
+    // === Coordinate space ===
+    /**
+     * @brief Draw and hit-test in physical (device) pixels instead of logical.
+     *
+     * VirtualControls defaults to logical coordinates (Window::GetWidth/Height).
+     * If the app renders its 2D scene in physical pixels (e.g. a swapchain-sized
+     * canvas on a HiDPI display), enable this so the controls render and hit-test
+     * in the same space and stay anchored to the real screen corners.
+     * @param usePhysical True → physical pixels; false (default) → logical.
+     */
+    void SetUsePhysicalCoords(bool usePhysical) { m_usePhysicalCoords = usePhysical; }
+
+    /**
+     * @brief Uniformly scale the on-screen controls (joystick + buttons + offsets).
+     *
+     * The default cm-based sizes suit tablets; on a phone (especially portrait)
+     * they can be too large. This multiplies every size and layout offset, so e.g.
+     * 0.5 makes the whole control set half as big and tighter into the corners.
+     * @param scale >0; 1.0 = default. Recomputes the layout immediately.
+     */
+    void SetControlScale(float scale);
+
+    /**
+     * @brief Size the controls as a fraction of the viewport, ignoring DPI.
+     *
+     * cm-based sizing depends on the reported display scale, which is unreliable
+     * on some backends (e.g. WebGPU on mobile Safari reports a huge value, making
+     * the controls cover the screen). This sizes the joystick radius to
+     * @p joystickFraction * min(viewW, viewH) and derives everything else from the
+     * default cm ratios, so the controls are always a sensible fraction of the
+     * screen. Recomputed automatically when the viewport size changes (rotation).
+     * @param joystickFraction e.g. 0.10; <=0 disables (back to cm/SetControlScale).
+     */
+    void SetControlScaleToViewport(float joystickFraction);
+
+    /**
+     * @brief Enable/disable driving the controls with the mouse (desktop testing).
+     *
+     * On a real touch device the browser also emits synthetic mouse events that
+     * mirror each finger, which would double-drive the look region and joystick.
+     * Disable this when genuine touch input is present. Default: enabled.
+     */
+    void SetMouseEmulationEnabled(bool enabled) { m_mouseEmulation = enabled; }
+
+    // === Look region (right-side drag → camera delta) ===
+    /**
+     * @brief Enable a look/drag region: dragging in the right half of the screen
+     *        (outside any button) produces a per-frame delta, like a second stick
+     *        for camera turn/pitch. Works alongside the left joystick and buttons.
+     * @param enabled True to enable.
+     */
+    void SetLookRegionEnabled(bool enabled) { m_lookEnabled = enabled; }
+
+    /**
+     * @brief Consume the look-drag delta accumulated since the last call.
+     * @return Movement delta (dx, dy) in the active coordinate space; resets to 0.
+     */
+    vf2d ConsumeLookDelta();
+
+    /**
+     * @brief Whether a finger/mouse is currently dragging in the look region.
+     */
+    bool IsLookActive() const { return m_lookActive; }
+
+    /**
+     * @brief Consume a "tap" in the look region: a press+release that barely moved
+     *        (as opposed to a drag/swipe). Useful for tap-to-fire while the same
+     *        region also does drag-to-look. Returns true once per tap, then clears.
+     */
+    bool ConsumeLookTap();
+
     // === State Queries ===
     /**
      * @brief Get the joystick state
@@ -215,6 +295,31 @@ public:
 private:
     bool m_enabled;
     JoystickMode m_joystickMode;
+
+    // Coordinate space: logical (default) or physical (device) pixels.
+    bool m_usePhysicalCoords = false;
+
+    // Uniform size multiplier for all controls (1.0 = default cm sizing).
+    float m_controlScale = 1.0f;
+    // Viewport-relative sizing: joystick radius as a fraction of min(view) when >0.
+    float m_relJoystickFrac = 0.0f;
+    float m_lastViewW = 0.0f, m_lastViewH = 0.0f;
+    void ApplyViewportScale();   ///< Recompute m_controlScale from the viewport.
+    // Drive controls with the mouse (desktop test). Off on real touch devices.
+    bool m_mouseEmulation = true;
+    float viewW() const;   ///< Active-space window width (logical or physical).
+    float viewH() const;   ///< Active-space window height.
+
+    // Look region (right-side drag → accumulated camera delta).
+    bool m_lookEnabled = false;
+    bool m_lookActive = false;
+    SDL_FingerID m_lookFinger = static_cast<SDL_FingerID>(-1);
+    vf2d m_lookLast{0.0f, 0.0f};
+    vf2d m_lookAccum{0.0f, 0.0f};
+    vf2d m_lookStart{0.0f, 0.0f};    ///< Where the current look touch began.
+    float m_lookMaxDist2 = 0.0f;     ///< Max squared travel from start (tap vs drag).
+    bool m_lookTap = false;          ///< A tap (barely-moved press+release) is pending.
+    bool IsInLookRegion(const vf2d &pos) const;   ///< Right half, and look enabled.
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     bool m_showDebugWindow;
