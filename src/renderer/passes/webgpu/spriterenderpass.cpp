@@ -32,7 +32,8 @@ struct UniformBlock {
 
 struct InstanceOffset {
     baseInstance : u32,
-    _pad         : vec3<u32>,
+    renderScale  : f32,
+    _pad         : vec2<u32>,
 }
 
 @group(0) @binding(0) var<uniform>       uniforms        : UniformBlock;
@@ -44,6 +45,7 @@ struct VertOut {
     @location(0)                     texCoord  : vec2<f32>,
     @location(1)                     color     : vec4<f32>,
     @location(2) @interpolate(flat)  isSDF     : u32,
+    @location(3) @interpolate(flat)  sdfScale  : f32,
 }
 
 fn unpackHalfLo(packed: u32) -> f32 { return unpack2x16float(packed).x; }
@@ -107,6 +109,7 @@ fn vs_main(
     out.texCoord = texcoord;
     out.color    = color;
     out.isSDF    = isSDF;
+    out.sdfScale = max(instOffset.renderScale, 1.0);
     return out;
 }
 )";
@@ -119,6 +122,7 @@ struct FragIn {
     @location(0)                     texCoord : vec2<f32>,
     @location(1)                     color    : vec4<f32>,
     @location(2) @interpolate(flat)  isSDF    : u32,
+    @location(3) @interpolate(flat)  sdfScale : f32,
 }
 
 fn median(r: f32, g: f32, b: f32) -> f32 {
@@ -135,7 +139,7 @@ fn fs_main(in : FragIn) -> @location(0) vec4<f32> {
 
     // SDF path
     let sd               = median(texColor.r, texColor.g, texColor.b);
-    let screenPxRange    = max(dot(msdfUnit, 0.5 / texDeriv), 1.0);
+    let screenPxRange    = max(dot(msdfUnit, 0.5 / texDeriv) * in.sdfScale, 1.0);
     let screenPxDistance = screenPxRange * (sd - 0.5);
     let sdfAlpha         = clamp(screenPxDistance + 0.5, 0.0, 1.0);
     let sdfColor         = vec4<f32>(in.color.rgb, sdfAlpha * in.color.a);
@@ -574,6 +578,8 @@ void SpriteRenderPass::render(
             gpu.bindFragmentSamplers(rp, 0, &tsb, 1);
             uint32_t instOff[8] = {};
             instOff[0] = static_cast<uint32_t>(batch.offset);
+            float instScale = Window::GetScale();
+            std::memcpy(&instOff[1], &instScale, sizeof(float));   // render scale -> MSDF AA sizing
             gpu.pushVertexUniformData(cmdBuffer, 1, instOff, 32);
             gpu.drawIndexedPrimitives(rp, batch.indexCount, static_cast<uint32_t>(batch.count), 0, 0, 0);
         }
@@ -637,6 +643,8 @@ void SpriteRenderPass::render(
                 gpu.bindFragmentSamplers(currentPass, 0, &tsb, 1);
                 uint32_t instOff[8] = {};
                 instOff[0] = static_cast<uint32_t>(batch.offset);
+                float instScale = Window::GetScale();
+                std::memcpy(&instOff[1], &instScale, sizeof(float));   // render scale -> MSDF AA sizing
                 gpu.pushVertexUniformData(cmdBuffer, 1, instOff, 32);
                 gpu.drawIndexedPrimitives(currentPass, batch.indexCount, static_cast<uint32_t>(batch.count), 0, 0, 0);
             } else {
@@ -679,6 +687,8 @@ void SpriteRenderPass::render(
                     gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
                     uint32_t instOff[8] = {};
                     instOff[0] = static_cast<uint32_t>(batch.offset);
+                    float instScale = Window::GetScale();
+                    std::memcpy(&instOff[1], &instScale, sizeof(float));   // render scale -> MSDF AA sizing
                     gpu.pushVertexUniformData(cmdBuffer, 1, instOff, 32);
                     gpu.drawIndexedPrimitives(tmpRp, batch.indexCount, static_cast<uint32_t>(batch.count), 0, 0, 0);
                     gpu.endRenderPass(tmpRp);

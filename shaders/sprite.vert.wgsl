@@ -15,7 +15,8 @@ struct UniformBlock {
 
 struct InstanceOffset {
     baseInstance : u32,
-    _pad         : vec3<u32>,
+    renderScale  : f32,   // Window::SetScale factor — lets MSDF text size its AA in canvas pixels
+    _pad         : vec2<u32>,
 }
 
 @group(0) @binding(0) var<uniform>       uniforms        : UniformBlock;
@@ -27,6 +28,7 @@ struct VertOut {
     @location(0)                     texCoord  : vec2<f32>,
     @location(1)                     color     : vec4<f32>,
     @location(2) @interpolate(flat)  isSDF     : u32,
+    @location(3) @interpolate(flat)  sdfScale  : f32,
 }
 
 fn unpackHalfLo(packed: u32) -> f32 { return unpack2x16float(packed).x; }
@@ -90,5 +92,6 @@ fn vs_main(
     out.texCoord = texcoord;
     out.color    = color;
     out.isSDF    = isSDF;
+    out.sdfScale = max(instOffset.renderScale, 1.0);
     return out;
 }

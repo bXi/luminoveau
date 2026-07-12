@@ -24,6 +24,7 @@ struct Output
     float2 Texcoord : TEXCOORD0;
     float4 Color : TEXCOORD1;
     uint IsSDF : TEXCOORD2;  // SDF flag (0 or 1)
+    float SdfScale : TEXCOORD3;  // Window::SetScale factor, for MSDF AA sizing
     float4 Position : SV_Position;
 };
 
@@ -38,6 +39,7 @@ cbuffer UniformBlock : register(b0, space1)
 cbuffer InstanceOffset : register(b1, space1)
 {
     uint baseInstance : packoffset(c0);
+    float renderScale : packoffset(c0.y);   // Window::SetScale factor
 };
 
 // Float16 to Float32 conversion using HLSL built-in
@@ -119,5 +121,6 @@ Output main(VertexInput input, uint instanceID : SV_InstanceID)
     output.Texcoord = texcoord;
     output.Color = color;
     output.IsSDF = isSDF;
+    output.SdfScale = max(renderScale, 1.0f);
     return output;
 }

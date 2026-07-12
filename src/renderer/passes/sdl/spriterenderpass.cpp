@@ -316,8 +316,10 @@ void SpriteRenderPass::render(
             GpuTextureSamplerBinding tsb{ batch.texture, batch.sampler };
             gpu.bindFragmentSamplers(rp, 0, &tsb, 1);
 
-            uint32_t batchOffset = static_cast<uint32_t>(batch.offset);
-            gpu.pushVertexUniformData(cmdBuffer, 1, &batchOffset, sizeof(uint32_t));
+            uint32_t instOff[2] = { static_cast<uint32_t>(batch.offset), 0u };
+            float instScale = Window::GetScale();
+            std::memcpy(&instOff[1], &instScale, sizeof(float));   // render scale -> MSDF AA sizing
+            gpu.pushVertexUniformData(cmdBuffer, 1, instOff, sizeof(instOff));
 
             gpu.drawIndexedPrimitives(rp,
                 batch.indexCount,
@@ -368,8 +370,10 @@ void SpriteRenderPass::render(
                 GpuTextureSamplerBinding tsb{ batch.texture, batch.sampler };
                 gpu.bindFragmentSamplers(currentPass, 0, &tsb, 1);
 
-                uint32_t batchOffset = static_cast<uint32_t>(batch.offset);
-                gpu.pushVertexUniformData(cmdBuffer, 1, &batchOffset, sizeof(uint32_t));
+                uint32_t instOff[2] = { static_cast<uint32_t>(batch.offset), 0u };
+                float instScale = Window::GetScale();
+                std::memcpy(&instOff[1], &instScale, sizeof(float));   // render scale -> MSDF AA sizing
+                gpu.pushVertexUniformData(cmdBuffer, 1, instOff, sizeof(instOff));
 
                 gpu.drawIndexedPrimitives(currentPass,
                     batch.indexCount,
@@ -411,8 +415,10 @@ void SpriteRenderPass::render(
                 gpu.bindFragmentSamplers(tempPass, 0, &tsb, 1);
                 gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
 
-                uint32_t batchOffset = static_cast<uint32_t>(batch.offset);
-                gpu.pushVertexUniformData(cmdBuffer, 1, &batchOffset, sizeof(uint32_t));
+                uint32_t instOff[2] = { static_cast<uint32_t>(batch.offset), 0u };
+                float instScale = Window::GetScale();
+                std::memcpy(&instOff[1], &instScale, sizeof(float));   // render scale -> MSDF AA sizing
+                gpu.pushVertexUniformData(cmdBuffer, 1, instOff, sizeof(instOff));
 
                 gpu.drawIndexedPrimitives(tempPass,
                     batch.indexCount,

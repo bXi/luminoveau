@@ -6,6 +6,7 @@ struct Input
     float2 Texcoord : TEXCOORD0;
     float4 Color : TEXCOORD1;
     uint IsSDF : TEXCOORD2;
+    float SdfScale : TEXCOORD3;
 };
 
 struct Output
@@ -40,7 +41,9 @@ Output main(Input input)
         SpriteTexture.GetDimensions(texW, texH);
         float2 msdfUnit = 4.0 / float2(texW, texH);
         float sigDist = sd - 0.5;
-        float screenPxRange = max(dot(msdfUnit, 0.5 / fwidth(input.Texcoord)), 1.0);
+        // Scene renders at canvas/SdfScale then upscales, so fwidth (render pixels) under-reports the
+        // on-screen density. Multiply so the MSDF AA is sized in canvas pixels, not render pixels.
+        float screenPxRange = max(dot(msdfUnit, 0.5 / fwidth(input.Texcoord)) * input.SdfScale, 1.0);
         float screenPxDistance = screenPxRange * sigDist;
         float alpha = saturate(screenPxDistance + 0.5);
         
