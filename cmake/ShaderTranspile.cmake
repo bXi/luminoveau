@@ -70,6 +70,12 @@ if(NOT EXISTS "${LUMI_TINT_EXECUTABLE}")
     if(EXISTS "${LUMI_DAWN_SRC}" AND NOT EXISTS "${LUMI_DAWN_SRC}/third_party/abseil-cpp/CMakeLists.txt")
         find_package(Python3 COMPONENTS Interpreter QUIET)
         if(Python3_FOUND AND EXISTS "${LUMI_DAWN_SRC}/tools/fetch_dawn_dependencies.py")
+            # Recent Dawn DEPS use gclient's Str() helper, which the bundled fetch
+            # script doesn't inject into the exec globals -> NameError. Patch it in
+            # (idempotent) so the dependency fetch works on current checkouts.
+            execute_process(COMMAND sed -i.bak
+                "s/exec(DEPS, globals(), ldict)/globals().setdefault('Str', str); exec(DEPS, globals(), ldict)/"
+                "${LUMI_DAWN_SRC}/tools/fetch_dawn_dependencies.py")
             lumi_msg("Fetching Dawn dependencies...")
             execute_process(
                 COMMAND ${Python3_EXECUTABLE}
@@ -139,6 +145,10 @@ if(NOT EXISTS "${LUMI_TINT_EXECUTABLE}")
                 -DTINT_BUILD_GLSL_WRITER=OFF
                 -DTINT_BUILD_HLSL_WRITER=OFF
                 -DTINT_BUILD_MSL_WRITER=OFF
+                # Recent Dawn enables the protobuf-based IR binary format by default,
+                # which pulls in a protobuf dependency we don't have. We only need the
+                # SPIR-V→WGSL path, so turn it off.
+                -DTINT_BUILD_IR_BINARY=OFF
             RESULT_VARIABLE _configure_result
             OUTPUT_QUIET
         )
@@ -164,12 +174,16 @@ if(NOT EXISTS "${LUMI_TINT_EXECUTABLE}")
     endif()
 endif()
 
-# Re-derive path and verify (handles first-build where file didn't exist at cache time)
+# Re-derive path and verify (handles first-build where file didn't exist at cache time).
+# Cache it (INTERNAL) so lumi_transpile_shaders() sees it even when called from a
+# different directory scope (e.g. the game's CMakeLists via luminoveau_configure_web_target);
+# a plain set() would be invisible there, unlike the cached find_program result for glslang.
 set(LUMI_TINT_EXECUTABLE "${LUMI_TINT_HOST_DIR}/${TINT_EXE_NAME}")
 if(EXISTS "${LUMI_TINT_EXECUTABLE}")
+    set(LUMI_TINT_EXECUTABLE "${LUMI_TINT_EXECUTABLE}" CACHE INTERNAL "Tint CLI for GLSL→WGSL transpilation")
     lumi_done("Tint shader compiler: ${LUMI_TINT_EXECUTABLE}")
 else()
-    set(LUMI_TINT_EXECUTABLE "")
+    set(LUMI_TINT_EXECUTABLE "" CACHE INTERNAL "Tint CLI for GLSL→WGSL transpilation")
     lumi_warn("Tint not available - effect shaders won't be transpiled to WGSL")
     lumi_warn("Install tint CLI and set LUMI_TINT_EXECUTABLE, or ensure git+python3+ninja are available for auto-build")
 endif()
