@@ -1,6 +1,6 @@
 #version 450
 
-// Deep-zoom Mandelbrot via perturbation theory, with distance-estimation shading + temporal AA.
+// Deep-zoom Mandelbrot via perturbation theory, with distance-estimation shading.
 // The host iterates ONE reference orbit c_ref (the view centre) in double(-double) precision and
 // uploads it as Zref[]. Each pixel is c_ref + dc (dc tiny -> exact in f32) and tracks only its DELTA
 // from the reference: dz_{n+1} = 2*Z_n*dz + dz^2 + dc. All per-pixel math is plain f32, yet the zoom
@@ -9,16 +9,15 @@
 //  * Distance estimation: alongside dz we integrate the derivative der = d(z)/d(c). At escape,
 //    dist = |z|*log|z| / |der| gives the distance to the set in complex units; converting to pixels
 //    lets us ink the filaments so the boundary reads as structure instead of confetti.
-//  * Temporal AA: the host jitters the sample by a sub-pixel offset each frame and the shader blends
-//    into the accumulation image (imageLoad/Store). While the view is still it converges to a clean,
-//    supersampled image for free; when the view moves the host resets the blend to a full replace.
 //
-// Bindings (SDL_gpu compute convention): set0 read-only buffer, set1 read-write image, set2 uniform.
+// Bindings (SDL_gpu compute convention): set0 read-only buffer, set1 write-only image, set2 uniform.
+// (No temporal-AA accumulation: read-write rgba16f storage textures are illegal on WebGPU, and a
+//  read-write buffer accumulator can't share a descriptor set with the storage texture there.)
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(set = 0, binding = 0) readonly buffer RefOrbit { vec2 Zref[]; };   // reference orbit (Z_n)
-layout(set = 1, binding = 0, rgba16f) uniform image2D outImg;             // read+write (TAA accum)
+layout(set = 1, binding = 0, rgba16f) uniform writeonly image2D outImg;   // display image (write-only)
 
 layout(set = 2, binding = 0) uniform U {
     uint  outW;
@@ -26,9 +25,7 @@ layout(set = 2, binding = 0) uniform U {
     uint  refLen;
     uint  _pad;
     float invScale;   // complex units per pixel (1 / pixels-per-unit)
-    float jitterX;    // sub-pixel TAA jitter (pixels)
-    float jitterY;
-    float blend;      // this-frame weight into the accumulator (1 = replace, ->0 = converged)
+    float _p0, _p1, _p2;
 };
 
 vec2 cmul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
@@ -104,11 +101,7 @@ void main() {
     ivec2 p = ivec2(gl_GlobalInvocationID.xy);
     if (p.x >= int(outW) || p.y >= int(outH)) return;
 
-    vec2 dc = vec2((float(p.x) + 0.5 + jitterX - float(outW) * 0.5) * invScale,
-                   (float(p.y) + 0.5 + jitterY - float(outH) * 0.5) * invScale);
-    vec3 cur = sampleColor(dc);
-
-    vec3 prev = imageLoad(outImg, p).rgb;
-    vec3 outc = mix(prev, cur, blend);          // blend==1 on a moved view -> full replace
-    imageStore(outImg, p, vec4(outc, 1.0));
+    vec2 dc = vec2((float(p.x) + 0.5 - float(outW) * 0.5) * invScale,
+                   (float(p.y) + 0.5 - float(outH) * 0.5) * invScale);
+    imageStore(outImg, p, vec4(sampleColor(dc), 1.0));
 }

@@ -42,7 +42,7 @@ static inline DD ddMul(DD a, DD b) {
 
 ComputePipelineAsset mandelPipe;
 TextureAsset         outTex;
-GpuBufferHandle      refBuf = 0;
+GpuBufferHandle      refBuf   = 0;
 std::vector<float>   refData(MAXREF * 2);
 
 double mbScale = 1.0, mbTargetScale = 1.0;    // texture-pixels per complex unit (double is fine)
@@ -51,17 +51,7 @@ DD mbTargetCenterX = {-0.5, 0.0}, mbTargetCenterY = {0.0, 0.0};
 bool   panning = false;
 double lastMtx = 0.0, lastMty = 0.0;
 
-struct U { uint32_t outW, outH, refLen, _pad; float invScale, jitterX, jitterY, blend; };
-
-int    taaFrame = 0;                            // frames the view has been still (drives TAA blend)
-double prevScale = 0.0, prevCX = 0.0, prevCY = 0.0;
-
-// Halton low-discrepancy sequence in [0,1) — good sub-pixel jitter distribution for TAA.
-double halton(int i, int base) {
-    double f = 1.0, r = 0.0;
-    while (i > 0) { f /= base; r += f * (i % base); i /= base; }
-    return r;
-}
+struct U { uint32_t outW, outH, refLen, _pad; float invScale, _p0, _p1, _p2; };
 
 double dmix(double a, double b, double t) { return a + (b - a) * t; }
 // Lerp a dd toward a target by t (t small double): a + (b - a)*t.
@@ -88,7 +78,6 @@ void EnsureTexture(int w, int h) {
     if (outTex.gpuTexture && TEXW == w && TEXH == h) return;
     if (outTex.gpuTexture) Renderer::GetGpu().releaseTexture(outTex.gpuTexture);
     TEXW = std::max(1, w); TEXH = std::max(1, h);
-    taaFrame = 0;   // new blank texture -> next frame must fully replace, not blend garbage
     outTex = AssetHandler::CreateEmptyTexture({(float)TEXW, (float)TEXH}, GpuTextureFormat::R16G16B16A16_Float);
     outTex.gpuSampler = Renderer::GetSampler(ScaleMode::Linear);
 }
@@ -146,25 +135,14 @@ Lumi::Result AppIterate(void* appstate) {
     int refLen = ComputeReference(mbCenterX, mbCenterY);
     Compute::UploadBufferData(refBuf, refData.data(), (uint32_t)(refLen * 2 * sizeof(float)));
 
-    // Temporal AA: if the view moved at all this frame, restart accumulation (full replace); while
-    // it's still, keep accumulating jittered samples into a running average -> converges to clean.
-    bool moved = std::abs(mbScale - prevScale) > prevScale * 1e-12 ||
-                 std::abs(mbCenterX.hi - prevCX) > (1e-9 / mbScale) ||
-                 std::abs(mbCenterY.hi - prevCY) > (1e-9 / mbScale);
-    if (moved) taaFrame = 0; else taaFrame++;
-    prevScale = mbScale; prevCX = mbCenterX.hi; prevCY = mbCenterY.hi;
-
     U u{};
     u.outW = TEXW; u.outH = TEXH; u.refLen = (uint32_t)refLen;
     u.invScale = (float)(1.0 / mbScale);
-    u.jitterX  = (float)(halton(taaFrame + 1, 2) - 0.5);   // sub-pixel jitter (pixels)
-    u.jitterY  = (float)(halton(taaFrame + 1, 3) - 0.5);
-    u.blend    = 1.0f / (float)(taaFrame + 1);             // running average; 1 on a moved view
 
     Window::StartFrame();
     Compute::SetPipeline(mandelPipe);
     Compute::BindReadBuffer(0, refBuf);
-    Compute::BindReadWriteTexture(0, outTex);
+    Compute::BindReadWriteTexture(0, outTex);     // set1 binding0 (write-only display image)
     Compute::PushUniform(0, &u, sizeof(u));
     Compute::DispatchAuto(TEXW, TEXH, 1);
 
