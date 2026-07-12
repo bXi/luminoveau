@@ -314,6 +314,13 @@ vf2d Window::_getSize(bool getRealSize) {
     if (WindowBackend::GetSizeOverride(m_window, _webGpuScaleMode,
                                        _webGpuRenderWidth, _webGpuRenderHeight,
                                        backendSize)) {
+        // Apply the SetScale render divisor here too — same as the SDL path below. Without this the
+        // backend (web) reports the full canvas while the camera ortho and mouse mapping are divided
+        // by the scale, so GetWidth/Height disagree with draw + input space under SetScale(N>1).
+        if (!getRealSize && EngineState::_scaleFactor > 1) {
+            backendSize.x /= (float)EngineState::_scaleFactor;
+            backendSize.y /= (float)EngineState::_scaleFactor;
+        }
         return backendSize;
     }
 

@@ -9,6 +9,13 @@ void Input::_init() {
 
     _didInit = true;
 
+    inputs.push_back(new InputDevice(InputType::MOUSE_KB));
+
+    // Escape hatch: SDL_Init(SDL_INIT_GAMEPAD) can hang indefinitely on some macOS
+    // setups (HID/GameController enumeration stall). Set LUMI_NO_GAMEPAD=1 to skip
+    // the gamepad subsystem entirely; keyboard + mouse still work.
+    if (getenv("LUMI_NO_GAMEPAD")) return;
+
     SDL_SetHint(SDL_HINT_JOYSTICK_ENHANCED_REPORTS, "1");
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAM, "1");
     SDL_SetHint(SDL_HINT_JOYSTICK_ROG_CHAKRAM, "1");
@@ -16,8 +23,6 @@ void Input::_init() {
 
 
     SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD);
-
-    inputs.push_back(new InputDevice(InputType::MOUSE_KB));
 
     auto gamePadCount = 0;
     joystickIds = SDL_GetGamepads(&gamePadCount);
