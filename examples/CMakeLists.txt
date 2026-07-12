@@ -41,7 +41,7 @@ function(add_lumi_example name)
         if(APPLE)
             target_link_libraries(${name} PRIVATE)
         else()
-            target_link_libraries(${name} PRIVATE -static-libgcc -static-libstdc+)
+            target_link_libraries(${name} PRIVATE -static-libgcc -static-libstdc++)
         endif()
         # Register this demo's asset copy on the shared target, and make the demo depend on it so
         # building a single demo (e.g. in an IDE) still refreshes its assets.
