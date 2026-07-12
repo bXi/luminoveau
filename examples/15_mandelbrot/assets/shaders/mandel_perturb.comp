@@ -1,0 +1,114 @@
+#version 450
+
+// Deep-zoom Mandelbrot via perturbation theory, with distance-estimation shading + temporal AA.
+// The host iterates ONE reference orbit c_ref (the view centre) in double(-double) precision and
+// uploads it as Zref[]. Each pixel is c_ref + dc (dc tiny -> exact in f32) and tracks only its DELTA
+// from the reference: dz_{n+1} = 2*Z_n*dz + dz^2 + dc. All per-pixel math is plain f32, yet the zoom
+// depth is limited only by the host's precision — no shader double-float, no driver precision games.
+//
+//  * Distance estimation: alongside dz we integrate the derivative der = d(z)/d(c). At escape,
+//    dist = |z|*log|z| / |der| gives the distance to the set in complex units; converting to pixels
+//    lets us ink the filaments so the boundary reads as structure instead of confetti.
+//  * Temporal AA: the host jitters the sample by a sub-pixel offset each frame and the shader blends
+//    into the accumulation image (imageLoad/Store). While the view is still it converges to a clean,
+//    supersampled image for free; when the view moves the host resets the blend to a full replace.
+//
+// Bindings (SDL_gpu compute convention): set0 read-only buffer, set1 read-write image, set2 uniform.
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0) readonly buffer RefOrbit { vec2 Zref[]; };   // reference orbit (Z_n)
+layout(set = 1, binding = 0, rgba16f) uniform image2D outImg;             // read+write (TAA accum)
+
+layout(set = 2, binding = 0) uniform U {
+    uint  outW;
+    uint  outH;
+    uint  refLen;
+    uint  _pad;
+    float invScale;   // complex units per pixel (1 / pixels-per-unit)
+    float jitterX;    // sub-pixel TAA jitter (pixels)
+    float jitterY;
+    float blend;      // this-frame weight into the accumulator (1 = replace, ->0 = converged)
+};
+
+vec2 cmul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
+
+vec3 palette(float t) {
+    // deep blue -> cyan -> gold -> red banding
+    t = fract(t);
+    vec3 c0 = vec3(0.0, 0.0, 0.5), c1 = vec3(0.0, 0.8, 1.0);
+    vec3 c2 = vec3(1.0, 0.9, 0.0), c3 = vec3(0.8, 0.0, 0.0);
+    if (t < 0.33) return mix(c0, c1, t / 0.33);
+    if (t < 0.67) return mix(c1, c2, (t - 0.33) / 0.34);
+    return mix(c2, c3, (t - 0.67) / 0.33);
+}
+
+// Colour one sample given its offset dc from the reference centre (in complex units).
+vec3 sampleColor(vec2 dc) {
+    // Perturbation with rebasing (single reference). n indexes the reference orbit; when the true
+    // value z falls below the delta dz, or the reference is exhausted, we "rebase": fold z into the
+    // delta and restart the reference at index 0 (Zref[0] = 0). iter is the real escape count.
+    vec2  dz  = vec2(0.0);
+    vec2  der = vec2(0.0);      // derivative d(z)/d(c), for distance estimation
+    int   n = 0;
+    int   iter = 0;
+    float mag  = 0.0;
+    vec2  z    = vec2(0.0);
+    bool  escaped = false;
+    const int MAXITER = 8192;
+
+    for (iter = 0; iter < MAXITER; iter++) {
+        vec2 Z = Zref[n];
+        z = Z + dz;
+        mag = dot(z, z);
+        if (mag >= 4.0) { escaped = true; break; }
+
+        // derivative uses the FULL value z (available for free here): der' = 2*z*der + 1
+        der = 2.0 * cmul(z, der) + vec2(1.0, 0.0);
+
+        if (n + 1 >= int(refLen) || mag < dot(dz, dz)) {
+            dz = cmul(z, z) + dc;   // rebase: delta becomes z, reference restarts (Zref[0]=0)
+            n  = 1;
+        } else {
+            dz = 2.0 * cmul(Z, dz) + cmul(dz, dz) + dc;
+            n++;
+        }
+    }
+
+    if (!escaped) return vec3(0.0);   // interior (or ran out of reference) -> black
+
+    float smoothIter = float(iter) + 1.0 - log2(log2(sqrt(mag)));
+    // The boundary "dust" has genuinely huge per-pixel iteration variance (100s..1000s). log2
+    // compresses the whole range into well under one palette cycle, so the variance reads as fine
+    // shading, not rainbow static.
+    vec3 col = palette(log2(smoothIter) * 0.16);
+
+    // Distance estimation: dist to the set in complex units, then in pixels. Small -> we're on a thin
+    // filament; ink it dark so the fractal boundary reads as line-art instead of confetti.
+    float zmag   = sqrt(mag);
+    float dermag = length(der);
+    float ink    = 1.0;   // default: no inking (also the fallback if the derivative overflowed)
+    if (dermag > 1e-30 && dermag < 1e30) {             // der explodes on deep dust -> skip DE there
+        float distPx = (zmag * log(zmag)) / dermag / invScale;
+        ink = clamp(distPx * 2.5, 0.0, 1.0);           // ~0 only on genuinely thin/sparse filaments
+    }
+    // Only lightly darken toward the boundary: in dense dust every pixel is sub-pixel-close to the
+    // set, so a hard multiply blacks the whole region out. Keep a bright floor and let TAA + the log
+    // palette carry the dust; DE just adds line-art contrast where filaments are actually resolvable.
+    col *= 0.45 + 0.55 * smoothstep(0.0, 1.0, ink);
+
+    return col;
+}
+
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (p.x >= int(outW) || p.y >= int(outH)) return;
+
+    vec2 dc = vec2((float(p.x) + 0.5 + jitterX - float(outW) * 0.5) * invScale,
+                   (float(p.y) + 0.5 + jitterY - float(outH) * 0.5) * invScale);
+    vec3 cur = sampleColor(dc);
+
+    vec3 prev = imageLoad(outImg, p).rgb;
+    vec3 outc = mix(prev, cur, blend);          // blend==1 on a moved view -> full replace
+    imageStore(outImg, p, vec4(outc, 1.0));
+}
