@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <stdexcept>
 #include <thread>
+#include <unordered_map>
 #include "platform/audio/audio.h"
 
 #include "assets/assethandler.h"
@@ -167,6 +169,33 @@ int Window::_getFPS(float milliseconds) {
     return EngineState::_fps;
 }
 
+// Two-finger pinch → mouse-wheel ticks, so touch devices can zoom demos that use the scroll wheel.
+// Driven from SDL finger events (same event stream/timing as the real wheel). tfinger coords are
+// normalised (0..1); a spread past a small threshold emits one wheel notch (out = zoom in).
+static void _handlePinch(const SDL_Event* event) {
+    static std::unordered_map<SDL_FingerID, vf2d> fingers;
+    static float prevDist = -1.0f;
+    static float accum    = 0.0f;
+    const  float TH       = 0.03f;
+
+    SDL_FingerID id = event->tfinger.fingerID;
+    if (event->type == SDL_EVENT_FINGER_UP) { fingers.erase(id); prevDist = -1.0f; accum = 0.0f; return; }
+    fingers[id] = { event->tfinger.x, event->tfinger.y };
+
+    if (fingers.size() == 2) {
+        auto it = fingers.begin(); vf2d a = it->second; ++it; vf2d b = it->second;
+        float d = std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+        if (prevDist >= 0.0f) {
+            accum += d - prevDist;
+            while (accum >  TH) { Input::UpdateScroll( 1); accum -= TH; }
+            while (accum < -TH) { Input::UpdateScroll(-1); accum += TH; }
+        }
+        prevDist = d;
+    } else {
+        prevDist = -1.0f;   // need exactly two fingers for a pinch reference
+    }
+}
+
 // Helper function to process a single event - used by both modes
 void Window::_processEvent(SDL_Event* event) {
 #ifdef LUMINOVEAU_WITH_IMGUI
@@ -221,6 +250,7 @@ void Window::_processEvent(SDL_Event* event) {
         case SDL_EVENT_FINGER_MOTION:
         case SDL_EVENT_FINGER_UP: {
             Input::HandleTouchEvent(event);
+            _handlePinch(event);   // two-finger spread → mouse-wheel ticks (zoom)
             break;
         }
         case SDL_EventType::SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED: {

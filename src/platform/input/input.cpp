@@ -56,7 +56,9 @@ void Input::_update() {
     previousKeyboardState = currentKeyboardState;
 
     previousMouseButtons = currentMouseButtons;
-    currentMouseButtons = SDL_GetMouseState(nullptr, nullptr);
+    // Via the backend so the web path can report touch as the left button (pointer events);
+    // the SDL backend just forwards SDL_GetMouseState, so native is unchanged.
+    currentMouseButtons = PlatformInputBackend::GetMouseButtons();
 
     for (auto &gamepad: gamepads) {
         gamepad.previousButtonState = gamepad.currentButtonState;

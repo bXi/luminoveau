@@ -32,3 +32,7 @@ vf2d PlatformInputBackend::GetMousePosition() {
 
     return { relX, relY };
 }
+
+uint32_t PlatformInputBackend::GetMouseButtons() {
+    return (uint32_t)SDL_GetMouseState(nullptr, nullptr);
+}
