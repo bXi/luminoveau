@@ -178,7 +178,16 @@ void VirtualControls::HandleTouchEvent(const SDL_Event *event) {
                     m_buttons[buttonIdx].isPressed = true;
                     m_buttons[buttonIdx].activeFinger = fingerID;
                 }
-                // Not a button: a drag in the right half drives the look region.
+                // Not a button: the right joystick claims the right half (twin-stick), if enabled.
+                else if (m_joystickRightMode != JoystickMode::DISABLED && !m_joystickRight.isActive &&
+                         IsTouchInRightJoystickArea(touchPos)) {
+                    m_joystickRight.isActive = true;
+                    m_joystickRight.activeFinger = fingerID;
+                    m_joystickRight.touchStart = (m_joystickRightMode == JoystickMode::RELATIVE)
+                                                     ? touchPos : GetRightJoystickPosition();
+                    m_joystickRight.touchCurrent = touchPos;
+                }
+                // Otherwise a drag in the right half drives the look region.
                 else if (!m_lookActive && IsInLookRegion(touchPos)) {
                     m_lookActive = true;
                     m_lookFinger = fingerID;
@@ -200,6 +209,9 @@ void VirtualControls::HandleTouchEvent(const SDL_Event *event) {
             // Update joystick if this finger owns it
             if (m_joystick.isActive && m_joystick.activeFinger == fingerID) {
                 m_joystick.touchCurrent = touchPos;
+            }
+            if (m_joystickRight.isActive && m_joystickRight.activeFinger == fingerID) {
+                m_joystickRight.touchCurrent = touchPos;
             }
 
             // Accumulate look delta if this finger owns the look region
@@ -242,6 +254,12 @@ void VirtualControls::HandleTouchEvent(const SDL_Event *event) {
                 m_joystick.direction = {0.0f, 0.0f};
                 m_joystick.magnitude = 0.0f;
                 m_joystick.activeFinger = -1;
+            }
+            if (m_joystickRight.isActive && m_joystickRight.activeFinger == fingerID) {
+                m_joystickRight.isActive = false;
+                m_joystickRight.direction = {0.0f, 0.0f};
+                m_joystickRight.magnitude = 0.0f;
+                m_joystickRight.activeFinger = -1;
             }
 
             // Release the look region if owned by this finger. If the touch barely
@@ -370,36 +388,34 @@ void VirtualControls::UpdateMouse() {
     }
 }
 
+// Compute a stick's normalized direction + dead-zoned magnitude from its touch start/current.
+static void computeStick(VirtualControls::JoystickState &js, float radius, float deadZone) {
+    vf2d delta = js.touchCurrent - js.touchStart;
+    float distance = std::sqrt(delta.x * delta.x + delta.y * delta.y);
+    if (distance > radius) { delta = delta * (radius / distance); distance = radius; }
+    float mag = radius > 0.0f ? distance / radius : 0.0f;
+    if (mag < deadZone || distance <= 0.0f) {
+        js.direction = {0.0f, 0.0f};
+        js.magnitude = 0.0f;
+    } else {
+        js.direction = delta / distance;
+        js.magnitude = (mag - deadZone) / (1.0f - deadZone);
+    }
+}
+
 void VirtualControls::UpdateJoystick() {
     if (!m_joystick.isActive || m_joystickMode == JoystickMode::DISABLED) {
         m_joystick.direction = {0.0f, 0.0f};
         m_joystick.magnitude = 0.0f;
-        return;
+    } else {
+        computeStick(m_joystick, m_joystickRadius, m_joystickDeadZone);
     }
 
-    // Calculate direction vector
-    vf2d delta = m_joystick.touchCurrent - m_joystick.touchStart;
-    float distance = std::sqrt(delta.x * delta.x + delta.y * delta.y);
-
-    // Clamp to joystick radius
-    if (distance > m_joystickRadius) {
-        delta = delta * (m_joystickRadius / distance);
-        distance = m_joystickRadius;
-    }
-
-    // Calculate magnitude (0.0 to 1.0)
-    float mag = distance / m_joystickRadius;
-
-    // Apply dead zone
-    if (mag < m_joystickDeadZone) {
-        m_joystick.direction = {0.0f, 0.0f};
-        m_joystick.magnitude = 0.0f;
-    } else if (distance > 0.0f) {
-        // Normalize direction
-        m_joystick.direction = delta / distance;
-
-        // Remap magnitude to account for dead zone
-        m_joystick.magnitude = (mag - m_joystickDeadZone) / (1.0f - m_joystickDeadZone);
+    if (!m_joystickRight.isActive || m_joystickRightMode == JoystickMode::DISABLED) {
+        m_joystickRight.direction = {0.0f, 0.0f};
+        m_joystickRight.magnitude = 0.0f;
+    } else {
+        computeStick(m_joystickRight, m_joystickRadius, m_joystickDeadZone);
     }
 }
 
@@ -416,54 +432,42 @@ void VirtualControls::Render() {
     RenderButtons();
 }
 
-void VirtualControls::RenderJoystick() {
-    if (m_joystickMode == JoystickMode::DISABLED) return;
-
-    // Don't render if not active in RELATIVE mode
-    if (m_joystickMode == JoystickMode::RELATIVE && !m_joystick.isActive) return;
-
-    vf2d basePos = (m_joystickMode == JoystickMode::RELATIVE)
-                       ? m_joystick.touchStart
-                       : GetJoystickPosition();
-
-    TextureAsset *baseTexture = m_joystickBaseTexture ? m_joystickBaseTexture : m_defaultTexture;
+// Draw one stick's base ring + (when active) its knob at basePos.
+void VirtualControls::RenderStick(const JoystickState &js, JoystickMode mode, const vf2d &basePos) {
+    TextureAsset *baseTexture  = m_joystickBaseTexture  ? m_joystickBaseTexture  : m_defaultTexture;
     TextureAsset *stickTexture = m_joystickStickTexture ? m_joystickStickTexture : m_defaultTexture;
 
-    // Render base
     if (baseTexture) {
-        Draw::Texture(
-            *baseTexture,
-            basePos,
-            {m_joystickRadius * 2.0f, m_joystickRadius * 2.0f},
-            {255, 255, 255, 128}
-        );
+        Draw::Texture(*baseTexture, basePos, {m_joystickRadius * 2.0f, m_joystickRadius * 2.0f}, {255, 255, 255, 128});
     } else {
         Draw::CircleFilled(basePos, m_joystickRadius, {255, 255, 255, 128});
     }
 
-    // Render stick
-    if (m_joystick.isActive) {
-        vf2d stickPos = basePos + (m_joystick.touchCurrent - m_joystick.touchStart);
-
-        // Clamp stick position
-        vf2d delta = stickPos - basePos;
-        float dist = std::sqrt(delta.x * delta.x + delta.y * delta.y);
-        if (dist > m_joystickRadius) {
-            stickPos = basePos + (delta / dist) * m_joystickRadius;
-        }
+    if (js.isActive) {
+        vf2d stickPos = basePos + (js.touchCurrent - js.touchStart);
+        vf2d delta    = stickPos - basePos;
+        float dist    = std::sqrt(delta.x * delta.x + delta.y * delta.y);
+        if (dist > m_joystickRadius) stickPos = basePos + (delta / dist) * m_joystickRadius;
 
         float stickRadius = m_joystickRadius * 0.5f;
-
         if (stickTexture) {
-            Draw::Texture(
-                *stickTexture,
-                stickPos,
-                {stickRadius * 2.0f, stickRadius * 2.0f},
-                {255, 255, 255, 200}
-            );
+            Draw::Texture(*stickTexture, stickPos, {stickRadius * 2.0f, stickRadius * 2.0f}, {255, 255, 255, 200});
         } else {
             Draw::CircleFilled(stickPos, stickRadius, {255, 255, 255, 200});
         }
+    }
+}
+
+void VirtualControls::RenderJoystick() {
+    if (m_joystickMode != JoystickMode::DISABLED &&
+        !(m_joystickMode == JoystickMode::RELATIVE && !m_joystick.isActive)) {
+        vf2d basePos = (m_joystickMode == JoystickMode::RELATIVE) ? m_joystick.touchStart : GetJoystickPosition();
+        RenderStick(m_joystick, m_joystickMode, basePos);
+    }
+    if (m_joystickRightMode != JoystickMode::DISABLED &&
+        !(m_joystickRightMode == JoystickMode::RELATIVE && !m_joystickRight.isActive)) {
+        vf2d basePos = (m_joystickRightMode == JoystickMode::RELATIVE) ? m_joystickRight.touchStart : GetRightJoystickPosition();
+        RenderStick(m_joystickRight, m_joystickRightMode, basePos);
     }
 }
 
@@ -587,6 +591,20 @@ bool VirtualControls::IsTouchInJoystickArea(const vf2d &touchPos) {
 
     // RELATIVE mode: left half of screen
     return touchPos.x < viewW() / 2.0f;
+}
+
+vf2d VirtualControls::GetRightJoystickPosition() const {
+    // Mirror the left stick's inset to the bottom-right corner.
+    return { viewW() - m_joystickOffset.x, viewH() + m_joystickOffset.y };
+}
+
+bool VirtualControls::IsTouchInRightJoystickArea(const vf2d &touchPos) const {
+    if (m_joystickRightMode == JoystickMode::STATIC) {
+        vf2d delta = touchPos - GetRightJoystickPosition();
+        return (delta.x * delta.x + delta.y * delta.y) <= (m_joystickRadius * m_joystickRadius * 2.0f);
+    }
+    // RELATIVE mode: right half of screen.
+    return touchPos.x >= viewW() / 2.0f;
 }
 
 bool VirtualControls::IsInLookRegion(const vf2d &pos) const {

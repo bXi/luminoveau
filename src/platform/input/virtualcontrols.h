@@ -274,6 +274,33 @@ public:
      */
     float GetJoystickMagnitude() const { return m_joystick.magnitude; }
 
+    // === Right joystick (twin-stick) ===
+    // A second analog joystick anchored to the bottom-right, activated by a touch in the right half
+    // of the screen (buttons still get first refusal there). Disabled by default; enable it for
+    // twin-stick controls. It shares the left stick's radius / dead zone / textures, and its resting
+    // position mirrors the left stick's offset. Touch only — the single mouse can't drive both, so
+    // there's no mouse emulation for this stick.
+    /**
+     * @brief Set the right joystick mode (DISABLED, STATIC, RELATIVE). Default DISABLED.
+     */
+    void SetRightJoystickMode(JoystickMode mode) { m_joystickRightMode = mode; }
+    /**
+     * @brief Get the right joystick mode.
+     */
+    JoystickMode GetRightJoystickMode() const { return m_joystickRightMode; }
+    /**
+     * @brief Get the right joystick state.
+     */
+    const JoystickState &GetRightJoystickState() const { return m_joystickRight; }
+    /**
+     * @brief Get the right joystick direction vector (normalized).
+     */
+    vf2d GetRightJoystickDirection() const { return m_joystickRight.direction; }
+    /**
+     * @brief Get the right joystick magnitude (0.0 to 1.0).
+     */
+    float GetRightJoystickMagnitude() const { return m_joystickRight.magnitude; }
+
     /**
      * @brief Check if a button is currently pressed
      * @param buttonIndex Index of the button (0-3)
@@ -320,6 +347,14 @@ private:
     float m_lookMaxDist2 = 0.0f;     ///< Max squared travel from start (tap vs drag).
     bool m_lookTap = false;          ///< A tap (barely-moved press+release) is pending.
     bool IsInLookRegion(const vf2d &pos) const;   ///< Right half, and look enabled.
+
+    // Right joystick (twin-stick). Shares the left stick's radius/dead-zone/textures; position mirrors
+    // the left offset to the bottom-right corner. Touch-driven only.
+    JoystickMode  m_joystickRightMode = JoystickMode::DISABLED;
+    JoystickState m_joystickRight{};
+    vf2d GetRightJoystickPosition() const;                     ///< Resting centre (bottom-right).
+    bool IsTouchInRightJoystickArea(const vf2d &pos) const;    ///< Right half of the screen.
+    void RenderStick(const JoystickState &js, JoystickMode mode, const vf2d &basePos);  ///< Shared draw.
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     bool m_showDebugWindow;
