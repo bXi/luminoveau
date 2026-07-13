@@ -51,11 +51,30 @@ void SpawnEnemy() {
 Lumi::Result AppInit(void** appstate, int argc, char* argv[]) {
     Window::InitWindow("Luminoveau Example — Top-Down Shooter", width, height, 1, SDL_WINDOW_RESIZABLE);
     Renderer::ClearBackground({14, 16, 22, 255});
+
+    // The play field tracks the live window (so the player stays on-screen on any canvas/phone).
+    width  = Window::GetWidth();
+    height = Window::GetHeight();
+    player = {width * 0.5f, height * 0.5f};
+
+    // On-screen twin-stick for touch: left half = move, right half = aim + fire. Mouse emulation off
+    // and RELATIVE mode mean the sticks are touch-only and invisible on desktop, so keyboard/mouse
+    // are unaffected. Viewport-relative sizing avoids the unreliable mobile DPI.
+    VirtualControls& vc = Input::GetVirtualControls();
+    vc.SetEnabled(true);
+    vc.SetMouseEmulationEnabled(false);
+    vc.SetControlScaleToViewport(0.12f);
+    vc.SetJoystickMode(VirtualControls::JoystickMode::RELATIVE);
+    vc.SetRightJoystickMode(VirtualControls::JoystickMode::RELATIVE);
     return Lumi::Result::Continue;
 }
 
 Lumi::Result AppIterate(void* appstate) {
     float dt = (float)Window::GetFrameTime();
+
+    // Keep the play field matched to the current window size (resize-safe on desktop and mobile).
+    width  = Window::GetWidth();
+    height = Window::GetHeight();
 
     // All input flows through the unified InputDevice interface. Every device (keyboard/mouse and
     // each gamepad) answers getLeftStick() / getRightStick(), so the same code drives a keyboard
@@ -76,6 +95,11 @@ Lumi::Result AppIterate(void* appstate) {
         // Also let a dedicated SHOOT button fire in the current aim direction.
         if (dev->is(Buttons::SHOOT, Action::HELD)) firing = true;
     }
+
+    // On-screen twin-stick (touch): left stick adds to movement, right stick aims + fires.
+    VirtualControls& vc = Input::GetVirtualControls();
+    move += vc.GetJoystickDirection() * vc.GetJoystickMagnitude();
+    if (vc.GetRightJoystickMagnitude() > 0.0f) { aimDir = vc.GetRightJoystickDirection(); firing = true; }
 
     // Movement: clamp to unit length so diagonals / combined devices aren't faster.
     if (move.mag2() > 1.0f) move = move.norm();
@@ -145,6 +169,8 @@ Lumi::Result AppIterate(void* appstate) {
     Text::DrawText(font, {10.0f, 34.0f},
                    "Bullets: " + std::to_string(bullets.size()) + "  Enemies: " + std::to_string(enemies.size()),
                    {160, 160, 180, 255}, 22.0f);
+
+    Input::GetVirtualControls().Render();   // draws the on-screen sticks when touched (touch only)
 
     Window::EndFrame();
     return Lumi::Result::Continue;
