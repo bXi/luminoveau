@@ -100,11 +100,13 @@ if(NOT EXISTS "${LUMI_TINT_EXECUTABLE}")
         # When cross-compiling, CMAKE_C/CXX_COMPILER point to emcc.
         # We need the native compiler instead.
         if(EMSCRIPTEN)
-            # Try to find the native compiler
-            find_program(_NATIVE_CC NAMES cc gcc clang cl
+            # Try to find the native compiler. Prefer clang: recent Dawn has a C++20
+            # module target (dawncpp_module) whose import graph only clang (+
+            # clang-scan-deps) can discover — GCC can't, so the host configure fails.
+            find_program(_NATIVE_CC NAMES clang cc gcc cl
                 PATHS /usr/bin /usr/local/bin
                 NO_CMAKE_FIND_ROOT_PATH)
-            find_program(_NATIVE_CXX NAMES c++ g++ clang++ cl
+            find_program(_NATIVE_CXX NAMES clang++ c++ g++ cl
                 PATHS /usr/bin /usr/local/bin
                 NO_CMAKE_FIND_ROOT_PATH)
 
@@ -133,7 +135,15 @@ if(NOT EXISTS "${LUMI_TINT_EXECUTABLE}")
                 -G Ninja
                 ${_HOST_COMPILER_ARGS}
                 -DCMAKE_BUILD_TYPE=Release
+                # GCC+Ninja can't scan Dawn's C++20 module target; we only need the
+                # tint CLI, so disable module scanning.
+                -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
                 -DDAWN_BUILD_SAMPLES=OFF
+                # Don't pull in GLFW: the tint CLI doesn't need it, and configuring it
+                # on Linux needs X11/Wayland dev libs — and fails under emcmake, which
+                # points pkg-config at the Emscripten sysroot.
+                -DDAWN_USE_GLFW=OFF
+                -DDAWN_ENABLE_DESKTOP_GL=OFF
                 -DDAWN_BUILD_TESTS=OFF
                 -DDAWN_BUILD_BENCHMARKS=OFF
                 -DTINT_BUILD_TESTS=OFF
