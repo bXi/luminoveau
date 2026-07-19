@@ -52,7 +52,7 @@ enum class GpuTextureFormat : uint32_t {
     BC4_Unorm,
     BC5_Unorm,
     BC7_Unorm,
-    ASTC_4x4_Unorm,   // native on Apple/mobile GPUs; same 16 B / 4x4 block size as BC7
+    ASTC_4x4_Unorm, // native on Apple/mobile GPUs; same 16 B / 4x4 block size as BC7
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -98,11 +98,11 @@ enum class GpuShaderStage : uint8_t {
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum class GpuBufferUsage : uint32_t {
-    Vertex        = 1 << 0,
-    Index         = 1 << 1,
-    StorageRead   = 1 << 2,
-    StorageWrite  = 1 << 3,
-    Indirect      = 1 << 4,
+    Vertex       = 1 << 0,
+    Index        = 1 << 1,
+    StorageRead  = 1 << 2,
+    StorageWrite = 1 << 3,
+    Indirect     = 1 << 4,
 };
 
 inline GpuBufferUsage operator|(GpuBufferUsage a, GpuBufferUsage b) {
@@ -117,12 +117,12 @@ inline bool operator&(GpuBufferUsage a, GpuBufferUsage b) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum class GpuTextureUsage : uint32_t {
-    Sampler             = 1 << 0,
-    ColorTarget         = 1 << 1,
-    DepthStencilTarget  = 1 << 2,
-    StorageRead         = 1 << 3,
-    StorageWrite        = 1 << 4,
-    Transfer            = 1 << 5,
+    Sampler            = 1 << 0,
+    ColorTarget        = 1 << 1,
+    DepthStencilTarget = 1 << 2,
+    StorageRead        = 1 << 3,
+    StorageWrite       = 1 << 4,
+    Transfer           = 1 << 5,
 };
 
 inline GpuTextureUsage operator|(GpuTextureUsage a, GpuTextureUsage b) {
@@ -167,10 +167,10 @@ enum class ScaleMode : uint8_t {
 };
 
 enum class BlendMode : uint8_t {
-    Default,    // standard alpha blending
-    SrcAlpha,   // source-alpha blending
-    Additive,   // additive blending
-    None,       // no blending
+    Default,  // standard alpha blending
+    SrcAlpha, // source-alpha blending
+    Additive, // additive blending
+    None,     // no blending
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -208,9 +208,13 @@ enum class GpuVertexElementFormat : uint8_t {
 // Fill / cull modes
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum class GpuFillMode : uint8_t { Fill, Line };
-enum class GpuCullMode : uint8_t { None, Front, Back };
-enum class GpuFrontFace : uint8_t { CounterClockwise, Clockwise };
+enum class GpuFillMode : uint8_t { Fill,
+    Line };
+enum class GpuCullMode : uint8_t { None,
+    Front,
+    Back };
+enum class GpuFrontFace : uint8_t { CounterClockwise,
+    Clockwise };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Blend factors / operations
@@ -219,14 +223,21 @@ enum class GpuFrontFace : uint8_t { CounterClockwise, Clockwise };
 enum class GpuBlendFactor : uint8_t {
     Zero,
     One,
-    SrcColor,    OneMinusSrcColor,
-    DstColor,    OneMinusDstColor,
-    SrcAlpha,    OneMinusSrcAlpha,
-    DstAlpha,    OneMinusDstAlpha,
-    ConstantColor,    OneMinusConstantColor,
+    SrcColor,
+    OneMinusSrcColor,
+    DstColor,
+    OneMinusDstColor,
+    SrcAlpha,
+    OneMinusSrcAlpha,
+    DstAlpha,
+    OneMinusDstAlpha,
+    ConstantColor,
+    OneMinusConstantColor,
     SrcAlphaSaturate,
-    Src1Color,   OneMinusSrc1Color,
-    Src1Alpha,   OneMinusSrc1Alpha,
+    Src1Color,
+    OneMinusSrc1Color,
+    Src1Alpha,
+    OneMinusSrc1Alpha,
 };
 
 enum class GpuBlendOp : uint8_t {
@@ -242,24 +253,24 @@ enum class GpuBlendOp : uint8_t {
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum class GpuTextureType : uint8_t {
-    Tex2D,       // standard 2D texture
-    Tex2DArray,  // array of 2D layers (depthOrLayers = layer count)
-    TexCube,     // cube map (depthOrLayers must be 6)
+    Tex2D,      // standard 2D texture
+    Tex2DArray, // array of 2D layers (depthOrLayers = layer count)
+    TexCube,    // cube map (depthOrLayers must be 6)
 };
 
 struct GpuTextureCreateInfo {
-    uint32_t         width        = 1;
-    uint32_t         height       = 1;
+    uint32_t         width         = 1;
+    uint32_t         height        = 1;
     uint32_t         depthOrLayers = 1;
-    uint32_t         numLevels    = 1;
-    GpuTextureFormat format       = GpuTextureFormat::R8G8B8A8_Unorm;
-    GpuSampleCount   sampleCount  = GpuSampleCount::x1;
-    GpuTextureUsage  usage        = GpuTextureUsage::Sampler;
-    GpuTextureType   type         = GpuTextureType::Tex2D;
+    uint32_t         numLevels     = 1;
+    GpuTextureFormat format        = GpuTextureFormat::R8G8B8A8_Unorm;
+    GpuSampleCount   sampleCount   = GpuSampleCount::x1;
+    GpuTextureUsage  usage         = GpuTextureUsage::Sampler;
+    GpuTextureType   type          = GpuTextureType::Tex2D;
 };
 
 struct GpuBufferCreateInfo {
-    uint32_t      size  = 0;
+    uint32_t       size  = 0;
     GpuBufferUsage usage = GpuBufferUsage::Vertex;
 };
 
@@ -269,105 +280,105 @@ struct GpuTransferBufferCreateInfo {
 };
 
 struct GpuSamplerCreateInfo {
-    GpuFilter            minFilter   = GpuFilter::Nearest;
-    GpuFilter            magFilter   = GpuFilter::Nearest;
-    GpuFilter            mipFilter   = GpuFilter::Nearest;
+    GpuFilter             minFilter  = GpuFilter::Nearest;
+    GpuFilter             magFilter  = GpuFilter::Nearest;
+    GpuFilter             mipFilter  = GpuFilter::Nearest;
     GpuSamplerAddressMode addressU   = GpuSamplerAddressMode::ClampToEdge;
     GpuSamplerAddressMode addressV   = GpuSamplerAddressMode::ClampToEdge;
     GpuSamplerAddressMode addressW   = GpuSamplerAddressMode::ClampToEdge;
-    float                mipLodBias  = 0.0f;
-    float                maxAniso    = 1.0f;
-    float                minLod      = 0.0f;
-    float                maxLod      = 1000.0f;
+    float                 mipLodBias = 0.0f;
+    float                 maxAniso   = 1.0f;
+    float                 minLod     = 0.0f;
+    float                 maxLod     = 1000.0f;
 };
 
 struct GpuShaderCreateInfo {
-    const uint8_t*  code                 = nullptr;
-    size_t          codeSize             = 0;
-    const char*     entrypoint           = "main";
-    GpuShaderStage  stage                = GpuShaderStage::Vertex;
-    uint32_t        samplerCount         = 0;
-    uint32_t        uniformBufferCount   = 0;
-    uint32_t        storageBufferCount   = 0;
-    uint32_t        storageTextureCount  = 0;
+    const uint8_t *code                = nullptr;
+    size_t         codeSize            = 0;
+    const char    *entrypoint          = "main";
+    GpuShaderStage stage               = GpuShaderStage::Vertex;
+    uint32_t       samplerCount        = 0;
+    uint32_t       uniformBufferCount  = 0;
+    uint32_t       storageBufferCount  = 0;
+    uint32_t       storageTextureCount = 0;
     // Bit i set = fragment sampler pair i binds a cube texture, so its WebGPU bind-group layout
     // entry needs a Cube view dimension. Default 0 = all 2D. Ignored by SDL_GPU.
-    uint32_t        samplerCubeMask      = 0;
+    uint32_t samplerCubeMask = 0;
 };
 
 struct GpuVertexAttribute {
-    uint32_t              location = 0;
-    uint32_t              binding  = 0;
-    GpuVertexElementFormat format  = GpuVertexElementFormat::Float4;
-    uint32_t              offset   = 0;
+    uint32_t               location = 0;
+    uint32_t               binding  = 0;
+    GpuVertexElementFormat format   = GpuVertexElementFormat::Float4;
+    uint32_t               offset   = 0;
 };
 
 struct GpuVertexBinding {
-    uint32_t binding         = 0;
-    uint32_t stride          = 0;
+    uint32_t binding          = 0;
+    uint32_t stride           = 0;
     bool     instanceStepping = false;
 };
 
 struct GpuColorTargetBlendState {
-    bool           blendEnabled    = false;
-    GpuBlendFactor srcColorFactor  = GpuBlendFactor::One;
-    GpuBlendFactor dstColorFactor  = GpuBlendFactor::Zero;
-    GpuBlendOp     colorOp         = GpuBlendOp::Add;
-    GpuBlendFactor srcAlphaFactor  = GpuBlendFactor::One;
-    GpuBlendFactor dstAlphaFactor  = GpuBlendFactor::Zero;
-    GpuBlendOp     alphaOp         = GpuBlendOp::Add;
+    bool           blendEnabled   = false;
+    GpuBlendFactor srcColorFactor = GpuBlendFactor::One;
+    GpuBlendFactor dstColorFactor = GpuBlendFactor::Zero;
+    GpuBlendOp     colorOp        = GpuBlendOp::Add;
+    GpuBlendFactor srcAlphaFactor = GpuBlendFactor::One;
+    GpuBlendFactor dstAlphaFactor = GpuBlendFactor::Zero;
+    GpuBlendOp     alphaOp        = GpuBlendOp::Add;
 };
 
 struct GpuGraphicsPipelineCreateInfo {
-    GpuShaderHandle              vertexShader   = 0;
-    GpuShaderHandle              fragmentShader = 0;
+    GpuShaderHandle vertexShader   = 0;
+    GpuShaderHandle fragmentShader = 0;
 
     // vertex input
-    const GpuVertexAttribute*    attributes     = nullptr;
-    uint32_t                     attributeCount = 0;
-    const GpuVertexBinding*      bindings       = nullptr;
-    uint32_t                     bindingCount   = 0;
+    const GpuVertexAttribute *attributes     = nullptr;
+    uint32_t                  attributeCount = 0;
+    const GpuVertexBinding   *bindings       = nullptr;
+    uint32_t                  bindingCount   = 0;
 
     // rasterizer
-    GpuFillMode                  fillMode       = GpuFillMode::Fill;
-    GpuCullMode                  cullMode       = GpuCullMode::None;
-    GpuFrontFace                 frontFace      = GpuFrontFace::CounterClockwise;
+    GpuFillMode  fillMode  = GpuFillMode::Fill;
+    GpuCullMode  cullMode  = GpuCullMode::None;
+    GpuFrontFace frontFace = GpuFrontFace::CounterClockwise;
 
     // render target. Single target: set colorTargetFormat (+ blend). Multiple render targets
     // (MRT): set colorTargetCount > 0 and fill colorTargetFormats[]/colorTargetBlends[]; the
     // single colorTargetFormat/blend above are then ignored.
-    static constexpr uint32_t    MAX_COLOR_TARGETS = 4;
-    GpuTextureFormat             colorTargetFormat  = GpuTextureFormat::R8G8B8A8_Unorm;
-    GpuColorTargetBlendState     blend              = {};
-    uint32_t                     colorTargetCount   = 0;   // 0 = use the single colorTargetFormat
-    GpuTextureFormat             colorTargetFormats[MAX_COLOR_TARGETS] = {};
-    GpuColorTargetBlendState     colorTargetBlends[MAX_COLOR_TARGETS]  = {};
-    bool                         hasDepthTarget     = false;
-    GpuTextureFormat             depthTargetFormat  = GpuTextureFormat::D32_Float;
-    GpuSampleCount               sampleCount        = GpuSampleCount::x1;
-    uint32_t                     vertexStorageBufferCount = 0;  // read-only storage buffers bound at group 3, vertex stage
+    static constexpr uint32_t MAX_COLOR_TARGETS                     = 4;
+    GpuTextureFormat          colorTargetFormat                     = GpuTextureFormat::R8G8B8A8_Unorm;
+    GpuColorTargetBlendState  blend                                 = {};
+    uint32_t                  colorTargetCount                      = 0; // 0 = use the single colorTargetFormat
+    GpuTextureFormat          colorTargetFormats[MAX_COLOR_TARGETS] = {};
+    GpuColorTargetBlendState  colorTargetBlends[MAX_COLOR_TARGETS]  = {};
+    bool                      hasDepthTarget                        = false;
+    GpuTextureFormat          depthTargetFormat                     = GpuTextureFormat::D32_Float;
+    GpuSampleCount            sampleCount                           = GpuSampleCount::x1;
+    uint32_t                  vertexStorageBufferCount              = 0; // read-only storage buffers bound at group 3, vertex stage
 };
 
 struct GpuComputePipelineCreateInfo {
-    const uint8_t*  code                           = nullptr;
-    size_t          codeSize                       = 0;
-    const char*     entrypoint                     = "main";
-    uint32_t        threadCountX                   = 1;
-    uint32_t        threadCountY                   = 1;
-    uint32_t        threadCountZ                   = 1;
-    uint32_t        samplerCount                   = 0;
-    uint32_t        readonlyStorageTextureCount    = 0;
-    uint32_t        readwriteStorageTextureCount   = 0;
-    uint32_t        readonlyStorageBufferCount     = 0;
-    uint32_t        readwriteStorageBufferCount    = 0;
-    uint32_t        uniformBufferCount             = 0;
+    const uint8_t *code                         = nullptr;
+    size_t         codeSize                     = 0;
+    const char    *entrypoint                   = "main";
+    uint32_t       threadCountX                 = 1;
+    uint32_t       threadCountY                 = 1;
+    uint32_t       threadCountZ                 = 1;
+    uint32_t       samplerCount                 = 0;
+    uint32_t       readonlyStorageTextureCount  = 0;
+    uint32_t       readwriteStorageTextureCount = 0;
+    uint32_t       readonlyStorageBufferCount   = 0;
+    uint32_t       readwriteStorageBufferCount  = 0;
+    uint32_t       uniformBufferCount           = 0;
     // WebGPU only: per-binding storage texture format for BGL. Must match WGSL
     // texture_storage_2d<FORMAT, ...> declaration. nullptr → defaults to RGBA8Unorm.
-    const GpuTextureFormat* readonlyStorageTextureFormats  = nullptr;
-    const GpuTextureFormat* readwriteStorageTextureFormats = nullptr;
+    const GpuTextureFormat *readonlyStorageTextureFormats  = nullptr;
+    const GpuTextureFormat *readwriteStorageTextureFormats = nullptr;
     // WebGPU only: per-binding access mode override for the RW storage texture group.
     // true = WriteOnly (matches GLSL `writeonly image2D`), false = ReadWrite. nullptr → all RW.
-    const bool* readwriteStorageTextureWriteOnly = nullptr;
+    const bool *readwriteStorageTextureWriteOnly = nullptr;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -26,15 +26,15 @@
 
 /// @cond INTERNAL
 struct Mode7Parameters {
-    int h = 0;
-    int v = 0;
-    int x0 = 0;
-    int y0 = 0;
-    int a = 0;
-    int b = 0;
-    int c = 0;
-    int d = 0;
-    int snesScreenWidth = 256;
+    int h                = 0;
+    int v                = 0;
+    int x0               = 0;
+    int y0               = 0;
+    int a                = 0;
+    int b                = 0;
+    int c                = 0;
+    int d                = 0;
+    int snesScreenWidth  = 256;
     int snesScreenHeight = 224;
 };
 /// @endcond
@@ -43,7 +43,7 @@ struct Mode7Parameters {
  * @brief Provides functionality for 2D rendering operations.
  */
 class Draw {
-    using TextureType = TextureAsset&;  // not "= Texture": naming the Texture type in-class clashes with the Texture() method (GCC -Wchanges-meaning)
+    using TextureType = TextureAsset &; // not "= Texture": naming the Texture type in-class clashes with the Texture() method (GCC -Wchanges-meaning)
 public:
     /**
      * @brief Draws a pixel at the specified position with the given color.
@@ -247,7 +247,7 @@ public:
      * @param angle The angle of rotation.
      * @param pivot Where on the texture to rotate in normalized space.
      */
-    static void RotatedTexture(TextureType texture, vf2d pos, vf2d size, float angle, vf2d pivot = {0.5f, 0.5f}, Color color = WHITE) {
+    static void RotatedTexture(TextureType texture, vf2d pos, vf2d size, float angle, vf2d pivot = { 0.5f, 0.5f }, Color color = WHITE) {
         get()._drawRotatedTexture(texture, pos, size, angle, pivot, color);
     };
 
@@ -276,7 +276,7 @@ public:
      * @param params Mode 7 transformation parameters (matrix, origin, scroll).
      * @param color The color tint to apply.
      */
-    static void Mode7Texture(TextureType texture, vf2d pos, vf2d size, const Mode7Parameters& params, Color color = WHITE) {
+    static void Mode7Texture(TextureType texture, vf2d pos, vf2d size, const Mode7Parameters &params, Color color = WHITE) {
         get()._drawMode7Texture(texture, pos, size, params, color);
     };
 
@@ -292,8 +292,8 @@ public:
      * @param color The color tint to apply.
      * @param scanlineStep Process every Nth scanline (default 1). Higher values = fewer strips, better performance.
      */
-    static void Mode7TextureScanline(TextureType texture, vf2d pos, vf2d size, 
-        std::function<Mode7Parameters(int)> getParamsForLine, 
+    static void Mode7TextureScanline(TextureType texture, vf2d pos, vf2d size,
+        std::function<Mode7Parameters(int)> getParamsForLine,
         Color color = WHITE, int scanlineStep = 1) {
         get()._drawMode7TextureScanline(texture, pos, size, getParamsForLine, color, scanlineStep);
     };
@@ -303,7 +303,7 @@ public:
      *
      * @param area The area to apply scissor mode.
      */
-    static void SetScissorMode(const rectf& area) { get()._setScissorMode(area); };
+    static void SetScissorMode(const rectf &area) { get()._setScissorMode(area); };
 
     /**
      * @brief Begins 2D rendering mode.
@@ -320,7 +320,7 @@ public:
 
     /// @brief Routes subsequent draw calls into the named render pass.
     /// @param newTargetRenderPass Name of the render pass to draw into.
-    static void SetTargetRenderPass(const std::string& newTargetRenderPass) { get()._setTargetRenderPass(newTargetRenderPass); }
+    static void SetTargetRenderPass(const std::string &newTargetRenderPass) { get()._setTargetRenderPass(newTargetRenderPass); }
 
     /// @brief Returns the name of the render pass draws are currently routed to.
     static std::string GetTargetRenderPass() { return get()._getTargetRenderPass(); }
@@ -328,25 +328,25 @@ public:
     /**
      * @brief Sets the active effect for subsequent draw calls.
      * Replaces any previously set effect.
-     * 
+     *
      * @param effect The effect to apply
      */
-    static void SetEffect(const EffectAsset& effect) { get()._setEffect(effect); }
+    static void SetEffect(const EffectAsset &effect) { get()._setEffect(effect); }
 
     /**
      * @brief Adds an additional effect to the effect stack.
      * Effects are applied in the order they were added.
-     * 
+     *
      * @param effect The effect to add to the stack
      */
-    static void AddEffect(const EffectAsset& effect) { get()._addEffect(effect); }
+    static void AddEffect(const EffectAsset &effect) { get()._addEffect(effect); }
 
     /**
      * @brief Removes a specific effect from the effect stack.
-     * 
+     *
      * @param effect The effect to remove
      */
-    static void RemoveEffect(const EffectAsset& effect) { get()._removeEffect(effect); }
+    static void RemoveEffect(const EffectAsset &effect) { get()._removeEffect(effect); }
 
     /**
      * @brief Clears all active effects.
@@ -356,11 +356,11 @@ public:
     /**
      * @brief Sets an additional texture binding for the current effect.
      * Allows effects to access multiple input textures.
-     * 
+     *
      * @param binding The binding index (0, 1, 2, etc.) corresponding to shader layout
      * @param texture The texture to bind at this index
      */
-    static void SetEffectTexture(uint32_t binding, const TextureAsset& texture, ScaleMode scaleMode = ScaleMode::Nearest) { get()._setEffectTexture(binding, texture, scaleMode); }
+    static void SetEffectTexture(uint32_t binding, const TextureAsset &texture, ScaleMode scaleMode = ScaleMode::Nearest) { get()._setEffectTexture(binding, texture, scaleMode); }
 
     /**
      * @brief Clears all additional effect texture bindings.
@@ -370,24 +370,30 @@ public:
     /**
      * @brief Gets the current effect stack (for internal use by Renderer).
      */
-    static const std::vector<EffectAsset>& GetEffectStack() { return get()._effectStack; }
+    static const std::vector<EffectAsset> &GetEffectStack() { return get()._effectStack; }
 
     /**
      * @brief Gets additional effect textures (for internal use by Renderer).
      */
-    static const std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>>& GetEffectTextures() { return get()._effectTextures; }
+    static const std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>> &GetEffectTextures() { return get()._effectTextures; }
 
     /**
      * @brief Gets the effect store for the current frame (for internal use by render passes).
      */
-    static const std::vector<std::vector<EffectAsset>>& GetEffectStore() { return get()._effectStore; }
+    static const std::vector<std::vector<EffectAsset>> &GetEffectStore() { return get()._effectStore; }
     /// @brief Returns the per-pass effect input-texture store used when applying effects.
-    static const std::vector<std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>>>& GetEffectTextureStore() { return get()._effectTextureStore; }
+    static const std::vector<std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>>> &GetEffectTextureStore() { return get()._effectTextureStore; }
 
     /**
      * @brief Resets the per-frame effect store. Called at frame start.
      */
-    static void ResetEffectStore() { get()._effectStore.clear(); get()._effectTextureStore.clear(); get()._currentEffectIndex = -1; get()._effectStackDirty = true; get()._releaseFrameGeometry(); }
+    static void ResetEffectStore() {
+        get()._effectStore.clear();
+        get()._effectTextureStore.clear();
+        get()._currentEffectIndex = -1;
+        get()._effectStackDirty   = true;
+        get()._releaseFrameGeometry();
+    }
 
     /**
      * @brief Releases all pixel textures allocated during this frame. Called automatically by Renderer::EndFrame.
@@ -403,12 +409,10 @@ public:
      *
      * @param handle Handle returned by Particles::CreateSystem().
      */
-    static void Particles(const ParticleSystemHandle& handle);
-
+    static void Particles(const ParticleSystemHandle &handle);
 
 private:
-
-    void _drawPixel(const vi2d& pos, Color color);
+    void _drawPixel(const vi2d &pos, Color color);
 
     void _drawLine(vf2d start, vf2d end, Color color);
 
@@ -416,15 +420,15 @@ private:
 
     void _drawTriangle(vf2d v1, vf2d v2, vf2d v3, Color color);
 
-    void _drawRectangle(const vf2d& pos, const vf2d& size, Color color);
+    void _drawRectangle(const vf2d &pos, const vf2d &size, Color color);
 
-    void _drawRectangleRounded(vf2d pos, const vf2d& size, float radius, Color color);
+    void _drawRectangleRounded(vf2d pos, const vf2d &size, float radius, Color color);
 
     void _drawCircle(vf2d pos, float radius, Color color, int segments);
 
     void _drawEllipse(vf2d center, float radiusX, float radiusY, Color color);
 
-    void _drawArc(const vf2d& center, float radius, float startAngle, float endAngle, int segments, Color color);
+    void _drawArc(const vf2d &center, float radius, float startAngle, float endAngle, int segments, Color color);
 
     void _drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color);
 
@@ -438,29 +442,29 @@ private:
 
     void _drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color);
 
-    void _drawTexture(TextureType texture, const vf2d& pos, const vf2d& size, Color color = WHITE);
+    void _drawTexture(TextureType texture, const vf2d &pos, const vf2d &size, Color color = WHITE);
 
-    void _drawTexturePart(TextureType texture, const vf2d& pos, const vf2d& size, const rectf& src, Color color = WHITE);
+    void _drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &size, const rectf &src, Color color = WHITE);
 
-    void _drawRotatedTexture(TextureType texture, vf2d pos, vf2d size, float angle, const vf2d& pivot,Color color = WHITE);
+    void _drawRotatedTexture(TextureType texture, vf2d pos, vf2d size, float angle, const vf2d &pivot, Color color = WHITE);
 
-    void _drawRotatedTexturePart(TextureType texture, vf2d pos, vf2d size, const rectf& src, float angle, const vf2d& pivot,Color color = WHITE);
+    void _drawRotatedTexturePart(TextureType texture, vf2d pos, vf2d size, const rectf &src, float angle, const vf2d &pivot, Color color = WHITE);
 
-    void _drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mode7Parameters& params, Color color);
+    void _drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mode7Parameters &params, Color color);
 
     void _drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size, std::function<Mode7Parameters(int)> getParamsForLine, Color color, int scanlineStep);
 
-    void _setScissorMode(const rectf& area);
+    void _setScissorMode(const rectf &area);
 
     void _beginMode2D();
 
     void _endMode2D();
 
-    rectf _doCamera(const vf2d& pos, const vf2d& size);
+    rectf _doCamera(const vf2d &pos, const vf2d &size);
 
     void _resetTargetRenderPass() { get()._setTargetRenderPass("2dsprites"); }
 
-    void _setTargetRenderPass(const std::string& newTargetRenderPass) {
+    void _setTargetRenderPass(const std::string &newTargetRenderPass) {
         get()._targetRenderPass = newTargetRenderPass;
         get()._cachedRenderPass = Renderer::FindRenderPass(newTargetRenderPass);
     }
@@ -468,7 +472,7 @@ private:
     std::string _getTargetRenderPass() { return get()._targetRenderPass; }
 
     // Resolve cached pointer lazily (for first frame before SetTargetRenderPass is called)
-    RenderPass* _getTargetPass() {
+    RenderPass *_getTargetPass() {
         if (!_cachedRenderPass) {
             _cachedRenderPass = Renderer::FindRenderPass(_targetRenderPass);
         }
@@ -476,47 +480,53 @@ private:
     }
 
     std::string _targetRenderPass = "2dsprites";
-    RenderPass* _cachedRenderPass = nullptr;
+    RenderPass *_cachedRenderPass = nullptr;
 
     // Effect system
-    std::vector<EffectAsset> _effectStack;
+    std::vector<EffectAsset>                                             _effectStack;
     std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>> _effectTextures;
 
     // Effect store - small side-channel for per-frame effect data
     // Avoids copying effect vectors into every Renderable
-    std::vector<std::vector<EffectAsset>> _effectStore;
+    std::vector<std::vector<EffectAsset>>                                             _effectStore;
     std::vector<std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>>> _effectTextureStore;
-    int32_t _currentEffectIndex = -1;  // Cached index for current _effectStack
-    bool _effectStackDirty = true;     // True when _effectStack changed since last index lookup
-    
+    int32_t                                                                           _currentEffectIndex = -1;   // Cached index for current _effectStack
+    bool                                                                              _effectStackDirty   = true; // True when _effectStack changed since last index lookup
+
     int32_t _getOrCreateEffectIndex();
-    
-    void _setEffect(const EffectAsset& effect);
-    void _addEffect(const EffectAsset& effect);
-    void _removeEffect(const EffectAsset& effect);
+
+    void _setEffect(const EffectAsset &effect);
+    void _addEffect(const EffectAsset &effect);
+    void _removeEffect(const EffectAsset &effect);
     void _clearEffects();
-    void _setEffectTexture(uint32_t binding, const TextureAsset& texture, ScaleMode scaleMode);
+    void _setEffectTexture(uint32_t binding, const TextureAsset &texture, ScaleMode scaleMode);
     void _clearEffectTextures();
 
     // Per-frame dynamically allocated geometry (e.g. TriangleFilled) — freed at frame end
-    std::vector<Geometry2D*> _frameGeometry;
-    void _releaseFrameGeometry() { for (auto* g : _frameGeometry) { g->Release(); delete g; } _frameGeometry.clear(); }
+    std::vector<Geometry2D *> _frameGeometry;
+    void                      _releaseFrameGeometry() {
+        for (auto *g : _frameGeometry) {
+            g->Release();
+            delete g;
+        }
+        _frameGeometry.clear();
+    }
 
     // Pixel buffer system
-    GpuTransferBufferHandle      _pixelTransferBuffer = 0;   // Single reusable upload buffer
-    std::vector<GpuTextureHandle> _pixelFrameTextures;       // Textures allocated this frame
-    std::vector<GpuTextureHandle> _pixelPrevFrameTextures;   // Textures from previous frame, safe to release
-    bool _pixelsDirty = false;
-    uint32_t _pixelBufferWidth = 0;
-    uint32_t _pixelBufferHeight = 0;
-    std::vector<uint32_t> _pixelBufferData;  // RGBA8888 format
+    GpuTransferBufferHandle       _pixelTransferBuffer = 0; // Single reusable upload buffer
+    std::vector<GpuTextureHandle> _pixelFrameTextures;      // Textures allocated this frame
+    std::vector<GpuTextureHandle> _pixelPrevFrameTextures;  // Textures from previous frame, safe to release
+    bool                          _pixelsDirty       = false;
+    uint32_t                      _pixelBufferWidth  = 0;
+    uint32_t                      _pixelBufferHeight = 0;
+    std::vector<uint32_t>         _pixelBufferData; // RGBA8888 format
 
     void _initPixelBuffer();
     void _flushPixels();
     void _cleanupPixelBuffer();
-    void _releaseFramePixelTextures();  // Call at frame end
+    void _releaseFramePixelTextures(); // Call at frame end
 
-//Singleton part
+    // Singleton part
 public:
     /// @cond INTERNAL
     Draw(const Draw &) = delete;
@@ -529,9 +539,8 @@ public:
 
 private:
     Draw() {
-
     }
-    
+
     ~Draw() {
         _cleanupPixelBuffer();
     }

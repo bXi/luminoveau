@@ -6,11 +6,11 @@
 
 namespace Shaders {
 
-void Init() {}
-void Quit() {}
+void Init() { }
+void Quit() { }
 
-const char* GetVertexEntryPoint()   { return "vs_main"; }
-const char* GetFragmentEntryPoint() { return "fs_main"; }
-const char* GetComputeEntryPoint()  { return "main"; }
+const char *GetVertexEntryPoint() { return "vs_main"; }
+const char *GetFragmentEntryPoint() { return "fs_main"; }
+const char *GetComputeEntryPoint() { return "main"; }
 
-}
+} // namespace Shaders

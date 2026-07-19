@@ -47,35 +47,35 @@ class RenderPass;
 
 /// @brief Configuration for creating a sprite render target (off-screen or on-screen).
 struct SpriteRenderTargetConfig {
-    BlendMode       blendMode     = BlendMode::SrcAlpha; ///< Blend mode used when drawing into the target.
-    bool            clearOnLoad   = true;                ///< Whether to clear the target at the start of each frame.
-    Color           clearColor    = BLACK;              ///< Clear color used when clearOnLoad is true.
-    bool            renderToScreen = false;             ///< If true, composite this target onto the swapchain.
-    uint32_t        width         = 0;                  ///< Target width in pixels (0 = desktop size).
-    uint32_t        height        = 0;                  ///< Target height in pixels (0 = desktop size).
-    size_t          maxSprites    = 0;                  ///< Sprite batch capacity (0 = MAX_SPRITES default).
-    GpuTextureFormat format       = GpuTextureFormat::Invalid; ///< Pixel format (Invalid = swapchain format; e.g. R16G16B16A16_Float for HDR).
-    bool            preComputeFlush = false;            ///< Render this target's passes before compute dispatches (same-frame compute reads).
+    BlendMode        blendMode       = BlendMode::SrcAlpha;       ///< Blend mode used when drawing into the target.
+    bool             clearOnLoad     = true;                      ///< Whether to clear the target at the start of each frame.
+    Color            clearColor      = BLACK;                     ///< Clear color used when clearOnLoad is true.
+    bool             renderToScreen  = false;                     ///< If true, composite this target onto the swapchain.
+    uint32_t         width           = 0;                         ///< Target width in pixels (0 = desktop size).
+    uint32_t         height          = 0;                         ///< Target height in pixels (0 = desktop size).
+    size_t           maxSprites      = 0;                         ///< Sprite batch capacity (0 = MAX_SPRITES default).
+    GpuTextureFormat format          = GpuTextureFormat::Invalid; ///< Pixel format (Invalid = swapchain format; e.g. R16G16B16A16_Float for HDR).
+    bool             preComputeFlush = false;                     ///< Render this target's passes before compute dispatches (same-frame compute reads).
 };
 
 /// @brief A render target: its textures, the passes that draw into it, and compositing flags.
 struct FrameBuffer {
-    GpuTextureHandle fbContent     = 0;  ///< Resolved non-MSAA texture (for screen display).
-    GpuTextureHandle fbContentMSAA = 0;  ///< MSAA color texture (used when MSAA is enabled).
-    GpuTextureHandle fbDepthMSAA   = 0;  ///< MSAA depth texture (shared by all passes).
+    GpuTextureHandle fbContent     = 0; ///< Resolved non-MSAA texture (for screen display).
+    GpuTextureHandle fbContentMSAA = 0; ///< MSAA color texture (used when MSAA is enabled).
+    GpuTextureHandle fbDepthMSAA   = 0; ///< MSAA depth texture (shared by all passes).
 
-    uint32_t width  = 0;                 ///< Framebuffer width in pixels.
-    uint32_t height = 0;                 ///< Framebuffer height in pixels.
+    uint32_t width  = 0; ///< Framebuffer width in pixels.
+    uint32_t height = 0; ///< Framebuffer height in pixels.
 
-    std::vector<std::pair<std::string, RenderPass*>> renderpasses; ///< Named render passes drawn into this target, in order.
+    std::vector<std::pair<std::string, RenderPass *>> renderpasses; ///< Named render passes drawn into this target, in order.
 
-    bool renderToScreen    = false;      ///< Whether this target is composited onto the swapchain.
-    bool noMSAA            = false;      ///< True for effect targets that always render to 1× textures.
-    bool additiveBlend     = false;      ///< Use the additive pipeline when compositing onto the swapchain.
-    bool fixedSize         = false;      ///< True when width/height were set explicitly (skip canvas-resize).
-    bool preComputeFlush   = false;      ///< Run passes before compute dispatches (eliminates 1-frame GI lag).
+    bool renderToScreen  = false; ///< Whether this target is composited onto the swapchain.
+    bool noMSAA          = false; ///< True for effect targets that always render to 1× textures.
+    bool additiveBlend   = false; ///< Use the additive pipeline when compositing onto the swapchain.
+    bool fixedSize       = false; ///< True when width/height were set explicitly (skip canvas-resize).
+    bool preComputeFlush = false; ///< Run passes before compute dispatches (eliminates 1-frame GI lag).
 
-    TextureAsset textureView;            ///< A TextureAsset view over fbContent for sampling.
+    TextureAsset textureView; ///< A TextureAsset view over fbContent for sampling.
 };
 
 /**
@@ -159,7 +159,7 @@ public:
      * @param targetBuffers List of framebuffer names to attach this pass to (defaults to primaryFramebuffer).
      */
     static void AddShaderPass(const std::string &passname, const ShaderAsset &vertShader, const ShaderAsset &fragShader,
-                              std::vector<std::string> targetBuffers = std::vector<std::string>()) {
+        std::vector<std::string> targetBuffers = std::vector<std::string>()) {
         get()._addShaderPass(passname, vertShader, fragShader, std::move(targetBuffers));
     }
 
@@ -251,9 +251,9 @@ public:
      * On non-WebGPU builds this is a 1:1 pass-through.
      */
     static vf2d CanvasToLogical(float cx, float cy) {
-        auto& r = get();
+        auto &r = get();
         return { r.m_blitLogicalOffsetX + cx * r.m_blitInvScaleX,
-                 r.m_blitLogicalOffsetY + cy * r.m_blitInvScaleY };
+            r.m_blitLogicalOffsetY + cy * r.m_blitInvScaleY };
     }
 
     /**
@@ -272,7 +272,7 @@ public:
      * @param passname Name of the render pass.
      * @return Pointer to the RenderPass, or nullptr if not found.
      */
-    static RenderPass* FindRenderPass(const std::string& passname) {
+    static RenderPass *FindRenderPass(const std::string &passname) {
         return get()._findRenderPass(passname);
     }
 
@@ -299,8 +299,9 @@ public:
     // Call from Window::_startFrame(), before ImGui::NewFrame(), so _reset()
     // runs before the frame begins (not mid-frame where waitIdle() would abort).
     static bool ConsumePendingReset() {
-        auto& r = get();
-        if (!r.m_pendingReset) return false;
+        auto &r = get();
+        if (!r.m_pendingReset)
+            return false;
         r.m_pendingReset = false;
         return true;
     }
@@ -326,16 +327,16 @@ public:
      *
      * @return Pointer to the quad geometry.
      */
-    static Geometry2D* GetQuadGeometry() { return get()._getQuadGeometry(); }
-    
+    static Geometry2D *GetQuadGeometry() { return get()._getQuadGeometry(); }
+
     /**
      * @brief Retrieves a circle geometry with the specified number of segments.
      *
      * @param segments Number of triangle segments (default 32).
      * @return Pointer to the circle geometry.
      */
-    static Geometry2D* GetCircleGeometry(int segments = 32) { return get()._getCircleGeometry(segments); }
-    
+    static Geometry2D *GetCircleGeometry(int segments = 32) { return get()._getCircleGeometry(segments); }
+
     /**
      * @brief Retrieves a rounded rectangle geometry with the specified corner radii and segments.
      *
@@ -344,10 +345,9 @@ public:
      * @param cornerSegments Number of segments per corner arc (default 8).
      * @return Pointer to the rounded rectangle geometry.
      */
-    static Geometry2D* GetRoundedRectGeometry(float cornerRadiusX, float cornerRadiusY, int cornerSegments = 8) { 
-        return get()._getRoundedRectGeometry(cornerRadiusX, cornerRadiusY, cornerSegments); 
+    static Geometry2D *GetRoundedRectGeometry(float cornerRadiusX, float cornerRadiusY, int cornerSegments = 8) {
+        return get()._getRoundedRectGeometry(cornerRadiusX, cornerRadiusY, cornerSegments);
     }
-
 
     /**
      * @brief Gets the current MSAA sample count setting.
@@ -357,7 +357,7 @@ public:
     /**
      * @brief Retrieves the active GPU backend interface.
      */
-    static IGpu& GetGpu() { return *get().m_gpu; }
+    static IGpu &GetGpu() { return *get().m_gpu; }
 
     /**
      * @brief True while the GPU backend is alive. False after Renderer::Close()
@@ -368,14 +368,13 @@ public:
     /// @brief Compiles a compute pipeline from a shader file.
     /// @param shaderPath Path to the compute shader source.
     /// @return The created compute pipeline asset (invalid handle on failure).
-    static ComputePipelineAsset CreateComputePipelineAsset(const std::string& shaderPath);
-
+    static ComputePipelineAsset CreateComputePipelineAsset(const std::string &shaderPath);
 
     /// @brief Returns the current MSAA sample count of the main render target.
     static GpuSampleCount GetSampleCount() { return get().currentSampleCount; }
 
     /// @brief Returns the canvas/swapchain width in pixels.
-    static uint32_t GetCanvasWidth()  { return get().m_canvasWidth;  }
+    static uint32_t GetCanvasWidth() { return get().m_canvasWidth; }
     /// @brief Returns the canvas/swapchain height in pixels.
     static uint32_t GetCanvasHeight() { return get().m_canvasHeight; }
 
@@ -388,7 +387,7 @@ public:
      * @param w Canvas width in pixels.
      * @param h Canvas height in pixels.
      */
-    static void     SetCanvasSize(uint32_t w, uint32_t h) {
+    static void SetCanvasSize(uint32_t w, uint32_t h) {
         get().m_canvasWidth  = w;
         get().m_canvasHeight = h;
         get()._updateCameraProjection();
@@ -415,7 +414,7 @@ public:
      * @param name Name of the render target.
      * @param config Configuration options for the render target.
      */
-    static void CreateSpriteRenderTarget(const std::string& name, const SpriteRenderTargetConfig& config = {}) {
+    static void CreateSpriteRenderTarget(const std::string &name, const SpriteRenderTargetConfig &config = {}) {
         get()._createSpriteRenderTarget(name, config);
     }
 
@@ -427,7 +426,7 @@ public:
      * @param name Name of the render target to remove.
      * @param removeFramebuffer If true, also removes the framebuffer (default: true).
      */
-    static void RemoveSpriteRenderTarget(const std::string& name, bool removeFramebuffer = true) {
+    static void RemoveSpriteRenderTarget(const std::string &name, bool removeFramebuffer = true) {
         get()._removeSpriteRenderTarget(name, removeFramebuffer);
     }
 
@@ -436,14 +435,14 @@ public:
      * end of frame (after its passes render) and written asynchronously, like the
      * swapchain screenshot path. Lets callers persist offscreen render targets.
      */
-    static void CaptureFramebuffer(const std::string& fbName, const std::string& filename) {
-        get().m_pendingFbCaptures.push_back({fbName, filename});
+    static void CaptureFramebuffer(const std::string &fbName, const std::string &filename) {
+        get().m_pendingFbCaptures.push_back({ fbName, filename });
     }
 
 private:
-    SDL_GPUDevice        *m_device = nullptr;  // null under WebGPU backend
-    GpuCmdBufferHandle    m_cmdbuf = 0;
-    std::vector<std::pair<std::string, std::string>> m_pendingFbCaptures;  // (fbName, file)
+    SDL_GPUDevice                                   *m_device = nullptr; // null under WebGPU backend
+    GpuCmdBufferHandle                               m_cmdbuf = 0;
+    std::vector<std::pair<std::string, std::string>> m_pendingFbCaptures; // (fbName, file)
 
     std::unique_ptr<IGpu> m_gpu;
 
@@ -485,7 +484,7 @@ private:
 
     GpuRenderPassHandle _getRenderPass(const std::string &passname);
 
-    RenderPass* _findRenderPass(const std::string& passname);
+    RenderPass *_findRenderPass(const std::string &passname);
 
     void _setScissorMode(const std::string &passname, const rectf &cliprect);
 
@@ -493,14 +492,14 @@ private:
 
     Texture _whitePixel();
 
-    Geometry2D* _getQuadGeometry();
-    Geometry2D* _getCircleGeometry(int segments);
-    Geometry2D* _getRoundedRectGeometry(float cornerRadiusX, float cornerRadiusY, int cornerSegments);
+    Geometry2D *_getQuadGeometry();
+    Geometry2D *_getCircleGeometry(int segments);
+    Geometry2D *_getRoundedRectGeometry(float cornerRadiusX, float cornerRadiusY, int cornerSegments);
 
     UniformBuffer &_getUniformBuffer(const std::string &passname);
 
-    TextureAsset _screenBuffer;
-    TextureAsset fs;
+    TextureAsset    _screenBuffer;
+    TextureAsset    fs;
     GpuShaderHandle rtt_vertex_shader   = 0;
     GpuShaderHandle rtt_fragment_shader = 0;
 
@@ -509,11 +508,10 @@ private:
     FrameBuffer *_getFramebuffer(std::string fbname);
 
     void _setSampleCount(GpuSampleCount sampleCount);
-    
-    void _createSpriteRenderTarget(const std::string& name, const SpriteRenderTargetConfig& config);
-    
-    void _removeSpriteRenderTarget(const std::string& name, bool removeFramebuffer);
-    
+
+    void _createSpriteRenderTarget(const std::string &name, const SpriteRenderTargetConfig &config);
+
+    void _removeSpriteRenderTarget(const std::string &name, bool removeFramebuffer);
 
     struct Uniforms {
         glm::mat4 camera;
@@ -567,6 +565,5 @@ public:
     /// @endcond
 
 private:
-    Renderer() {
-    };
+    Renderer() {};
 };

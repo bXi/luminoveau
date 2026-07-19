@@ -15,7 +15,8 @@
 std::string LogEntry::FormatTime() const {
     auto time = std::chrono::system_clock::to_time_t(timestamp);
     auto ms   = std::chrono::duration_cast<std::chrono::milliseconds>(
-        timestamp.time_since_epoch()) % 1000;
+                  timestamp.time_since_epoch())
+        % 1000;
 
     std::ostringstream oss;
     oss << std::put_time(std::localtime(&time), "%H:%M:%S");
@@ -26,7 +27,8 @@ std::string LogEntry::FormatTime() const {
 std::string LogEntry::FormatDateTime() const {
     auto time = std::chrono::system_clock::to_time_t(timestamp);
     auto ms   = std::chrono::duration_cast<std::chrono::milliseconds>(
-        timestamp.time_since_epoch()) % 1000;
+                  timestamp.time_since_epoch())
+        % 1000;
 
     std::ostringstream oss;
     oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S");
@@ -37,7 +39,8 @@ std::string LogEntry::FormatDateTime() const {
 std::string LogEntry::FormatDateTimeShort() const {
     auto time = std::chrono::system_clock::to_time_t(timestamp);
     auto ms   = std::chrono::duration_cast<std::chrono::milliseconds>(
-        timestamp.time_since_epoch()) % 1000;
+                  timestamp.time_since_epoch())
+        % 1000;
 
     std::ostringstream oss;
     oss << std::put_time(std::localtime(&time), "%m-%d %H:%M:%S");
@@ -84,21 +87,21 @@ std::string LogEntry::ToString() const {
 
     // Level
     switch (level) {
-        case LogLevel::Debug:
-            oss << "[DBUG] ";
-            break;
-        case LogLevel::Info:
-            oss << "[INFO] ";
-            break;
-        case LogLevel::Warning:
-            oss << "[WARN] ";
-            break;
-        case LogLevel::Error:
-            oss << "[ERRO] ";
-            break;
-        case LogLevel::Critical:
-            oss << "[CRIT] ";
-            break;
+    case LogLevel::Debug:
+        oss << "[DBUG] ";
+        break;
+    case LogLevel::Info:
+        oss << "[INFO] ";
+        break;
+    case LogLevel::Warning:
+        oss << "[WARN] ";
+        break;
+    case LogLevel::Error:
+        oss << "[ERRO] ";
+        break;
+    case LogLevel::Critical:
+        oss << "[CRIT] ";
+        break;
     }
 
     // Timestamp
@@ -113,27 +116,27 @@ std::string LogEntry::ToString() const {
 std::string LogEntry::ToColoredString() const {
     // ANSI color codes
     const char *reset     = "\033[0m";
-    const char *darkBlue  = "\033[34m";      // Dark blue for brackets
-    const char *lightBlue = "\033[94m";     // Light blue for "Lumi"
-    const char *gray      = "\033[90m";          // Gray for timestamp
+    const char *darkBlue  = "\033[34m"; // Dark blue for brackets
+    const char *lightBlue = "\033[94m"; // Light blue for "Lumi"
+    const char *gray      = "\033[90m"; // Gray for timestamp
     const char *levelColor;
 
     switch (level) {
-        case LogLevel::Debug:
-            levelColor = "\033[36m";
-            break; // Cyan
-        case LogLevel::Info:
-            levelColor = "\033[32m";
-            break; // Green
-        case LogLevel::Warning:
-            levelColor = "\033[33m";
-            break; // Yellow
-        case LogLevel::Error:
-            levelColor = "\033[31m";
-            break; // Red
-        case LogLevel::Critical:
-            levelColor = "\033[1;31m";
-            break; // Bold Red
+    case LogLevel::Debug:
+        levelColor = "\033[36m";
+        break; // Cyan
+    case LogLevel::Info:
+        levelColor = "\033[32m";
+        break; // Green
+    case LogLevel::Warning:
+        levelColor = "\033[33m";
+        break; // Yellow
+    case LogLevel::Error:
+        levelColor = "\033[31m";
+        break; // Red
+    case LogLevel::Critical:
+        levelColor = "\033[1;31m";
+        break; // Bold Red
     }
 
     std::ostringstream oss;
@@ -144,21 +147,21 @@ std::string LogEntry::ToColoredString() const {
     // Level with color
     oss << levelColor;
     switch (level) {
-        case LogLevel::Debug:
-            oss << "[DBUG]";
-            break;
-        case LogLevel::Info:
-            oss << "[INFO]";
-            break;
-        case LogLevel::Warning:
-            oss << "[WARN]";
-            break;
-        case LogLevel::Error:
-            oss << "[ERRO]";
-            break;
-        case LogLevel::Critical:
-            oss << "[CRIT]";
-            break;
+    case LogLevel::Debug:
+        oss << "[DBUG]";
+        break;
+    case LogLevel::Info:
+        oss << "[INFO]";
+        break;
+    case LogLevel::Warning:
+        oss << "[WARN]";
+        break;
+    case LogLevel::Error:
+        oss << "[ERRO]";
+        break;
+    case LogLevel::Critical:
+        oss << "[CRIT]";
+        break;
     }
     oss << reset << " ";
 
@@ -172,7 +175,8 @@ std::string LogEntry::ToColoredString() const {
 }
 
 // SDLConsoleSink implementation
-SDLConsoleSink::SDLConsoleSink(LogLevel minLevel) : minLevel(minLevel) {}
+SDLConsoleSink::SDLConsoleSink(LogLevel minLevel)
+    : minLevel(minLevel) { }
 
 void SDLConsoleSink::Write(const LogEntry &entry) {
     if (entry.level < minLevel) {
@@ -191,7 +195,9 @@ void SDLConsoleSink::Write(const LogEntry &entry) {
 
 // FileSink implementation
 FileSink::FileSink(const std::string &filename, LogLevel minLevel)
-    : filename(filename), minLevel(minLevel), file(nullptr) {
+    : filename(filename)
+    , minLevel(minLevel)
+    , file(nullptr) {
     file = std::fopen(filename.c_str(), "a");
     if (!file) {
         SDL_Log("Failed to open log file: {}", filename.c_str());
@@ -219,7 +225,8 @@ void FileSink::Flush() {
 }
 
 // MemoryBufferSink implementation
-MemoryBufferSink::MemoryBufferSink(size_t maxEntries) : maxEntries(maxEntries) {
+MemoryBufferSink::MemoryBufferSink(size_t maxEntries)
+    : maxEntries(maxEntries) {
     entries.reserve(maxEntries);
 }
 
@@ -240,7 +247,7 @@ std::vector<LogEntry> MemoryBufferSink::GetEntries(LogLevel minLevel) const {
     std::vector<LogEntry> result;
     result.reserve(entries.size());
 
-    for (const auto &entry: entries) {
+    for (const auto &entry : entries) {
         if (entry.level >= minLevel) {
             result.push_back(entry);
         }
@@ -255,7 +262,7 @@ std::vector<LogEntry> MemoryBufferSink::GetUserEntries() const {
     std::vector<LogEntry> result;
     result.reserve(entries.size());
 
-    for (const auto &entry: entries) {
+    for (const auto &entry : entries) {
         if (entry.isUserFacing) {
             result.push_back(entry);
         }
@@ -270,8 +277,9 @@ void MemoryBufferSink::Clear() {
 }
 
 // Log constructor - auto-initializes on first use
-Log::Log() : memoryBufferSink(nullptr) {
-    #ifdef _WIN32
+Log::Log()
+    : memoryBufferSink(nullptr) {
+#ifdef _WIN32
     // Enable ANSI colors
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hOut != INVALID_HANDLE_VALUE) {
@@ -281,15 +289,14 @@ Log::Log() : memoryBufferSink(nullptr) {
             SetConsoleMode(hOut, dwMode);
         }
     }
-    #endif
+#endif
 
     // Add default sinks
     sinks.push_back(std::make_unique<SDLConsoleSink>(LogLevel::Info));
 
-    auto memSink = std::make_unique<MemoryBufferSink>(1000);
+    auto memSink     = std::make_unique<MemoryBufferSink>(1000);
     memoryBufferSink = memSink.get();
     sinks.push_back(std::move(memSink));
-
 }
 
 // Log destructor - auto-cleanup on program exit
@@ -313,7 +320,7 @@ void Log::_clearSinks() {
 
 void Log::_flushAll() {
     std::lock_guard<std::mutex> lock(sinkMutex);
-    for (auto &sink: sinks) {
+    for (auto &sink : sinks) {
         sink->Flush();
     }
 }
@@ -322,7 +329,7 @@ void Log::_setMinLevel(LogLevel level) {
     std::lock_guard<std::mutex> lock(sinkMutex);
 
     // Update SDL console sink min level
-    for (auto &sink: sinks) {
+    for (auto &sink : sinks) {
         if (auto *sdlSink = dynamic_cast<SDLConsoleSink *>(sink.get())) {
             sdlSink->SetMinLevel(level);
         }
@@ -354,7 +361,7 @@ bool Log::_dumpToFile(const std::string &filename, LogLevel minLevel) {
         return false;
     }
 
-    for (const auto &entry: entries) {
+    for (const auto &entry : entries) {
         std::fprintf(file, "%s\n", entry.ToString().c_str());
     }
 
@@ -430,7 +437,7 @@ std::string Log::CleanFunctionName(const char *funcName) {
 void Log::WriteToSinks(const LogEntry &entry) {
     std::lock_guard<std::mutex> lock(sinkMutex);
 
-    for (auto &sink: sinks) {
+    for (auto &sink : sinks) {
         sink->Write(entry);
     }
 }

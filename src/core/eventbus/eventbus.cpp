@@ -6,7 +6,7 @@ void EventBus::_fire(std::string eventName, std::optional<EventData> eventData) 
     if (eventData.has_value()) {
         auto datait = _eventsData.find(eventName);
         if (datait != _eventsData.end()) {
-            for (const auto &callback: datait->second) {
+            for (const auto &callback : datait->second) {
                 callback(eventData.value());
             }
             eventFound = true;
@@ -14,7 +14,7 @@ void EventBus::_fire(std::string eventName, std::optional<EventData> eventData) 
     } else {
         auto it = _events.find(eventName);
         if (it != _events.end()) {
-            for (const auto &callback: it->second) {
+            for (const auto &callback : it->second) {
                 callback();
             }
             eventFound = true;
@@ -39,7 +39,7 @@ void EventBus::_register(SystemEvent eventName, EventCallbackData callback) {
 }
 
 void EventBus::_fire(SystemEvent eventName, EventData eventData) {
-    for (auto &callback: _systemEvents[eventName]) {
+    for (auto &callback : _systemEvents[eventName]) {
         callback(eventData);
     }
 }

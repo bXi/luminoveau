@@ -27,16 +27,16 @@ public:
      */
     static vf2d ToWorldSpace(const vf2d &screenSpace) {
         vf2d translatedScreenSpace = screenSpace - (Window::GetSize() / 2.f);
-        return {translatedScreenSpace.x / get().Scale + get().Target.x, translatedScreenSpace.y / get().Scale + get().Target.y};
+        return { translatedScreenSpace.x / get().Scale + get().Target.x, translatedScreenSpace.y / get().Scale + get().Target.y };
     }
 
     /**
      * @brief Locks the camera's position and scale.
      */
     static void Lock() {
-        get().Locked = true;
+        get().Locked     = true;
         get().LockTarget = get().Target;
-        get().LockScale = get().Scale;
+        get().LockScale  = get().Scale;
     }
 
     /**
@@ -44,7 +44,7 @@ public:
      */
     static void Unlock() {
         get().Locked = false;
-        get().Moved = false;
+        get().Moved  = false;
     }
 
     /**
@@ -110,18 +110,19 @@ public:
             throw std::logic_error("Attempt to update camera target while locked.");
         } else {
             get().Target = newTarget;
-            get().Moved = true;
+            get().Moved  = true;
         }
     }
 
 private:
-    vf2d Target = {0.f, 0.f};
-    float Scale = 1.0f;
-    bool Locked = false;
-    vf2d LockTarget = Target;
-    float LockScale = Scale;
-    bool Moved = false;
-    bool Active = false;
+    vf2d  Target     = { 0.f, 0.f };
+    float Scale      = 1.0f;
+    bool  Locked     = false;
+    vf2d  LockTarget = Target;
+    float LockScale  = Scale;
+    bool  Moved      = false;
+    bool  Active     = false;
+
 public:
     /// @cond INTERNAL
     Camera(const Camera &) = delete;

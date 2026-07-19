@@ -17,10 +17,10 @@ GpuComputePipelineHandle ParticlesBuiltin::CreateComputePipeline() {
     info.threadCountX                = 64;
     info.threadCountY                = 1;
     info.threadCountZ                = 1;
-    info.readonlyStorageBufferCount  = 2;  // systems, colliders
-    info.readwriteStorageBufferCount = 1;  // particles
+    info.readonlyStorageBufferCount  = 2; // systems, colliders
+    info.readwriteStorageBufferCount = 1; // particles
     info.uniformBufferCount          = 1;
-    GpuComputePipelineHandle ph = Renderer::GetGpu().createComputePipeline(info);
+    GpuComputePipelineHandle ph      = Renderer::GetGpu().createComputePipeline(info);
     if (!ph) {
         LOG_WARNING("Particles: built-in compute pipeline creation FAILED");
     }

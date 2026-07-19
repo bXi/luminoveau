@@ -18,7 +18,7 @@ enum class SystemEvent {
 
 using EventData = std::unordered_map<std::string, std::variant<int, float, std::string>>;
 
-using EventCallback = std::function<void()>;
+using EventCallback     = std::function<void()>;
 using EventCallbackData = std::function<void(EventData)>;
 
 /**
@@ -84,6 +84,7 @@ public:
     static void Fire(SystemEvent eventName, EventData eventData) {
         get()._fire(eventName, eventData);
     }
+
 private:
     void _fire(std::string eventName, std::optional<EventData> eventData);
 
@@ -95,9 +96,10 @@ private:
 
     void _fire(SystemEvent eventName, EventData eventData);
 
-    std::unordered_map<std::string, std::vector<EventCallback>> _events;
+    std::unordered_map<std::string, std::vector<EventCallback>>     _events;
     std::unordered_map<std::string, std::vector<EventCallbackData>> _eventsData;
     std::unordered_map<SystemEvent, std::vector<EventCallbackData>> _systemEvents;
+
 public:
     /// @cond INTERNAL
     EventBus(const EventBus &) = delete;

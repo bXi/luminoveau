@@ -1,6 +1,6 @@
 # Generated from CLion Inspection settings
 ---
-BasedOnStyle: WebKit
+# Formatting lives in .clang-format (WebKit base). This file is checks + naming only.
 Checks: '-*,
 bugprone-argument-comment,
 bugprone-assert-side-effect,
@@ -146,4 +146,48 @@ readability-static-accessed-through-instance,
 readability-static-definition-in-anonymous-namespace,
 readability-string-compare,
 readability-uniqueptr-delete-release,
-readability-use-anyofallof'
+readability-use-anyofallof,
+readability-identifier-naming'
+
+# Skip vendored/single-header libs; only lint the engine's own sources.
+HeaderFilterRegex: '^(?!.*(extern|old/(miniaudio|SDL2_gfx|SDL2_rotozoom|mini|stb_)|imgui)).*\.h$'
+
+# Naming convention — derived from the hand-written `old/` sources.
+#   class/struct/enum + enum values ....... PascalCase   (Window, LogLevel::Debug)
+#   public / static API methods ........... PascalCase   (InitWindow, GetWindow)
+#   private / protected methods ........... _camelBack   (_initWindow, _getFPS)
+#   private / protected members ........... _camelBack   (_scaleFactor, _shouldQuit)
+#   public struct fields .................. camelBack    (width, filename)
+#   parameters / locals ................... camelBack    (gamepadID, headerWidth)
+#   macros / global constants ............. UPPER_CASE   (LOG_DEBUG, DEADZONE)
+# Type aliases are intentionally left unchecked: math vectors are lowercase
+# (vf2d/vi2d, olcPGE-style) while asset aliases are PascalCase (Texture).
+CheckOptions:
+  - { key: readability-identifier-naming.ClassCase,               value: CamelCase }
+  - { key: readability-identifier-naming.StructCase,              value: CamelCase }
+  - { key: readability-identifier-naming.UnionCase,               value: CamelCase }
+  - { key: readability-identifier-naming.EnumCase,                value: CamelCase }
+  - { key: readability-identifier-naming.EnumConstantCase,        value: CamelCase }
+  - { key: readability-identifier-naming.ScopedEnumConstantCase,  value: CamelCase }
+
+  - { key: readability-identifier-naming.PublicMethodCase,        value: CamelCase }
+  - { key: readability-identifier-naming.ClassMethodCase,         value: CamelCase }
+  - { key: readability-identifier-naming.FunctionCase,            value: CamelCase }
+  - { key: readability-identifier-naming.PrivateMethodCase,       value: camelBack }
+  - { key: readability-identifier-naming.PrivateMethodPrefix,     value: '_' }
+  - { key: readability-identifier-naming.ProtectedMethodCase,     value: camelBack }
+  - { key: readability-identifier-naming.ProtectedMethodPrefix,   value: '_' }
+
+  - { key: readability-identifier-naming.PrivateMemberCase,       value: camelBack }
+  - { key: readability-identifier-naming.PrivateMemberPrefix,     value: '_' }
+  - { key: readability-identifier-naming.ProtectedMemberCase,     value: camelBack }
+  - { key: readability-identifier-naming.ProtectedMemberPrefix,   value: '_' }
+  - { key: readability-identifier-naming.PublicMemberCase,        value: camelBack }
+
+  - { key: readability-identifier-naming.ParameterCase,           value: camelBack }
+  - { key: readability-identifier-naming.LocalVariableCase,       value: camelBack }
+  - { key: readability-identifier-naming.VariableCase,            value: camelBack }
+
+  - { key: readability-identifier-naming.MacroDefinitionCase,     value: UPPER_CASE }
+  - { key: readability-identifier-naming.GlobalConstantCase,      value: UPPER_CASE }
+  - { key: readability-identifier-naming.NamespaceCase,           value: lower_case }

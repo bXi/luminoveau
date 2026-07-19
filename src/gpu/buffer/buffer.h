@@ -11,35 +11,38 @@
 
 #include "core/log/log.h"
 
-enum class BufferType { CPU, GPU };
+enum class BufferType { CPU,
+    GPU };
 
 // Type-erased base so the manager can store and manage all buffers uniformly
 class BufferBase {
 public:
-    virtual ~BufferBase() = default;
-    virtual void Reset() = 0;
-    virtual void Release() = 0;
-    virtual size_t Count() const = 0;
-    virtual size_t Capacity() const = 0;
-    virtual size_t BytesUsed() const = 0;
-    virtual size_t BytesAllocated() const = 0;
-    virtual size_t HighWatermark() const = 0;
-    virtual const std::string& Name() const = 0;
-    virtual BufferType Type() const = 0;
+    virtual ~BufferBase()                             = default;
+    virtual void               Reset()                = 0;
+    virtual void               Release()              = 0;
+    virtual size_t             Count() const          = 0;
+    virtual size_t             Capacity() const       = 0;
+    virtual size_t             BytesUsed() const      = 0;
+    virtual size_t             BytesAllocated() const = 0;
+    virtual size_t             HighWatermark() const  = 0;
+    virtual const std::string &Name() const           = 0;
+    virtual BufferType         Type() const           = 0;
 };
 
-template<typename T>
+template <typename T>
 class Buffer : public BufferBase {
 public:
-    Buffer(const std::string& name, size_t capacity, BufferType type)
-        : m_name(name), m_capacity(capacity), m_type(type) {
+    Buffer(const std::string &name, size_t capacity, BufferType type)
+        : m_name(name)
+        , m_capacity(capacity)
+        , m_type(type) {
 
         size_t allocSize = capacity * sizeof(T);
 
 #ifdef _WIN32
-        m_data = static_cast<T*>(_aligned_malloc(allocSize, 16));
+        m_data = static_cast<T *>(_aligned_malloc(allocSize, 16));
 #else
-        m_data = static_cast<T*>(std::aligned_alloc(16, allocSize));
+        m_data = static_cast<T *>(std::aligned_alloc(16, allocSize));
 #endif
 
         if (!m_data) {
@@ -55,20 +58,20 @@ public:
     }
 
     // No copy
-    Buffer(const Buffer&) = delete;
-    Buffer& operator=(const Buffer&) = delete;
+    Buffer(const Buffer &)            = delete;
+    Buffer &operator=(const Buffer &) = delete;
 
     // No move (manager owns these via pointer)
-    Buffer(Buffer&&) = delete;
-    Buffer& operator=(Buffer&&) = delete;
+    Buffer(Buffer &&)            = delete;
+    Buffer &operator=(Buffer &&) = delete;
 
     // Add an item - placement new, returns pointer to the new slot
-    T* Add() {
+    T *Add() {
         if (m_count >= m_capacity) {
             grow();
         }
 
-        T* slot = m_data + m_count;
+        T *slot = m_data + m_count;
         new (slot) T();
         m_count++;
 
@@ -80,12 +83,12 @@ public:
     }
 
     // Add by copying an existing item
-    T* Add(const T& item) {
+    T *Add(const T &item) {
         if (m_count >= m_capacity) {
             grow();
         }
 
-        T* slot = m_data + m_count;
+        T *slot = m_data + m_count;
         new (slot) T(item);
         m_count++;
 
@@ -97,12 +100,12 @@ public:
     }
 
     // Indexed access - no bounds checking for performance
-    T& operator[](size_t i) { return m_data[i]; }
-    const T& operator[](size_t i) const { return m_data[i]; }
+    T       &operator[](size_t i) { return m_data[i]; }
+    const T &operator[](size_t i) const { return m_data[i]; }
 
     // Raw pointer + count for iteration and GPU upload
-    T* Data() { return m_data; }
-    const T* Data() const { return m_data; }
+    T       *Data() { return m_data; }
+    const T *Data() const { return m_data; }
 
     void Reset() override {
         if constexpr (!std::is_trivially_destructible_v<T>) {
@@ -114,7 +117,8 @@ public:
     }
 
     void Release() override {
-        if (!m_data) return;
+        if (!m_data)
+            return;
 
         // Destroy active items if needed
         if constexpr (!std::is_trivially_destructible_v<T>) {
@@ -129,17 +133,17 @@ public:
         std::free(m_data);
 #endif
 
-        m_data = nullptr;
+        m_data  = nullptr;
         m_count = 0;
     }
 
-    size_t Count() const override { return m_count; }
-    size_t Capacity() const override { return m_capacity; }
-    size_t BytesUsed() const override { return m_count * sizeof(T); }
-    size_t BytesAllocated() const override { return m_capacity * sizeof(T); }
-    size_t HighWatermark() const override { return m_highWatermark; }
-    const std::string& Name() const override { return m_name; }
-    BufferType Type() const override { return m_type; }
+    size_t             Count() const override { return m_count; }
+    size_t             Capacity() const override { return m_capacity; }
+    size_t             BytesUsed() const override { return m_count * sizeof(T); }
+    size_t             BytesAllocated() const override { return m_capacity * sizeof(T); }
+    size_t             HighWatermark() const override { return m_highWatermark; }
+    const std::string &Name() const override { return m_name; }
+    BufferType         Type() const override { return m_type; }
 
 private:
     void grow() {
@@ -148,9 +152,9 @@ private:
             m_name, m_capacity, newCapacity);
 
 #ifdef _WIN32
-        T* newData = static_cast<T*>(_aligned_malloc(newCapacity * sizeof(T), 16));
+        T *newData = static_cast<T *>(_aligned_malloc(newCapacity * sizeof(T), 16));
 #else
-        T* newData = static_cast<T*>(std::aligned_alloc(16, newCapacity * sizeof(T)));
+        T *newData = static_cast<T *>(std::aligned_alloc(16, newCapacity * sizeof(T)));
 #endif
         if (!newData) {
             LOG_CRITICAL("Buffer '{}': failed to allocate {} bytes during grow", m_name, newCapacity * sizeof(T));
@@ -175,10 +179,10 @@ private:
         m_capacity = newCapacity;
     }
 
-    T* m_data = nullptr;
-    size_t m_count = 0;
-    size_t m_capacity = 0;
-    size_t m_highWatermark = 0;
+    T          *m_data          = nullptr;
+    size_t      m_count         = 0;
+    size_t      m_capacity      = 0;
+    size_t      m_highWatermark = 0;
     std::string m_name;
-    BufferType m_type;
+    BufferType  m_type;
 };

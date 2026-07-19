@@ -5,15 +5,13 @@
 
 #include <filesystem>
 
-
 #include "platform/window/window.h"
 #include "util/helpers.h"
-//#include "mini.h"
+// #include "mini.h"
 
 /// @brief Application settings: resolution, fullscreen, vsync and audio volumes, with save/load.
 class Settings {
 public:
-
     /// @brief Sets the window resolution.
     /// @param width Width in pixels.
     /// @param height Height in pixels.
@@ -46,22 +44,22 @@ public:
     static int getMonitorRefreshRate() { return get()._getMonitorRefreshRate(); }
 
 private:
-    bool vsync = true;
+    bool vsync      = true;
     bool fullscreen = false;
-    int resWidth = 1280;
-    int resHeight = 720;
+    int  resWidth   = 1280;
+    int  resHeight  = 720;
 
-    //audio
-    float masterVolume = 1.0f;
+    // audio
+    float masterVolume  = 1.0f;
     float effectsVolume = 1.0f;
-    float musicVolume = 1.0f;
+    float musicVolume   = 1.0f;
 
-    void _setRes(int width, int height);
-    void _toggleFullscreen();
-    void _toggleVsync();
-    bool _getVsync() const;
-    void _saveSettings() const;
-    void _init();
+    void                                    _setRes(int width, int height);
+    void                                    _toggleFullscreen();
+    void                                    _toggleVsync();
+    bool                                    _getVsync() const;
+    void                                    _saveSettings() const;
+    void                                    _init();
     static std::vector<std::pair<int, int>> _resolutions();
 
     void _setMusicVolume(float volume);
@@ -76,10 +74,12 @@ private:
 
 public:
     /// @cond INTERNAL
-    Settings(const Settings&) = delete;
-    static Settings& get() { static Settings instance; return instance; }
+    Settings(const Settings &) = delete;
+    static Settings &get() {
+        static Settings instance;
+        return instance;
+    }
     /// @endcond
 private:
-    Settings() {}
-    ;
+    Settings() {};
 };

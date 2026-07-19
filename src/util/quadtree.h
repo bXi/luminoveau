@@ -12,13 +12,11 @@
 
 class QuadTree {
 public:
-
     struct qtPoint {
         float x;
         float y;
 
         void *entity = nullptr;
-
     };
 
     struct AABB {
@@ -44,40 +42,31 @@ public:
         }
 
         AABB(float left, float top, float width, float height) {
-            _top = top;
-            _left = left;
-            _width = width;
+            _top    = top;
+            _left   = left;
+            _width  = width;
             _height = height;
         }
 
         bool containsPoint(const qtPoint &point) {
             return (
-                    getLeft() <= point.x &&
-                    point.x <= getRight() &&
-                    getTop() <= point.y &&
-                    point.y <= getBottom()
-            );
+                getLeft() <= point.x && point.x <= getRight() && getTop() <= point.y && point.y <= getBottom());
         }
 
         bool intersectsAABB(const AABB &other) {
             return (
-                    _left < other._left + other._width &&
-                    _left + _width > other._left &&
-                    _top < other._top + other._height &&
-                    _top + _height > other._top
-            );
+                _left < other._left + other._width && _left + _width > other._left && _top < other._top + other._height && _top + _height > other._top);
         }
 
         rectf getRectangle() {
             rectf rect = {
-                    getLeft(),
-                    getTop(),
-                    _width,
-                    _height,
+                getLeft(),
+                getTop(),
+                _width,
+                _height,
             };
 
             return rect;
-
         }
     };
 
@@ -104,48 +93,50 @@ public:
             const float dx = fabsf(_x - recCenterX);
             const float dy = fabsf(_y - recCenterY);
 
-            if (dx > (range._width / 2.0f + _r)) { return false; }
-            if (dy > (range._height / 2.0f + _r)) { return false; }
+            if (dx > (range._width / 2.0f + _r)) {
+                return false;
+            }
+            if (dy > (range._height / 2.0f + _r)) {
+                return false;
+            }
 
-            if (dx <= (range._width / 2.0f)) { return true; }
-            if (dy <= (range._height / 2.0f)) { return true; }
+            if (dx <= (range._width / 2.0f)) {
+                return true;
+            }
+            if (dy <= (range._height / 2.0f)) {
+                return true;
+            }
 
-            const float cornerDistanceSq = (dx - range._width / 2.0f) * (dx - range._width / 2.0f) +
-                                           (dy - range._height / 2.0f) * (dy - range._height / 2.0f);
+            const float cornerDistanceSq = (dx - range._width / 2.0f) * (dx - range._width / 2.0f) + (dy - range._height / 2.0f) * (dy - range._height / 2.0f);
             return (cornerDistanceSq <= (_r * _r));
-
         }
     };
 
 private:
-
     std::vector<qtPoint> points;
 
+    AABB _boundary = { 0.0f, 0.0f, 0.0f, 0.0f };
 
-    AABB _boundary = {0.0f, 0.0f, 0.0f, 0.0f};
-
-
-    QuadTree *northWest = NULL;
-    QuadTree *northEast = NULL;
-    QuadTree *southWest = NULL;
-    QuadTree *southEast = NULL;
+    QuadTree    *northWest        = NULL;
+    QuadTree    *northEast        = NULL;
+    QuadTree    *southWest        = NULL;
+    QuadTree    *southEast        = NULL;
     unsigned int QT_NODE_CAPACITY = 3;
+
 public:
-
-
     QuadTree(rectf boundary) {
 
         const AABB aabbboundary = AABB(boundary.x, boundary.y, boundary.width, boundary.height);
-        _boundary = aabbboundary;
+        _boundary               = aabbboundary;
     };
 
     void subdivide() {
 
-        const rectf nwRect = {_boundary._left, _boundary._top, _boundary._width / 2.0f, _boundary._height / 2.0f};
-        const rectf neRect = {_boundary._left + _boundary._width / 2.0f, _boundary._top, _boundary._width / 2.0f, _boundary._height / 2.0f};
-        const rectf swRect = {_boundary._left, _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f, _boundary._height / 2.0f};
-        const rectf seRect = {_boundary._left + _boundary._width / 2.0f, _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f,
-                              _boundary._height / 2.0f};
+        const rectf nwRect = { _boundary._left, _boundary._top, _boundary._width / 2.0f, _boundary._height / 2.0f };
+        const rectf neRect = { _boundary._left + _boundary._width / 2.0f, _boundary._top, _boundary._width / 2.0f, _boundary._height / 2.0f };
+        const rectf swRect = { _boundary._left, _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f, _boundary._height / 2.0f };
+        const rectf seRect = { _boundary._left + _boundary._width / 2.0f, _boundary._top + _boundary._height / 2.0f, _boundary._width / 2.0f,
+            _boundary._height / 2.0f };
 
         northWest = new QuadTree(nwRect);
         northEast = new QuadTree(neRect);
@@ -165,10 +156,14 @@ public:
         if (northWest == nullptr)
             subdivide();
 
-        if (northWest->insert(point)) return true;
-        if (northEast->insert(point)) return true;
-        if (southEast->insert(point)) return true;
-        if (southWest->insert(point)) return true;
+        if (northWest->insert(point))
+            return true;
+        if (northEast->insert(point))
+            return true;
+        if (southEast->insert(point))
+            return true;
+        if (southWest->insert(point))
+            return true;
 
         return false; // this should never happen.
     }
@@ -186,7 +181,7 @@ public:
         screenBoundary.x *= TW;
         screenBoundary.y *= TH;
 
-        Draw::Rectangle({screenBoundary.x, screenBoundary.y}, {screenBoundary.width, screenBoundary.height}, col);
+        Draw::Rectangle({ screenBoundary.x, screenBoundary.y }, { screenBoundary.width, screenBoundary.height }, col);
 
         if (northWest != NULL) {
             northWest->draw(RED);
@@ -203,7 +198,7 @@ public:
         screenBoundary.x += x;
         screenBoundary.y += y;
 
-        Draw::Rectangle({screenBoundary.x, screenBoundary.y}, {screenBoundary.width, screenBoundary.height}, col);
+        Draw::Rectangle({ screenBoundary.x, screenBoundary.y }, { screenBoundary.width, screenBoundary.height }, col);
 
         if (northWest != NULL) {
             northWest->draw(x, y, RED);
@@ -213,9 +208,8 @@ public:
         }
     }
 
-
     void draw() {
-        draw({255, 255, 255, 255});
+        draw({ 255, 255, 255, 255 });
     }
 
     void query(AABB range, std::vector<void *> *found) {
@@ -224,7 +218,7 @@ public:
             return;
         }
 
-        for (auto &p: points) {
+        for (auto &p : points) {
             if (range.containsPoint(p)) {
                 found->push_back(p.entity);
             }
@@ -245,7 +239,7 @@ public:
             return;
         }
 
-        for (auto &p: points) {
+        for (auto &p : points) {
             if (range.containsPoint(p)) {
                 found->push_back(p.entity);
             }
@@ -259,7 +253,6 @@ public:
 
         return;
     }
-
 
     void reset() {
         if (northWest != NULL) {
@@ -275,7 +268,5 @@ public:
         }
 
         points.clear();
-
     }
-
 };

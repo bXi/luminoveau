@@ -19,9 +19,9 @@ public:
     //   SDL backend  →  reinterpret_cast<SDL_GPUDevice*>(getRawDevice())
     //   GL  backend  →  not meaningful; returns nullptr
     //   SW  backend  →  not meaningful; returns nullptr
-    virtual void* getRawDevice() const = 0;
+    virtual void *getRawDevice() const = 0;
 
     // Returns the native sampler for the given scale mode.
     // SDL  →  reinterpret_cast<SDL_GPUSampler*>(getRawSampler(mode))
-    virtual void* getRawSampler(int scaleModeInt) const = 0;
+    virtual void *getRawSampler(int scaleModeInt) const = 0;
 };

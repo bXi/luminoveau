@@ -8,7 +8,6 @@
 
 class BufferManager {
 public:
-
     /**
      * @brief Creates a named buffer owned by the manager.
      *
@@ -18,8 +17,8 @@ public:
      * @param type CPU or GPU buffer type.
      * @return Raw pointer to the created buffer. Lifetime managed by BufferManager.
      */
-    template<typename T>
-    static Buffer<T>* Create(const std::string& name, size_t capacity, BufferType type = BufferType::CPU) {
+    template <typename T>
+    static Buffer<T> *Create(const std::string &name, size_t capacity, BufferType type = BufferType::CPU) {
         return get()._create<T>(name, capacity, type);
     }
 
@@ -51,25 +50,24 @@ public:
     /**
      * @brief Access all buffers for debug overlay / logging.
      */
-    static const std::vector<std::unique_ptr<BufferBase>>& GetBuffers() { return get().m_buffers; }
+    static const std::vector<std::unique_ptr<BufferBase>> &GetBuffers() { return get().m_buffers; }
 
 private:
-
-    template<typename T>
-    Buffer<T>* _create(const std::string& name, size_t capacity, BufferType type) {
-        for (auto& existing : m_buffers) {
+    template <typename T>
+    Buffer<T> *_create(const std::string &name, size_t capacity, BufferType type) {
+        for (auto &existing : m_buffers) {
             if (existing->Name() == name) {
-                return static_cast<Buffer<T>*>(existing.get());
+                return static_cast<Buffer<T> *>(existing.get());
             }
         }
-        auto buffer = std::make_unique<Buffer<T>>(name, capacity, type);
-        auto* ptr = buffer.get();
+        auto  buffer = std::make_unique<Buffer<T>>(name, capacity, type);
+        auto *ptr    = buffer.get();
         m_buffers.push_back(std::move(buffer));
         return ptr;
     }
 
-    void _resetAll();
-    void _destroyAll();
+    void   _resetAll();
+    void   _destroyAll();
     size_t _totalBytesUsed() const;
     size_t _totalBytesAllocated() const;
     size_t _bufferCount() const;
@@ -77,9 +75,9 @@ private:
     std::vector<std::unique_ptr<BufferBase>> m_buffers;
 
 public:
-    BufferManager(const BufferManager&) = delete;
+    BufferManager(const BufferManager &) = delete;
 
-    static BufferManager& get() {
+    static BufferManager &get() {
         static BufferManager instance;
         return instance;
     }

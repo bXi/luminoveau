@@ -9,24 +9,25 @@
 #include <utility>
 
 void IGpu::requestScreenshot(GpuCmdBufferHandle cmd,
-                              GpuTextureHandle src,
-                              uint32_t width, uint32_t height,
-                              const std::string& filename) {
-    if (!cmd || !src || width == 0 || height == 0) return;
+    GpuTextureHandle                            src,
+    uint32_t width, uint32_t height,
+    const std::string &filename) {
+    if (!cmd || !src || width == 0 || height == 0)
+        return;
 
-    size_t dataSize = static_cast<size_t>(width) * height * 4;
-    GpuTransferBufferHandle xfer = createTransferBuffer({ (uint32_t)dataSize, GpuTransferUsage::Download });
+    size_t                  dataSize = static_cast<size_t>(width) * height * 4;
+    GpuTransferBufferHandle xfer     = createTransferBuffer({ (uint32_t)dataSize, GpuTransferUsage::Download });
     if (!xfer) {
         LOG_ERROR("requestScreenshot: failed to create transfer buffer");
         return;
     }
 
-    GpuTextureRegion srcRegion{};
+    GpuTextureRegion srcRegion {};
     srcRegion.texture = src;
     srcRegion.width   = width;
     srcRegion.height  = height;
     srcRegion.depth   = 1;
-    GpuTransferBufferRegion dstInfo{};
+    GpuTransferBufferRegion dstInfo {};
     dstInfo.transferBuffer = xfer;
     dstInfo.pixels_per_row = width;
     dstInfo.rows_per_layer = height;
@@ -43,18 +44,20 @@ void IGpu::requestScreenshot(GpuCmdBufferHandle cmd,
 }
 
 void IGpu::processPendingScreenshots() {
-    if (m_pendingScreenshots.empty()) return;
+    if (m_pendingScreenshots.empty())
+        return;
 
     // Wait for the GPU to finish the staged downloads.
     waitIdle();
 
-    for (auto& p : m_pendingScreenshots) {
-        if (!p.transferBuffer) continue;
+    for (auto &p : m_pendingScreenshots) {
+        if (!p.transferBuffer)
+            continue;
 
-        void* gpuData = mapTransferBuffer(p.transferBuffer, false);
+        void *gpuData = mapTransferBuffer(p.transferBuffer, false);
         if (gpuData) {
             // Copy to a heap buffer the background thread will own.
-            unsigned char* pixelCopy = (unsigned char*)malloc(p.dataSize);
+            unsigned char *pixelCopy = (unsigned char *)malloc(p.dataSize);
             if (pixelCopy) {
                 std::memcpy(pixelCopy, gpuData, p.dataSize);
 
@@ -71,7 +74,7 @@ void IGpu::processPendingScreenshots() {
                         }
                     }
                     if (stbi_write_png(filename.c_str(), (int)width, (int)height, 4,
-                                       pixelCopy, (int)(width * 4))) {
+                            pixelCopy, (int)(width * 4))) {
                         LOG_INFO("Screenshot saved: {}", filename);
                     } else {
                         LOG_ERROR("Failed to save screenshot: {}", filename);

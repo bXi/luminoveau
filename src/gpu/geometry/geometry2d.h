@@ -9,8 +9,8 @@
  * Using half-float precision for memory efficiency
  */
 struct Vertex2D {
-    float x, y;     // Local position (e.g., 0-1 for unit quad, -1 to 1 for unit circle)
-    float u, v;     // UV coordinates
+    float x, y; // Local position (e.g., 0-1 for unit quad, -1 to 1 for unit circle)
+    float u, v; // UV coordinates
 };
 
 /**
@@ -18,11 +18,11 @@ struct Vertex2D {
  * 8 bytes per vertex (4 half-floats)
  */
 struct CompactVertex2D {
-    uint32_t pos_xy;    // x,y as half-floats
-    uint32_t uv;        // u,v as half-floats
+    uint32_t pos_xy; // x,y as half-floats
+    uint32_t uv;     // u,v as half-floats
 
     // Helper to pack from Vertex2D
-    static CompactVertex2D FromVertex(const Vertex2D& v);
+    static CompactVertex2D FromVertex(const Vertex2D &v);
 };
 
 /**
@@ -30,7 +30,7 @@ struct CompactVertex2D {
  */
 struct Geometry2D {
     std::vector<Vertex2D> vertices;
-    std::vector<uint16_t> indices;  // Using uint16 for smaller index buffers
+    std::vector<uint16_t> indices; // Using uint16 for smaller index buffers
 
     // GPU buffers
     GpuBufferHandle         vertexBuffer         = 0;
@@ -38,7 +38,7 @@ struct Geometry2D {
     GpuTransferBufferHandle vertexTransferBuffer = 0;
     GpuTransferBufferHandle indexTransferBuffer  = 0;
 
-    const char* name = nullptr;
+    const char *name = nullptr;
 
     /**
      * @brief Gets the number of vertices in the geometry.
@@ -65,28 +65,28 @@ struct Geometry2D {
  * @brief Factory functions for creating common 2D geometries
  */
 namespace Geometry2DFactory {
-    /**
-     * @brief Creates a unit quad geometry (0,0) to (1,1)
-     * Vertices are at corners, UVs match positions
-     */
-    Geometry2D* CreateQuad();
+/**
+ * @brief Creates a unit quad geometry (0,0) to (1,1)
+ * Vertices are at corners, UVs match positions
+ */
+Geometry2D *CreateQuad();
 
-    /**
-     * @brief Creates a unit circle geometry centered at origin
-     * @param segments Number of segments around the circle (triangles = segments)
-     */
-    Geometry2D* CreateCircle(int segments = 32);
+/**
+ * @brief Creates a unit circle geometry centered at origin
+ * @param segments Number of segments around the circle (triangles = segments)
+ */
+Geometry2D *CreateCircle(int segments = 32);
 
-    /**
-     * @brief Creates a unit rounded rectangle geometry (0,0) to (1,1) with rounded corners
-     * @param cornerRadiusX Normalized radius along X axis (0.0 to 0.5)
-     * @param cornerRadiusY Normalized radius along Y axis (0.0 to 0.5)
-     * @param cornerSegments Number of segments per corner arc
-     */
-    Geometry2D* CreateRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments = 8);
+/**
+ * @brief Creates a unit rounded rectangle geometry (0,0) to (1,1) with rounded corners
+ * @param cornerRadiusX Normalized radius along X axis (0.0 to 0.5)
+ * @param cornerRadiusY Normalized radius along Y axis (0.0 to 0.5)
+ * @param cornerSegments Number of segments per corner arc
+ */
+Geometry2D *CreateRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments = 8);
 
-    /**
-     * @brief Releases all cached geometries
-     */
-    void ReleaseAll();
-}
+/**
+ * @brief Releases all cached geometries
+ */
+void ReleaseAll();
+} // namespace Geometry2DFactory

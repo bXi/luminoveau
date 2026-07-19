@@ -10,12 +10,12 @@
 #include "math/vectors.h"
 
 namespace PlatformInputBackend {
-    // Returns the mouse position in logical engine coordinates (same space sprite
-    // draws use). Caller does not need to apply CanvasToLogical or display-scale fixups.
-    vf2d GetMousePosition();
+// Returns the mouse position in logical engine coordinates (same space sprite
+// draws use). Caller does not need to apply CanvasToLogical or display-scale fixups.
+vf2d GetMousePosition();
 
-    // Returns the pressed mouse-button mask in SDL layout (bit0 = left, bit1 = middle,
-    // bit2 = right). On the web backend a single touch reports as the left button so
-    // pointer/touch drives the same button API; native defers to SDL_GetMouseState.
-    uint32_t GetMouseButtons();
-}
+// Returns the pressed mouse-button mask in SDL layout (bit0 = left, bit1 = middle,
+// bit2 = right). On the web backend a single touch reports as the left button so
+// pointer/touch drives the same button API; native defers to SDL_GetMouseState.
+uint32_t GetMouseButtons();
+} // namespace PlatformInputBackend

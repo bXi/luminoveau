@@ -86,7 +86,7 @@ public:
 
     /**
      * @brief Closes the application window.
-     * 
+     *
      * If called during a frame (e.g. from update logic), the actual cleanup
      * is deferred until EndFrame() completes. This prevents GPU operations
      * from running after the device is destroyed.
@@ -153,7 +153,7 @@ public:
      * @param getRealSize Flag indicating whether to retrieve the real size (not divided by user scale).
      * @return The width of the window.
      */
-    static int GetWidth(bool getRealSize = false) { return (int) get()._getSize(getRealSize).x; }
+    static int GetWidth(bool getRealSize = false) { return (int)get()._getSize(getRealSize).x; }
 
     /**
      * @brief Retrieves the height of the window in logical (virtual) pixels.
@@ -161,7 +161,7 @@ public:
      * @param getRealSize Flag indicating whether to retrieve the real size (not divided by user scale).
      * @return The height of the window.
      */
-    static int GetHeight(bool getRealSize = false) { return (int) get()._getSize(getRealSize).y; }
+    static int GetHeight(bool getRealSize = false) { return (int)get()._getSize(getRealSize).y; }
 
     /**
      * @brief Retrieves the size of the window in physical (device) pixels.
@@ -177,13 +177,13 @@ public:
      * @brief Retrieves the width of the window in physical (device) pixels.
      * @return The physical pixel width of the window.
      */
-    static int GetPhysicalWidth() { return (int) get()._getPhysicalSize().x; }
+    static int GetPhysicalWidth() { return (int)get()._getPhysicalSize().x; }
 
     /**
      * @brief Retrieves the height of the window in physical (device) pixels.
      * @return The physical pixel height of the window.
      */
-    static int GetPhysicalHeight() { return (int) get()._getPhysicalSize().y; }
+    static int GetPhysicalHeight() { return (int)get()._getPhysicalSize().y; }
 
     /**
      * @brief Gets the HiDPI display scale factor.
@@ -204,7 +204,7 @@ public:
      * @param outW Receives display width in pixels.
      * @param outH Receives display height in pixels.
      */
-    static void GetDisplayBounds(uint32_t& outW, uint32_t& outH);
+    static void GetDisplayBounds(uint32_t &outW, uint32_t &outH);
 
     /**
      * @brief Starts a new frame for rendering.
@@ -234,7 +234,7 @@ public:
      * @return The total runtime of the application in seconds.
      */
     static double GetRunTime() {
-        return (double) std::chrono::duration_cast<std::chrono::milliseconds>(EngineState::_currentTime - EngineState::_startTime).count() / 1000.;
+        return (double)std::chrono::duration_cast<std::chrono::milliseconds>(EngineState::_currentTime - EngineState::_startTime).count() / 1000.;
     }
 
     /**
@@ -283,7 +283,7 @@ public:
      * @brief Take a screenshot and save it to a file
      * @param filename Optional filename (default: screenshot_TIMESTAMP.png)
      */
-    static void TakeScreenshot(const std::string& filename = "") { get()._takeScreenshot(filename); }
+    static void TakeScreenshot(const std::string &filename = "") { get()._takeScreenshot(filename); }
 
     /**
      * @brief Sets the WebGPU canvas scaling mode and internal render resolution.
@@ -301,22 +301,22 @@ public:
     }
 
     /// @brief Returns the WebGPU canvas scaling mode (no-op on native builds).
-    static WebGpuScaleMode GetWebGpuScaleMode()  { return get()._webGpuScaleMode;    }
+    static WebGpuScaleMode GetWebGpuScaleMode() { return get()._webGpuScaleMode; }
     /// @brief Returns the WebGPU internal render width in pixels (web builds).
-    static int GetWebGpuRenderWidth()             { return get()._webGpuRenderWidth;  }
+    static int GetWebGpuRenderWidth() { return get()._webGpuRenderWidth; }
     /// @brief Returns the WebGPU internal render height in pixels (web builds).
-    static int GetWebGpuRenderHeight()            { return get()._webGpuRenderHeight; }
-    
+    static int GetWebGpuRenderHeight() { return get()._webGpuRenderHeight; }
+
     /**
      * @brief Check if there's a pending screenshot
      */
     static bool HasPendingScreenshot() { return get()._pendingScreenshot; }
-    
+
     /**
      * @brief Get pending screenshot filename and clear the flag
      */
     static std::string GetAndClearPendingScreenshot() {
-        std::string filename = get()._pendingScreenshotFilename;
+        std::string filename     = get()._pendingScreenshotFilename;
         get()._pendingScreenshot = false;
         get()._pendingScreenshotFilename.clear();
         return filename;
@@ -327,7 +327,7 @@ public:
      *
      * @param callback Function to call when text input is received.
      */
-    static void SetTextInputCallback(std::function<void(const char*)> callback) {
+    static void SetTextInputCallback(std::function<void(const char *)> callback) {
         get()._textInputCallback = std::move(callback);
     }
 
@@ -340,7 +340,7 @@ public:
      *
      * @param event Pointer to the SDL event to process.
      */
-    static void ProcessEvent(SDL_Event* event) { get()._processEvent(event); }
+    static void ProcessEvent(SDL_Event *event) { get()._processEvent(event); }
 #endif
 
 private:
@@ -374,7 +374,7 @@ private:
     int _getFPS(float milliseconds);
 
     SDL_Window *_getWindow();
-    bool _hasInputFocus();
+    bool        _hasInputFocus();
 
     void _setScale(int scalefactor);
 
@@ -390,9 +390,9 @@ private:
 
     void _toggleDebugMenu();
 
-    void _takeScreenshot(const std::string& filename);
+    void _takeScreenshot(const std::string &filename);
 
-    void _processEvent(SDL_Event* event);
+    void _processEvent(SDL_Event *event);
 
     SDL_Window *m_window = nullptr;
 
@@ -403,13 +403,13 @@ private:
     int  _lastWindowWidth  = 0;
     int  _lastWindowHeight = 0;
     bool _maximized        = false;
-    
-    bool _inFrame = false;
-    bool _pendingClose = false;
-    bool _pendingScreenshot = false;
+
+    bool        _inFrame           = false;
+    bool        _pendingClose      = false;
+    bool        _pendingScreenshot = false;
     std::string _pendingScreenshotFilename;
 
-    std::function<void(const char*)> _textInputCallback = nullptr;
+    std::function<void(const char *)> _textInputCallback = nullptr;
 
     bool _sizeDirty = false;
 

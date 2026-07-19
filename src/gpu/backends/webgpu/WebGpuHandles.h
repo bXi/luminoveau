@@ -34,13 +34,13 @@
 static constexpr uint32_t kWgpuMaxUniformSlots = 8;
 
 struct WgpuTexture {
-    WGPUTexture     texture     = nullptr;
-    WGPUTextureView defaultView = nullptr;         // sampling view (Cube dimension for cube maps)
-    WGPUTextureView faceViews[6] = {};             // per-layer 2D render views (cube/array targets)
-    WGPUTextureFormat format    = WGPUTextureFormat_Undefined;
-    uint32_t width  = 0;
-    uint32_t height = 0;
-    uint32_t layerCount = 1;
+    WGPUTexture       texture      = nullptr;
+    WGPUTextureView   defaultView  = nullptr; // sampling view (Cube dimension for cube maps)
+    WGPUTextureView   faceViews[6] = {};      // per-layer 2D render views (cube/array targets)
+    WGPUTextureFormat format       = WGPUTextureFormat_Undefined;
+    uint32_t          width        = 0;
+    uint32_t          height       = 0;
+    uint32_t          layerCount   = 1;
 };
 
 struct WgpuBuffer {
@@ -50,7 +50,7 @@ struct WgpuBuffer {
 
 // CPU-side staging for uploads; separate GPU buffer for downloads
 struct WgpuTransferBuffer {
-    std::vector<uint8_t> stagingData;    // upload staging
+    std::vector<uint8_t> stagingData;              // upload staging
     WGPUBuffer           downloadBuffer = nullptr; // download only
     uint32_t             size           = 0;
     bool                 isDownload     = false;
@@ -61,39 +61,39 @@ struct WgpuSampler {
 };
 
 struct WgpuShader {
-    WGPUShaderModule module     = nullptr;
+    WGPUShaderModule module = nullptr;
     std::string      entrypoint;
-    GpuShaderStage   stage      = GpuShaderStage::Vertex;
-    uint32_t samplerCount         = 0;
-    uint32_t uniformBufferCount   = 0;
-    uint32_t storageBufferCount   = 0;
-    uint32_t storageTextureCount  = 0;
-    uint32_t samplerCubeMask      = 0;   // bit i = sampler pair i is a cube texture
+    GpuShaderStage   stage               = GpuShaderStage::Vertex;
+    uint32_t         samplerCount        = 0;
+    uint32_t         uniformBufferCount  = 0;
+    uint32_t         storageBufferCount  = 0;
+    uint32_t         storageTextureCount = 0;
+    uint32_t         samplerCubeMask     = 0; // bit i = sampler pair i is a cube texture
 };
 
 struct WgpuGraphicsPipeline {
-    WGPURenderPipeline   pipeline = nullptr;
-    WGPUPipelineLayout   layout   = nullptr;
-    WGPUBindGroupLayout  bgLayouts[4] = {};
+    WGPURenderPipeline  pipeline     = nullptr;
+    WGPUPipelineLayout  layout       = nullptr;
+    WGPUBindGroupLayout bgLayouts[4] = {};
     // Persistent empty bind groups for slots whose BGL is null but lies before lastGroup.
     // Firefox enforces strict bind-group presence even for empty layouts; these are bound
     // at every bindGraphicsPipeline call so the draw never has a missing slot.
-    WGPUBindGroupLayout  emptyBGL     = nullptr;
-    WGPUBindGroup        emptyBG[4]   = {};
+    WGPUBindGroupLayout emptyBGL   = nullptr;
+    WGPUBindGroup       emptyBG[4] = {};
 
     // Resource counts (from vertex+fragment shader info)
-    uint32_t vertexUniformCount         = 0;
-    uint32_t fragmentUniformCount       = 0;
-    uint32_t fragmentSamplerCount       = 0;
-    uint32_t fragmentSamplerCubeMask    = 0;
-    uint32_t fragmentStorageTexCount    = 0;
-    uint32_t vertexStorageBufCount      = 0;
+    uint32_t vertexUniformCount      = 0;
+    uint32_t fragmentUniformCount    = 0;
+    uint32_t fragmentSamplerCount    = 0;
+    uint32_t fragmentSamplerCubeMask = 0;
+    uint32_t fragmentStorageTexCount = 0;
+    uint32_t vertexStorageBufCount   = 0;
 };
 
 struct WgpuComputePipelineData {
-    WGPUComputePipeline  pipeline = nullptr;
-    WGPUPipelineLayout   layout   = nullptr;
-    WGPUBindGroupLayout  bgLayouts[5] = {};  // 0=uniform, 1=ro bufs, 2=rw bufs, 3=samplers, 4=rw tex
+    WGPUComputePipeline pipeline     = nullptr;
+    WGPUPipelineLayout  layout       = nullptr;
+    WGPUBindGroupLayout bgLayouts[5] = {}; // 0=uniform, 1=ro bufs, 2=rw bufs, 3=samplers, 4=rw tex
 
     uint32_t uniformCount         = 0;
     uint32_t roStorageBufferCount = 0;
@@ -107,31 +107,37 @@ struct WgpuComputePipelineData {
 struct WgpuUniformCache {
     struct Slot {
         std::vector<uint8_t> data;
-        bool dirty = false;
+        bool                 dirty = false;
     };
     std::array<Slot, kWgpuMaxUniformSlots> slots;
 
-    void set(uint32_t i, const void* d, uint32_t sz) {
-        if (i >= kWgpuMaxUniformSlots) return;
+    void set(uint32_t i, const void *d, uint32_t sz) {
+        if (i >= kWgpuMaxUniformSlots)
+            return;
         slots[i].data.resize(sz);
         std::memcpy(slots[i].data.data(), d, sz);
         slots[i].dirty = true;
     }
     void clear() {
-        for (auto& s : slots) { s.dirty = false; }
+        for (auto &s : slots) {
+            s.dirty = false;
+        }
     }
 };
 
 // Per-frame cleanup lists owned by WgpuCmdBuffer
 struct WgpuFrameCleanup {
-    std::vector<WGPUBuffer>                          tempBuffers;
-    std::vector<std::pair<WGPUBuffer, uint32_t>>     tempUniformBuffers; // (buffer, alignedSize)
-    std::vector<WGPUBindGroup>                       tempBindGroups;
+    std::vector<WGPUBuffer>                      tempBuffers;
+    std::vector<std::pair<WGPUBuffer, uint32_t>> tempUniformBuffers; // (buffer, alignedSize)
+    std::vector<WGPUBindGroup>                   tempBindGroups;
 
     void releaseAll() {
-        for (auto b  : tempBuffers)             wgpuBufferRelease(b);
-        for (auto& p : tempUniformBuffers)      wgpuBufferRelease(p.first);
-        for (auto bg : tempBindGroups)          wgpuBindGroupRelease(bg);
+        for (auto b : tempBuffers)
+            wgpuBufferRelease(b);
+        for (auto &p : tempUniformBuffers)
+            wgpuBufferRelease(p.first);
+        for (auto bg : tempBindGroups)
+            wgpuBindGroupRelease(bg);
         tempBuffers.clear();
         tempUniformBuffers.clear();
         tempBindGroups.clear();
@@ -150,25 +156,30 @@ struct WgpuCmdBuffer {
 };
 
 struct WgpuRenderPass {
-    WGPURenderPassEncoder      encoder         = nullptr;
-    WgpuCmdBuffer*             cmdBuf          = nullptr;
-    const WgpuGraphicsPipeline* currentPipeline = nullptr;
-    WGPUDevice                 device          = nullptr;
-    WGPUQueue                  queue           = nullptr;
+    WGPURenderPassEncoder       encoder         = nullptr;
+    WgpuCmdBuffer              *cmdBuf          = nullptr;
+    const WgpuGraphicsPipeline *currentPipeline = nullptr;
+    WGPUDevice                  device          = nullptr;
+    WGPUQueue                   queue           = nullptr;
 };
 
 struct WgpuComputePass {
-    WGPUComputePassEncoder          encoder         = nullptr;
-    WgpuCmdBuffer*                  cmdBuf          = nullptr;
-    const WgpuComputePipelineData*  currentPipeline = nullptr;
-    WGPUDevice                      device          = nullptr;
-    WGPUQueue                       queue           = nullptr;
+    WGPUComputePassEncoder         encoder         = nullptr;
+    WgpuCmdBuffer                 *cmdBuf          = nullptr;
+    const WgpuComputePipelineData *currentPipeline = nullptr;
+    WGPUDevice                     device          = nullptr;
+    WGPUQueue                      queue           = nullptr;
 
     // RW storage buffers supplied via beginComputePass; bound to group 2 at dispatch time.
-    struct RWBuf { WGPUBuffer buf; uint64_t size; };
+    struct RWBuf {
+        WGPUBuffer buf;
+        uint64_t   size;
+    };
     std::vector<RWBuf> pendingRWBuffers;
 
     // RW storage textures supplied via beginComputePass; bound to group 2 at dispatch time.
-    struct RWTex { WGPUTextureView view; };
+    struct RWTex {
+        WGPUTextureView view;
+    };
     std::vector<RWTex> pendingRWTextures;
 };

@@ -149,15 +149,15 @@ fn main(@builtin(global_invocation_id) dispatchID: vec3<u32>) {
 
 GpuComputePipelineHandle ParticlesBuiltin::CreateComputePipeline() {
     GpuComputePipelineCreateInfo info;
-    info.code                        = reinterpret_cast<const uint8_t*>(kParticlesCompWgsl);
+    info.code                        = reinterpret_cast<const uint8_t *>(kParticlesCompWgsl);
     info.codeSize                    = sizeof(kParticlesCompWgsl) - 1;
     info.entrypoint                  = "main";
     info.threadCountX                = 64;
     info.threadCountY                = 1;
     info.threadCountZ                = 1;
-    info.readonlyStorageBufferCount  = 2;  // group1: systems(b0), colliders(b1)
-    info.readwriteStorageBufferCount = 1;  // group2: particles(b0)
-    info.uniformBufferCount          = 1;  // group0: ComputeUniforms(b0)
+    info.readonlyStorageBufferCount  = 2; // group1: systems(b0), colliders(b1)
+    info.readwriteStorageBufferCount = 1; // group2: particles(b0)
+    info.uniformBufferCount          = 1; // group0: ComputeUniforms(b0)
 
     GpuComputePipelineHandle ph = Renderer::GetGpu().createComputePipeline(info);
     if (!ph) {

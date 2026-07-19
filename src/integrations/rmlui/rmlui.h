@@ -46,7 +46,7 @@ void Shutdown();
  * @param fallback Whether this is a fallback font (default: false)
  * @return True if loaded successfully
  */
-bool LoadFontFromFile(const std::string& filepath, bool fallback = false);
+bool LoadFontFromFile(const std::string &filepath, bool fallback = false);
 
 /**
  * @brief Load a font face from memory
@@ -58,11 +58,11 @@ bool LoadFontFromFile(const std::string& filepath, bool fallback = false);
  * @param fallback Whether this is a fallback font (default: false)
  * @return True if loaded successfully
  */
-bool LoadFontFromMemory(const unsigned char* data, size_t data_length,
-                       const std::string& family,
-                       Rml::Style::FontStyle style = Rml::Style::FontStyle::Normal,
-                       Rml::Style::FontWeight weight = Rml::Style::FontWeight::Normal,
-                       bool fallback = false);
+bool LoadFontFromMemory(const unsigned char *data, size_t data_length,
+    const std::string     &family,
+    Rml::Style::FontStyle  style    = Rml::Style::FontStyle::Normal,
+    Rml::Style::FontWeight weight   = Rml::Style::FontWeight::Normal,
+    bool                   fallback = false);
 
 /**
  * @brief Load the built-in DroidSansMono font
@@ -75,7 +75,7 @@ bool LoadDefaultFont();
  * @brief Get the main UI context (created automatically on Init)
  * @return Pointer to the main context
  */
-Rml::Context* GetContext();
+Rml::Context *GetContext();
 
 /**
  * @brief Create an additional context with custom size
@@ -83,14 +83,14 @@ Rml::Context* GetContext();
  * @param size Size of the context in pixels
  * @return Pointer to the created context
  */
-Rml::Context* CreateContext(const std::string& name, vf2d size);
+Rml::Context *CreateContext(const std::string &name, vf2d size);
 
 /**
  * @brief Get a context by name
  * @param name Name of the context
  * @return Pointer to the context, or nullptr if not found
  */
-Rml::Context* GetContextByName(const std::string& name);
+Rml::Context *GetContextByName(const std::string &name);
 
 // ============================================================================
 // DOCUMENT MANAGEMENT - AssetHandler-style interface
@@ -101,51 +101,51 @@ Rml::Context* GetContextByName(const std::string& name);
  * @param filepath Path to the .rml file
  * @return Pointer to the loaded document, or nullptr on failure
  */
-Rml::ElementDocument* LoadDocument(const std::string& filepath);
+Rml::ElementDocument *LoadDocument(const std::string &filepath);
 
 /**
  * @brief Get a previously loaded document
  * @param filepath Path that was used to load the document
  * @return Pointer to the document, or nullptr if not loaded
  */
-Rml::ElementDocument* GetDocument(const std::string& filepath);
+Rml::ElementDocument *GetDocument(const std::string &filepath);
 
 /**
  * @brief Show a document (makes it visible)
  * @param filepath Path to the document
  */
-void ShowDocument(const std::string& filepath);
+void ShowDocument(const std::string &filepath);
 
 /**
  * @brief Hide a document (makes it invisible but keeps it loaded)
  * @param filepath Path to the document
  */
-void HideDocument(const std::string& filepath);
+void HideDocument(const std::string &filepath);
 
 /**
  * @brief Toggle document visibility
  * @param filepath Path to the document
  */
-void ToggleDocument(const std::string& filepath);
+void ToggleDocument(const std::string &filepath);
 
 /**
  * @brief Check if a document is currently visible
  * @param filepath Path to the document
  * @return True if visible, false otherwise
  */
-bool IsDocumentVisible(const std::string& filepath);
+bool IsDocumentVisible(const std::string &filepath);
 
 /**
  * @brief Unload a document and free its resources
  * @param filepath Path to the document
  */
-void UnloadDocument(const std::string& filepath);
+void UnloadDocument(const std::string &filepath);
 
 /**
  * @brief Close and unload a document
  * @param filepath Path to the document
  */
-void CloseDocument(const std::string& filepath);
+void CloseDocument(const std::string &filepath);
 
 // ============================================================================
 // RENDERING - Frame cycle integration
@@ -172,7 +172,7 @@ void Update();
  * @param element_id Element ID
  * @param text New text content
  */
-void SetElementText(const std::string& document_path, const std::string& element_id, const std::string& text);
+void SetElementText(const std::string &document_path, const std::string &element_id, const std::string &text);
 
 /**
  * @brief Set value of an input element by ID
@@ -180,7 +180,7 @@ void SetElementText(const std::string& document_path, const std::string& element
  * @param element_id Element ID
  * @param value New value
  */
-void SetElementValue(const std::string& document_path, const std::string& element_id, const std::string& value);
+void SetElementValue(const std::string &document_path, const std::string &element_id, const std::string &value);
 
 /**
  * @brief Get text content of an element by ID
@@ -188,7 +188,7 @@ void SetElementValue(const std::string& document_path, const std::string& elemen
  * @param element_id Element ID
  * @return Text content, or empty string if not found
  */
-std::string GetElementText(const std::string& document_path, const std::string& element_id);
+std::string GetElementText(const std::string &document_path, const std::string &element_id);
 
 /**
  * @brief Get value of an input element by ID
@@ -196,7 +196,7 @@ std::string GetElementText(const std::string& document_path, const std::string& 
  * @param element_id Element ID
  * @return Element value, or empty string if not found
  */
-std::string GetElementValue(const std::string& document_path, const std::string& element_id);
+std::string GetElementValue(const std::string &document_path, const std::string &element_id);
 
 /**
  * @brief Get an element by ID from a document
@@ -204,14 +204,14 @@ std::string GetElementValue(const std::string& document_path, const std::string&
  * @param element_id Element ID
  * @return Pointer to element, or nullptr if not found
  */
-Rml::Element* GetElement(const std::string& document_path, const std::string& element_id);
+Rml::Element *GetElement(const std::string &document_path, const std::string &element_id);
 
 // ============================================================================
 // EVENT HANDLING
 // ============================================================================
 
 /// Event callback function type
-using EventCallback = std::function<void(Rml::Event&)>;
+using EventCallback = std::function<void(Rml::Event &)>;
 
 /**
  * @brief Register an event listener on an element
@@ -220,15 +220,15 @@ using EventCallback = std::function<void(Rml::Event&)>;
  * @param event_type Event type (e.g., "click", "change", "submit")
  * @param callback Function to call when event fires
  */
-void RegisterEventListener(const std::string& document_path, const std::string& element_id,
-                          const std::string& event_type, EventCallback callback);
+void RegisterEventListener(const std::string &document_path, const std::string &element_id,
+    const std::string &event_type, EventCallback callback);
 
 /**
  * @brief Process an SDL event (integrates with Input system)
  * @param event SDL event to process
  * @return True if event was consumed by UI
  */
-bool ProcessEvent(SDL_Event& event);
+bool ProcessEvent(SDL_Event &event);
 
 // ============================================================================
 // STYLING HELPERS - Programmatic CSS manipulation
@@ -241,8 +241,8 @@ bool ProcessEvent(SDL_Event& event);
  * @param property CSS property name
  * @param value CSS property value
  */
-void SetElementStyle(const std::string& document_path, const std::string& element_id,
-                     const std::string& property, const std::string& value);
+void SetElementStyle(const std::string &document_path, const std::string &element_id,
+    const std::string &property, const std::string &value);
 
 /**
  * @brief Add a CSS class to an element
@@ -250,7 +250,7 @@ void SetElementStyle(const std::string& document_path, const std::string& elemen
  * @param element_id Element ID
  * @param class_name CSS class name to add
  */
-void AddClass(const std::string& document_path, const std::string& element_id, const std::string& class_name);
+void AddClass(const std::string &document_path, const std::string &element_id, const std::string &class_name);
 
 /**
  * @brief Remove a CSS class from an element
@@ -258,7 +258,7 @@ void AddClass(const std::string& document_path, const std::string& element_id, c
  * @param element_id Element ID
  * @param class_name CSS class name to remove
  */
-void RemoveClass(const std::string& document_path, const std::string& element_id, const std::string& class_name);
+void RemoveClass(const std::string &document_path, const std::string &element_id, const std::string &class_name);
 
 /**
  * @brief Check if an element has a CSS class
@@ -267,7 +267,7 @@ void RemoveClass(const std::string& document_path, const std::string& element_id
  * @param class_name CSS class name to check
  * @return True if element has the class
  */
-bool HasClass(const std::string& document_path, const std::string& element_id, const std::string& class_name);
+bool HasClass(const std::string &document_path, const std::string &element_id, const std::string &class_name);
 
 // ============================================================================
 // DATA BINDING - Simplified data model API
@@ -278,7 +278,7 @@ bool HasClass(const std::string& document_path, const std::string& element_id, c
  * @param model_name Name of the data model
  * @return DataModelConstructor to configure the model, or empty constructor on failure
  */
-Rml::DataModelConstructor BindDataModel(const std::string& model_name);
+Rml::DataModelConstructor BindDataModel(const std::string &model_name);
 
 // ============================================================================
 // COMMON UI HELPERS - High-level convenience functions
@@ -290,8 +290,8 @@ Rml::DataModelConstructor BindDataModel(const std::string& model_name);
  * @param message Message content
  * @param on_ok Optional callback when OK is clicked
  */
-void ShowMessageBox(const std::string& title, const std::string& message,
-                   std::function<void()> on_ok = nullptr);
+void ShowMessageBox(const std::string &title, const std::string &message,
+    std::function<void()> on_ok = nullptr);
 
 /**
  * @brief Show a confirmation dialog with Yes/No buttons
@@ -299,8 +299,8 @@ void ShowMessageBox(const std::string& title, const std::string& message,
  * @param message Message content
  * @param callback Callback with true for Yes, false for No
  */
-void ShowConfirmDialog(const std::string& title, const std::string& message,
-                      std::function<void(bool)> callback);
+void ShowConfirmDialog(const std::string &title, const std::string &message,
+    std::function<void(bool)> callback);
 
 // ============================================================================
 // DEBUG HELPERS
@@ -317,7 +317,7 @@ void ShowDebugOverlay(bool show = true);
  * @param key Key for the debug value
  * @param value String value to display
  */
-void SetDebugText(const std::string& key, const std::string& value);
+void SetDebugText(const std::string &key, const std::string &value);
 
 /**
  * @brief Enable/disable the visual debugger

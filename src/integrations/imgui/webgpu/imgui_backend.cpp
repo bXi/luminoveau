@@ -16,21 +16,22 @@
 
 namespace ImGuiBackend {
 
-void InitRenderer(SDL_Window* window) {
+void InitRenderer(SDL_Window *window) {
     ImGui_ImplSDL3_InitForOther(window);
 
-    auto* wgpuBackend = static_cast<WebGpuGpuBackend*>(&Renderer::GetGpu());
+    auto *wgpuBackend = static_cast<WebGpuGpuBackend *>(&Renderer::GetGpu());
 
     // Map engine swapchain format to WGPUTextureFormat for imgui pipeline creation
-    WGPUTextureFormat wgpuFmt = WGPUTextureFormat_BGRA8Unorm;
+    WGPUTextureFormat wgpuFmt   = WGPUTextureFormat_BGRA8Unorm;
     GpuTextureFormat  engineFmt = Renderer::GetGpu().getSwapchainFormat();
-    if (engineFmt == GpuTextureFormat::R8G8B8A8_Unorm) wgpuFmt = WGPUTextureFormat_RGBA8Unorm;
+    if (engineFmt == GpuTextureFormat::R8G8B8A8_Unorm)
+        wgpuFmt = WGPUTextureFormat_RGBA8Unorm;
 
     ImGui_ImplWGPU_InitInfo init_info = {};
-    init_info.Device             = static_cast<WGPUDevice>(wgpuBackend->getRawDevice());
-    init_info.NumFramesInFlight  = 1;
-    init_info.RenderTargetFormat = wgpuFmt;
-    init_info.DepthStencilFormat = WGPUTextureFormat_Undefined;
+    init_info.Device                  = static_cast<WGPUDevice>(wgpuBackend->getRawDevice());
+    init_info.NumFramesInFlight       = 1;
+    init_info.RenderTargetFormat      = wgpuFmt;
+    init_info.DepthStencilFormat      = WGPUTextureFormat_Undefined;
     ImGui_ImplWGPU_Init(&init_info);
 }
 
@@ -43,20 +44,20 @@ void NewFrame() {
 }
 
 void RenderFrame(GpuCmdBufferHandle cmd, GpuTextureHandle swapchain) {
-    ImDrawData* draw_data = ImGui::GetDrawData();
-    auto* cb   = reinterpret_cast<WgpuCmdBuffer*>(cmd);
+    ImDrawData *draw_data = ImGui::GetDrawData();
+    auto       *cb        = reinterpret_cast<WgpuCmdBuffer *>(cmd);
     // WebGPU's swapchain handle is a raw WGPUTextureView (see WebGpuGpuBackend::acquireSwapchainTexture).
-    auto  view = reinterpret_cast<WGPUTextureView>(swapchain);
+    auto view = reinterpret_cast<WGPUTextureView>(swapchain);
 
-    WGPURenderPassColorAttachment ca{};
+    WGPURenderPassColorAttachment ca {};
     ca.depthSlice    = WGPU_DEPTH_SLICE_UNDEFINED;
     ca.view          = view;
     ca.resolveTarget = nullptr;
     ca.loadOp        = WGPULoadOp_Load;
     ca.storeOp       = WGPUStoreOp_Store;
-    ca.clearValue    = {0.0, 0.0, 0.0, 0.0};
+    ca.clearValue    = { 0.0, 0.0, 0.0, 0.0 };
 
-    WGPURenderPassDescriptor rpDesc{};
+    WGPURenderPassDescriptor rpDesc {};
     rpDesc.colorAttachmentCount = 1;
     rpDesc.colorAttachments     = &ca;
 

@@ -35,27 +35,27 @@ constexpr Peer SERVER_PEER = 0;
 /// @brief Callback invoked for a received message of type T, from a given peer.
 /// @tparam T The trivially-copyable packet type.
 template <typename T>
-using MessageHandler = std::function<void(Peer peer, const T& packet)>;
+using MessageHandler = std::function<void(Peer peer, const T &packet)>;
 
 namespace detail {
-    // Compile-time FNV-1a hash of a C string.
-    constexpr uint32_t fnv1a(const char* s, uint32_t h = 2166136261u) {
-        return (*s == 0) ? h : fnv1a(s + 1, (h ^ static_cast<uint8_t>(*s)) * 16777619u);
-    }
-    // Stable per-type id from the compiler's decorated function name.
-    template <typename T>
-    constexpr uint32_t typeId() {
-#if defined(_MSC_VER)
-        return fnv1a(__FUNCSIG__);
-#else
-        return fnv1a(__PRETTY_FUNCTION__);
-#endif
-    }
-    // Transport-agnostic primitives implemented in net.cpp.
-    void sendRaw(Peer peer, uint32_t typeId, const void* data, uint32_t size, bool reliable);
-    void broadcastRaw(uint32_t typeId, const void* data, uint32_t size, bool reliable);
-    void registerRaw(uint32_t typeId, std::function<void(Peer, const void*, uint32_t)> handler);
+// Compile-time FNV-1a hash of a C string.
+constexpr uint32_t fnv1a(const char *s, uint32_t h = 2166136261u) {
+    return (*s == 0) ? h : fnv1a(s + 1, (h ^ static_cast<uint8_t>(*s)) * 16777619u);
 }
+// Stable per-type id from the compiler's decorated function name.
+template <typename T>
+constexpr uint32_t typeId() {
+#if defined(_MSC_VER)
+    return fnv1a(__FUNCSIG__);
+#else
+    return fnv1a(__PRETTY_FUNCTION__);
+#endif
+}
+// Transport-agnostic primitives implemented in net.cpp.
+void sendRaw(Peer peer, uint32_t typeId, const void *data, uint32_t size, bool reliable);
+void broadcastRaw(uint32_t typeId, const void *data, uint32_t size, bool reliable);
+void registerRaw(uint32_t typeId, std::function<void(Peer, const void *, uint32_t)> handler);
+} // namespace detail
 
 // ── Lifecycle / connection ────────────────────────────────────────────────────
 /// @brief Initializes the networking subsystem. Call before Host/Connect.
@@ -71,7 +71,7 @@ bool Host(uint16_t port);
 /// @param address Server host name or IP.
 /// @param port Server port.
 /// @return True on success.
-bool Connect(const std::string& address, uint16_t port);
+bool Connect(const std::string &address, uint16_t port);
 /// @brief Disconnects from the current session (server or client).
 void Disconnect();
 
@@ -84,7 +84,7 @@ bool IsServer();
 bool IsClient();
 
 /// @brief Returns this client's own peer id (client side).
-Peer     GetClientID();
+Peer GetClientID();
 /// @brief Returns the number of currently connected peers.
 uint32_t GetPeerCount();
 /// @brief Returns the round-trip time to a peer in milliseconds (0 if unknown).
@@ -97,7 +97,7 @@ uint32_t GetPing(Peer peer);
 /// @param peer Destination peer.
 /// @param packet The packet to send.
 template <typename T>
-void Send(Peer peer, const T& packet) {
+void Send(Peer peer, const T &packet) {
     static_assert(std::is_trivially_copyable_v<T>, "Net packet must be trivially copyable");
     detail::sendRaw(peer, detail::typeId<T>(), &packet, sizeof(T), false);
 }
@@ -107,7 +107,7 @@ void Send(Peer peer, const T& packet) {
 /// @param peer Destination peer.
 /// @param packet The packet to send.
 template <typename T>
-void SendReliable(Peer peer, const T& packet) {
+void SendReliable(Peer peer, const T &packet) {
     static_assert(std::is_trivially_copyable_v<T>, "Net packet must be trivially copyable");
     detail::sendRaw(peer, detail::typeId<T>(), &packet, sizeof(T), true);
 }
@@ -116,7 +116,7 @@ void SendReliable(Peer peer, const T& packet) {
 /// @tparam T Trivially-copyable packet type.
 /// @param packet The packet to broadcast.
 template <typename T>
-void Broadcast(const T& packet) {
+void Broadcast(const T &packet) {
     static_assert(std::is_trivially_copyable_v<T>, "Net packet must be trivially copyable");
     detail::broadcastRaw(detail::typeId<T>(), &packet, sizeof(T), false);
 }
@@ -125,7 +125,7 @@ void Broadcast(const T& packet) {
 /// @tparam T Trivially-copyable packet type.
 /// @param packet The packet to broadcast.
 template <typename T>
-void BroadcastReliable(const T& packet) {
+void BroadcastReliable(const T &packet) {
     static_assert(std::is_trivially_copyable_v<T>, "Net packet must be trivially copyable");
     detail::broadcastRaw(detail::typeId<T>(), &packet, sizeof(T), true);
 }
@@ -137,8 +137,9 @@ template <typename T>
 void RegisterMessage(MessageHandler<T> handler) {
     static_assert(std::is_trivially_copyable_v<T>, "Net packet must be trivially copyable");
     detail::registerRaw(detail::typeId<T>(),
-        [handler](Peer peer, const void* data, uint32_t size) {
-            if (size != sizeof(T)) return;
+        [handler](Peer peer, const void *data, uint32_t size) {
+            if (size != sizeof(T))
+                return;
             T packet;
             std::memcpy(&packet, data, sizeof(T));
             handler(peer, packet);
@@ -149,45 +150,45 @@ void RegisterMessage(MessageHandler<T> handler) {
 // For protocols that do their own packet format + reliability (Quake's net_dgrm).
 // Opaque handles — no SDL_net types leak out.
 namespace Udp {
-    /// @brief An opaque UDP socket handle.
-    using Socket = void*;
-    /// @brief An opaque UDP endpoint (host + port).
-    struct Address {
-        void* handle = nullptr;  ///< Opaque backend host handle.
-        uint16_t port = 0;       ///< Port number.
-    };
+/// @brief An opaque UDP socket handle.
+using Socket = void *;
+/// @brief An opaque UDP endpoint (host + port).
+struct Address {
+    void    *handle = nullptr; ///< Opaque backend host handle.
+    uint16_t port   = 0;       ///< Port number.
+};
 
-    /// @brief Binds a UDP socket. Pass 0 to use any free port.
-    /// @param port Port to bind, or 0 for any.
-    /// @return A socket handle (null on failure).
-    Socket Open(uint16_t port);
-    /// @brief Closes a UDP socket.
-    void   Close(Socket s);
-    /// @brief Sends a datagram to an address.
-    /// @param s Socket to send on.
-    /// @param to Destination address.
-    /// @param data Payload bytes.
-    /// @param len Payload length.
-    /// @return True on success.
-    bool   Send(Socket s, const Address& to, const void* data, int len);
-    /// @brief Receives a datagram if one is available.
-    /// @param s Socket to read from.
-    /// @param from Filled with the sender's address.
-    /// @param data Buffer to receive into.
-    /// @param maxLen Buffer capacity.
-    /// @return Bytes received (>0), 0 if none, <0 on error.
-    int    Recv(Socket s, Address& from, void* data, int maxLen);
+/// @brief Binds a UDP socket. Pass 0 to use any free port.
+/// @param port Port to bind, or 0 for any.
+/// @return A socket handle (null on failure).
+Socket Open(uint16_t port);
+/// @brief Closes a UDP socket.
+void Close(Socket s);
+/// @brief Sends a datagram to an address.
+/// @param s Socket to send on.
+/// @param to Destination address.
+/// @param data Payload bytes.
+/// @param len Payload length.
+/// @return True on success.
+bool Send(Socket s, const Address &to, const void *data, int len);
+/// @brief Receives a datagram if one is available.
+/// @param s Socket to read from.
+/// @param from Filled with the sender's address.
+/// @param data Buffer to receive into.
+/// @param maxLen Buffer capacity.
+/// @return Bytes received (>0), 0 if none, <0 on error.
+int Recv(Socket s, Address &from, void *data, int maxLen);
 
-    /// @brief Resolves a hostname/IP + port into an Address (blocking).
-    Address     Resolve(const std::string& host, uint16_t port);
-    /// @brief Returns true if the address is valid/resolved.
-    bool        Valid(const Address& a);
-    /// @brief Returns true if two addresses refer to the same endpoint.
-    bool        Equal(const Address& a, const Address& b);
-    /// @brief Formats an address as "ip:port".
-    std::string ToString(const Address& a);
-    /// @brief Frees any backend resources held by an address.
-    void        Free(Address& a);
-}
+/// @brief Resolves a hostname/IP + port into an Address (blocking).
+Address Resolve(const std::string &host, uint16_t port);
+/// @brief Returns true if the address is valid/resolved.
+bool Valid(const Address &a);
+/// @brief Returns true if two addresses refer to the same endpoint.
+bool Equal(const Address &a, const Address &b);
+/// @brief Formats an address as "ip:port".
+std::string ToString(const Address &a);
+/// @brief Frees any backend resources held by an address.
+void Free(Address &a);
+} // namespace Udp
 
 } // namespace Net

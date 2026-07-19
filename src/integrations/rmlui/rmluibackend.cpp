@@ -14,11 +14,11 @@ namespace Backend {
 // Global backend data
 static BackendData g_backend_data;
 
-BackendData* GetBackendData() {
+BackendData *GetBackendData() {
     return &g_backend_data;
 }
 
-bool Initialize(SDL_GPUDevice* device, SDL_Window* window) {
+bool Initialize(SDL_GPUDevice *device, SDL_Window *window) {
     if (g_backend_data.initialized) {
         LOG_WARNING("RmlUI Backend already initialized");
         return true;
@@ -63,25 +63,25 @@ void Shutdown() {
     // Clean up system interface
     g_backend_data.system_interface.reset();
 
-    g_backend_data.device = nullptr;
-    g_backend_data.window = nullptr;
-    g_backend_data.command_buffer = nullptr;
+    g_backend_data.device            = nullptr;
+    g_backend_data.window            = nullptr;
+    g_backend_data.command_buffer    = nullptr;
     g_backend_data.swapchain_texture = nullptr;
-    g_backend_data.initialized = false;
+    g_backend_data.initialized       = false;
 
     LOG_INFO("RmlUI Backend shut down");
 }
 
-void BeginFrame(SDL_GPUCommandBuffer* command_buffer, SDL_GPUTexture* swapchain_texture, 
-                uint32_t width, uint32_t height) {
+void BeginFrame(SDL_GPUCommandBuffer *command_buffer, SDL_GPUTexture *swapchain_texture,
+    uint32_t width, uint32_t height) {
     if (!g_backend_data.initialized) {
         return;
     }
 
-    g_backend_data.command_buffer = command_buffer;
+    g_backend_data.command_buffer    = command_buffer;
     g_backend_data.swapchain_texture = swapchain_texture;
-    g_backend_data.swapchain_width = width;
-    g_backend_data.swapchain_height = height;
+    g_backend_data.swapchain_width   = width;
+    g_backend_data.swapchain_height  = height;
 
     if (g_backend_data.render_interface) {
         g_backend_data.render_interface->BeginFrame(command_buffer, swapchain_texture, width, height);
@@ -97,11 +97,11 @@ void EndFrame() {
         g_backend_data.render_interface->EndFrame();
     }
 
-    g_backend_data.command_buffer = nullptr;
+    g_backend_data.command_buffer    = nullptr;
     g_backend_data.swapchain_texture = nullptr;
 }
 
-bool ProcessEvent(Rml::Context* context, SDL_Event& event) {
+bool ProcessEvent(Rml::Context *context, SDL_Event &event) {
     if (!g_backend_data.initialized || !context) {
         return false;
     }

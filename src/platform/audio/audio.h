@@ -15,11 +15,11 @@
  * @brief Audio mix channels for routing sounds through volume/panning groups.
  */
 enum class AudioChannel : uint8_t {
-    Master,   ///< Controls the engine master volume (not a real group)
-    SFX,      ///< Sound effects channel
-    Voice,    ///< Voice/dialogue channel
-    Music,    ///< Music channel
-    Count     ///< Number of entries (used for array sizing)
+    Master, ///< Controls the engine master volume (not a real group)
+    SFX,    ///< Sound effects channel
+    Voice,  ///< Voice/dialogue channel
+    Music,  ///< Music channel
+    Count   ///< Number of entries (used for array sizing)
 };
 
 /**
@@ -141,7 +141,7 @@ public:
      * @return A SoundInstance handle. Caller owns it and must call StopSoundInstance().
      */
     static SoundInstance PlaySoundInstance(Sound sound, float volume, float panning,
-                                           bool looping, AudioChannel channel = AudioChannel::SFX) {
+        bool looping, AudioChannel channel = AudioChannel::SFX) {
         return get()._playSoundInstance(sound, volume, panning, looping, channel);
     }
 
@@ -269,7 +269,7 @@ public:
      * @param userData Pointer passed to the callback. You own the lifetime.
      * @return A PCMSound handle. Caller owns it and must call DestroyPCMSound when done.
      */
-    static PCMSound CreatePCMGenerator(const PCMFormat& format, PCMGenerateCallback callback, void* userData = nullptr) {
+    static PCMSound CreatePCMGenerator(const PCMFormat &format, PCMGenerateCallback callback, void *userData = nullptr) {
         return get()._createPCMGenerator(format, callback, userData);
     }
 
@@ -282,7 +282,7 @@ public:
      * @param sound   The PCMSound to start.
      * @param channel The audio channel to route through (default: SFX).
      */
-    static void PlayPCMSound(PCMSound& sound, AudioChannel channel = AudioChannel::SFX) {
+    static void PlayPCMSound(PCMSound &sound, AudioChannel channel = AudioChannel::SFX) {
         get()._playPCMSound(sound, channel);
     }
 
@@ -291,7 +291,7 @@ public:
      *
      * @param sound The PCMSound to stop.
      */
-    static void StopPCMSound(PCMSound& sound) {
+    static void StopPCMSound(PCMSound &sound) {
         get()._stopPCMSound(sound);
     }
 
@@ -300,7 +300,7 @@ public:
      *
      * @param sound The PCMSound to destroy. Do not use after this call.
      */
-    static void DestroyPCMSound(PCMSound& sound) {
+    static void DestroyPCMSound(PCMSound &sound) {
         get()._destroyPCMSound(sound);
     }
 
@@ -318,7 +318,7 @@ public:
      * @param callback Function that processes samples in-place.
      * @param userData Pointer passed to the callback. You own the lifetime.
      */
-    static void SetChannelEffect(AudioChannel channel, PCMEffectCallback callback, void* userData = nullptr) {
+    static void SetChannelEffect(AudioChannel channel, PCMEffectCallback callback, void *userData = nullptr) {
         get()._setChannelEffect(channel, callback, userData);
     }
 
@@ -332,7 +332,7 @@ public:
     }
 
     /// @brief Returns the underlying miniaudio engine for advanced/direct access.
-    static ma_engine* GetAudioEngine() {
+    static ma_engine *GetAudioEngine() {
         return &get().engine;
     }
 
@@ -342,12 +342,11 @@ public:
      * @param channel The channel whose group to retrieve. Must not be Master.
      * @return Pointer to the channel's ma_sound_group, or nullptr if Master or not initialized.
      */
-    static ma_sound_group* GetChannelGroup(AudioChannel channel) {
+    static ma_sound_group *GetChannelGroup(AudioChannel channel) {
         return get()._getChannelGroup(channel);
     }
 
 private:
-
     // ── Sound playback ──
 
     void _playSound(Sound sound, AudioChannel channel);
@@ -357,7 +356,7 @@ private:
     // ── Controllable sound instances ──
 
     SoundInstance _playSoundInstance(Sound sound, float volume, float panning,
-                                     bool looping, AudioChannel channel);
+        bool looping, AudioChannel channel);
 
     void _setSoundInstanceVolume(SoundInstance &instance, float volume);
 
@@ -401,21 +400,21 @@ private:
 
     bool _isChannelMuted(AudioChannel channel);
 
-    ma_sound_group* _getChannelGroup(AudioChannel channel);
+    ma_sound_group *_getChannelGroup(AudioChannel channel);
 
     // ── PCM generators ──
 
-    PCMSound _createPCMGenerator(const PCMFormat& format, PCMGenerateCallback callback, void* userData);
+    PCMSound _createPCMGenerator(const PCMFormat &format, PCMGenerateCallback callback, void *userData);
 
-    void _playPCMSound(PCMSound& sound, AudioChannel channel);
+    void _playPCMSound(PCMSound &sound, AudioChannel channel);
 
-    void _stopPCMSound(PCMSound& sound);
+    void _stopPCMSound(PCMSound &sound);
 
-    void _destroyPCMSound(PCMSound& sound);
+    void _destroyPCMSound(PCMSound &sound);
 
     // ── Channel effects ──
 
-    void _setChannelEffect(AudioChannel channel, PCMEffectCallback callback, void* userData);
+    void _setChannelEffect(AudioChannel channel, PCMEffectCallback callback, void *userData);
 
     void _removeChannelEffect(AudioChannel channel);
 
@@ -435,34 +434,34 @@ private:
     /// @cond INTERNAL
     struct ChannelState {
         ma_sound_group group;
-        float volume  = 1.0f;
-        float panning = 0.0f;
-        bool muted    = false;
-        bool initialized = false;
+        float          volume      = 1.0f;
+        float          panning     = 0.0f;
+        bool           muted       = false;
+        bool           initialized = false;
 
         LumiEffectNode effectNode;
     };
     /// @endcond
 
     std::array<ChannelState, NUM_GROUPS> _channels;
-    float _masterVolume = 1.0f;
-    bool  _masterMuted  = false;
+    float                                _masterVolume = 1.0f;
+    bool                                 _masterMuted  = false;
 
     // Master effect (applied in the device data callback)
     PCMEffectCallback _masterEffectCallback = nullptr;
-    void*             _masterEffectUserData = nullptr;
+    void             *_masterEffectUserData = nullptr;
 
     // ── Engine state ──
 
     int _numberChannels = 2;
 
-    bool audioInit = false;
-    ma_device device;
-    ma_engine engine;
+    bool                audioInit = false;
+    ma_device           device;
+    ma_engine           engine;
     ma_resource_manager resourceManager;
 
     /// Pool of polyphonic sound instances
-    std::array<ma_sound*, 128> _soundPool;
+    std::array<ma_sound *, 128> _soundPool;
 
     // ── miniaudio vtables for custom data source / node (defined in .cpp) ──
 
@@ -482,6 +481,6 @@ public:
     /// @endcond
 
 private:
-    Audio() {}
+    Audio() { }
 };
 //*/

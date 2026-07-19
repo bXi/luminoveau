@@ -15,44 +15,68 @@
 #include "util/helpers.h"
 
 void ShaderRenderPass::release(bool logRelease) {
-    IGpu& gpu = Renderer::GetGpu();
+    IGpu &gpu = Renderer::GetGpu();
 
-    if (m_depth_texture.gpuTexture)    { gpu.releaseTexture(m_depth_texture.gpuTexture);    m_depth_texture.gpuTexture = 0; }
-    if (m_pipeline)                    { gpu.releaseGraphicsPipeline(m_pipeline);           m_pipeline                 = 0; }
-    if (resultTexture)                 { gpu.releaseTexture(resultTexture);                 resultTexture              = 0; }
-    if (inputTexture)                  { gpu.releaseTexture(inputTexture);                  inputTexture               = 0; }
-    if (fs.texture.gpuTexture)         { gpu.releaseTexture(fs.texture.gpuTexture);         fs.texture.gpuTexture      = 0; }
-    if (finalrender_pipeline)          { gpu.releaseGraphicsPipeline(finalrender_pipeline); finalrender_pipeline       = 0; }
-    if (finalrender_vertex_shader)     { gpu.releaseShader(finalrender_vertex_shader);      finalrender_vertex_shader  = 0; }
-    if (finalrender_fragment_shader)   { gpu.releaseShader(finalrender_fragment_shader);    finalrender_fragment_shader = 0; }
+    if (m_depth_texture.gpuTexture) {
+        gpu.releaseTexture(m_depth_texture.gpuTexture);
+        m_depth_texture.gpuTexture = 0;
+    }
+    if (m_pipeline) {
+        gpu.releaseGraphicsPipeline(m_pipeline);
+        m_pipeline = 0;
+    }
+    if (resultTexture) {
+        gpu.releaseTexture(resultTexture);
+        resultTexture = 0;
+    }
+    if (inputTexture) {
+        gpu.releaseTexture(inputTexture);
+        inputTexture = 0;
+    }
+    if (fs.texture.gpuTexture) {
+        gpu.releaseTexture(fs.texture.gpuTexture);
+        fs.texture.gpuTexture = 0;
+    }
+    if (finalrender_pipeline) {
+        gpu.releaseGraphicsPipeline(finalrender_pipeline);
+        finalrender_pipeline = 0;
+    }
+    if (finalrender_vertex_shader) {
+        gpu.releaseShader(finalrender_vertex_shader);
+        finalrender_vertex_shader = 0;
+    }
+    if (finalrender_fragment_shader) {
+        gpu.releaseShader(finalrender_fragment_shader);
+        finalrender_fragment_shader = 0;
+    }
 
     if (logRelease) {
         LOG_INFO("Released graphics pipeline: {}", passname.c_str());
     }
 }
 
-void ShaderRenderPass::_loadUniformsFromShader(const std::vector<uint8_t> &/*spirvBinary*/) {
+void ShaderRenderPass::_loadUniformsFromShader(const std::vector<uint8_t> & /*spirvBinary*/) {
     ShaderMetadata metadata = Shaders::GetShaderMetadata(vertShader.shaderFilename);
-    for (const auto& [name, offset] : metadata.uniform_offsets) {
+    for (const auto &[name, offset] : metadata.uniform_offsets) {
         size_t size = metadata.uniform_sizes.at(name);
         uniformBuffer.addVariable(name, size, offset);
     }
 }
 
-void ShaderRenderPass::_loadSamplerNamesFromShader(const std::vector<uint8_t> &/*spirvBinary*/) {
+void ShaderRenderPass::_loadSamplerNamesFromShader(const std::vector<uint8_t> & /*spirvBinary*/) {
     ShaderMetadata metadata = Shaders::GetShaderMetadata(fragShader.shaderFilename);
-    foundSamplers = metadata.sampler_names;
+    foundSamplers           = metadata.sampler_names;
 }
 
 bool ShaderRenderPass::init(
     GpuTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit,
     size_t /*capacity*/, bool /*forceNoMSAA*/) {
 
-    passname = std::move(name);
+    passname         = std::move(name);
     m_desktop_width  = surface_width;
     m_desktop_height = surface_height;
 
-    IGpu& gpu = Renderer::GetGpu();
+    IGpu &gpu = Renderer::GetGpu();
 
     vertex_shader   = vertShader.gpuShader;
     fragment_shader = fragShader.gpuShader;
@@ -64,12 +88,16 @@ bool ShaderRenderPass::init(
     resultTexture = AssetHandler::CreateEmptyTexture(Window::GetPhysicalSize()).gpuTexture;
     inputTexture  = AssetHandler::CreateEmptyTexture(Window::GetPhysicalSize()).gpuTexture;
 
-    fs.texture = AssetHandler::CreateEmptyTexture({1, 1});
-    fs.x = 0.f; fs.y = 0.f;
-    fs.r = 255; fs.g = 255; fs.b = 255; fs.a = 255;
+    fs.texture = AssetHandler::CreateEmptyTexture({ 1, 1 });
+    fs.x       = 0.f;
+    fs.y       = 0.f;
+    fs.r       = 255;
+    fs.g       = 255;
+    fs.b       = 255;
+    fs.a       = 255;
 
     {
-        GpuGraphicsPipelineCreateInfo pci{};
+        GpuGraphicsPipelineCreateInfo pci {};
         pci.vertexShader      = vertex_shader;
         pci.fragmentShader    = fragment_shader;
         pci.fillMode          = GpuFillMode::Fill;
@@ -87,40 +115,40 @@ bool ShaderRenderPass::init(
         }
     }
 
-    #if defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
-        const char* builtinEntryPoint = "main0";
-    #else
-        const char* builtinEntryPoint = "main";
-    #endif
+#if defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+    const char *builtinEntryPoint = "main0";
+#else
+    const char *builtinEntryPoint = "main";
+#endif
 
     if (!finalrender_vertex_shader) {
-        GpuShaderCreateInfo vsi{};
-        vsi.code                = Luminoveau::Shaders::FullscreenQuad_Vert;
-        vsi.codeSize            = Luminoveau::Shaders::FullscreenQuad_Vert_Size;
-        vsi.entrypoint          = builtinEntryPoint;
-        vsi.stage               = GpuShaderStage::Vertex;
-        vsi.samplerCount        = 0;
-        vsi.uniformBufferCount  = 1;
-        vsi.storageBufferCount  = 0;
-        vsi.storageTextureCount = 0;
+        GpuShaderCreateInfo vsi {};
+        vsi.code                  = Luminoveau::Shaders::FullscreenQuad_Vert;
+        vsi.codeSize              = Luminoveau::Shaders::FullscreenQuad_Vert_Size;
+        vsi.entrypoint            = builtinEntryPoint;
+        vsi.stage                 = GpuShaderStage::Vertex;
+        vsi.samplerCount          = 0;
+        vsi.uniformBufferCount    = 1;
+        vsi.storageBufferCount    = 0;
+        vsi.storageTextureCount   = 0;
         finalrender_vertex_shader = gpu.createShader(vsi);
     }
 
     if (!finalrender_fragment_shader) {
-        GpuShaderCreateInfo fsi{};
-        fsi.code                = Luminoveau::Shaders::FullscreenQuad_Frag;
-        fsi.codeSize            = Luminoveau::Shaders::FullscreenQuad_Frag_Size;
-        fsi.entrypoint          = builtinEntryPoint;
-        fsi.stage               = GpuShaderStage::Fragment;
-        fsi.samplerCount        = 1;
-        fsi.uniformBufferCount  = 0;
-        fsi.storageBufferCount  = 0;
-        fsi.storageTextureCount = 0;
+        GpuShaderCreateInfo fsi {};
+        fsi.code                    = Luminoveau::Shaders::FullscreenQuad_Frag;
+        fsi.codeSize                = Luminoveau::Shaders::FullscreenQuad_Frag_Size;
+        fsi.entrypoint              = builtinEntryPoint;
+        fsi.stage                   = GpuShaderStage::Fragment;
+        fsi.samplerCount            = 1;
+        fsi.uniformBufferCount      = 0;
+        fsi.storageBufferCount      = 0;
+        fsi.storageTextureCount     = 0;
         finalrender_fragment_shader = gpu.createShader(fsi);
     }
 
     if (!finalrender_pipeline) {
-        GpuGraphicsPipelineCreateInfo pci{};
+        GpuGraphicsPipelineCreateInfo pci {};
         pci.vertexShader      = finalrender_vertex_shader;
         pci.fragmentShader    = finalrender_fragment_shader;
         pci.fillMode          = GpuFillMode::Fill;
@@ -130,7 +158,7 @@ bool ShaderRenderPass::init(
         pci.blend             = GpuPresets::AlphaBlendKeepDstAlpha;
         pci.hasDepthTarget    = false;
         pci.sampleCount       = GpuSampleCount::x1;
-        finalrender_pipeline = gpu.createGraphicsPipeline(pci);
+        finalrender_pipeline  = gpu.createGraphicsPipeline(pci);
         if (!finalrender_pipeline) {
             LOG_CRITICAL("failed to create final render graphics pipeline");
         }
@@ -143,33 +171,31 @@ bool ShaderRenderPass::init(
 }
 
 void ShaderRenderPass::render(
-    GpuCmdBufferHandle cmdBuffer, GpuTextureHandle /*targetTexture*/, const glm::mat4 &camera
-) {
-    IGpu& gpu = Renderer::GetGpu();
-    auto framebuffer = Renderer::GetFramebuffer("primaryFramebuffer");
+    GpuCmdBufferHandle cmdBuffer, GpuTextureHandle /*targetTexture*/, const glm::mat4 &camera) {
+    IGpu &gpu         = Renderer::GetGpu();
+    auto  framebuffer = Renderer::GetFramebuffer("primaryFramebuffer");
 
     // STEP 1: Copy window region of desktop-sized framebuffer to window-sized inputTexture.
     {
-        GpuColorTargetInfo ct{};
-        ct.texture = inputTexture;
-        ct.loadOp  = GpuLoadOp::Clear;
-        ct.storeOp = GpuStoreOp::Store;
-        ct.clearA  = 1.0f;
+        GpuColorTargetInfo ct {};
+        ct.texture                    = inputTexture;
+        ct.loadOp                     = GpuLoadOp::Clear;
+        ct.storeOp                    = GpuStoreOp::Store;
+        ct.clearA                     = 1.0f;
         GpuRenderPassHandle copy_pass = gpu.beginRenderPass(cmdBuffer, &ct, 1, nullptr);
 
         gpu.setViewport(copy_pass, 0.0f, 0.0f,
-                        (float)Window::GetPhysicalWidth(), (float)Window::GetPhysicalHeight(),
-                        0.0f, 1.0f);
+            (float)Window::GetPhysicalWidth(), (float)Window::GetPhysicalHeight(),
+            0.0f, 1.0f);
         gpu.bindGraphicsPipeline(copy_pass, finalrender_pipeline);
 
         glm::mat4 model = glm::mat4(
             (float)Window::GetWidth(), 0.0f, 0.0f, 0.0f,
             0.0f, (float)Window::GetHeight(), 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f
-        );
+            0.0f, 0.0f, 0.0f, 1.0f);
 
-        float uMax = (float)Window::GetPhysicalWidth()  / (float)m_desktop_width;
+        float uMax = (float)Window::GetPhysicalWidth() / (float)m_desktop_width;
         float vMax = (float)Window::GetPhysicalHeight() / (float)m_desktop_height;
 
         struct Uniforms {
@@ -182,21 +208,21 @@ void ShaderRenderPass::render(
             glm::vec2 uv3;
             glm::vec2 uv4;
             glm::vec2 uv5;
-            float tintColorR;
-            float tintColorG;
-            float tintColorB;
-            float tintColorA;
+            float     tintColorR;
+            float     tintColorG;
+            float     tintColorB;
+            float     tintColorA;
         };
 
-        Uniforms copy_uniforms{
+        Uniforms copy_uniforms {
             .camera     = camera,
             .model      = model,
             .flipped    = glm::vec2(1.0, 1.0),
             .uv0        = glm::vec2(uMax, vMax),
-            .uv1        = glm::vec2(0.0,  vMax),
+            .uv1        = glm::vec2(0.0, vMax),
             .uv2        = glm::vec2(uMax, 0.0),
-            .uv3        = glm::vec2(0.0,  vMax),
-            .uv4        = glm::vec2(0.0,  0.0),
+            .uv3        = glm::vec2(0.0, vMax),
+            .uv4        = glm::vec2(0.0, 0.0),
             .uv5        = glm::vec2(uMax, 0.0),
             .tintColorR = 1.0f,
             .tintColorG = 1.0f,
@@ -205,7 +231,7 @@ void ShaderRenderPass::render(
         };
         gpu.pushVertexUniformData(cmdBuffer, 0, &copy_uniforms, sizeof(copy_uniforms));
 
-        GpuTextureSamplerBinding binding{ framebuffer->fbContent, Renderer::GetSampler(ScaleMode::Linear) };
+        GpuTextureSamplerBinding binding { framebuffer->fbContent, Renderer::GetSampler(ScaleMode::Linear) };
         gpu.bindFragmentSamplers(copy_pass, 0, &binding, 1);
 
         gpu.drawPrimitives(copy_pass, 6, 1, 0, 0);
@@ -215,7 +241,7 @@ void ShaderRenderPass::render(
     // STEP 2: Run user shader inputTexture → resultTexture.
     {
         std::vector<GpuColorTargetInfo> color_target_info(fragShader.samplerCount);
-        for (auto& ct : color_target_info) {
+        for (auto &ct : color_target_info) {
             ct.texture = resultTexture;
             ct.loadOp  = GpuLoadOp::Load;
             ct.storeOp = GpuStoreOp::Store;
@@ -226,12 +252,12 @@ void ShaderRenderPass::render(
         }
 
         GpuRenderPassHandle rp = gpu.beginRenderPass(cmdBuffer, color_target_info.data(),
-                                                    static_cast<uint32_t>(color_target_info.size()), nullptr);
-        render_pass = rp;
+            static_cast<uint32_t>(color_target_info.size()), nullptr);
+        render_pass            = rp;
 
         gpu.setViewport(rp, 0.0f, 0.0f,
-                        (float)Window::GetPhysicalWidth(), (float)Window::GetPhysicalHeight(),
-                        0.0f, 1.0f);
+            (float)Window::GetPhysicalWidth(), (float)Window::GetPhysicalHeight(),
+            0.0f, 1.0f);
 
         if (_scissorEnabled) {
             gpu.setScissor(rp, _scissorX, _scissorY, _scissorW, _scissorH);
@@ -248,13 +274,12 @@ void ShaderRenderPass::render(
             (float)Window::GetWidth(), 0.0f, 0.0f, 0.0f,
             0.0f, (float)Window::GetHeight(), 0.0f, 0.0f,
             0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.1f, 1.0f
-        );
+            0.0f, 0.0f, 0.1f, 1.0f);
 
-        uniformBuffer["model"]     = model;
-        uniformBuffer["camera"]    = camera;
-        uniformBuffer["flipped"]   = glm::vec2(1.0, 1.0);
-        uniformBuffer["uv"]        = std::array<glm::vec2, 6>{
+        uniformBuffer["model"]   = model;
+        uniformBuffer["camera"]  = camera;
+        uniformBuffer["flipped"] = glm::vec2(1.0, 1.0);
+        uniformBuffer["uv"]      = std::array<glm::vec2, 6> {
             glm::vec2(1.0, 1.0),
             glm::vec2(0.0, 1.0),
             glm::vec2(1.0, 0.0),
@@ -263,23 +288,23 @@ void ShaderRenderPass::render(
             glm::vec2(1.0, 0.0),
         };
         uniformBuffer["tintColor"]   = Color(WHITE).asVec4();
-        uniformBuffer["iResolution"] = glm::vec3{(float)Window::GetPhysicalWidth(), (float)Window::GetPhysicalHeight(), 0.0f};
+        uniformBuffer["iResolution"] = glm::vec3 { (float)Window::GetPhysicalWidth(), (float)Window::GetPhysicalHeight(), 0.0f };
         uniformBuffer["iTime"]       = (float)Window::GetRunTime();
         uniformBuffer["iTimeDelta"]  = (float)(Window::GetFrameTime() * 1.0f);
         uniformBuffer["iFrame"]      = (float)EngineState::_frameCount;
-        uniformBuffer["iMouse"]      = glm::vec4{Input::GetMousePosition().x, Input::GetMousePosition().y, lastMousePos.x, lastMousePos.y};
+        uniformBuffer["iMouse"]      = glm::vec4 { Input::GetMousePosition().x, Input::GetMousePosition().y, lastMousePos.x, lastMousePos.y };
 
         gpu.pushVertexUniformData(cmdBuffer, 0, uniformBuffer.getBufferPointer(), uniformBuffer.getBufferSize());
 
         std::vector<GpuTextureSamplerBinding> tsbs(fragShader.samplerCount);
-        for (auto& tsb : tsbs) {
+        for (auto &tsb : tsbs) {
             tsb.texture = inputTexture;
             tsb.sampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode());
         }
         int i = 0;
-        for (const auto& sampler : foundSamplers) {
+        for (const auto &sampler : foundSamplers) {
             if (fragShader.frameBufferToSamplerMapping.contains(sampler)) {
-                auto fb = Renderer::GetFramebuffer(fragShader.frameBufferToSamplerMapping[sampler]);
+                auto fb         = Renderer::GetFramebuffer(fragShader.frameBufferToSamplerMapping[sampler]);
                 tsbs[i].texture = fb->fbContent;
             }
             i++;
@@ -301,18 +326,18 @@ void ShaderRenderPass::_renderShaderOutputToFramebuffer(GpuCmdBufferHandle cmd_b
         LOG_CRITICAL("missing fragment shader for: {}", passname.c_str());
     }
 
-    IGpu& gpu = Renderer::GetGpu();
+    IGpu &gpu = Renderer::GetGpu();
 
-    GpuColorTargetInfo ct{};
-    ct.texture = target_texture;
-    ct.loadOp  = GpuLoadOp::Clear;
-    ct.storeOp = GpuStoreOp::Store;
-    ct.clearA  = 1.0f;
+    GpuColorTargetInfo ct {};
+    ct.texture             = target_texture;
+    ct.loadOp              = GpuLoadOp::Clear;
+    ct.storeOp             = GpuStoreOp::Store;
+    ct.clearA              = 1.0f;
     GpuRenderPassHandle rp = gpu.beginRenderPass(cmd_buffer, &ct, 1, nullptr);
 
     gpu.setViewport(rp, 0.0f, 0.0f,
-                    (float)Window::GetPhysicalWidth(), (float)Window::GetPhysicalHeight(),
-                    0.0f, 1.0f);
+        (float)Window::GetPhysicalWidth(), (float)Window::GetPhysicalHeight(),
+        0.0f, 1.0f);
 
     gpu.bindGraphicsPipeline(rp, finalrender_pipeline);
 
@@ -320,8 +345,7 @@ void ShaderRenderPass::_renderShaderOutputToFramebuffer(GpuCmdBufferHandle cmd_b
         (float)Window::GetWidth(), 0.0f, 0.0f, 0.0f,
         0.0f, (float)Window::GetHeight(), 0.0f, 0.0f,
         0.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f
-    );
+        0.0f, 0.0f, 0.0f, 1.0f);
 
     struct Uniforms {
         glm::mat4 camera;
@@ -333,13 +357,13 @@ void ShaderRenderPass::_renderShaderOutputToFramebuffer(GpuCmdBufferHandle cmd_b
         glm::vec2 uv3;
         glm::vec2 uv4;
         glm::vec2 uv5;
-        float tintColorR;
-        float tintColorG;
-        float tintColorB;
-        float tintColorA;
+        float     tintColorR;
+        float     tintColorG;
+        float     tintColorB;
+        float     tintColorA;
     };
 
-    Uniforms finalrender_uniforms{
+    Uniforms finalrender_uniforms {
         .camera     = camera,
         .model      = model,
         .flipped    = glm::vec2(1.0, 1.0),
@@ -356,7 +380,7 @@ void ShaderRenderPass::_renderShaderOutputToFramebuffer(GpuCmdBufferHandle cmd_b
     };
     gpu.pushVertexUniformData(cmd_buffer, 0, &finalrender_uniforms, sizeof(finalrender_uniforms));
 
-    GpuTextureSamplerBinding tsb{ result_texture, Renderer::GetSampler(ScaleMode::Linear) };
+    GpuTextureSamplerBinding tsb { result_texture, Renderer::GetSampler(ScaleMode::Linear) };
     gpu.bindFragmentSamplers(rp, 0, &tsb, 1);
     gpu.drawPrimitives(rp, 6, 1, 0, 0);
     gpu.endRenderPass(rp);

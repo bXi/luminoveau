@@ -1,0 +1,43 @@
+# Luminoveau house style — derived from the hand-written `old/` sources.
+# WebKit base (matches the existing .clang-tidy BasedOnStyle) with the repo's
+# actual conventions pinned explicitly.
+Language:        Cpp
+BasedOnStyle:    WebKit
+
+IndentWidth:     4
+TabWidth:        4
+UseTab:          Never
+ContinuationIndentWidth: 4
+
+# `SDL_Window *win`, `const std::string &title` — right-aligned (44 vs 5 in old/).
+PointerAlignment:    Right
+ReferenceAlignment:  Right
+
+# Attached braces everywhere — `void Foo() {` (174 vs 3 Allman in old/).
+BreakBeforeBraces:   Attach
+
+# The API is full of long one-line static wrappers: `{ return get()._x(); }`.
+# Don't hard-wrap them and keep short bodies on one line.
+ColumnLimit:                     0
+AllowShortFunctionsOnASingleLine: All
+AllowShortBlocksOnASingleLine:    Always
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine:        false
+
+# Keep `#` directives at column 0, even inside a file-spanning `#ifdef` guard
+# (BeforeHash would indent every include one level per enclosing #ifdef).
+IndentPPDirectives:  None
+
+# Includes are hand-grouped (system / SDL / project); don't reshuffle them.
+SortIncludes:        false
+
+SpaceBeforeParens:   ControlStatements
+# Don't add a level for namespace bodies — the code keeps them at column 0.
+NamespaceIndentation: None
+FixNamespaceComments: true
+
+# Preserve the hand-aligned column grids (member decls, `=`, and the ///< doc
+# comments). WebKit turns these off, which strips the alignment; keep them on.
+AlignConsecutiveDeclarations: true
+AlignConsecutiveAssignments:  true
+AlignTrailingComments:        true

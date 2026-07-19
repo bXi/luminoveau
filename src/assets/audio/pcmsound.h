@@ -7,8 +7,8 @@
 
 /// @brief Sample rate + channel count describing a PCM audio stream.
 struct PCMFormat {
-    uint32_t sampleRate = 48000;  ///< Sample rate in Hz.
-    uint32_t channels   = 2;      ///< Number of interleaved channels.
+    uint32_t sampleRate = 48000; ///< Sample rate in Hz.
+    uint32_t channels   = 2;     ///< Number of interleaved channels.
 };
 
 // ── Callback types (raw function pointers — safe for audio thread) ──
@@ -24,8 +24,8 @@ struct PCMFormat {
  * @param channels   Number of channels (matches PCMFormat::channels).
  * @param userData   User-provided context pointer.
  */
-using PCMGenerateCallback = void(*)(float* output, uint32_t frameCount,
-                                     uint32_t channels, void* userData);
+using PCMGenerateCallback = void (*)(float *output, uint32_t frameCount,
+    uint32_t channels, void *userData);
 
 /**
  * @brief Callback for processing audio data as a channel insert effect.
@@ -37,8 +37,8 @@ using PCMGenerateCallback = void(*)(float* output, uint32_t frameCount,
  * @param channels   Number of channels.
  * @param userData   User-provided context pointer.
  */
-using PCMEffectCallback = void(*)(float* samples, uint32_t frameCount,
-                                   uint32_t channels, void* userData);
+using PCMEffectCallback = void (*)(float *samples, uint32_t frameCount,
+    uint32_t channels, void *userData);
 
 // ── Custom miniaudio data source for PCM generators ──
 
@@ -46,19 +46,19 @@ using PCMEffectCallback = void(*)(float* samples, uint32_t frameCount,
 struct LumiPCMDataSource {
     ma_data_source_base base; ///< Must be first member
     PCMGenerateCallback callback;
-    void*    userData;
-    uint32_t channels;
-    uint32_t sampleRate;
+    void               *userData;
+    uint32_t            channels;
+    uint32_t            sampleRate;
 };
 
 // ── Custom miniaudio node for channel effects ──
 
 struct LumiEffectNode {
-    ma_node_base base; ///< Must be first member
+    ma_node_base      base; ///< Must be first member
     PCMEffectCallback callback;
-    void*    userData;
-    uint32_t channels;
-    bool     initialized = false;
+    void             *userData;
+    uint32_t          channels;
+    bool              initialized = false;
 };
 /// @endcond
 
@@ -80,8 +80,8 @@ struct PCMSoundAsset {
         ma_sound          sound;
         LumiPCMDataSource dataSource;
     };
-    Internal* impl = nullptr;   ///< Heap-allocated internal state (ma_sound + data source).
-    bool initialized = false;   ///< True once the sound has been successfully created.
+    Internal *impl        = nullptr; ///< Heap-allocated internal state (ma_sound + data source).
+    bool      initialized = false;   ///< True once the sound has been successfully created.
 };
 
 using PCMSound = PCMSoundAsset;

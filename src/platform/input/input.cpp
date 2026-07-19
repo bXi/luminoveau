@@ -5,7 +5,8 @@
 #include "renderer/renderer.h"
 
 void Input::_init() {
-    if (_didInit) return;
+    if (_didInit)
+        return;
 
     _didInit = true;
 
@@ -14,18 +15,18 @@ void Input::_init() {
     // Escape hatch: SDL_Init(SDL_INIT_GAMEPAD) can hang indefinitely on some macOS
     // setups (HID/GameController enumeration stall). Set LUMI_NO_GAMEPAD=1 to skip
     // the gamepad subsystem entirely; keyboard + mouse still work.
-    if (getenv("LUMI_NO_GAMEPAD")) return;
+    if (getenv("LUMI_NO_GAMEPAD"))
+        return;
 
     SDL_SetHint(SDL_HINT_JOYSTICK_ENHANCED_REPORTS, "1");
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAM, "1");
     SDL_SetHint(SDL_HINT_JOYSTICK_ROG_CHAKRAM, "1");
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 
-
     SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD);
 
     auto gamePadCount = 0;
-    joystickIds = SDL_GetGamepads(&gamePadCount);
+    joystickIds       = SDL_GetGamepads(&gamePadCount);
 
     for (int i = 0; i < gamePadCount; i++) {
         gamepadInfo temp;
@@ -43,14 +44,15 @@ InputDevice *Input::_getController(int index) {
 }
 
 void Input::_clear() {
-    for (auto *device : inputs) delete device;
+    for (auto *device : inputs)
+        delete device;
     inputs.clear();
 }
 
 void Input::_update() {
     UpdateTimings();
 
-    scrolledUpTicks = 0;
+    scrolledUpTicks   = 0;
     scrolledDownTicks = 0;
 
     previousKeyboardState = currentKeyboardState;
@@ -60,7 +62,7 @@ void Input::_update() {
     // the SDL backend just forwards SDL_GetMouseState, so native is unchanged.
     currentMouseButtons = PlatformInputBackend::GetMouseButtons();
 
-    for (auto &gamepad: gamepads) {
+    for (auto &gamepad : gamepads) {
         gamepad.previousButtonState = gamepad.currentButtonState;
 
         for (int i = 0; i < SDL_GAMEPAD_BUTTON_COUNT; ++i) {
@@ -73,7 +75,7 @@ void Input::_update() {
 }
 
 void Input::_updateTimings() {
-    for (const auto &i: inputs) {
+    for (const auto &i : inputs) {
         i->updateTimings();
     }
 }
@@ -86,8 +88,7 @@ float Input::_getGamepadAxisMovement(int gamepadID, SDL_GamepadAxis axis) {
         x = 0;
     }
 
-
-    return ((float) x) / 32768.0f;
+    return ((float)x) / 32768.0f;
 }
 
 bool Input::_gamepadButtonPressed(int gamepadID, int button) {
@@ -96,14 +97,13 @@ bool Input::_gamepadButtonPressed(int gamepadID, int button) {
     return gamepadinfo.currentButtonState[button] && !gamepadinfo.previousButtonState[button];
 }
 
-
 bool Input::_gamepadButtonDown(int gamepadID, int button) {
     return SDL_GetGamepadButton(gamepads[gamepadID].gamepad, static_cast<SDL_GamepadButton>(button));
 }
 
 bool Input::_keyPressed(int key) {
 
-    auto curState = currentKeyboardState;
+    auto curState  = currentKeyboardState;
     auto prevState = previousKeyboardState;
 
     auto scancode = SDL_GetScancodeFromKey(key, nullptr);
@@ -113,7 +113,7 @@ bool Input::_keyPressed(int key) {
 
 bool Input::_keyReleased(int key) {
 
-    auto curState = currentKeyboardState;
+    auto curState  = currentKeyboardState;
     auto prevState = previousKeyboardState;
 
     auto scancode = SDL_GetScancodeFromKey(key, nullptr);
@@ -128,52 +128,52 @@ bool Input::_keyDown(int key) {
     return currentKeyboardState[scancode] == 1;
 }
 
-
 vf2d Input::_getMousePosition() {
     vf2d p = PlatformInputBackend::GetMousePosition();
     // The scene renders at canvas/scaleFactor and is upscaled to present (Window::SetScale), so the
     // cursor — reported in canvas pixels — has to be divided by the scale to land in render space.
     float s = Window::GetScale();
-    if (s > 1.0f) { p.x /= s; p.y /= s; }
+    if (s > 1.0f) {
+        p.x /= s;
+        p.y /= s;
+    }
     return p;
 }
 
-
 bool Input::_mouseButtonPressed(int button) {
-    auto buttonmask = (1 << ((button) - 1));
+    auto buttonmask = (1 << ((button)-1));
     return (currentMouseButtons & buttonmask) != 0 && (previousMouseButtons & buttonmask) == 0;
 }
 
 bool Input::_mouseButtonReleased(int button) {
-    auto buttonmask = (1 << ((button) - 1));
+    auto buttonmask = (1 << ((button)-1));
     return (currentMouseButtons & buttonmask) == 0 && (previousMouseButtons & buttonmask) != 0;
 }
 
-
 bool Input::_mouseButtonDown(int button) {
-    auto buttonmask = (1 << ((button) - 1));
+    auto buttonmask = (1 << ((button)-1));
     return (currentMouseButtons & buttonmask) != 0;
 }
 
 void Input::_updateInputs(const std::vector<Uint8> &keys, bool held) {
     if (held) {
-        for (auto scancode: keys) {
+        for (auto scancode : keys) {
             currentKeyboardState[scancode] = 1;
         }
     } else {
-        for (auto scancode: keys) {
+        for (auto scancode : keys) {
             currentKeyboardState[scancode] = 0;
         }
     }
 }
 
 void Input::_addGamepadDevice(SDL_JoystickID joystickID) {
-    for (const auto &gamepad: gamepads) {
-        if (gamepad.joystickId == joystickID) return;
+    for (const auto &gamepad : gamepads) {
+        if (gamepad.joystickId == joystickID)
+            return;
     }
 
-
-    int newgamepadID = gamepads.size();
+    int         newgamepadID = gamepads.size();
     gamepadInfo temp;
     temp.joystickId = joystickID;
     temp.previousButtonState.resize(SDL_GAMEPAD_BUTTON_COUNT);
@@ -189,28 +189,34 @@ void Input::_removeGamepadDevice(SDL_JoystickID joystickID) {
     // and fix up the surviving devices, or stale indices read the wrong (or an out-of-bounds)
     // gamepad later.
     auto it = std::find_if(gamepads.begin(), gamepads.end(),
-                           [joystickID](const auto &gamepad) {
-                               return gamepad.joystickId == joystickID;
-                           });
-    if (it == gamepads.end()) return;
+        [joystickID](const auto &gamepad) {
+            return gamepad.joystickId == joystickID;
+        });
+    if (it == gamepads.end())
+        return;
 
     int removedIdx = static_cast<int>(std::distance(gamepads.begin(), it));
 
-    if (it->gamepad) SDL_CloseGamepad(it->gamepad);
+    if (it->gamepad)
+        SDL_CloseGamepad(it->gamepad);
     gamepads.erase(it);
 
     // Drop the matching InputDevice (its gamepadID == removedIdx) and shift down every
     // device that indexed a gamepad after the removed one.
     for (auto deviceIt = inputs.begin(); deviceIt != inputs.end();) {
         InputDevice *device = *deviceIt;
-        if (device->getType() != InputType::GAMEPAD) { ++deviceIt; continue; }
+        if (device->getType() != InputType::GAMEPAD) {
+            ++deviceIt;
+            continue;
+        }
 
         int id = device->getGamepadID();
         if (id == removedIdx) {
             delete device;
             deviceIt = inputs.erase(deviceIt);
         } else {
-            if (id > removedIdx) device->setGamepadID(id - 1);
+            if (id > removedIdx)
+                device->setGamepadID(id - 1);
             ++deviceIt;
         }
     }
@@ -225,6 +231,6 @@ void Input::_updateScroll(int scrollDir) {
     }
 }
 
-void Input::_handleTouchEvent(const SDL_Event* event) {
+void Input::_handleTouchEvent(const SDL_Event *event) {
     virtualControls.HandleTouchEvent(event);
 }

@@ -10,17 +10,17 @@
 
 /// @brief Cross-backend shader subsystem: lifecycle hooks and entry-point name queries.
 namespace Shaders {
-    /// @brief Engine startup hook. SDL wires up SDL_shadercross + the on-disk shader cache;
-    ///        WebGPU is a no-op (WGSL is compiled by the browser at module-create time).
-    void Init();
+/// @brief Engine startup hook. SDL wires up SDL_shadercross + the on-disk shader cache;
+///        WebGPU is a no-op (WGSL is compiled by the browser at module-create time).
+void Init();
 
-    /// @brief Engine shutdown hook. SDL persists the shader cache and tears down SDL_shadercross.
-    void Quit();
+/// @brief Engine shutdown hook. SDL persists the shader cache and tears down SDL_shadercross.
+void Quit();
 
-    /// @brief Returns the entry-point name for the built-in vertex shaders on the active backend.
-    const char* GetVertexEntryPoint();
-    /// @brief Returns the entry-point name for the built-in fragment shaders on the active backend.
-    const char* GetFragmentEntryPoint();
-    /// @brief Returns the entry-point name for the built-in compute shaders on the active backend.
-    const char* GetComputeEntryPoint();
-}
+/// @brief Returns the entry-point name for the built-in vertex shaders on the active backend.
+const char *GetVertexEntryPoint();
+/// @brief Returns the entry-point name for the built-in fragment shaders on the active backend.
+const char *GetFragmentEntryPoint();
+/// @brief Returns the entry-point name for the built-in compute shaders on the active backend.
+const char *GetComputeEntryPoint();
+} // namespace Shaders

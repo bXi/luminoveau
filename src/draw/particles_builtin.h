@@ -8,8 +8,8 @@
 
 /// @cond INTERNAL
 namespace ParticlesBuiltin {
-    // Creates the engine's default particle physics compute pipeline. Threadgroup
-    // size is fixed at 64×1×1 on both backends.
-    GpuComputePipelineHandle CreateComputePipeline();
-}
+// Creates the engine's default particle physics compute pipeline. Threadgroup
+// size is fixed at 64×1×1 on both backends.
+GpuComputePipelineHandle CreateComputePipeline();
+} // namespace ParticlesBuiltin
 /// @endcond

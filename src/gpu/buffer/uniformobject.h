@@ -10,29 +10,32 @@
 
 #include "core/log/log.h"
 
-template<typename T>
+template <typename T>
 struct is_std_array : std::false_type {
 };
 
-template<typename T, std::size_t N>
+template <typename T, std::size_t N>
 struct is_std_array<std::array<T, N>> : std::true_type {
 };
 
-template<typename T>
+template <typename T>
 inline constexpr bool is_std_array_v = is_std_array<T>::value;
 
 class UniformBuffer {
 public:
-    UniformBuffer() : currentOffset(0), alignment(16)  {
+    UniformBuffer()
+        : currentOffset(0)
+        , alignment(16) {
         buffer.resize(1024, 0);
     }
 
     class VariableProxy {
     public:
         VariableProxy(UniformBuffer &buffer, const std::string &name)
-            : buffer(buffer), name(name) {}
+            : buffer(buffer)
+            , name(name) { }
 
-        template<typename T>
+        template <typename T>
         VariableProxy &operator=(const T &value) {
             buffer.setVariable(name, value);
             return *this;
@@ -40,11 +43,11 @@ public:
 
     private:
         UniformBuffer &buffer;
-        std::string   name;
+        std::string    name;
     };
 
     VariableProxy operator[](const std::string &name) {
-        return {*this, name};
+        return { *this, name };
     }
 
     void addVariable(const std::string &name, size_t typeSize, size_t offset) {
@@ -63,10 +66,10 @@ public:
         alignment = newAlignment;
     }
 
-    template<typename T>
+    template <typename T>
     void setVariable(const std::string &name, const T &value) {
         if constexpr (std::is_array<T>::value) {
-            for (auto &var: variables) {
+            for (auto &var : variables) {
                 size_t size   = sizeof(std::remove_extent<T>::type);
                 size_t offset = std::get<2>(var);
                 if (std::get<0>(var) == name) {
@@ -77,9 +80,8 @@ public:
                 }
             }
             return;
-        }
-        else if constexpr (is_std_array_v<T>) {
-            for (auto &var: variables) {
+        } else if constexpr (is_std_array_v<T>) {
+            for (auto &var : variables) {
                 if (std::get<0>(var) == name) {
                     size_t size   = sizeof(typename T::value_type);
                     size_t offset = std::get<2>(var);
@@ -92,7 +94,7 @@ public:
             return;
         }
 
-        for (auto &var: variables) {
+        for (auto &var : variables) {
             if (std::get<0>(var) == name) {
                 size_t size   = std::get<1>(var);
                 size_t offset = std::get<2>(var);
@@ -102,9 +104,9 @@ public:
         }
     }
 
-    template<typename T>
+    template <typename T>
     T getVariable(const std::string &name) const {
-        for (const auto &var: variables) {
+        for (const auto &var : variables) {
             if (std::get<0>(var) == name) {
                 size_t offset = std::get<2>(var);
                 return *reinterpret_cast<const T *>(&buffer[offset]);
@@ -114,11 +116,11 @@ public:
     }
 
     [[nodiscard]] const void *getBufferPointer() const { return buffer.data(); }
-    [[nodiscard]] size_t getBufferSize() const { return currentOffset; }
+    [[nodiscard]] size_t      getBufferSize() const { return currentOffset; }
 
 private:
     std::vector<std::tuple<std::string, size_t, size_t>> variables;
-    std::vector<uint8_t> buffer;
-    size_t               currentOffset = 0;
-    size_t               alignment = 0;
+    std::vector<uint8_t>                                 buffer;
+    size_t                                               currentOffset = 0;
+    size_t                                               alignment     = 0;
 };

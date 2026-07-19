@@ -149,15 +149,15 @@ public:
     /**
      * @brief Get the virtual controls instance
      */
-    static VirtualControls& GetVirtualControls() { return get().virtualControls; }
+    static VirtualControls &GetVirtualControls() { return get().virtualControls; }
 
     /**
      * @brief Handle touch events for virtual controls
      */
-    static void HandleTouchEvent(const SDL_Event* event) { get()._handleTouchEvent(event); }
+    static void HandleTouchEvent(const SDL_Event *event) { get()._handleTouchEvent(event); }
 
     /// @cond INTERNAL
-    //For internal use. handle with care
+    // For internal use. handle with care
     static void UpdateInputs(std::vector<Uint8> keys, bool held) { get()._updateInputs(keys, held); }
 
     static void AddGamepadDevice(SDL_JoystickID joystickID) { get()._addGamepadDevice(joystickID); }
@@ -192,9 +192,16 @@ private:
 
     void _update();
 
-    void _accumulateMouseDelta(float dx, float dy) { _mouseDelta.x += dx; _mouseDelta.y += dy; }
-    vf2d _getMouseDelta() { vf2d d = _mouseDelta; _mouseDelta = {0.0f, 0.0f}; return d; }  // read-and-clear
-    vf2d _mouseDelta{0.0f, 0.0f};
+    void _accumulateMouseDelta(float dx, float dy) {
+        _mouseDelta.x += dx;
+        _mouseDelta.y += dy;
+    }
+    vf2d _getMouseDelta() {
+        vf2d d      = _mouseDelta;
+        _mouseDelta = { 0.0f, 0.0f };
+        return d;
+    } // read-and-clear
+    vf2d _mouseDelta { 0.0f, 0.0f };
 
     void _updateTimings();
 
@@ -232,18 +239,18 @@ private:
 
     std::vector<Uint8> previousKeyboardState;
 
-    Uint32 currentMouseButtons = 0;
+    Uint32 currentMouseButtons  = 0;
     Uint32 previousMouseButtons = 0;
 
-    Uint32 scrolledUpTicks = 0;
+    Uint32 scrolledUpTicks   = 0;
     Uint32 scrolledDownTicks = 0;
 
     const SDL_JoystickID *joystickIds = nullptr;
 
     /// @cond INTERNAL
     struct gamepadInfo {
-        SDL_JoystickID joystickId;
-        SDL_Gamepad *gamepad;
+        SDL_JoystickID    joystickId;
+        SDL_Gamepad      *gamepad;
         std::vector<bool> currentButtonState;
         std::vector<bool> previousButtonState;
     };
@@ -254,7 +261,8 @@ private:
     VirtualControls virtualControls;
 
     bool _didInit = false;
-    void _handleTouchEvent(const SDL_Event* event);
+    void _handleTouchEvent(const SDL_Event *event);
+
 public:
     /// @cond INTERNAL
     Input(const Input &) = delete;

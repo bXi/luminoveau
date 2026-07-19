@@ -12,14 +12,14 @@
  */
 struct LerpAnimator {
 public:
-    const char *name; /**< The name of the animator. */
-    bool canDelete = false; /**< Flag indicating if the animator can be deleted. */
-    bool shouldDelete = false; /**< Flag indicating if the animator should be deleted. */
-    bool started = true; /**< Flag indicating if the animation has started. */
-    float time; /**< Current time of the animation. */
-    float startValue; /**< Starting value of the animation. */
-    float change; /**< Change in value over the animation. */
-    float duration; /**< Duration of the animation. */
+    const char *name;                 /**< The name of the animator. */
+    bool        canDelete    = false; /**< Flag indicating if the animator can be deleted. */
+    bool        shouldDelete = false; /**< Flag indicating if the animator should be deleted. */
+    bool        started      = true;  /**< Flag indicating if the animation has started. */
+    float       time;                 /**< Current time of the animation. */
+    float       startValue;           /**< Starting value of the animation. */
+    float       change;               /**< Change in value over the animation. */
+    float       duration;             /**< Duration of the animation. */
 
     /**
      * @brief Callback function to compute the interpolated value.
@@ -27,7 +27,7 @@ public:
      * The default callback performs linear interpolation.
      */
     std::function<float(float time, float startValue, float change, float duration)> callback = [](float _time, float _startValue, float _change,
-                                                                                                   float _duration) {
+                                                                                                    float _duration) {
         return (_change * _time / _duration + _startValue);
     };
 
@@ -103,7 +103,7 @@ public:
 
 private:
     std::unordered_map<const char *, LerpAnimator *> lerpList;
-    LerpAnimator *tempLerp = nullptr;
+    LerpAnimator                                    *tempLerp = nullptr;
 
     LerpAnimator *_getLerp(const char *name, float startValue, float change, float duration);
 
@@ -124,6 +124,5 @@ public:
     /// @endcond
 
 private:
-    Lerp() {}
+    Lerp() { }
 };
-

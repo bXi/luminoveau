@@ -21,27 +21,27 @@
 
 #endif
 
-#define MAX_TEXT_BUFFER_LENGTH              1024
+#define MAX_TEXT_BUFFER_LENGTH 1024
 
-template<typename... T>
-inline void LUMI_UNUSED(T&&...) {}
+template <typename... T>
+inline void LUMI_UNUSED(T &&...) { }
 
 namespace Platform {
-    /**
-     * @brief Returns a sensible default thread count for parallelizable work.
-     *
-     * Used for e.g. MSDF atlas generation and texture decompression. Returns 1 on
-     * Emscripten without -pthread (can't spawn std::thread); elsewhere scales toward
-     * hardware concurrency, capped to avoid oversubscribing many-core machines.
-     */
-    inline unsigned int DefaultThreadCount() {
+/**
+ * @brief Returns a sensible default thread count for parallelizable work.
+ *
+ * Used for e.g. MSDF atlas generation and texture decompression. Returns 1 on
+ * Emscripten without -pthread (can't spawn std::thread); elsewhere scales toward
+ * hardware concurrency, capped to avoid oversubscribing many-core machines.
+ */
+inline unsigned int DefaultThreadCount() {
 #ifdef __EMSCRIPTEN__
-        return 1u;
+    return 1u;
 #else
-        return 8u;
+    return 8u;
 #endif
-    }
 }
+} // namespace Platform
 
 /// @brief Assorted math, random, geometry and string utility helpers.
 class Helpers {
@@ -77,5 +77,5 @@ public:
     static std::string Slugify(std::string input);
 
     /// @brief Returns a file's last-modification time (0 if it doesn't exist).
-    static time_t GetFileModificationTime(const std::string& filepath);
+    static time_t GetFileModificationTime(const std::string &filepath);
 };

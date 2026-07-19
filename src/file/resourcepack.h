@@ -20,13 +20,12 @@ struct ResourceBuffer : public std::streambuf {
     /// @brief Points the streambuf get-area at the in-memory buffer.
     void SetupMemoryBuffer() {
         setg(
-            reinterpret_cast<char*>(vMemory.data()),
-            reinterpret_cast<char*>(vMemory.data()),
-            reinterpret_cast<char*>(vMemory.data() + vMemory.size())
-        );
+            reinterpret_cast<char *>(vMemory.data()),
+            reinterpret_cast<char *>(vMemory.data()),
+            reinterpret_cast<char *>(vMemory.data() + vMemory.size()));
     }
 
-    std::vector<uint8_t> vMemory;  ///< In-memory copy of the resource bytes.
+    std::vector<uint8_t> vMemory; ///< In-memory copy of the resource bytes.
 };
 
 /// @brief A bundle of files packed into a single (optionally XOR-scrambled) archive.
@@ -60,7 +59,8 @@ public:
     bool Loaded();
 
 private:
-    enum class eResourceType { File, ByteArray };
+    enum class eResourceType { File,
+        ByteArray };
 
     /// @cond INTERNAL
     struct sResourceFile {
@@ -77,5 +77,5 @@ private:
     std::ifstream                        baseFile;
 
     std::vector<char> scramble(const std::vector<char> &data, const std::string &key);
-    std::string makeposix(const std::string &path);
+    std::string       makeposix(const std::string &path);
 };

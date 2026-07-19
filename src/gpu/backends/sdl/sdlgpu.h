@@ -25,11 +25,11 @@ SDL_GPUFrontFace           toSDL(GpuFrontFace face);
 GpuTextureFormat fromSDL(SDL_GPUTextureFormat fmt);
 
 // ── Struct converters (engine → SDL) ──────────────────────────────────────
-SDL_GPUSamplerCreateInfo        toSDL(const GpuSamplerCreateInfo& info);
-SDL_GPUTextureCreateInfo        toSDL(const GpuTextureCreateInfo& info);
-SDL_GPUBufferCreateInfo         toSDL(const GpuBufferCreateInfo& info);
-SDL_GPUTransferBufferCreateInfo toSDL(const GpuTransferBufferCreateInfo& info);
-SDL_GPUColorTargetBlendState    toSDL(const GpuColorTargetBlendState& blend);
+SDL_GPUSamplerCreateInfo        toSDL(const GpuSamplerCreateInfo &info);
+SDL_GPUTextureCreateInfo        toSDL(const GpuTextureCreateInfo &info);
+SDL_GPUBufferCreateInfo         toSDL(const GpuBufferCreateInfo &info);
+SDL_GPUTransferBufferCreateInfo toSDL(const GpuTransferBufferCreateInfo &info);
+SDL_GPUColorTargetBlendState    toSDL(const GpuColorTargetBlendState &blend);
 
 // Default rasterizer: fill, no culling, CCW front face.
 // Used internally by SDL-level render pass code.

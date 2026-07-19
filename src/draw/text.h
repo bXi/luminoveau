@@ -19,10 +19,10 @@ typedef struct Vertex {
 
 /// @brief CPU-side vertex/index geometry produced when laying out text.
 typedef struct GeometryData {
-    Vertex *vertices;   ///< Pointer to the vertex array.
-    int    vertex_count; ///< Number of vertices.
-    int    *indices;    ///< Pointer to the index array.
-    int    index_count; ///< Number of indices.
+    Vertex *vertices;     ///< Pointer to the vertex array.
+    int     vertex_count; ///< Number of vertices.
+    int    *indices;      ///< Pointer to the index array.
+    int     index_count;  ///< Number of indices.
 } GeometryData;
 
 /**
@@ -30,7 +30,6 @@ typedef struct GeometryData {
  */
 class Text {
 public:
-
     /**
      * @brief Draws text using the specified font, position, text to draw, and color.
      *
@@ -40,7 +39,7 @@ public:
      * @param color The color of the text.
      * @param renderSize The size to render at in pixels. Use -1 (default) to render at font's generated atlas size.
      */
-    static void DrawText(Font font, const vf2d& pos, const std::string& textToDraw, Color color, float renderSize = -1.0f) {
+    static void DrawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color, float renderSize = -1.0f) {
         get()._drawText(font, pos, textToDraw, color, renderSize);
     }
 
@@ -95,8 +94,7 @@ public:
     }
 
 private:
-
-    void _drawText(Font font, const vf2d& pos, const std::string &textToDraw, Color color, float renderSize = -1.0f);
+    void _drawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color, float renderSize = -1.0f);
 
     void _drawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color, float renderSize = -1.0f);
 

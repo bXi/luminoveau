@@ -9,10 +9,9 @@
 #endif
 
 #ifndef DEG2RAD
-#define DEG2RAD (PI/180.0f) /**< Conversion factor from degrees to radians. */
+#define DEG2RAD (PI / 180.0f) /**< Conversion factor from degrees to radians. */
 #endif
 
 #ifndef RAD2DEG
-#define RAD2DEG (180.0f/PI) /**< Conversion factor from radians to degrees. */
+#define RAD2DEG (180.0f / PI) /**< Conversion factor from radians to degrees. */
 #endif
-
