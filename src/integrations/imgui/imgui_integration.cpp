@@ -1,14 +1,13 @@
 #ifdef LUMINOVEAU_WITH_IMGUI
 
 #include "imgui_integration.h"
-#include "imgui_backend.h"  // ImGuiBackend::{InitRenderer,Shutdown,NewFrame,RenderFrame}
+#include "imgui_backend.h" // ImGuiBackend::{InitRenderer,Shutdown,NewFrame,RenderFrame}
 
 #include "imgui.h"
 #include "backends/imgui_impl_sdl3.h"
 
 #include "SDL3/SDL.h"
 #include "assets/assethandler.h"
-#include "core/state/state.h"
 #include "core/log/log.h"
 #include "renderer/renderer.h"
 
@@ -240,7 +239,7 @@ void DrawDebugMenu() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Exit")) {
-                State::SetState("quit");
+                //TODO: implement proper exit
             }
             ImGui::EndMenu();
         }
