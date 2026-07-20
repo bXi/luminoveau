@@ -15,7 +15,7 @@
 #include <vector>
 #include <cstring>
 
-namespace Net {
+namespace NetTransport {
 
 /// @cond INTERNAL
 // SDL_net must be initialized before any socket/address call. Both the typed transport and
@@ -34,71 +34,6 @@ static bool ensureNetInit() {
 /// @endcond
 
 // ── Net::Udp: thin raw datagram path ──────────────────────────────────────────
-namespace Udp {
-
-Socket Open(uint16_t port) {
-    if (!ensureNetInit())
-        return nullptr;
-    return (Socket)NET_CreateDatagramSocket(nullptr, port, 0); // any address; port 0 = ephemeral
-}
-void Close(Socket s) {
-    if (s)
-        NET_DestroyDatagramSocket((NET_DatagramSocket *)s);
-}
-bool Send(Socket s, const Address &to, const void *data, int len) {
-    if (!s || !to.handle)
-        return false;
-    return NET_SendDatagram((NET_DatagramSocket *)s, (NET_Address *)to.handle, to.port, data, len);
-}
-int Recv(Socket s, Address &from, void *data, int maxLen) {
-    if (!s)
-        return -1;
-    NET_Datagram *dg = nullptr;
-    if (!NET_ReceiveDatagram((NET_DatagramSocket *)s, &dg))
-        return -1;
-    if (!dg)
-        return 0; // nothing waiting
-    int n = dg->buflen < maxLen ? dg->buflen : maxLen;
-    std::memcpy(data, dg->buf, n);
-    from.handle = NET_RefAddress(dg->addr);
-    from.port   = dg->port;
-    NET_DestroyDatagram(dg);
-    return n;
-}
-Address Resolve(const std::string &host, uint16_t port) {
-    Address a;
-    if (!ensureNetInit())
-        return a;
-    NET_Address *addr = NET_ResolveHostname(host.c_str());
-    if (!addr)
-        return a;
-    if (NET_WaitUntilResolved(addr, -1) == 1) {
-        a.handle = addr;
-        a.port   = port;
-    } else
-        NET_UnrefAddress(addr);
-    return a;
-}
-bool Valid(const Address &a) { return a.handle != nullptr; }
-bool Equal(const Address &a, const Address &b) {
-    if (!a.handle || !b.handle)
-        return false;
-    return a.port == b.port && NET_CompareAddresses((NET_Address *)a.handle, (NET_Address *)b.handle) == 0;
-}
-std::string ToString(const Address &a) {
-    if (!a.handle)
-        return "?";
-    const char *s = NET_GetAddressString((NET_Address *)a.handle);
-    return std::string(s ? s : "?") + ":" + std::to_string(a.port);
-}
-void Free(Address &a) {
-    if (a.handle) {
-        NET_UnrefAddress((NET_Address *)a.handle);
-        a.handle = nullptr;
-    }
-}
-
-} // namespace Udp
 
 // ── SdlNetTransport: hybrid TCP(reliable) + UDP(unreliable) ───────────────────
 namespace {
@@ -199,11 +134,11 @@ public:
 
     bool     isServer() const override { return m_isServer; }
     bool     isClient() const override { return m_isClient; }
-    Peer     selfId() const override { return m_selfId; }
+    Net::Peer     selfId() const override { return m_selfId; }
     uint32_t peerCount() const override { return m_isServer ? (uint32_t)m_peers.size() : (m_clientConn.stream ? 1 : 0); }
-    uint32_t ping(Peer) const override { return 0; } // TODO: RTT tracking
+    uint32_t ping(Net::Peer) const override { return 0; } // TODO: RTT tracking
 
-    void send(Peer peer, const void *data, uint32_t size, bool reliable) override {
+    void send(Net::Peer peer, const void *data, uint32_t size, bool reliable) override {
         if (m_isServer) {
             auto it = m_peers.find(peer);
             if (it != m_peers.end())
@@ -269,7 +204,7 @@ private:
     }
 
     // Pull bytes off a stream into rx, extract complete frames.
-    void drainStream(PeerConn &p, Peer peer, std::vector<TransportEvent> &out, bool clientSide) {
+    void drainStream(PeerConn &p, Net::Peer peer, std::vector<TransportEvent> &out, bool clientSide) {
         uint8_t tmp[4096];
         int     n;
         while ((n = NET_ReadFromStreamSocket(p.stream, tmp, sizeof(tmp))) > 0)
@@ -315,7 +250,7 @@ private:
         // accept new clients
         NET_StreamSocket *s = nullptr;
         while (NET_AcceptClient(m_server, &s) && s) {
-            Peer     id = m_nextId++;
+            Net::Peer     id = m_nextId++;
             PeerConn pc;
             pc.stream   = s;
             m_peers[id] = std::move(pc);
@@ -331,7 +266,7 @@ private:
             s = nullptr;
         }
         // read streams + detect disconnects
-        std::vector<Peer> dead;
+        std::vector<Net::Peer> dead;
         for (auto &[id, p] : m_peers) {
             if (NET_GetConnectionStatus(p.stream) != 1) {
                 dead.push_back(id);
@@ -339,7 +274,7 @@ private:
             }
             drainStream(p, id, out, false);
         }
-        for (Peer id : dead) {
+        for (Net::Peer id : dead) {
             TransportEvent ev;
             ev.type = TransportEvent::Disconnect;
             ev.peer = id;
@@ -363,7 +298,7 @@ private:
             if (dg->buflen >= 1) {
                 uint8_t channel = dg->buf[0];
                 if (channel == CH_HELLO && dg->buflen >= 5) {
-                    Peer id;
+                    Net::Peer id;
                     std::memcpy(&id, dg->buf + 1, 4);
                     auto it = m_peers.find(id);
                     if (it != m_peers.end()) {
@@ -373,7 +308,7 @@ private:
                         it->second.udpPort = dg->port;
                     }
                 } else if (channel == CH_USER) {
-                    Peer from = peerByUdp(dg->addr, dg->port);
+                    Net::Peer from = peerByUdp(dg->addr, dg->port);
                     if (from) {
                         TransportEvent ev;
                         ev.type     = TransportEvent::Receive;
@@ -389,7 +324,7 @@ private:
         }
     }
 
-    Peer peerByUdp(NET_Address *addr, uint16_t port) {
+    Net::Peer peerByUdp(NET_Address *addr, uint16_t port) {
         for (auto &[id, p] : m_peers)
             if (p.udpAddr && p.udpPort == port && NET_CompareAddresses(p.udpAddr, addr) == 0)
                 return id;
@@ -402,13 +337,13 @@ private:
         if (NET_GetConnectionStatus(m_clientConn.stream) != 1) {
             TransportEvent ev;
             ev.type = TransportEvent::Disconnect;
-            ev.peer = SERVER_PEER;
+            ev.peer = Net::SERVER_PEER;
             out.push_back(ev);
             NET_DestroyStreamSocket(m_clientConn.stream);
             m_clientConn.stream = nullptr;
             return;
         }
-        drainStream(m_clientConn, SERVER_PEER, out, true);
+        drainStream(m_clientConn, Net::SERVER_PEER, out, true);
         // UDP from server
         if (m_udp) {
             NET_Datagram *dg = nullptr;
@@ -416,7 +351,7 @@ private:
                 if (dg->buflen >= 1 && dg->buf[0] == CH_USER) {
                     TransportEvent ev;
                     ev.type     = TransportEvent::Receive;
-                    ev.peer     = SERVER_PEER;
+                    ev.peer     = Net::SERVER_PEER;
                     ev.reliable = false;
                     ev.data.assign(dg->buf + 1, dg->buf + dg->buflen);
                     out.push_back(std::move(ev));
@@ -432,10 +367,10 @@ private:
     NET_DatagramSocket                *m_udp        = nullptr;
     NET_Address                       *m_serverAddr = nullptr; // client: server address for UDP
     uint16_t                           m_port       = 0;
-    Peer                               m_selfId     = 0;
-    Peer                               m_nextId     = 1;
+    Net::Peer                               m_selfId     = 0;
+    Net::Peer                               m_nextId     = 1;
     PeerConn                           m_clientConn; // client: connection to server
-    std::unordered_map<Peer, PeerConn> m_peers;      // server: connected clients
+    std::unordered_map<Net::Peer, PeerConn> m_peers;      // server: connected clients
 };
 
 } // namespace
@@ -448,4 +383,67 @@ ITransport *createTransport() {
 }
 /// @endcond
 
-} // namespace Net
+} // namespace NetTransport
+
+// ── Net::Udp: raw datagram path ───────────────────────────────────────────────
+Net::Udp::Socket Net::Udp::_open(uint16_t port) {
+    if (!NetTransport::ensureNetInit())
+        return nullptr;
+    return (Net::Udp::Socket)NET_CreateDatagramSocket(nullptr, port, 0); // any address; port 0 = ephemeral
+}
+void Net::Udp::_close(Net::Udp::Socket s) {
+    if (s)
+        NET_DestroyDatagramSocket((NET_DatagramSocket *)s);
+}
+bool Net::Udp::_send(Net::Udp::Socket s, const Net::Udp::Address &to, const void *data, int len) {
+    if (!s || !to.handle)
+        return false;
+    return NET_SendDatagram((NET_DatagramSocket *)s, (NET_Address *)to.handle, to.port, data, len);
+}
+int Net::Udp::_recv(Net::Udp::Socket s, Net::Udp::Address &from, void *data, int maxLen) {
+    if (!s)
+        return -1;
+    NET_Datagram *dg = nullptr;
+    if (!NET_ReceiveDatagram((NET_DatagramSocket *)s, &dg))
+        return -1;
+    if (!dg)
+        return 0; // nothing waiting
+    int n = dg->buflen < maxLen ? dg->buflen : maxLen;
+    std::memcpy(data, dg->buf, n);
+    from.handle = NET_RefAddress(dg->addr);
+    from.port   = dg->port;
+    NET_DestroyDatagram(dg);
+    return n;
+}
+Net::Udp::Address Net::Udp::_resolve(const std::string &host, uint16_t port) {
+    Net::Udp::Address a;
+    if (!NetTransport::ensureNetInit())
+        return a;
+    NET_Address *addr = NET_ResolveHostname(host.c_str());
+    if (!addr)
+        return a;
+    if (NET_WaitUntilResolved(addr, -1) == 1) {
+        a.handle = addr;
+        a.port   = port;
+    } else
+        NET_UnrefAddress(addr);
+    return a;
+}
+bool Net::Udp::_valid(const Net::Udp::Address &a) { return a.handle != nullptr; }
+bool Net::Udp::_equal(const Net::Udp::Address &a, const Net::Udp::Address &b) {
+    if (!a.handle || !b.handle)
+        return false;
+    return a.port == b.port && NET_CompareAddresses((NET_Address *)a.handle, (NET_Address *)b.handle) == 0;
+}
+std::string Net::Udp::_toString(const Net::Udp::Address &a) {
+    if (!a.handle)
+        return "?";
+    const char *s = NET_GetAddressString((NET_Address *)a.handle);
+    return std::string(s ? s : "?") + ":" + std::to_string(a.port);
+}
+void Net::Udp::_free(Net::Udp::Address &a) {
+    if (a.handle) {
+        NET_UnrefAddress((NET_Address *)a.handle);
+        a.handle = nullptr;
+    }
+}

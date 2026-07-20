@@ -10,7 +10,7 @@
 
 #include "platform/net/net.h" // Net::Peer
 
-namespace Net {
+namespace NetTransport {
 
 /// @cond INTERNAL
 
@@ -18,7 +18,7 @@ struct TransportEvent {
     enum Type { Connect,
         Disconnect,
         Receive } type;
-    Peer                 peer = 0;
+    Net::Peer                 peer = 0;
     std::vector<uint8_t> data; // payload for Receive
     bool                 reliable = false;
 };
@@ -33,11 +33,11 @@ public:
 
     virtual bool     isServer() const      = 0;
     virtual bool     isClient() const      = 0;
-    virtual Peer     selfId() const        = 0;
+    virtual Net::Peer selfId() const       = 0;
     virtual uint32_t peerCount() const     = 0;
-    virtual uint32_t ping(Peer peer) const = 0;
+    virtual uint32_t ping(Net::Peer peer) const = 0;
 
-    virtual void send(Peer peer, const void *data, uint32_t size, bool reliable) = 0;
+    virtual void send(Net::Peer peer, const void *data, uint32_t size, bool reliable) = 0;
     virtual void broadcast(const void *data, uint32_t size, bool reliable)       = 0;
 
     // Poll sockets; append connect/disconnect/receive events since the last call.
@@ -48,4 +48,4 @@ public:
 ITransport *createTransport();
 /// @endcond
 
-} // namespace Net
+} // namespace NetTransport
