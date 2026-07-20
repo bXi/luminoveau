@@ -117,13 +117,10 @@ void Geometry2D::Release() {
 }
 
 // Factory implementation with caching
-namespace Geometry2DFactory {
-static std::unordered_map<std::string, Geometry2D *> geometryCache;
-
-Geometry2D *CreateQuad() {
+Geometry2D *Geometry2DFactory::_createQuad() {
     const std::string key = "quad";
-    auto              it  = geometryCache.find(key);
-    if (it != geometryCache.end()) {
+    auto              it  = _geometryCache.find(key);
+    if (it != _geometryCache.end()) {
         return it->second;
     }
 
@@ -140,14 +137,14 @@ Geometry2D *CreateQuad() {
     quad->indices = { 0, 1, 2, 0, 2, 3 };
 
     quad->UploadToGPU();
-    geometryCache[key] = quad;
+    _geometryCache[key] = quad;
     return quad;
 }
 
-Geometry2D *CreateCircle(int segments) {
+Geometry2D *Geometry2DFactory::_createCircle(int segments) {
     std::string key = "circle_" + std::to_string(segments);
-    auto        it  = geometryCache.find(key);
-    if (it != geometryCache.end()) {
+    auto        it  = _geometryCache.find(key);
+    if (it != _geometryCache.end()) {
         return it->second;
     }
 
@@ -171,17 +168,17 @@ Geometry2D *CreateCircle(int segments) {
     }
 
     circle->UploadToGPU();
-    geometryCache[key] = circle;
+    _geometryCache[key] = circle;
     return circle;
 }
 
-Geometry2D *CreateRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments) {
+Geometry2D *Geometry2DFactory::_createRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments) {
     cornerRadiusX = std::max(0.0f, std::min(0.5f, cornerRadiusX));
     cornerRadiusY = std::max(0.0f, std::min(0.5f, cornerRadiusY));
 
     std::string key = "roundrect_" + std::to_string(cornerRadiusX) + "_" + std::to_string(cornerRadiusY) + "_" + std::to_string(cornerSegments);
-    auto        it  = geometryCache.find(key);
-    if (it != geometryCache.end()) {
+    auto        it  = _geometryCache.find(key);
+    if (it != _geometryCache.end()) {
         return it->second;
     }
 
@@ -233,16 +230,15 @@ Geometry2D *CreateRoundedRect(float cornerRadiusX, float cornerRadiusY, int corn
     }
 
     roundedRect->UploadToGPU();
-    geometryCache[key] = roundedRect;
+    _geometryCache[key] = roundedRect;
     return roundedRect;
 }
 
-void ReleaseAll() {
-    for (auto &[key, geom] : geometryCache) {
+void Geometry2DFactory::_releaseAll() {
+    for (auto &[key, geom] : _geometryCache) {
         geom->Release();
         delete geom;
     }
-    geometryCache.clear();
+    _geometryCache.clear();
     LOG_INFO("Released all 2D geometries");
 }
-} // namespace Geometry2DFactory

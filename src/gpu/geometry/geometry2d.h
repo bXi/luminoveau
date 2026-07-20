@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vector>
+#include <string>
+#include <unordered_map>
 #include "gpu/types.h"
 #include "core/log/log.h"
 
@@ -62,31 +64,53 @@ struct Geometry2D {
 };
 
 /**
- * @brief Factory functions for creating common 2D geometries
+ * @brief Factory for creating (and caching) common 2D geometries.
  */
-namespace Geometry2DFactory {
-/**
- * @brief Creates a unit quad geometry (0,0) to (1,1)
- * Vertices are at corners, UVs match positions
- */
-Geometry2D *CreateQuad();
+class Geometry2DFactory {
+public:
+    /**
+     * @brief Creates a unit quad geometry (0,0) to (1,1)
+     * Vertices are at corners, UVs match positions
+     */
+    static Geometry2D *CreateQuad() { return get()._createQuad(); }
 
-/**
- * @brief Creates a unit circle geometry centered at origin
- * @param segments Number of segments around the circle (triangles = segments)
- */
-Geometry2D *CreateCircle(int segments = 32);
+    /**
+     * @brief Creates a unit circle geometry centered at origin
+     * @param segments Number of segments around the circle (triangles = segments)
+     */
+    static Geometry2D *CreateCircle(int segments = 32) { return get()._createCircle(segments); }
 
-/**
- * @brief Creates a unit rounded rectangle geometry (0,0) to (1,1) with rounded corners
- * @param cornerRadiusX Normalized radius along X axis (0.0 to 0.5)
- * @param cornerRadiusY Normalized radius along Y axis (0.0 to 0.5)
- * @param cornerSegments Number of segments per corner arc
- */
-Geometry2D *CreateRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments = 8);
+    /**
+     * @brief Creates a unit rounded rectangle geometry (0,0) to (1,1) with rounded corners
+     * @param cornerRadiusX Normalized radius along X axis (0.0 to 0.5)
+     * @param cornerRadiusY Normalized radius along Y axis (0.0 to 0.5)
+     * @param cornerSegments Number of segments per corner arc
+     */
+    static Geometry2D *CreateRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments = 8) { return get()._createRoundedRect(cornerRadiusX, cornerRadiusY, cornerSegments); }
 
-/**
- * @brief Releases all cached geometries
- */
-void ReleaseAll();
-} // namespace Geometry2DFactory
+    /**
+     * @brief Releases all cached geometries
+     */
+    static void ReleaseAll() { get()._releaseAll(); }
+
+private:
+    Geometry2D *_createQuad();
+    Geometry2D *_createCircle(int segments);
+    Geometry2D *_createRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments);
+    void        _releaseAll();
+
+    std::unordered_map<std::string, Geometry2D *> _geometryCache;
+
+public:
+    /// @cond INTERNAL
+    Geometry2DFactory(const Geometry2DFactory &) = delete;
+
+    static Geometry2DFactory &get() {
+        static Geometry2DFactory instance;
+        return instance;
+    }
+    /// @endcond
+
+private:
+    Geometry2DFactory() = default;
+};
