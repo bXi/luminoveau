@@ -231,7 +231,7 @@ void Renderer::_endFrame() {
     }
 
     if (!swapchain_texture) {
-        Compute::_Reset();
+        Compute::Reset();
         Draw::ResetEffectStore();
 #ifdef LUMINOVEAU_WITH_IMGUI
         ImGuiIntegration::EndFrame();
@@ -288,8 +288,8 @@ void Renderer::_endFrame() {
 
     runPasses(true);
     Particles::_PrepareFrame(m_cmdbuf);
-    Compute::_ExecuteQueued(m_cmdbuf);
-    Compute::_Reset();
+    Compute::ExecuteQueued(m_cmdbuf);
+    Compute::Reset();
     runPasses(false);
 
     // ── Blit framebuffer to swapchain (IGpu interface) ────────────────────────

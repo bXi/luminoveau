@@ -469,7 +469,7 @@ void Particles::_quit() {
     IGpu &gpu = Renderer::GetGpu();
 
     // Discard any compute dispatches queued this frame before releasing GPU resources.
-    Compute::_Reset();
+    Compute::Reset();
 
     gpu.waitIdle();
 
@@ -1183,7 +1183,7 @@ void Particles::_attachToFramebuffer(const std::string &fbName) {
     Renderer::AttachRenderPassToFrameBuffer(s_renderPass, "particles", fbName);
 }
 
-// Called by Renderer::_endFrame() BEFORE Compute::_ExecuteQueued()
+// Called by Renderer::_endFrame() BEFORE Compute::ExecuteQueued()
 void Particles::_prepareFrame(GpuCmdBufferHandle cmdBuf) {
     // Build particle compute dispatches for this frame using accumulated dt.
     // Update() only accumulates; the actual enqueue happens here so it survives
