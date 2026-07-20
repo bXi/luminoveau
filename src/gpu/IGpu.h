@@ -230,6 +230,30 @@ public:
     virtual GpuGraphicsPipelineHandle createGraphicsPipeline(const GpuGraphicsPipelineCreateInfo &info) = 0;
     virtual GpuComputePipelineHandle  createComputePipeline(const GpuComputePipelineCreateInfo &info)   = 0;
 
+    // ── SPIRV entry points ────────────────────────────────────────────────────
+    //
+    // createShader / createComputePipeline above take bytecode already in the build's
+    // native format (the pre-compiled built-in shader blobs). These two take *SPIRV* and
+    // let the backend translate it for the running device — that is how asset shaders
+    // loaded at runtime get onto the GPU.
+    //
+    // Backends that cannot consume SPIRV (WebGPU wants WGSL) return a null handle.
+
+    /// @brief Creates a graphics shader from SPIRV, translating to the native format if needed.
+    /// @param info Shader bytecode (SPIRV), stage and reflected binding counts.
+    /// @return A shader handle, or 0 if the backend cannot consume SPIRV.
+    virtual GpuShaderHandle createShaderFromSPIRV(const GpuShaderCreateInfo &info) = 0;
+
+    /// @brief Creates a compute pipeline from SPIRV, reflecting its resource layout.
+    /// @param code SPIRV bytecode.
+    /// @param codeSize Size of the bytecode in bytes.
+    /// @param entrypoint Entry-point function name.
+    /// @param outReflection Filled with the layout reflected out of the shader. May be null.
+    /// @return A pipeline handle, or 0 if the backend cannot consume SPIRV.
+    virtual GpuComputePipelineHandle createComputePipelineFromSPIRV(const uint8_t *code, size_t codeSize,
+        const char *entrypoint, GpuComputeReflection *outReflection)
+        = 0;
+
     // ── Resource release ──────────────────────────────────────────────────────
 
     virtual void releaseTexture(GpuTextureHandle handle)                   = 0;

@@ -4,13 +4,11 @@
 
 #include "renderer/shaders.h"
 
-namespace Shaders {
 
-void Init() { }
-void Quit() { }
+void Shaders::_init() { }
+void Shaders::_quit() { }
 
-const char *GetVertexEntryPoint() { return "vs_main"; }
-const char *GetFragmentEntryPoint() { return "fs_main"; }
-const char *GetComputeEntryPoint() { return "main"; }
+const char *Shaders::_getVertexEntryPoint() { return "vs_main"; }
+const char *Shaders::_getFragmentEntryPoint() { return "fs_main"; }
+const char *Shaders::_getComputeEntryPoint() { return "main"; }
 
-} // namespace Shaders

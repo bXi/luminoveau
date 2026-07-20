@@ -1,8 +1,10 @@
 #include "gpu/backends/sdl/SdlGpuBackend.h"
 #include "gpu/backends/sdl/sdlgpu.h"
 #include "profiler/perf.h"
+#include "core/log/log.h"
 
 #include <SDL3/SDL.h>
+#include <SDL3_shadercross/SDL_shadercross.h>
 #include <vector>
 #include <cstring>
 #include <unordered_map>
@@ -564,6 +566,89 @@ GpuComputePipelineHandle SdlGpuBackend::createComputePipeline(const GpuComputePi
         .threadcount_z                  = info.threadCountZ,
     };
     return reinterpret_cast<GpuComputePipelineHandle>(SDL_CreateGPUComputePipeline(m_device, &ci));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPIRV entry points — asset shaders arrive as SPIRV and are translated here for
+// the running device (SDL_shadercross). The built-in blobs bypass this: they are
+// already compiled to the build's native format and use createShader() above.
+// ─────────────────────────────────────────────────────────────────────────────
+
+GpuShaderHandle SdlGpuBackend::createShaderFromSPIRV(const GpuShaderCreateInfo &info) {
+    SDL_ShaderCross_ShaderStage crossStage;
+    switch (info.stage) {
+    case GpuShaderStage::Vertex:
+        crossStage = SDL_SHADERCROSS_SHADERSTAGE_VERTEX;
+        break;
+    case GpuShaderStage::Fragment:
+        crossStage = SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT;
+        break;
+    default:
+        LOG_ERROR("SdlGpuBackend::createShaderFromSPIRV: unsupported shader stage");
+        return 0;
+    }
+
+    SDL_ShaderCross_SPIRV_Info spirvInfo {
+        .bytecode      = info.code,
+        .bytecode_size = info.codeSize,
+        .entrypoint    = info.entrypoint,
+        .shader_stage  = crossStage,
+        .props         = 0
+    };
+    SDL_ShaderCross_GraphicsShaderResourceInfo resourceInfo {
+        .num_samplers         = info.samplerCount,
+        .num_storage_textures = info.storageTextureCount,
+        .num_storage_buffers  = info.storageBufferCount,
+        .num_uniform_buffers  = info.uniformBufferCount
+    };
+
+    SDL_GPUShader *shader = SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(m_device, &spirvInfo, &resourceInfo, 0);
+    if (!shader)
+        LOG_ERROR("SdlGpuBackend::createShaderFromSPIRV: {}", SDL_GetError());
+
+    return reinterpret_cast<GpuShaderHandle>(shader);
+}
+
+GpuComputePipelineHandle SdlGpuBackend::createComputePipelineFromSPIRV(const uint8_t *code, size_t codeSize,
+    const char *entrypoint, GpuComputeReflection *outReflection) {
+    if (!code || codeSize == 0) {
+        LOG_ERROR("SdlGpuBackend::createComputePipelineFromSPIRV: empty bytecode");
+        return 0;
+    }
+
+    SDL_ShaderCross_ComputePipelineMetadata *meta = SDL_ShaderCross_ReflectComputeSPIRV(code, codeSize, 0);
+    if (!meta) {
+        LOG_ERROR("SdlGpuBackend::createComputePipelineFromSPIRV: reflect failed: {}", SDL_GetError());
+        return 0;
+    }
+
+    if (outReflection) {
+        outReflection->threadCountX                 = meta->threadcount_x;
+        outReflection->threadCountY                 = meta->threadcount_y;
+        outReflection->threadCountZ                 = meta->threadcount_z;
+        outReflection->samplerCount                 = meta->num_samplers;
+        outReflection->readonlyStorageTextureCount  = meta->num_readonly_storage_textures;
+        outReflection->readwriteStorageTextureCount = meta->num_readwrite_storage_textures;
+        outReflection->readonlyStorageBufferCount   = meta->num_readonly_storage_buffers;
+        outReflection->readwriteStorageBufferCount  = meta->num_readwrite_storage_buffers;
+        outReflection->uniformBufferCount           = meta->num_uniform_buffers;
+    }
+
+    SDL_ShaderCross_SPIRV_Info spirvInfo {
+        .bytecode      = code,
+        .bytecode_size = codeSize,
+        .entrypoint    = entrypoint,
+        .shader_stage  = SDL_SHADERCROSS_SHADERSTAGE_COMPUTE,
+        .props         = 0
+    };
+
+    SDL_GPUComputePipeline *pipeline = SDL_ShaderCross_CompileComputePipelineFromSPIRV(m_device, &spirvInfo, meta, 0);
+    SDL_free(meta);
+
+    if (!pipeline)
+        LOG_ERROR("SdlGpuBackend::createComputePipelineFromSPIRV: {}", SDL_GetError());
+
+    return reinterpret_cast<GpuComputePipelineHandle>(pipeline);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -9,7 +9,7 @@
 
 #include "assets/shaders_generated.h"
 #include "renderer/passes/spriterenderpass.h"
-#include "renderer/sdl/shaders_sdl.h"
+#include "renderer/shaders.h"
 #include "platform/input/input.h"
 #include "core/enginestate/enginestate.h"
 #include "util/helpers.h"

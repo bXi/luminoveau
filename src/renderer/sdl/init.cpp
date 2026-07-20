@@ -11,7 +11,7 @@
 #include "gpu/presets.h"
 #include "renderer/passes/spriterenderpass.h"
 #include "renderer/passes/model3drenderpass.h"
-#include "renderer/sdl/shaders_sdl.h"
+#include "renderer/shaders.h"
 #include "util/helpers.h"
 #include "draw/particles.h"
 
@@ -259,5 +259,5 @@ void Renderer::_initRendering() {
 // Uses the precompiled SPIRV pipeline produced by the Shaders subsystem.
 
 ComputePipelineAsset Renderer::CreateComputePipelineAsset(const std::string &shaderPath) {
-    return Shaders::CreateComputePipeline(GetDevice(), shaderPath);
+    return Shaders::CreateComputePipeline(shaderPath);
 }

@@ -103,6 +103,10 @@ public:
     GpuGraphicsPipelineHandle createGraphicsPipeline(const GpuGraphicsPipelineCreateInfo &info) override;
     GpuComputePipelineHandle  createComputePipeline(const GpuComputePipelineCreateInfo &info) override;
 
+    GpuShaderHandle          createShaderFromSPIRV(const GpuShaderCreateInfo &info) override;
+    GpuComputePipelineHandle createComputePipelineFromSPIRV(const uint8_t *code, size_t codeSize,
+        const char *entrypoint, GpuComputeReflection *outReflection) override;
+
     void releaseTexture(GpuTextureHandle handle) override;
     void releaseBuffer(GpuBufferHandle handle) override;
     void releaseTransferBuffer(GpuTransferBufferHandle handle) override;

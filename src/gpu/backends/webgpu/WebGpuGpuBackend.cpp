@@ -1456,6 +1456,22 @@ GpuGraphicsPipelineHandle WebGpuGpuBackend::createGraphicsPipeline(const GpuGrap
     return reinterpret_cast<GpuGraphicsPipelineHandle>(pl);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SPIRV entry points — unsupported on WebGPU. The browser consumes WGSL, so asset
+// shaders take the WGSL path (see assets/webgpu/assethandler.cpp) instead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+GpuShaderHandle WebGpuGpuBackend::createShaderFromSPIRV(const GpuShaderCreateInfo &) {
+    LOG_ERROR("WebGpuGpuBackend::createShaderFromSPIRV: WebGPU cannot consume SPIRV (expects WGSL)");
+    return 0;
+}
+
+GpuComputePipelineHandle WebGpuGpuBackend::createComputePipelineFromSPIRV(const uint8_t *, size_t,
+    const char *, GpuComputeReflection *) {
+    LOG_ERROR("WebGpuGpuBackend::createComputePipelineFromSPIRV: WebGPU cannot consume SPIRV (expects WGSL)");
+    return 0;
+}
+
 GpuComputePipelineHandle WebGpuGpuBackend::createComputePipeline(const GpuComputePipelineCreateInfo &info) {
     auto *pl                 = new WgpuComputePipelineData();
     pl->uniformCount         = info.uniformBufferCount;

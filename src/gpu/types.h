@@ -381,6 +381,21 @@ struct GpuComputePipelineCreateInfo {
     const bool *readwriteStorageTextureWriteOnly = nullptr;
 };
 
+// Resource layout reflected out of a compute shader by the backend's SPIRV toolchain.
+// Filled in by IGpu::createComputePipelineFromSPIRV — the caller does not know these
+// up front, they come from the shader itself.
+struct GpuComputeReflection {
+    uint32_t threadCountX                 = 1;
+    uint32_t threadCountY                 = 1;
+    uint32_t threadCountZ                 = 1;
+    uint32_t samplerCount                 = 0;
+    uint32_t readonlyStorageTextureCount  = 0;
+    uint32_t readwriteStorageTextureCount = 0;
+    uint32_t readonlyStorageBufferCount   = 0;
+    uint32_t readwriteStorageBufferCount  = 0;
+    uint32_t uniformBufferCount           = 0;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Render pass begin structs
 // ─────────────────────────────────────────────────────────────────────────────
