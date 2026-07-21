@@ -44,6 +44,10 @@ set(LUMINOVEAU_SOURCES
     src/core/eventbus/eventbus.cpp
     src/core/settings/settings.cpp
     src/core/log/log.cpp
+    src/core/log/logentry.cpp
+    src/core/log/sinks/sdlconsolesink.cpp
+    src/core/log/sinks/filesink.cpp
+    src/core/log/sinks/memorybuffersink.cpp
 
     # Profiler
     src/profiler/perf.cpp
