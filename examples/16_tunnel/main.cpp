@@ -29,17 +29,17 @@
 #include <glm/glm.hpp>
 
 EffectAsset tunnel;
-FontAsset*  font = nullptr;
-float elapsed = 0.0f;
-int   pixelScale = 1;      // 1x..4x — how many screen pixels each rendered pixel covers (keys 1-4)
+FontAsset  *font       = nullptr;
+float       elapsed    = 0.0f;
+int         pixelScale = 1; // 1x..4x — how many screen pixels each rendered pixel covers (keys 1-4)
 
-Lumi::Result AppInit(void** appstate, int argc, char* argv[]) {
+Lumi::Result AppInit(void **appstate, int argc, char *argv[]) {
     Window::InitWindow("Luminoveau Example — Tunnel", 900, 560, 1, SDL_WINDOW_RESIZABLE);
-    Renderer::ClearBackground({0, 0, 0, 255});
+    Renderer::ClearBackground({ 0, 0, 0, 255 });
 
-    ShaderAsset& vert = AssetHandler::GetShader("assets/shaders/passthrough.vert");
-    ShaderAsset& frag = AssetHandler::GetShader("assets/shaders/tunnel.frag");
-    tunnel = Effects::Create(vert, frag);
+    ShaderAsset &vert = AssetHandler::GetShader("assets/shaders/passthrough.vert");
+    ShaderAsset &frag = AssetHandler::GetShader("assets/shaders/tunnel.frag");
+    tunnel            = EffectHandler::Create(vert, frag);
 
     // Kenney Mini — a chunky pixel font; the second arg is the atlas render size.
     font = &AssetHandler::GetFont("assets/fonts/Kenney Mini.ttf", 32);
@@ -47,16 +47,20 @@ Lumi::Result AppInit(void** appstate, int argc, char* argv[]) {
     return Lumi::Result::Continue;
 }
 
-Lumi::Result AppIterate(void* appstate) {
+Lumi::Result AppIterate(void *appstate) {
     elapsed += (float)Window::GetFrameTime();
 
     // Keys 1-4 pick the render scale. The engine's WebGpuScaleMode does the upscale for us: render
     // the shader into a canvas/N framebuffer and Stretch blows it back up to the window — a cheap,
     // crunchy retro pixel size. 1x = Native (render straight at canvas resolution, sharp).
-    if (Input::KeyPressed(SDLK_1)) pixelScale = 1;
-    if (Input::KeyPressed(SDLK_2)) pixelScale = 2;
-    if (Input::KeyPressed(SDLK_3)) pixelScale = 3;
-    if (Input::KeyPressed(SDLK_4)) pixelScale = 4;
+    if (Input::KeyPressed(SDLK_1))
+        pixelScale = 1;
+    if (Input::KeyPressed(SDLK_2))
+        pixelScale = 2;
+    if (Input::KeyPressed(SDLK_3))
+        pixelScale = 3;
+    if (Input::KeyPressed(SDLK_4))
+        pixelScale = 4;
 
     Window::SetScale(pixelScale);
 
@@ -71,15 +75,15 @@ Lumi::Result AppIterate(void* appstate) {
 
     Window::StartFrame();
     Draw::SetEffect(tunnel);
-    Draw::RectangleFilled({0, 0}, {(float)Window::GetWidth(), (float)Window::GetHeight()}, WHITE);
+    Draw::RectangleFilled({ 0, 0 }, { (float)Window::GetWidth(), (float)Window::GetHeight() }, WHITE);
     Draw::ClearEffects();
 
     // Constant ~32px on-screen label (see the header note about 3x looking a touch uneven).
-    Text::DrawText(*font, {8.f / (float)pixelScale, 4.f / (float)pixelScale}, "Scale: " + std::to_string(pixelScale) + "x  (keys 1-4)",
-                   WHITE, 32.0f / (float)pixelScale);
+    Text::DrawText(*font, { 8.f / (float)pixelScale, 4.f / (float)pixelScale }, "Scale: " + std::to_string(pixelScale) + "x  (keys 1-4)",
+        WHITE, 32.0f / (float)pixelScale);
     Window::EndFrame();
     return Lumi::Result::Continue;
 }
 
-Lumi::Result AppEvent(void* appstate, SDL_Event* event) { return Lumi::Result::Continue; }
-void AppQuit(void* appstate, Lumi::Result result) { Window::Close(); }
+Lumi::Result AppEvent(void *appstate, SDL_Event *event) { return Lumi::Result::Continue; }
+void         AppQuit(void *appstate, Lumi::Result result) { Window::Close(); }

@@ -9,45 +9,45 @@
 #include <cstdint>
 #include <cstddef>
 
-namespace Luminoveau {
+namespace Lumi {
 namespace Shaders {
     // FullscreenQuad Shaders
-    extern const uint8_t FullscreenQuad_Vert[];
-    extern const size_t FullscreenQuad_Vert_Size;
-    extern const uint8_t FullscreenQuad_Frag[];
-    extern const size_t FullscreenQuad_Frag_Size;
+    extern const uint8_t FULLSCREEN_QUAD_VERT[];
+    extern const size_t FULLSCREEN_QUAD_VERT_SIZE;
+    extern const uint8_t FULLSCREEN_QUAD_FRAG[];
+    extern const size_t FULLSCREEN_QUAD_FRAG_SIZE;
     // Model3d Shaders
-    extern const uint8_t Model3d_Vert[];
-    extern const size_t Model3d_Vert_Size;
-    extern const uint8_t Model3d_Frag[];
-    extern const size_t Model3d_Frag_Size;
+    extern const uint8_t MODEL3D_VERT[];
+    extern const size_t MODEL3D_VERT_SIZE;
+    extern const uint8_t MODEL3D_FRAG[];
+    extern const size_t MODEL3D_FRAG_SIZE;
     // ParticlesPov Shaders
-    extern const uint8_t ParticlesPov_Vert[];
-    extern const size_t ParticlesPov_Vert_Size;
-    extern const uint8_t ParticlesPov_Frag[];
-    extern const size_t ParticlesPov_Frag_Size;
+    extern const uint8_t PARTICLES_POV_VERT[];
+    extern const size_t PARTICLES_POV_VERT_SIZE;
+    extern const uint8_t PARTICLES_POV_FRAG[];
+    extern const size_t PARTICLES_POV_FRAG_SIZE;
     // Particles Shaders
-    extern const uint8_t Particles_Vert[];
-    extern const size_t Particles_Vert_Size;
-    extern const uint8_t Particles_Frag[];
-    extern const size_t Particles_Frag_Size;
+    extern const uint8_t PARTICLES_VERT[];
+    extern const size_t PARTICLES_VERT_SIZE;
+    extern const uint8_t PARTICLES_FRAG[];
+    extern const size_t PARTICLES_FRAG_SIZE;
     // Shadow Shaders
-    extern const uint8_t Shadow_Vert[];
-    extern const size_t Shadow_Vert_Size;
-    extern const uint8_t Shadow_Frag[];
-    extern const size_t Shadow_Frag_Size;
+    extern const uint8_t SHADOW_VERT[];
+    extern const size_t SHADOW_VERT_SIZE;
+    extern const uint8_t SHADOW_FRAG[];
+    extern const size_t SHADOW_FRAG_SIZE;
     // Shadowcube Shaders
-    extern const uint8_t Shadowcube_Vert[];
-    extern const size_t Shadowcube_Vert_Size;
-    extern const uint8_t Shadowcube_Frag[];
-    extern const size_t Shadowcube_Frag_Size;
+    extern const uint8_t SHADOWCUBE_VERT[];
+    extern const size_t SHADOWCUBE_VERT_SIZE;
+    extern const uint8_t SHADOWCUBE_FRAG[];
+    extern const size_t SHADOWCUBE_FRAG_SIZE;
     // Sprite Shaders
-    extern const uint8_t Sprite_Vert[];
-    extern const size_t Sprite_Vert_Size;
-    extern const uint8_t Sprite_Frag[];
-    extern const size_t Sprite_Frag_Size;
+    extern const uint8_t SPRITE_VERT[];
+    extern const size_t SPRITE_VERT_SIZE;
+    extern const uint8_t SPRITE_FRAG[];
+    extern const size_t SPRITE_FRAG_SIZE;
     // Particles Compute Shader (always SPIR-V - SDL_ShaderCross handles cross-compilation)
-    extern const uint8_t Particles_Comp[];
-    extern const size_t Particles_Comp_Size;
+    extern const uint8_t PARTICLES_COMP[];
+    extern const size_t PARTICLES_COMP_SIZE;
 } // namespace Shaders
-} // namespace Luminoveau
+} // namespace Lumi

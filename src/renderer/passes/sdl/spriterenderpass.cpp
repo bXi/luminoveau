@@ -18,55 +18,79 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_gpu.h>
 
-// ── release / init (SDL) ─────────────────────────────────────────────────────
+// ── release / Init (SDL) ─────────────────────────────────────────────────────
 
-void SpriteRenderPass::release(bool logRelease) {
-    IGpu& gpu = Renderer::GetGpu();
+void SpriteRenderPass::Release(bool logRelease) {
+    IGpu &gpu = Renderer::GetGpu();
 
-    releaseEffectResources();
+    _releaseEffectResources();
 
-    if (m_msaa_color_texture)       { gpu.releaseTexture(m_msaa_color_texture);              m_msaa_color_texture = 0; }
-    if (m_msaa_depth_texture)       { gpu.releaseTexture(m_msaa_depth_texture);              m_msaa_depth_texture = 0; }
-    if (m_depth_texture.gpuTexture) { gpu.releaseTexture(m_depth_texture.gpuTexture);        m_depth_texture.gpuTexture = 0; }
+    if (_msaaColorTexture) {
+        gpu.ReleaseTexture(_msaaColorTexture);
+        _msaaColorTexture = 0;
+    }
+    if (_msaaDepthTexture) {
+        gpu.ReleaseTexture(_msaaDepthTexture);
+        _msaaDepthTexture = 0;
+    }
+    if (_depthTexture.gpuTexture) {
+        gpu.ReleaseTexture(_depthTexture.gpuTexture);
+        _depthTexture.gpuTexture = 0;
+    }
 
-    if (SpriteDataTransferBuffer) { gpu.releaseTransferBuffer(SpriteDataTransferBuffer); SpriteDataTransferBuffer = 0; }
-    if (SpriteDataBuffer)         { gpu.releaseBuffer(SpriteDataBuffer);                 SpriteDataBuffer         = 0; }
-    if (vertex_shader)            { gpu.releaseShader(vertex_shader);                    vertex_shader            = 0; }
-    if (fragment_shader)          { gpu.releaseShader(fragment_shader);                  fragment_shader          = 0; }
-    if (m_pipeline)               { gpu.releaseGraphicsPipeline(m_pipeline);             m_pipeline               = 0; }
+    if (_spriteDataTransferBuffer) {
+        gpu.ReleaseTransferBuffer(_spriteDataTransferBuffer);
+        _spriteDataTransferBuffer = 0;
+    }
+    if (_spriteDataBuffer) {
+        gpu.ReleaseBuffer(_spriteDataBuffer);
+        _spriteDataBuffer = 0;
+    }
+    if (_vertexShader) {
+        gpu.ReleaseShader(_vertexShader);
+        _vertexShader = 0;
+    }
+    if (_fragmentShader) {
+        gpu.ReleaseShader(_fragmentShader);
+        _fragmentShader = 0;
+    }
+    if (_pipeline) {
+        gpu.ReleaseGraphicsPipeline(_pipeline);
+        _pipeline = 0;
+    }
 
     if (logRelease) {
-        LOG_INFO("Released graphics pipeline: {}", passname.c_str());
+        LOG_INFO("Released graphics pipeline: {}", _passname.c_str());
     }
 }
 
-bool SpriteRenderPass::init(
-    GpuTextureFormat swapchain_texture_format, uint32_t surface_width, uint32_t surface_height, std::string name, bool logInit,
+bool SpriteRenderPass::Init(
+    GpuTextureFormat swapchainTextureFormat, uint32_t surfaceWidth, uint32_t surfaceHeight, std::string name, bool logInit,
     size_t capacity, bool forceNoMSAA) {
-    m_noMSAA           = forceNoMSAA;
-    passname           = std::move(name);
-    m_surface_width    = surface_width;
-    m_surface_height   = surface_height;
-    m_swapchain_format = swapchain_texture_format;
+    _noMSAA          = forceNoMSAA;
+    _passname        = std::move(name);
+    _surfaceWidth    = surfaceWidth;
+    _surfaceHeight   = surfaceHeight;
+    _swapchainFormat = swapchainTextureFormat;
 
-    IGpu& gpu = Renderer::GetGpu();
-    renderQueue = BufferManager::Create<Renderable>(passname + "_renderQueue", capacity > 0 ? capacity : MAX_SPRITES);
+    IGpu &gpu   = Renderer::GetGpu();
+    renderQueue = BufferManager::Create<Renderable>(_passname + "_renderQueue", capacity > 0 ? capacity : MAX_SPRITES);
 
-    createShaders();
+    _createShaders();
 
     // Local depth texture (D32_FLOAT) to match pipeline; MSAA color/depth come from
     // the shared framebuffer when MSAA is enabled.
     {
-        GpuTextureCreateInfo depthInfo{};
-        depthInfo.width       = surface_width;
-        depthInfo.height      = surface_height;
-        depthInfo.format      = GpuTextureFormat::D32_Float;
-        depthInfo.usage       = GpuTextureUsage::DepthStencilTarget;
-        depthInfo.sampleCount = GpuSampleCount::x1;
-        m_depth_texture.gpuTexture = gpu.createTexture(depthInfo);
+        GpuTextureCreateInfo depthInfo {};
+        depthInfo.width          = surfaceWidth;
+        depthInfo.height         = surfaceHeight;
+        depthInfo.format         = GpuTextureFormat::D32_Float;
+        depthInfo.usage          = GpuTextureUsage::DepthStencilTarget;
+        depthInfo.sampleCount    = GpuSampleCount::X1;
+        _depthTexture.gpuTexture = gpu.CreateTexture(depthInfo);
     }
-    createEffectResources();
-    GpuSampleCount sampleCount = m_noMSAA ? GpuSampleCount::x1 : Renderer::GetSampleCount();
+    _createEffectResources();
+    GpuSampleCount sampleCount = _noMSAA ? GpuSampleCount::X1 : Renderer::GetSampleCount();
 
     GpuVertexAttribute vertexAttributes[] = {
         { .location = 0, .binding = 0, .format = GpuVertexElementFormat::UInt, .offset = 0 },
@@ -74,9 +98,9 @@ bool SpriteRenderPass::init(
     };
     GpuVertexBinding vertexBinding = { .binding = 0, .stride = 8, .instanceStepping = false };
 
-    GpuGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.vertexShader             = vertex_shader;
-    pipelineInfo.fragmentShader           = fragment_shader;
+    GpuGraphicsPipelineCreateInfo pipelineInfo {};
+    pipelineInfo.vertexShader             = _vertexShader;
+    pipelineInfo.fragmentShader           = _fragmentShader;
     pipelineInfo.attributes               = vertexAttributes;
     pipelineInfo.attributeCount           = 2;
     pipelineInfo.bindings                 = &vertexBinding;
@@ -84,82 +108,81 @@ bool SpriteRenderPass::init(
     pipelineInfo.fillMode                 = GpuFillMode::Fill;
     pipelineInfo.cullMode                 = GpuCullMode::None;
     pipelineInfo.frontFace                = GpuFrontFace::CounterClockwise;
-    pipelineInfo.colorTargetFormat        = swapchain_texture_format;
+    pipelineInfo.colorTargetFormat        = swapchainTextureFormat;
     pipelineInfo.blend                    = renderPassBlendState;
     pipelineInfo.hasDepthTarget           = false;
     pipelineInfo.sampleCount              = sampleCount;
     pipelineInfo.vertexStorageBufferCount = 1;
-    m_pipeline = gpu.createGraphicsPipeline(pipelineInfo);
+    _pipeline                             = gpu.CreateGraphicsPipeline(pipelineInfo);
 
-    if (!m_pipeline) {
-        LOG_CRITICAL("SpriteRenderPass: failed to create pipeline for {}", passname);
+    if (!_pipeline) {
+        LOG_CRITICAL("SpriteRenderPass: failed to create pipeline for {}", _passname);
         return false;
     }
 
-    SpriteDataTransferBuffer = gpu.createTransferBuffer({
+    _spriteDataTransferBuffer = gpu.CreateTransferBuffer({
         static_cast<uint32_t>(MAX_SPRITES * sizeof(CompactSpriteInstance)),
         GpuTransferUsage::Upload,
     });
-    SpriteDataBuffer = gpu.createBuffer({
+    _spriteDataBuffer         = gpu.CreateBuffer({
         static_cast<uint32_t>(MAX_SPRITES * sizeof(CompactSpriteInstance)),
         GpuBufferUsage::StorageRead,
     });
 
     if (logInit) {
-        LOG_INFO("Render pass initialized: {}", passname.c_str());
+        LOG_INFO("Render pass initialized: {}", _passname.c_str());
     }
     return true;
 }
 
-// ── createShaders (SDL) ──────────────────────────────────────────────────────
+// ── _createShaders (SDL) ──────────────────────────────────────────────────────
 
-void SpriteRenderPass::createShaders() {
-    IGpu& gpu = Renderer::GetGpu();
+void SpriteRenderPass::_createShaders() {
+    IGpu &gpu = Renderer::GetGpu();
 
-    // spirv-cross renames "main" to "main0" in MSL (reserved keyword)
-    #if defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
-        const char* entryPoint = "main0";
-    #else
-        const char* entryPoint = "main";
-    #endif
+// spirv-cross renames "main" to "main0" in MSL (reserved keyword)
+#if defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+    const char *entryPoint = "main0";
+#else
+    const char *entryPoint = "main";
+#endif
 
-    GpuShaderCreateInfo vsi{};
-    vsi.code                = Luminoveau::Shaders::Sprite_Vert;
-    vsi.codeSize            = Luminoveau::Shaders::Sprite_Vert_Size;
+    GpuShaderCreateInfo vsi {};
+    vsi.code                = Lumi::Shaders::SPRITE_VERT;
+    vsi.codeSize            = Lumi::Shaders::SPRITE_VERT_SIZE;
     vsi.entrypoint          = entryPoint;
     vsi.stage               = GpuShaderStage::Vertex;
     vsi.samplerCount        = 0;
-    vsi.uniformBufferCount  = 2;  // ViewProjection + InstanceOffset
+    vsi.uniformBufferCount  = 2; // ViewProjection + InstanceOffset
     vsi.storageBufferCount  = 1;
     vsi.storageTextureCount = 0;
-    vertex_shader = gpu.createShader(vsi);
-    if (!vertex_shader) {
-        LOG_CRITICAL("failed to create vertex shader for: {} ({})", passname.c_str(), SDL_GetError());
+    _vertexShader           = gpu.CreateShader(vsi);
+    if (!_vertexShader) {
+        LOG_CRITICAL("failed to create vertex shader for: {} ({})", _passname.c_str(), SDL_GetError());
     }
 
-    GpuShaderCreateInfo fsi{};
-    fsi.code                = Luminoveau::Shaders::Sprite_Frag;
-    fsi.codeSize            = Luminoveau::Shaders::Sprite_Frag_Size;
+    GpuShaderCreateInfo fsi {};
+    fsi.code                = Lumi::Shaders::SPRITE_FRAG;
+    fsi.codeSize            = Lumi::Shaders::SPRITE_FRAG_SIZE;
     fsi.entrypoint          = entryPoint;
     fsi.stage               = GpuShaderStage::Fragment;
     fsi.samplerCount        = 1;
     fsi.uniformBufferCount  = 0;
     fsi.storageBufferCount  = 0;
     fsi.storageTextureCount = 0;
-    fragment_shader = gpu.createShader(fsi);
-    if (!fragment_shader) {
-        LOG_CRITICAL("failed to create fragment shader for: {} ({})", passname.c_str(), SDL_GetError());
+    _fragmentShader         = gpu.CreateShader(fsi);
+    if (!_fragmentShader) {
+        LOG_CRITICAL("failed to create fragment shader for: {} ({})", _passname.c_str(), SDL_GetError());
     }
 }
 
-// ── render (SDL) ─────────────────────────────────────────────────────────────
+// ── Render (SDL) ─────────────────────────────────────────────────────────────
 
-void SpriteRenderPass::render(
-    GpuCmdBufferHandle cmdBuffer, GpuTextureHandle targetTexture, const glm::mat4 &camera
-) {
-    #ifdef LUMIDEBUG
-    SDL_PushGPUDebugGroup(reinterpret_cast<SDL_GPUCommandBuffer*>(cmdBuffer), CURRENT_METHOD());
-    #endif
+void SpriteRenderPass::Render(
+    GpuCmdBufferHandle cmdBuffer, GpuTextureHandle targetTexture, const glm::mat4 &camera) {
+#ifdef LUMIDEBUG
+    SDL_PushGPUDebugGroup(reinterpret_cast<SDL_GPUCommandBuffer *>(cmdBuffer), CURRENT_METHOD());
+#endif
 
     // Check if ANY sprite in the queue has effects
     bool hasAnyEffects = false;
@@ -170,57 +193,57 @@ void SpriteRenderPass::render(
         }
     }
 
-    //sets up transfer - map the transfer buffer directly
+    // sets up transfer - map the transfer buffer directly
     auto *dataPtr = static_cast<CompactSpriteInstance *>(
-        Renderer::GetGpu().mapTransferBuffer(SpriteDataTransferBuffer, false));
+        Renderer::GetGpu().MapTransferBuffer(_spriteDataTransferBuffer, false));
 
     // Copy and compress from renderQueue to transfer buffer
     // Convert float32 to float16 and pack pairs into uint32
 
     size_t spriteCount = renderQueue->Count();
-    size_t thread_count = thread_pool.get_thread_count();
-    size_t chunk_size = spriteCount / thread_count + 1;
+    size_t threadCount = _threadPool.GetThreadCount();
+    size_t chunkSize   = spriteCount / threadCount + 1;
 
-    for (size_t start = 0; start < spriteCount; start += chunk_size) {
-        size_t end = std::min(start + chunk_size, spriteCount);
-        thread_pool.enqueue([this, dataPtr, start, end]() {
+    for (size_t start = 0; start < spriteCount; start += chunkSize) {
+        size_t end = std::min(start + chunkSize, spriteCount);
+        _threadPool.Enqueue([this, dataPtr, start, end]() {
             for (size_t i = start; i < end; ++i) {
-                const auto& sprite = (*renderQueue)[i];
-                float x = sprite.x;
-                float y = sprite.y;
-                float z = sprite.z;
-                float rotation = sprite.rotation;
-                float tex_u = fast_clamp(sprite.tex_u, 0.0f, 1.0f);
-                float tex_v = fast_clamp(sprite.tex_v, 0.0f, 1.0f);
-                float tex_w = fast_clamp(sprite.tex_w, -1.0f, 1.0f);
-                float tex_h = fast_clamp(sprite.tex_h, -1.0f, 1.0f);
-                float r = fast_clamp(sprite.r, 0.0f, 1.0f);
-                float g = fast_clamp(sprite.g, 0.0f, 1.0f);
-                float b = fast_clamp(sprite.b, 0.0f, 1.0f);
-                float a = fast_clamp(sprite.a, 0.0f, 1.0f);
-                float w = fast_max(sprite.w, 0.001f);
-                float h = fast_max(sprite.h, 0.001f);
-                float pivot_x = sprite.pivot_x;
-                float pivot_y = sprite.pivot_y;
-                bool isSDF = sprite.isSDF;
+                const auto &sprite   = (*renderQueue)[i];
+                float       x        = sprite.x;
+                float       y        = sprite.y;
+                float       z        = sprite.z;
+                float       rotation = sprite.rotation;
+                float       texU     = fastClamp(sprite.texU, 0.0f, 1.0f);
+                float       texV     = fastClamp(sprite.texV, 0.0f, 1.0f);
+                float       texW     = fastClamp(sprite.texW, -1.0f, 1.0f);
+                float       texH     = fastClamp(sprite.texH, -1.0f, 1.0f);
+                float       r        = fastClamp(sprite.r, 0.0f, 1.0f);
+                float       g        = fastClamp(sprite.g, 0.0f, 1.0f);
+                float       b        = fastClamp(sprite.b, 0.0f, 1.0f);
+                float       a        = fastClamp(sprite.a, 0.0f, 1.0f);
+                float       w        = fastMax(sprite.w, 0.001f);
+                float       h        = fastMax(sprite.h, 0.001f);
+                float       pivotX   = sprite.pivotX;
+                float       pivotY   = sprite.pivotY;
+                bool        isSDF    = sprite.isSDF;
 
-                dataPtr[i].pos_xy = pack_half2(x, y);
-                dataPtr[i].pos_z_rot = pack_half2(z, rotation);
-                dataPtr[i].tex_uv = pack_half2(tex_u, tex_v);
-                dataPtr[i].tex_wh = pack_half2(tex_w, tex_h);
-                dataPtr[i].color_rg = pack_half2(r, g);
-                dataPtr[i].color_ba = pack_half2(b, a);
-                dataPtr[i].size_wh = pack_half2(w, h);
+                dataPtr[i].posXy   = packHalf2(x, y);
+                dataPtr[i].posZRot = packHalf2(z, rotation);
+                dataPtr[i].texUv   = packHalf2(texU, texV);
+                dataPtr[i].texWh   = packHalf2(texW, texH);
+                dataPtr[i].colorRg = packHalf2(r, g);
+                dataPtr[i].colorBa = packHalf2(b, a);
+                dataPtr[i].sizeWh  = packHalf2(w, h);
 
-                uint32_t pivot_packed = pack_half2(pivot_x, pivot_y);
+                uint32_t pivotPacked = packHalf2(pivotX, pivotY);
                 if (isSDF) {
-                    pivot_packed |= 0x80000000u;
+                    pivotPacked |= 0x80000000u;
                 }
-                dataPtr[i].pivot_xy = pivot_packed;
+                dataPtr[i].pivotXy = pivotPacked;
             }
         });
     }
-    thread_pool.wait_all();
+    _threadPool.WaitAll();
 
     // Build batches respecting z-order, geometry, and texture changes
     std::vector<Batch> batches;
@@ -228,17 +251,17 @@ void SpriteRenderPass::render(
     std::vector<bool> batchHasEffects;
     batchHasEffects.reserve(64);
 
-    size_t      currentOffset = 0;
-    for (size_t i             = 0; i < spriteCount; ++i) {
-        const auto& cur = (*renderQueue)[i];
-        bool geometryChanged = (i > 0 && cur.geometry != (*renderQueue)[i - 1].geometry);
-        bool textureChanged = (i > 0 && cur.texture.gpuTexture != (*renderQueue)[i - 1].texture.gpuTexture);
-        bool effectsChanged = (i > 0 && cur.effectIndex != (*renderQueue)[i - 1].effectIndex);
+    size_t currentOffset = 0;
+    for (size_t i = 0; i < spriteCount; ++i) {
+        const auto &cur             = (*renderQueue)[i];
+        bool        geometryChanged = (i > 0 && cur.geometry != (*renderQueue)[i - 1].geometry);
+        bool        textureChanged  = (i > 0 && cur.texture.gpuTexture != (*renderQueue)[i - 1].texture.gpuTexture);
+        bool        effectsChanged  = (i > 0 && cur.effectIndex != (*renderQueue)[i - 1].effectIndex);
 
         if (i == 0 || geometryChanged || textureChanged || effectsChanged) {
             Batch batch;
-            batch.offset  = currentOffset;
-            batch.count   = 1;
+            batch.offset = currentOffset;
+            batch.count  = 1;
             if (cur.geometry) {
                 batch.vertexBuffer = cur.geometry->vertexBuffer;
                 batch.indexBuffer  = cur.geometry->indexBuffer;
@@ -253,13 +276,13 @@ void SpriteRenderPass::render(
         }
         currentOffset++;
     }
-    Renderer::GetGpu().unmapTransferBuffer(SpriteDataTransferBuffer);
+    Renderer::GetGpu().UnmapTransferBuffer(_spriteDataTransferBuffer);
 
     if (spriteCount > 0) {
-        Renderer::GetGpu().uploadToBuffer(
+        Renderer::GetGpu().UploadToBuffer(
             cmdBuffer,
-            SpriteDataTransferBuffer, 0,
-            SpriteDataBuffer,         0,
+            _spriteDataTransferBuffer, 0,
+            _spriteDataBuffer, 0,
             static_cast<uint32_t>(spriteCount * sizeof(CompactSpriteInstance)),
             false);
     }
@@ -267,240 +290,255 @@ void SpriteRenderPass::render(
     bool shouldResolve = (renderTargetResolve != 0);
 
     if (!hasAnyEffects) {
-        IGpu& gpu = Renderer::GetGpu();
+        IGpu &gpu = Renderer::GetGpu();
 
-        GpuColorTargetInfo ct{};
+        GpuColorTargetInfo ct {};
         ct.texture        = targetTexture;
         ct.resolveTexture = renderTargetResolve;
-        ct.loadOp         = color_target_info_loadop;
+        ct.loadOp         = colorTargetInfoLoadOp;
         ct.storeOp        = shouldResolve ? GpuStoreOp::Resolve : GpuStoreOp::Store;
-        ct.clearR         = color_target_clear_r;
-        ct.clearG         = color_target_clear_g;
-        ct.clearB         = color_target_clear_b;
-        ct.clearA         = color_target_clear_a;
+        ct.clearR         = colorTargetClearR;
+        ct.clearG         = colorTargetClearG;
+        ct.clearB         = colorTargetClearB;
+        ct.clearA         = colorTargetClearA;
 
-        GpuRenderPassHandle rp = gpu.beginRenderPass(cmdBuffer, &ct, 1, nullptr);
-        render_pass = rp;
+        GpuRenderPassHandle rp = gpu.BeginRenderPass(cmdBuffer, &ct, 1, nullptr);
+        renderPass             = rp;
 
         {
             // Cap viewport to the surface dims so fixedSize FBs (e.g. LightToy's hrc_scene)
             // get the FB-sized viewport their FB-sized camera projects against. Without the
             // cap, a 1348-wide FB would receive a 1598-wide viewport and sprites projected
             // through ortho(0,1348,…) would land outside the FB's pixel range.
-            float vpW = std::min((float)Window::GetPhysicalWidth(),  (float)m_surface_width);
-            float vpH = std::min((float)Window::GetPhysicalHeight(), (float)m_surface_height);
-            gpu.setViewport(rp, 0.0f, 0.0f, vpW, vpH, 0.0f, 1.0f);
+            float vpW = std::min((float)Window::GetPhysicalWidth(), (float)_surfaceWidth);
+            float vpH = std::min((float)Window::GetPhysicalHeight(), (float)_surfaceHeight);
+            gpu.SetViewport(rp, 0.0f, 0.0f, vpW, vpH, 0.0f, 1.0f);
         }
 
-        if (_scissorEnabled) {
-            gpu.setScissor(rp, _scissorX, _scissorY, _scissorW, _scissorH);
-            _scissorEnabled = false;
+        if (scissorEnabled) {
+            gpu.SetScissor(rp, scissorX, scissorY, scissorW, scissorH);
+            scissorEnabled = false;
         }
 
-        gpu.bindGraphicsPipeline(rp, m_pipeline);
-        gpu.bindVertexStorageBuffers(rp, 0, &SpriteDataBuffer, 1);
+        gpu.BindGraphicsPipeline(rp, _pipeline);
+        gpu.BindVertexStorageBuffers(rp, 0, &_spriteDataBuffer, 1);
 
         // Camera is identical for every batch; push once and let it persist across draws.
-        gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
+        gpu.PushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
 
         for (size_t batchIdx = 0; batchIdx < batches.size(); ++batchIdx) {
             const auto &batch = batches[batchIdx];
-            if (!batch.texture || !batch.sampler || !batch.vertexBuffer || !batch.indexBuffer) continue;
+            if (!batch.texture || !batch.sampler || !batch.vertexBuffer || !batch.indexBuffer)
+                continue;
 
-            GpuBufferBinding vb{ batch.vertexBuffer, 0 };
-            gpu.bindVertexBuffers(rp, 0, &vb, 1);
+            GpuBufferBinding vb { batch.vertexBuffer, 0 };
+            gpu.BindVertexBuffers(rp, 0, &vb, 1);
 
-            GpuBufferBinding ib{ batch.indexBuffer, 0 };
-            gpu.bindIndexBuffer(rp, ib, true);
+            GpuBufferBinding ib { batch.indexBuffer, 0 };
+            gpu.BindIndexBuffer(rp, ib, true);
 
-            GpuTextureSamplerBinding tsb{ batch.texture, batch.sampler };
-            gpu.bindFragmentSamplers(rp, 0, &tsb, 1);
+            GpuTextureSamplerBinding tsb { batch.texture, batch.sampler };
+            gpu.BindFragmentSamplers(rp, 0, &tsb, 1);
 
             uint32_t instOff[2] = { static_cast<uint32_t>(batch.offset), 0u };
-            float instScale = Window::GetScale();
-            std::memcpy(&instOff[1], &instScale, sizeof(float));   // render scale -> MSDF AA sizing
-            gpu.pushVertexUniformData(cmdBuffer, 1, instOff, sizeof(instOff));
+            float    instScale  = Window::GetScale();
+            std::memcpy(&instOff[1], &instScale, sizeof(float)); // render scale -> MSDF AA sizing
+            gpu.PushVertexUniformData(cmdBuffer, 1, instOff, sizeof(instOff));
 
-            gpu.drawIndexedPrimitives(rp,
+            gpu.DrawIndexedPrimitives(rp,
                 batch.indexCount,
                 static_cast<uint32_t>(batch.count), 0, 0, 0);
         }
 
-        gpu.endRenderPass(rp);
+        gpu.EndRenderPass(rp);
     } else {
-        IGpu& gpu = Renderer::GetGpu();
+        IGpu               &gpu         = Renderer::GetGpu();
         GpuRenderPassHandle currentPass = 0;
 
         for (size_t batchIdx = 0; batchIdx < batches.size(); ++batchIdx) {
-            const auto& batch = batches[batchIdx];
-            if (!batch.texture || !batch.sampler || !batch.vertexBuffer || !batch.indexBuffer) continue;
+            const auto &batch = batches[batchIdx];
+            if (!batch.texture || !batch.sampler || !batch.vertexBuffer || !batch.indexBuffer)
+                continue;
 
             if (!batchHasEffects[batchIdx]) {
                 if (!currentPass) {
-                    GpuColorTargetInfo ct{};
-                    ct.texture = targetTexture;
-                    ct.loadOp  = (batchIdx == 0) ? color_target_info_loadop : GpuLoadOp::Load;
-                    ct.storeOp = GpuStoreOp::Store;
-                    ct.clearR  = color_target_clear_r;
-                    ct.clearG  = color_target_clear_g;
-                    ct.clearB  = color_target_clear_b;
-                    ct.clearA  = color_target_clear_a;
-                    currentPass = gpu.beginRenderPass(cmdBuffer, &ct, 1, nullptr);
+                    GpuColorTargetInfo ct {};
+                    ct.texture  = targetTexture;
+                    ct.loadOp   = (batchIdx == 0) ? colorTargetInfoLoadOp : GpuLoadOp::Load;
+                    ct.storeOp  = GpuStoreOp::Store;
+                    ct.clearR   = colorTargetClearR;
+                    ct.clearG   = colorTargetClearG;
+                    ct.clearB   = colorTargetClearB;
+                    ct.clearA   = colorTargetClearA;
+                    currentPass = gpu.BeginRenderPass(cmdBuffer, &ct, 1, nullptr);
 
                     {
-                        float vpW = std::min((float)Window::GetPhysicalWidth(),  (float)m_surface_width);
-                        float vpH = std::min((float)Window::GetPhysicalHeight(), (float)m_surface_height);
-                        gpu.setViewport(currentPass, 0.0f, 0.0f, vpW, vpH, 0.0f, 1.0f);
+                        float vpW = std::min((float)Window::GetPhysicalWidth(), (float)_surfaceWidth);
+                        float vpH = std::min((float)Window::GetPhysicalHeight(), (float)_surfaceHeight);
+                        gpu.SetViewport(currentPass, 0.0f, 0.0f, vpW, vpH, 0.0f, 1.0f);
                     }
-                    if (_scissorEnabled) {
-                        gpu.setScissor(currentPass, _scissorX, _scissorY, _scissorW, _scissorH);
-                        _scissorEnabled = false;
+                    if (scissorEnabled) {
+                        gpu.SetScissor(currentPass, scissorX, scissorY, scissorW, scissorH);
+                        scissorEnabled = false;
                     }
-                    gpu.bindGraphicsPipeline(currentPass, m_pipeline);
-                    gpu.bindVertexStorageBuffers(currentPass, 0, &SpriteDataBuffer, 1);
+                    gpu.BindGraphicsPipeline(currentPass, _pipeline);
+                    gpu.BindVertexStorageBuffers(currentPass, 0, &_spriteDataBuffer, 1);
                     // Push once per pass; camera is constant across the batches drawn into it.
-                    gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
+                    gpu.PushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
                 }
 
-                GpuBufferBinding vb{ batch.vertexBuffer, 0 };
-                gpu.bindVertexBuffers(currentPass, 0, &vb, 1);
-                GpuBufferBinding ib{ batch.indexBuffer, 0 };
-                gpu.bindIndexBuffer(currentPass, ib, true);
+                GpuBufferBinding vb { batch.vertexBuffer, 0 };
+                gpu.BindVertexBuffers(currentPass, 0, &vb, 1);
+                GpuBufferBinding ib { batch.indexBuffer, 0 };
+                gpu.BindIndexBuffer(currentPass, ib, true);
 
-                GpuTextureSamplerBinding tsb{ batch.texture, batch.sampler };
-                gpu.bindFragmentSamplers(currentPass, 0, &tsb, 1);
+                GpuTextureSamplerBinding tsb { batch.texture, batch.sampler };
+                gpu.BindFragmentSamplers(currentPass, 0, &tsb, 1);
 
                 uint32_t instOff[2] = { static_cast<uint32_t>(batch.offset), 0u };
-                float instScale = Window::GetScale();
-                std::memcpy(&instOff[1], &instScale, sizeof(float));   // render scale -> MSDF AA sizing
-                gpu.pushVertexUniformData(cmdBuffer, 1, instOff, sizeof(instOff));
+                float    instScale  = Window::GetScale();
+                std::memcpy(&instOff[1], &instScale, sizeof(float)); // render scale -> MSDF AA sizing
+                gpu.PushVertexUniformData(cmdBuffer, 1, instOff, sizeof(instOff));
 
-                gpu.drawIndexedPrimitives(currentPass,
+                gpu.DrawIndexedPrimitives(currentPass,
                     batch.indexCount,
                     static_cast<uint32_t>(batch.count), 0, 0, 0);
             } else {
                 if (currentPass) {
-                    gpu.endRenderPass(currentPass);
+                    gpu.EndRenderPass(currentPass);
                     currentPass = 0;
                 }
 
-                size_t spriteIdx = batch.offset;
+                size_t  spriteIdx = batch.offset;
                 int32_t effectIdx = (*renderQueue)[spriteIdx].effectIndex;
-                if (spriteIdx >= spriteCount || effectIdx < 0) continue;
-                const auto& effectStore = Draw::GetEffectStore();
-                if (effectIdx >= (int32_t)effectStore.size()) continue;
-                const auto& effects = effectStore[effectIdx];
+                if (spriteIdx >= spriteCount || effectIdx < 0)
+                    continue;
+                const auto &effectStore = Draw::GetEffectStore();
+                if (effectIdx >= (int32_t)effectStore.size())
+                    continue;
+                const auto &effects = effectStore[effectIdx];
 
                 // Step 1: Render this batch to temp texture
-                GpuColorTargetInfo tempCT{};
-                tempCT.texture = effectTempA.gpuTexture;
-                tempCT.loadOp  = GpuLoadOp::Clear;
-                tempCT.storeOp = GpuStoreOp::Store;
-                GpuRenderPassHandle tempPass = gpu.beginRenderPass(cmdBuffer, &tempCT, 1, nullptr);
+                GpuColorTargetInfo tempCT {};
+                tempCT.texture               = effectTempA.gpuTexture;
+                tempCT.loadOp                = GpuLoadOp::Clear;
+                tempCT.storeOp               = GpuStoreOp::Store;
+                GpuRenderPassHandle tempPass = gpu.BeginRenderPass(cmdBuffer, &tempCT, 1, nullptr);
 
                 {
-                    float vpW = std::min((float)Window::GetPhysicalWidth(),  (float)m_surface_width);
-                    float vpH = std::min((float)Window::GetPhysicalHeight(), (float)m_surface_height);
-                    gpu.setViewport(tempPass, 0.0f, 0.0f, vpW, vpH, 0.0f, 1.0f);
+                    float vpW = std::min((float)Window::GetPhysicalWidth(), (float)_surfaceWidth);
+                    float vpH = std::min((float)Window::GetPhysicalHeight(), (float)_surfaceHeight);
+                    gpu.SetViewport(tempPass, 0.0f, 0.0f, vpW, vpH, 0.0f, 1.0f);
                 }
-                gpu.bindGraphicsPipeline(tempPass, effectSpritePipeline);
-                gpu.bindVertexStorageBuffers(tempPass, 0, &SpriteDataBuffer, 1);
+                gpu.BindGraphicsPipeline(tempPass, effectSpritePipeline);
+                gpu.BindVertexStorageBuffers(tempPass, 0, &_spriteDataBuffer, 1);
 
-                GpuBufferBinding vb{ batch.vertexBuffer, 0 };
-                gpu.bindVertexBuffers(tempPass, 0, &vb, 1);
-                GpuBufferBinding ib{ batch.indexBuffer, 0 };
-                gpu.bindIndexBuffer(tempPass, ib, true);
+                GpuBufferBinding vb { batch.vertexBuffer, 0 };
+                gpu.BindVertexBuffers(tempPass, 0, &vb, 1);
+                GpuBufferBinding ib { batch.indexBuffer, 0 };
+                gpu.BindIndexBuffer(tempPass, ib, true);
 
-                GpuTextureSamplerBinding tsb{ batch.texture, batch.sampler };
-                gpu.bindFragmentSamplers(tempPass, 0, &tsb, 1);
-                gpu.pushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
+                GpuTextureSamplerBinding tsb { batch.texture, batch.sampler };
+                gpu.BindFragmentSamplers(tempPass, 0, &tsb, 1);
+                gpu.PushVertexUniformData(cmdBuffer, 0, &camera, sizeof(glm::mat4));
 
                 uint32_t instOff[2] = { static_cast<uint32_t>(batch.offset), 0u };
-                float instScale = Window::GetScale();
-                std::memcpy(&instOff[1], &instScale, sizeof(float));   // render scale -> MSDF AA sizing
-                gpu.pushVertexUniformData(cmdBuffer, 1, instOff, sizeof(instOff));
+                float    instScale  = Window::GetScale();
+                std::memcpy(&instOff[1], &instScale, sizeof(float)); // render scale -> MSDF AA sizing
+                gpu.PushVertexUniformData(cmdBuffer, 1, instOff, sizeof(instOff));
 
-                gpu.drawIndexedPrimitives(tempPass,
+                gpu.DrawIndexedPrimitives(tempPass,
                     batch.indexCount,
                     static_cast<uint32_t>(batch.count), 0, 0, 0);
-                gpu.endRenderPass(tempPass);
+                gpu.EndRenderPass(tempPass);
 
-                const auto& effectTextureStore = Draw::GetEffectTextureStore();
+                const auto                                                                &effectTextureStore = Draw::GetEffectTextureStore();
                 const std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>> emptyTextures;
-                const auto& storedTextures = (effectIdx < (int32_t)effectTextureStore.size()) ? effectTextureStore[effectIdx] : emptyTextures;
-                applyEffects(cmdBuffer, effects, effectTempA.gpuTexture, targetTexture, camera, m_swapchain_format, batchIdx == 0, storedTextures);
+                const auto                                                                &storedTextures = (effectIdx < (int32_t)effectTextureStore.size()) ? effectTextureStore[effectIdx] : emptyTextures;
+                _applyEffects(cmdBuffer, effects, effectTempA.gpuTexture, targetTexture, camera, _swapchainFormat, batchIdx == 0, storedTextures);
             }
         }
 
         if (currentPass) {
-            gpu.endRenderPass(currentPass);
+            gpu.EndRenderPass(currentPass);
         }
 
         if (shouldResolve) {
-            GpuColorTargetInfo resolveCT{};
-            resolveCT.texture        = targetTexture;
-            resolveCT.resolveTexture = renderTargetResolve;
-            resolveCT.loadOp         = GpuLoadOp::Load;
-            resolveCT.storeOp        = GpuStoreOp::Resolve;
-            GpuRenderPassHandle resolvePass = gpu.beginRenderPass(cmdBuffer, &resolveCT, 1, nullptr);
-            gpu.endRenderPass(resolvePass);
+            GpuColorTargetInfo resolveCT {};
+            resolveCT.texture               = targetTexture;
+            resolveCT.resolveTexture        = renderTargetResolve;
+            resolveCT.loadOp                = GpuLoadOp::Load;
+            resolveCT.storeOp               = GpuStoreOp::Resolve;
+            GpuRenderPassHandle resolvePass = gpu.BeginRenderPass(cmdBuffer, &resolveCT, 1, nullptr);
+            gpu.EndRenderPass(resolvePass);
         }
     }
 
 #ifdef LUMIDEBUG
-    SDL_PopGPUDebugGroup(reinterpret_cast<SDL_GPUCommandBuffer*>(cmdBuffer));
+    SDL_PopGPUDebugGroup(reinterpret_cast<SDL_GPUCommandBuffer *>(cmdBuffer));
 #endif
 }
 
 // ── Effect resources (SDL) ───────────────────────────────────────────────────
 
-void SpriteRenderPass::onResize(uint32_t surfaceWidth, uint32_t surfaceHeight) {
-    if (surfaceWidth == 0 || surfaceHeight == 0) return;
-    if (surfaceWidth == m_surface_width && surfaceHeight == m_surface_height) return;
+void SpriteRenderPass::OnResize(uint32_t surfaceWidth, uint32_t surfaceHeight) {
+    if (surfaceWidth == 0 || surfaceHeight == 0)
+        return;
+    if (surfaceWidth == _surfaceWidth && surfaceHeight == _surfaceHeight)
+        return;
 
-    IGpu& gpu = Renderer::GetGpu();
-    gpu.waitIdle();
+    IGpu &gpu = Renderer::GetGpu();
+    gpu.WaitIdle();
 
     // Recreate only the surface-sized targets (depth + effect temps). Pipelines, shaders and
     // the render queue are untouched — no recompile.
-    if (m_depth_texture.gpuTexture) { gpu.releaseTexture(m_depth_texture.gpuTexture); m_depth_texture.gpuTexture = 0; }
-    if (effectTempA.gpuTexture)     { gpu.releaseTexture(effectTempA.gpuTexture);     effectTempA.gpuTexture = 0; }
-    if (effectTempB.gpuTexture)     { gpu.releaseTexture(effectTempB.gpuTexture);     effectTempB.gpuTexture = 0; }
+    if (_depthTexture.gpuTexture) {
+        gpu.ReleaseTexture(_depthTexture.gpuTexture);
+        _depthTexture.gpuTexture = 0;
+    }
+    if (effectTempA.gpuTexture) {
+        gpu.ReleaseTexture(effectTempA.gpuTexture);
+        effectTempA.gpuTexture = 0;
+    }
+    if (effectTempB.gpuTexture) {
+        gpu.ReleaseTexture(effectTempB.gpuTexture);
+        effectTempB.gpuTexture = 0;
+    }
 
-    m_surface_width  = surfaceWidth;
-    m_surface_height = surfaceHeight;
+    _surfaceWidth  = surfaceWidth;
+    _surfaceHeight = surfaceHeight;
 
-    GpuTextureCreateInfo depthInfo{};
-    depthInfo.width       = surfaceWidth;
-    depthInfo.height      = surfaceHeight;
-    depthInfo.format      = GpuTextureFormat::D32_Float;
-    depthInfo.usage       = GpuTextureUsage::DepthStencilTarget;
-    depthInfo.sampleCount = GpuSampleCount::x1;
-    m_depth_texture.gpuTexture = gpu.createTexture(depthInfo);
+    GpuTextureCreateInfo depthInfo {};
+    depthInfo.width          = surfaceWidth;
+    depthInfo.height         = surfaceHeight;
+    depthInfo.format         = GpuTextureFormat::D32_Float;
+    depthInfo.usage          = GpuTextureUsage::DepthStencilTarget;
+    depthInfo.sampleCount    = GpuSampleCount::X1;
+    _depthTexture.gpuTexture = gpu.CreateTexture(depthInfo);
 
-    createEffectResources();
+    _createEffectResources();
 }
 
-void SpriteRenderPass::createEffectResources() {
-    IGpu& gpu = Renderer::GetGpu();
+void SpriteRenderPass::_createEffectResources() {
+    IGpu &gpu = Renderer::GetGpu();
 
-    GpuTextureCreateInfo tempTexInfo{};
-    tempTexInfo.width       = m_surface_width;
-    tempTexInfo.height      = m_surface_height;
+    GpuTextureCreateInfo tempTexInfo {};
+    tempTexInfo.width       = _surfaceWidth;
+    tempTexInfo.height      = _surfaceHeight;
     tempTexInfo.format      = GpuTextureFormat::R8G8B8A8_Unorm;
     tempTexInfo.usage       = GpuTextureUsage::Sampler | GpuTextureUsage::ColorTarget;
-    tempTexInfo.sampleCount = GpuSampleCount::x1;
+    tempTexInfo.sampleCount = GpuSampleCount::X1;
 
-    effectTempA.gpuTexture = gpu.createTexture(tempTexInfo);
+    effectTempA.gpuTexture = gpu.CreateTexture(tempTexInfo);
     effectTempA.gpuSampler = Renderer::GetSampler(ScaleMode::Nearest);
-    effectTempA.width      = m_surface_width;
-    effectTempA.height     = m_surface_height;
+    effectTempA.width      = _surfaceWidth;
+    effectTempA.height     = _surfaceHeight;
     effectTempA.filename   = "[Lumi]EffectTempA";
 
-    effectTempB.gpuTexture = gpu.createTexture(tempTexInfo);
+    effectTempB.gpuTexture = gpu.CreateTexture(tempTexInfo);
     effectTempB.gpuSampler = Renderer::GetSampler(ScaleMode::Nearest);
-    effectTempB.width      = m_surface_width;
-    effectTempB.height     = m_surface_height;
+    effectTempB.width      = _surfaceWidth;
+    effectTempB.height     = _surfaceHeight;
     effectTempB.filename   = "[Lumi]EffectTempB";
 
     if (!effectTempA.gpuTexture || !effectTempB.gpuTexture) {
@@ -508,14 +546,14 @@ void SpriteRenderPass::createEffectResources() {
         return;
     }
 
-    GpuColorTargetBlendState noBlend{};
-    noBlend.blendEnabled    = true;
-    noBlend.srcColorFactor  = GpuBlendFactor::One;
-    noBlend.dstColorFactor  = GpuBlendFactor::Zero;
-    noBlend.colorOp         = GpuBlendOp::Add;
-    noBlend.srcAlphaFactor  = GpuBlendFactor::One;
-    noBlend.dstAlphaFactor  = GpuBlendFactor::Zero;
-    noBlend.alphaOp         = GpuBlendOp::Add;
+    GpuColorTargetBlendState noBlend {};
+    noBlend.blendEnabled   = true;
+    noBlend.srcColorFactor = GpuBlendFactor::One;
+    noBlend.dstColorFactor = GpuBlendFactor::Zero;
+    noBlend.colorOp        = GpuBlendOp::Add;
+    noBlend.srcAlphaFactor = GpuBlendFactor::One;
+    noBlend.dstAlphaFactor = GpuBlendFactor::Zero;
+    noBlend.alphaOp        = GpuBlendOp::Add;
 
     GpuVertexAttribute vertexAttributes[] = {
         { .location = 0, .binding = 0, .format = GpuVertexElementFormat::UInt, .offset = 0 },
@@ -523,9 +561,9 @@ void SpriteRenderPass::createEffectResources() {
     };
     GpuVertexBinding vertexBinding = { .binding = 0, .stride = 8, .instanceStepping = false };
 
-    GpuGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.vertexShader             = vertex_shader;
-    pipelineInfo.fragmentShader           = fragment_shader;
+    GpuGraphicsPipelineCreateInfo pipelineInfo {};
+    pipelineInfo.vertexShader             = _vertexShader;
+    pipelineInfo.fragmentShader           = _fragmentShader;
     pipelineInfo.attributes               = vertexAttributes;
     pipelineInfo.attributeCount           = 2;
     pipelineInfo.bindings                 = &vertexBinding;
@@ -536,77 +574,102 @@ void SpriteRenderPass::createEffectResources() {
     pipelineInfo.colorTargetFormat        = GpuTextureFormat::R8G8B8A8_Unorm;
     pipelineInfo.blend                    = noBlend;
     pipelineInfo.hasDepthTarget           = false;
-    pipelineInfo.sampleCount              = GpuSampleCount::x1;
+    pipelineInfo.sampleCount              = GpuSampleCount::X1;
     pipelineInfo.vertexStorageBufferCount = 1;
 
-    effectSpritePipeline = gpu.createGraphicsPipeline(pipelineInfo);
+    effectSpritePipeline = gpu.CreateGraphicsPipeline(pipelineInfo);
     if (!effectSpritePipeline) {
         LOG_ERROR("Failed to create effect sprite pipeline: {}", SDL_GetError());
     }
 }
 
-void SpriteRenderPass::releaseEffectResources() {
-    IGpu& gpu = Renderer::GetGpu();
-    if (effectTempA.gpuTexture)   { gpu.releaseTexture(effectTempA.gpuTexture);     effectTempA.gpuTexture = 0; }
-    if (effectTempB.gpuTexture)   { gpu.releaseTexture(effectTempB.gpuTexture);     effectTempB.gpuTexture = 0; }
-    if (effectPipeline)           { gpu.releaseGraphicsPipeline(effectPipeline);    effectPipeline       = 0; }
-    if (effectSpritePipeline)     { gpu.releaseGraphicsPipeline(effectSpritePipeline); effectSpritePipeline = 0; }
-    if (effectVertShader)         { gpu.releaseShader(effectVertShader);            effectVertShader     = 0; }
-    for (auto& [key, pipeline] : m_effectPipelineCache) {
-        if (pipeline) gpu.releaseGraphicsPipeline(pipeline);
+void SpriteRenderPass::_releaseEffectResources() {
+    IGpu &gpu = Renderer::GetGpu();
+    if (effectTempA.gpuTexture) {
+        gpu.ReleaseTexture(effectTempA.gpuTexture);
+        effectTempA.gpuTexture = 0;
     }
-    m_effectPipelineCache.clear();
-    if (m_effectQuadVbuf) { gpu.releaseBuffer(m_effectQuadVbuf); m_effectQuadVbuf = 0; }
-    if (m_effectQuadIbuf) { gpu.releaseBuffer(m_effectQuadIbuf); m_effectQuadIbuf = 0; }
-    m_effectQuadUvScaleX = -1.0f;
-    m_effectQuadUvScaleY = -1.0f;
+    if (effectTempB.gpuTexture) {
+        gpu.ReleaseTexture(effectTempB.gpuTexture);
+        effectTempB.gpuTexture = 0;
+    }
+    if (effectPipeline) {
+        gpu.ReleaseGraphicsPipeline(effectPipeline);
+        effectPipeline = 0;
+    }
+    if (effectSpritePipeline) {
+        gpu.ReleaseGraphicsPipeline(effectSpritePipeline);
+        effectSpritePipeline = 0;
+    }
+    if (effectVertShader) {
+        gpu.ReleaseShader(effectVertShader);
+        effectVertShader = 0;
+    }
+    for (auto &[key, pipeline] : _effectPipelineCache) {
+        if (pipeline)
+            gpu.ReleaseGraphicsPipeline(pipeline);
+    }
+    _effectPipelineCache.clear();
+    if (_effectQuadVbuf) {
+        gpu.ReleaseBuffer(_effectQuadVbuf);
+        _effectQuadVbuf = 0;
+    }
+    if (_effectQuadIbuf) {
+        gpu.ReleaseBuffer(_effectQuadIbuf);
+        _effectQuadIbuf = 0;
+    }
+    _effectQuadUvScaleX = -1.0f;
+    _effectQuadUvScaleY = -1.0f;
 }
 
-void SpriteRenderPass::applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vector<EffectAsset>& effects,
-                                   GpuTextureHandle sourceTexture, GpuTextureHandle targetTexture, const glm::mat4& camera,
-                                   GpuTextureFormat targetFormat, bool isFirstBatch,
-                                   const std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>>& effectTextures) {
+void SpriteRenderPass::_applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vector<EffectAsset> &effects,
+    GpuTextureHandle sourceTexture, GpuTextureHandle targetTexture, const glm::mat4 &camera,
+    GpuTextureFormat targetFormat, bool isFirstBatch,
+    const std::unordered_map<uint32_t, std::pair<GpuTextureHandle, ScaleMode>> &effectTextures) {
     (void)camera;
-    if (effects.empty()) return;
+    if (effects.empty())
+        return;
 
-    IGpu& gpu = Renderer::GetGpu();
+    IGpu &gpu = Renderer::GetGpu();
 
     // Fullscreen quad geometry (position + texcoord). Temp textures are surface-sized
     // but only the physical-pixel area was drawn, so scale UVs to compensate.
-    struct Vertex { float x, y, u, v; };
-    float uvScaleX = (float)Window::GetPhysicalWidth()  / (float)m_surface_width;
-    float uvScaleY = (float)Window::GetPhysicalHeight() / (float)m_surface_height;
+    struct Vertex {
+        float x, y, u, v;
+    };
+    float uvScaleX = (float)Window::GetPhysicalWidth() / (float)_surfaceWidth;
+    float uvScaleY = (float)Window::GetPhysicalHeight() / (float)_surfaceHeight;
 
     // Lazily create the static quad buffers once; index data never changes.
-    if (!m_effectQuadVbuf) {
-        m_effectQuadVbuf = gpu.createBuffer({ sizeof(Vertex) * 4, GpuBufferUsage::Vertex });
-        m_effectQuadIbuf = gpu.createBuffer({ sizeof(uint16_t) * 6, GpuBufferUsage::Index });
+    if (!_effectQuadVbuf) {
+        _effectQuadVbuf = gpu.CreateBuffer({ sizeof(Vertex) * 4, GpuBufferUsage::Vertex });
+        _effectQuadIbuf = gpu.CreateBuffer({ sizeof(uint16_t) * 6, GpuBufferUsage::Index });
 
-        uint16_t quadIndices[] = {0, 1, 2, 2, 1, 3};
-        GpuTransferBufferHandle idxXfer = gpu.createTransferBuffer({ sizeof(quadIndices), GpuTransferUsage::Upload });
-        memcpy(gpu.mapTransferBuffer(idxXfer, false), quadIndices, sizeof(quadIndices));
-        gpu.unmapTransferBuffer(idxXfer);
-        gpu.uploadToBuffer(cmdBuffer, idxXfer, 0, m_effectQuadIbuf, 0, sizeof(quadIndices));
-        gpu.releaseTransferBuffer(idxXfer);
-        m_effectQuadUvScaleX = -1.0f;  // force the vertex upload below
+        uint16_t                quadIndices[] = { 0, 1, 2, 2, 1, 3 };
+        GpuTransferBufferHandle idxXfer       = gpu.CreateTransferBuffer({ sizeof(quadIndices), GpuTransferUsage::Upload });
+        memcpy(gpu.MapTransferBuffer(idxXfer, false), quadIndices, sizeof(quadIndices));
+        gpu.UnmapTransferBuffer(idxXfer);
+        gpu.UploadToBuffer(cmdBuffer, idxXfer, 0, _effectQuadIbuf, 0, sizeof(quadIndices));
+        gpu.ReleaseTransferBuffer(idxXfer);
+        _effectQuadUvScaleX = -1.0f; // force the vertex upload below
     }
 
     // Re-upload vertices only when the UV scale changed (resize); otherwise the persistent
     // buffer already holds the right geometry from a previous frame.
-    if (uvScaleX != m_effectQuadUvScaleX || uvScaleY != m_effectQuadUvScaleY) {
+    if (uvScaleX != _effectQuadUvScaleX || uvScaleY != _effectQuadUvScaleY) {
         Vertex quadVertices[] = {
-            {0.0f, 0.0f, 0.0f,     uvScaleY},
-            {1.0f, 0.0f, uvScaleX, uvScaleY},
-            {0.0f, 1.0f, 0.0f,     0.0f},
-            {1.0f, 1.0f, uvScaleX, 0.0f},
+            { 0.0f, 0.0f, 0.0f, uvScaleY },
+            { 1.0f, 0.0f, uvScaleX, uvScaleY },
+            { 0.0f, 1.0f, 0.0f, 0.0f },
+            { 1.0f, 1.0f, uvScaleX, 0.0f },
         };
-        GpuTransferBufferHandle vtxXfer = gpu.createTransferBuffer({ sizeof(quadVertices), GpuTransferUsage::Upload });
-        memcpy(gpu.mapTransferBuffer(vtxXfer, false), quadVertices, sizeof(quadVertices));
-        gpu.unmapTransferBuffer(vtxXfer);
-        gpu.uploadToBuffer(cmdBuffer, vtxXfer, 0, m_effectQuadVbuf, 0, sizeof(quadVertices));
-        gpu.releaseTransferBuffer(vtxXfer);
-        m_effectQuadUvScaleX = uvScaleX;
-        m_effectQuadUvScaleY = uvScaleY;
+        GpuTransferBufferHandle vtxXfer = gpu.CreateTransferBuffer({ sizeof(quadVertices), GpuTransferUsage::Upload });
+        memcpy(gpu.MapTransferBuffer(vtxXfer, false), quadVertices, sizeof(quadVertices));
+        gpu.UnmapTransferBuffer(vtxXfer);
+        gpu.UploadToBuffer(cmdBuffer, vtxXfer, 0, _effectQuadVbuf, 0, sizeof(quadVertices));
+        gpu.ReleaseTransferBuffer(vtxXfer);
+        _effectQuadUvScaleX = uvScaleX;
+        _effectQuadUvScaleY = uvScaleY;
     }
 
     GpuTextureHandle readTex  = sourceTexture;
@@ -619,18 +682,19 @@ void SpriteRenderPass::applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vec
     GpuVertexBinding vertBinding = { .binding = 0, .stride = 16, .instanceStepping = false };
 
     for (size_t i = 0; i < effects.size(); ++i) {
-        const auto& effect    = effects[i];
-        bool        isLast    = (i == effects.size() - 1);
-        if (isLast) writeTex = targetTexture;
+        const auto &effect = effects[i];
+        bool        isLast = (i == effects.size() - 1);
+        if (isLast)
+            writeTex = targetTexture;
 
         if (!effect.vertShader.gpuShader || !effect.fragShader.gpuShader) {
             LOG_ERROR("Effect shaders are NULL: vert={}, frag={}",
-                (void*)effect.vertShader.gpuShader, (void*)effect.fragShader.gpuShader);
+                (void *)effect.vertShader.gpuShader, (void *)effect.fragShader.gpuShader);
             continue;
         }
 
-        GpuColorTargetBlendState blend{};
-        if (isLast && m_noMSAA) {
+        GpuColorTargetBlendState blend {};
+        if (isLast && _noMSAA) {
             blend.blendEnabled   = false;
             blend.srcColorFactor = GpuBlendFactor::One;
             blend.dstColorFactor = GpuBlendFactor::Zero;
@@ -656,10 +720,9 @@ void SpriteRenderPass::applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vec
             blend.alphaOp        = GpuBlendOp::Add;
         }
 
-        GpuSampleCount pipelineSampleCount =
-            (isLast && !m_noMSAA) ? Renderer::GetSampleCount() : GpuSampleCount::x1;
+        GpuSampleCount pipelineSampleCount = (isLast && !_noMSAA) ? Renderer::GetSampleCount() : GpuSampleCount::X1;
 
-        GpuGraphicsPipelineCreateInfo pi{};
+        GpuGraphicsPipelineCreateInfo pi {};
         pi.vertexShader      = effect.vertShader.gpuShader;
         pi.fragmentShader    = effect.fragShader.gpuShader;
         pi.attributes        = vertexAttribs;
@@ -674,62 +737,62 @@ void SpriteRenderPass::applyEffects(GpuCmdBufferHandle cmdBuffer, const std::vec
         pi.hasDepthTarget    = false;
         pi.sampleCount       = pipelineSampleCount;
 
-        EffectPipelineKey key{ effect.vertShader.gpuShader, effect.fragShader.gpuShader,
-                               isLast, pi.colorTargetFormat, pipelineSampleCount };
+        EffectPipelineKey         key { effect.vertShader.gpuShader, effect.fragShader.gpuShader,
+            isLast, pi.colorTargetFormat, pipelineSampleCount };
         GpuGraphicsPipelineHandle pipeline = 0;
-        if (auto it = m_effectPipelineCache.find(key); it != m_effectPipelineCache.end()) {
+        if (auto it = _effectPipelineCache.find(key); it != _effectPipelineCache.end()) {
             pipeline = it->second;
         } else {
-            pipeline = gpu.createGraphicsPipeline(pi);
+            pipeline = gpu.CreateGraphicsPipeline(pi);
             if (!pipeline) {
                 LOG_ERROR("Failed to create effect pipeline: {}", SDL_GetError());
                 continue;
             }
-            m_effectPipelineCache.emplace(key, pipeline);
+            _effectPipelineCache.emplace(key, pipeline);
         }
 
-        GpuColorTargetInfo ct{};
+        GpuColorTargetInfo ct {};
         ct.texture = writeTex;
         ct.loadOp  = isLast ? (isFirstBatch ? GpuLoadOp::Clear : GpuLoadOp::Load) : GpuLoadOp::Clear;
         ct.storeOp = GpuStoreOp::Store;
 
-        GpuRenderPassHandle effectPass = gpu.beginRenderPass(cmdBuffer, &ct, 1, nullptr);
+        GpuRenderPassHandle effectPass = gpu.BeginRenderPass(cmdBuffer, &ct, 1, nullptr);
         {
-            float vpW = std::min((float)Window::GetPhysicalWidth(),  (float)m_surface_width);
-            float vpH = std::min((float)Window::GetPhysicalHeight(), (float)m_surface_height);
-            gpu.setViewport(effectPass, 0.0f, 0.0f, vpW, vpH, 0.0f, 1.0f);
+            float vpW = std::min((float)Window::GetPhysicalWidth(), (float)_surfaceWidth);
+            float vpH = std::min((float)Window::GetPhysicalHeight(), (float)_surfaceHeight);
+            gpu.SetViewport(effectPass, 0.0f, 0.0f, vpW, vpH, 0.0f, 1.0f);
         }
-        gpu.bindGraphicsPipeline(effectPass, pipeline);
+        gpu.BindGraphicsPipeline(effectPass, pipeline);
 
         std::vector<GpuTextureSamplerBinding> textureBindings;
         textureBindings.push_back({ readTex, Renderer::GetSampler(ScaleMode::Nearest) });
-        for (const auto& [binding, texture] : effectTextures) {
+        for (const auto &[binding, texture] : effectTextures) {
             while (textureBindings.size() <= binding) {
                 textureBindings.push_back(textureBindings[0]);
             }
             textureBindings[binding] = { texture.first, Renderer::GetSampler(texture.second) };
         }
-        gpu.bindFragmentSamplers(effectPass, 0, textureBindings.data(),
-                                 static_cast<uint32_t>(textureBindings.size()));
+        gpu.BindFragmentSamplers(effectPass, 0, textureBindings.data(),
+            static_cast<uint32_t>(textureBindings.size()));
 
-        if (effect.uniforms && effect.uniforms->getBufferSize() > 0) {
-            gpu.pushFragmentUniformData(cmdBuffer, 0,
-                effect.uniforms->getBufferPointer(),
-                effect.uniforms->getBufferSize());
+        if (effect.uniforms && effect.uniforms->GetBufferSize() > 0) {
+            gpu.PushFragmentUniformData(cmdBuffer, 0,
+                effect.uniforms->GetBufferPointer(),
+                effect.uniforms->GetBufferSize());
         } else {
-            float dummy[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-            gpu.pushFragmentUniformData(cmdBuffer, 0, &dummy, sizeof(dummy));
+            float dummy[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+            gpu.PushFragmentUniformData(cmdBuffer, 0, &dummy, sizeof(dummy));
         }
 
-        GpuBufferBinding vb{ m_effectQuadVbuf, 0 };
-        gpu.bindVertexBuffers(effectPass, 0, &vb, 1);
-        GpuBufferBinding ib{ m_effectQuadIbuf, 0 };
-        gpu.bindIndexBuffer(effectPass, ib, true);
+        GpuBufferBinding vb { _effectQuadVbuf, 0 };
+        gpu.BindVertexBuffers(effectPass, 0, &vb, 1);
+        GpuBufferBinding ib { _effectQuadIbuf, 0 };
+        gpu.BindIndexBuffer(effectPass, ib, true);
 
-        gpu.drawIndexedPrimitives(effectPass, 6, 1, 0, 0, 0);
-        gpu.endRenderPass(effectPass);
+        gpu.DrawIndexedPrimitives(effectPass, 6, 1, 0, 0, 0);
+        gpu.EndRenderPass(effectPass);
 
-        // Pipeline owned by m_effectPipelineCache; released in releaseEffectResources().
+        // Pipeline owned by _effectPipelineCache; released in _releaseEffectResources().
 
         if (!isLast) {
             readTex  = writeTex;

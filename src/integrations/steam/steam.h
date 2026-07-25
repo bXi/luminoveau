@@ -14,66 +14,62 @@ class Steam {
 public:
     /// @brief Initializes the Steam API for the given app.
     /// @param appId Your Steam application ID.
-    static void Init(int appId) { get()._init(appId); }
+    static void Init(int appId) { Get()._init(appId); }
     /// @brief Shuts down the Steam API.
-    static void Close() { get()._close(); }
+    static void Close() { Get()._close(); }
 
     /// @brief Returns true if the Steam API is initialized and ready.
-    static bool IsReady() { return get()._isReady(); }
+    static bool IsReady() { return Get()._isReady(); }
 
     /// @brief Reads a named float stat from Steam.
     /// @param pchName The stat's API name.
-    static float GetStat(const std::string& pchName) { return get()._getStat(pchName); }
+    static float GetStat(const std::string &pchName) { return Get()._getStat(pchName); }
     /// @brief Writes a named float stat to Steam.
     /// @param pchName The stat's API name.
     /// @param fData The value to store.
-    static void SetStat(const std::string& pchName, float fData) { get()._setStat(pchName, fData); }
+    static void SetStat(const std::string &pchName, float fData) { Get()._setStat(pchName, fData); }
 
     /// @brief Returns true if the named achievement is unlocked.
     /// @param pchName The achievement's API name.
-    static bool HasAchievement(const std::string& pchName) { return get()._hasAchievement(pchName); }
+    static bool HasAchievement(const std::string &pchName) { return Get()._hasAchievement(pchName); }
     /// @brief Unlocks the named achievement.
     /// @param pchName The achievement's API name.
-    static void SetAchievement(const std::string& pchName) { get()._setAchievement(pchName); }
+    static void SetAchievement(const std::string &pchName) { Get()._setAchievement(pchName); }
 
     /// @brief Clears (re-locks) the named achievement.
     /// @param pchName The achievement's API name.
-    static void ClearAchievement(const std::string& pchName) { get()._clearAchievement(pchName); }
+    static void ClearAchievement(const std::string &pchName) { Get()._clearAchievement(pchName); }
 
     /// @brief Returns the current user's Steam ID.
-    static int GetUserSteamId() { return get()._getUserSteamId(); }
-
-
+    static int GetUserSteamId() { return Get()._getUserSteamId(); }
 
 private:
-    bool isInit = false;
-    int appId = 0;
-
+    bool _isInit = false;
+    int  _appId  = 0;
 
     void _init(int appId);
     void _close();
 
     [[nodiscard]] bool _isReady() const;
 
-    float _getStat(const std::string& pchName);
-    void _setStat(const std::string& pchName, float fData);
+    float _getStat(const std::string &pchName);
+    void  _setStat(const std::string &pchName, float fData);
 
-    bool _hasAchievement(const std::string& pchName);
-    void _setAchievement(const std::string& pchName);
+    bool _hasAchievement(const std::string &pchName);
+    void _setAchievement(const std::string &pchName);
 
-    void _clearAchievement(const std::string& pchName);
+    void _clearAchievement(const std::string &pchName);
 
     int _getUserSteamId();
 
-
-    //TODO: figure out nice way to implement this. curse Steam for making it possible to make pUnlockTime 0
-    //bool GetAchievementAndUnlockTime(std::string pchName, out bool pbAchieved, out uint punUnlockTime)
+    // TODO: figure out nice way to implement this. curse Steam for making it possible to make pUnlockTime 0
+    // bool GetAchievementAndUnlockTime(std::string pchName, out bool pbAchieved, out uint punUnlockTime)
 
 public:
     /// @cond INTERNAL
     Steam(const Steam &) = delete;
 
-    static Steam &get() {
+    static Steam &Get() {
         static Steam instance;
         return instance;
     }

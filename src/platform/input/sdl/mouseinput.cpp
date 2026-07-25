@@ -8,7 +8,7 @@
 
 #include "platform/window/window.h"
 
-vf2d PlatformInputBackend::GetMousePosition() {
+vf2d PlatformInputBackend::_getMousePosition() {
     int windowX = 0;
     int windowY = 0;
     SDL_GetWindowPosition(Window::GetWindow(), &windowX, &windowY);
@@ -33,6 +33,6 @@ vf2d PlatformInputBackend::GetMousePosition() {
     return { relX, relY };
 }
 
-uint32_t PlatformInputBackend::GetMouseButtons() {
+uint32_t PlatformInputBackend::_getMouseButtons() {
     return (uint32_t)SDL_GetMouseState(nullptr, nullptr);
 }

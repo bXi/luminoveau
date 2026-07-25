@@ -8,8 +8,8 @@
 struct SDL_Window;
 
 namespace ImGuiBackend {
-    void InitRenderer(SDL_Window* window);
-    void Shutdown();
-    void NewFrame();
-    void RenderFrame(GpuCmdBufferHandle cmd, GpuTextureHandle swapchain);
-}
+void InitRenderer(SDL_Window *window);
+void Shutdown();
+void NewFrame();
+void RenderFrame(GpuCmdBufferHandle cmd, GpuTextureHandle swapchain);
+} // namespace ImGuiBackend

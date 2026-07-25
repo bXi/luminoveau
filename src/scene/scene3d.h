@@ -16,32 +16,32 @@
  * @brief Instance of a 3D model with transform
  */
 struct ModelInstance {
-    ModelAsset* model = nullptr;         ///< Model this instance draws (not owned).
+    ModelAsset *model = nullptr; ///< Model this instance draws (not owned).
 
-    vf3d position = {0.0f, 0.0f, 0.0f};  ///< World-space position.
-    vf3d rotation = {0.0f, 0.0f, 0.0f};  ///< Euler angles in degrees (Z, Y, X order).
-    vf3d scale = {1.0f, 1.0f, 1.0f};     ///< Per-axis scale factor.
+    vf3d position = { 0.0f, 0.0f, 0.0f }; ///< World-space position.
+    vf3d rotation = { 0.0f, 0.0f, 0.0f }; ///< Euler angles in degrees (Z, Y, X order).
+    vf3d scale    = { 1.0f, 1.0f, 1.0f }; ///< Per-axis scale factor.
 
-    Color tint = WHITE;                  ///< Color multiplied over the model.
-    TextureAsset textureOverride;        ///< Optional texture overriding the model's default.
-    
+    Color        tint = WHITE;    ///< Color multiplied over the model.
+    TextureAsset textureOverride; ///< Optional texture overriding the model's default.
+
     /**
      * @brief Gets the model matrix for this instance
      */
     glm::mat4 GetModelMatrix() const {
         glm::mat4 model = glm::mat4(1.0f);
-        
+
         // Translation
         model = glm::translate(model, glm::vec3(position.x, position.y, position.z));
-        
+
         // Rotation (Z, Y, X order - typical for Euler angles)
         model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
         model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-        
+
         // Scale
         model = glm::scale(model, glm::vec3(scale.x, scale.y, scale.z));
-        
+
         return model;
     }
 };
@@ -59,20 +59,20 @@ enum class LightType {
  * @brief Light in 3D space
  */
 struct Light {
-    LightType type = LightType::Point;     ///< Light kind (point, directional or spot).
+    LightType type = LightType::Point; ///< Light kind (point, directional or spot).
 
-    vf3d position = {0.0f, 0.0f, 0.0f};    ///< World position (point/spot lights).
-    vf3d direction = {0.0f, -1.0f, 0.0f};  ///< Direction the light points (directional/spot lights).
+    vf3d position  = { 0.0f, 0.0f, 0.0f };  ///< World position (point/spot lights).
+    vf3d direction = { 0.0f, -1.0f, 0.0f }; ///< Direction the light points (directional/spot lights).
 
-    Color color = WHITE;                   ///< Light color.
-    float intensity = 1.0f;                ///< Brightness multiplier.
+    Color color     = WHITE; ///< Light color.
+    float intensity = 1.0f;  ///< Brightness multiplier.
 
-    float constant = 1.0f;                 ///< Constant attenuation term (point lights).
-    float linear = 0.09f;                  ///< Linear attenuation term (point lights).
-    float quadratic = 0.032f;              ///< Quadratic attenuation term (point lights).
+    float constant  = 1.0f;   ///< Constant attenuation term (point lights).
+    float linear    = 0.09f;  ///< Linear attenuation term (point lights).
+    float quadratic = 0.032f; ///< Quadratic attenuation term (point lights).
 
-    float cutoffAngle = 12.5f;             ///< Inner cone angle in degrees (spot lights).
-    float outerCutoffAngle = 17.5f;        ///< Outer cone angle in degrees (spot lights).
+    float cutoffAngle      = 12.5f; ///< Inner cone angle in degrees (spot lights).
+    float outerCutoffAngle = 17.5f; ///< Outer cone angle in degrees (spot lights).
 };
 
 /// @cond INTERNAL
@@ -80,21 +80,21 @@ struct Light {
  * @brief Internal 3D scene data
  */
 struct SceneData {
-    Camera3D camera;
+    Camera3D                   camera;
     std::vector<ModelInstance> models;
-    std::vector<Light> lights;
-    Color ambientLight = {50, 50, 50, 255};
+    std::vector<Light>         lights;
+    Color                      ambientLight = { 50, 50, 50, 255 };
 
     SceneData() {
         // Default camera setup
-        camera.position = {0.0f, 0.0f, 5.0f};
-        camera.target = {0.0f, 0.0f, 0.0f};
+        camera.position = { 0.0f, 0.0f, 5.0f };
+        camera.target   = { 0.0f, 0.0f, 0.0f };
     }
 };
 /// @endcond
 
 /**
- * @brief Singleton manager for 3D scenes
+ * @brief Singleton manager for 3D _scenes
  */
 class Scene {
 public:
@@ -102,48 +102,48 @@ public:
      * @brief Creates a new named scene
      * @param name Name of the scene
      */
-    static void New(const std::string& name) { get()._new(name); }
-    
+    static void New(const std::string &name) { Get()._new(name); }
+
     /**
      * @brief Switches to a different scene
      * @param name Name of the scene to switch to
      */
-    static void Switch(const std::string& name) { get()._switch(name); }
-    
+    static void Switch(const std::string &name) { Get()._switch(name); }
+
     /**
      * @brief Gets the name of the current scene
      */
-    static std::string GetCurrentSceneName() { return get()._getCurrentSceneName(); }
-    
+    static std::string GetCurrentSceneName() { return Get()._getCurrentSceneName(); }
+
     // Camera methods
-    
+
     /**
      * @brief Sets the camera position and target
      * @param position Camera position
      * @param target Camera target (what it's looking at)
      */
-    static void SetCamera(vf3d position, vf3d target) { get()._setCamera(position, target); }
-    
+    static void SetCamera(vf3d position, vf3d target) { Get()._setCamera(position, target); }
+
     /**
      * @brief Sets the camera field of view
      * @param fov Field of view in degrees
      */
-    static void SetCameraFOV(float fov) { get()._setCameraFOV(fov); }
-    
+    static void SetCameraFOV(float fov) { Get()._setCameraFOV(fov); }
+
     /**
      * @brief Sets the camera near and far planes
      * @param nearPlane Near clipping plane
      * @param farPlane Far clipping plane
      */
-    static void SetCameraClipPlanes(float nearPlane, float farPlane) { get()._setCameraClipPlanes(nearPlane, farPlane); }
-    
+    static void SetCameraClipPlanes(float nearPlane, float farPlane) { Get()._setCameraClipPlanes(nearPlane, farPlane); }
+
     /**
      * @brief Gets the current camera
      */
-    static Camera3D& GetCamera() { return get()._getCamera(); }
-    
+    static Camera3D &GetCamera() { return Get()._getCamera(); }
+
     // Model methods
-    
+
     /**
      * @brief Adds a model instance to the current scene
      * @param model Pointer to the ModelAsset
@@ -152,25 +152,25 @@ public:
      * @param scale Scale factors
      * @return Reference to the created ModelInstance
      */
-    static ModelInstance& AddModel(ModelAsset* model, vf3d position = {0, 0, 0}, 
-                                   vf3d rotation = {0, 0, 0}, vf3d scale = {1, 1, 1}) {
-        return get()._addModel(model, position, rotation, scale);
+    static ModelInstance &AddModel(ModelAsset *model, vf3d position = { 0, 0, 0 },
+        vf3d rotation = { 0, 0, 0 }, vf3d scale = { 1, 1, 1 }) {
+        return Get()._addModel(model, position, rotation, scale);
     }
-    
+
     /**
      * @brief Gets all models in the current scene
      */
-    static std::vector<ModelInstance>& GetModels() { return get()._getModels(); }
-    
+    static std::vector<ModelInstance> &GetModels() { return Get()._getModels(); }
+
     // Light methods
-    
+
     /**
      * @brief Adds a point light to the current scene
      * @param light Light configuration
      * @return Reference to the created Light
      */
-    static Light& AddPointLight(const Light& light) { return get()._addPointLight(light); }
-    
+    static Light &AddPointLight(const Light &light) { return Get()._addPointLight(light); }
+
     /**
      * @brief Adds a point light to the current scene
      * @param position Light position
@@ -178,17 +178,17 @@ public:
      * @param intensity Light intensity
      * @return Reference to the created Light
      */
-    static Light& AddPointLight(vf3d position, Color color = WHITE, float intensity = 1.0f) {
-        return get()._addPointLight(position, color, intensity);
+    static Light &AddPointLight(vf3d position, Color color = WHITE, float intensity = 1.0f) {
+        return Get()._addPointLight(position, color, intensity);
     }
-    
+
     /**
      * @brief Adds a directional light to the current scene
      * @param light Light configuration
      * @return Reference to the created Light
      */
-    static Light& AddDirectionalLight(const Light& light) { return get()._addDirectionalLight(light); }
-    
+    static Light &AddDirectionalLight(const Light &light) { return Get()._addDirectionalLight(light); }
+
     /**
      * @brief Adds a directional light to the current scene
      * @param direction Light direction
@@ -196,100 +196,100 @@ public:
      * @param intensity Light intensity
      * @return Reference to the created Light
      */
-    static Light& AddDirectionalLight(vf3d direction, Color color = WHITE, float intensity = 1.0f) {
-        return get()._addDirectionalLight(direction, color, intensity);
+    static Light &AddDirectionalLight(vf3d direction, Color color = WHITE, float intensity = 1.0f) {
+        return Get()._addDirectionalLight(direction, color, intensity);
     }
-    
+
     /**
      * @brief Adds a spot light to the current scene
      * @param light Light configuration
      * @return Reference to the created Light
      */
-    static Light& AddSpotLight(const Light& light) { return get()._addSpotLight(light); }
-    
+    static Light &AddSpotLight(const Light &light) { return Get()._addSpotLight(light); }
+
     /**
      * @brief Gets all lights in the current scene
      */
-    static std::vector<Light>& GetLights() { return get()._getLights(); }
-    
+    static std::vector<Light> &GetLights() { return Get()._getLights(); }
+
     /**
      * @brief Sets the ambient light color for the current scene
      * @param color Ambient light color
      */
-    static void SetAmbientLight(Color color) { get()._setAmbientLight(color); }
-    
+    static void SetAmbientLight(Color color) { Get()._setAmbientLight(color); }
+
     /**
      * @brief Gets the ambient light color for the current scene
      */
-    static Color GetAmbientLight() { return get()._getAmbientLight(); }
-    
+    static Color GetAmbientLight() { return Get()._getAmbientLight(); }
+
     // Clear methods
-    
+
     /**
      * @brief Clears all models from the current scene
      */
-    static void ClearModels() { get()._clearModels(); }
-    
+    static void ClearModels() { Get()._clearModels(); }
+
     /**
      * @brief Clears all lights from the current scene
      */
-    static void ClearLights() { get()._clearLights(); }
-    
+    static void ClearLights() { Get()._clearLights(); }
+
     /**
      * @brief Clears everything from the current scene
      */
-    static void Clear() { get()._clear(); }
-    
+    static void Clear() { Get()._clear(); }
+
     /**
      * @brief Deletes a named scene
      * @param name Name of the scene to delete (cannot delete default scene)
      */
-    static void Delete(const std::string& name) { get()._delete(name); }
+    static void Delete(const std::string &name) { Get()._delete(name); }
 
 private:
-    std::unordered_map<std::string, SceneData> scenes;
-    std::string currentSceneName = "defaultScene";
-    
-    void _new(const std::string& name);
-    void _switch(const std::string& name);
-    std::string _getCurrentSceneName() { return currentSceneName; }
-    
-    SceneData& getCurrentScene() {
-        return scenes[currentSceneName];
+    std::unordered_map<std::string, SceneData> _scenes;
+    std::string                                _currentSceneName = "defaultScene";
+
+    void        _new(const std::string &name);
+    void        _switch(const std::string &name);
+    std::string _getCurrentSceneName() { return _currentSceneName; }
+
+    SceneData &_getCurrentScene() {
+        return _scenes[_currentSceneName];
     }
-    
+
     // Camera
-    void _setCamera(vf3d position, vf3d target);
-    void _setCameraFOV(float fov);
-    void _setCameraClipPlanes(float nearPlane, float farPlane);
-    Camera3D& _getCamera();
-    
+    void      _setCamera(vf3d position, vf3d target);
+    void      _setCameraFOV(float fov);
+    void      _setCameraClipPlanes(float nearPlane, float farPlane);
+    Camera3D &_getCamera();
+
     // Models
-    ModelInstance& _addModel(ModelAsset* model, vf3d position, vf3d rotation, vf3d scale);
-    std::vector<ModelInstance>& _getModels();
-    
+    ModelInstance              &_addModel(ModelAsset *model, vf3d position, vf3d rotation, vf3d scale);
+    std::vector<ModelInstance> &_getModels();
+
     // Lights
-    Light& _addPointLight(const Light& light);
-    Light& _addPointLight(vf3d position, Color color, float intensity);
-    Light& _addDirectionalLight(const Light& light);
-    Light& _addDirectionalLight(vf3d direction, Color color, float intensity);
-    Light& _addSpotLight(const Light& light);
-    std::vector<Light>& _getLights();
-    void _setAmbientLight(Color color);
-    Color _getAmbientLight();
-    
+    Light              &_addPointLight(const Light &light);
+    Light              &_addPointLight(vf3d position, Color color, float intensity);
+    Light              &_addDirectionalLight(const Light &light);
+    Light              &_addDirectionalLight(vf3d direction, Color color, float intensity);
+    Light              &_addSpotLight(const Light &light);
+    std::vector<Light> &_getLights();
+    void                _setAmbientLight(Color color);
+    Color               _getAmbientLight();
+
     // Clear
     void _clearModels();
     void _clearLights();
     void _clear();
-    void _delete(const std::string& name);
-    
+    void _delete(const std::string &name);
+
 public:
     /// @cond INTERNAL
-    Scene(const Scene&) = delete;
-    Scene& operator=(const Scene&) = delete;
+    Scene(const Scene &)            = delete;
+    Scene &operator=(const Scene &) = delete;
 
-    static Scene& get() {
+    static Scene &Get() {
         static Scene instance;
         return instance;
     }
@@ -298,6 +298,6 @@ public:
 private:
     Scene() {
         // Create default scene
-        scenes["defaultScene"] = SceneData();
+        _scenes["defaultScene"] = SceneData();
     }
 };

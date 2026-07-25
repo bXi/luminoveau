@@ -22,7 +22,10 @@ struct Color {
 
     /// @brief Constructs a fully transparent black (all channels 0).
     constexpr Color()
-        : r(0), g(0), b(0), a(0) {}
+        : r(0)
+        , g(0)
+        , b(0)
+        , a(0) { }
 
     /**
      * @brief Constructs a color from individual 0-255 channel values.
@@ -33,7 +36,10 @@ struct Color {
      * @param alpha Alpha channel, 0-255.
      */
     constexpr Color(unsigned int red, unsigned int green, unsigned int blue, unsigned int alpha)
-        : r(red), g(green), b(blue), a(alpha) {}
+        : r(red)
+        , g(green)
+        , b(blue)
+        , a(alpha) { }
 
     /**
      * @brief Constructs a color from a packed 0xRRGGBBAA hex code.
@@ -43,8 +49,8 @@ struct Color {
     constexpr Color(uint32_t colorCode)
         : r((colorCode >> 24) & 0xFF)
         , g((colorCode >> 16) & 0xFF)
-        , b((colorCode >>  8) & 0xFF)
-        , a( colorCode        & 0xFF) {}
+        , b((colorCode >> 8) & 0xFF)
+        , a(colorCode & 0xFF) { }
 
     /**
      * @brief Sets all channels from 0.0-1.0 float values.
@@ -55,32 +61,32 @@ struct Color {
      * @param alpha Alpha channel, 0.0-1.0.
      */
     void CreateFromFloats(float red, float green, float blue, float alpha) {
-        r = static_cast<unsigned int>(red   * 255.0f);
+        r = static_cast<unsigned int>(red * 255.0f);
         g = static_cast<unsigned int>(green * 255.0f);
-        b = static_cast<unsigned int>(blue  * 255.0f);
+        b = static_cast<unsigned int>(blue * 255.0f);
         a = static_cast<unsigned int>(alpha * 255.0f);
     }
 
     /// @brief Returns the red channel as a 0.0-1.0 float.
-    [[nodiscard]] float getRFloat() const { return static_cast<float>(r) / 255.0f; }
+    [[nodiscard]] float GetRFloat() const { return static_cast<float>(r) / 255.0f; }
     /// @brief Returns the green channel as a 0.0-1.0 float.
-    [[nodiscard]] float getGFloat() const { return static_cast<float>(g) / 255.0f; }
+    [[nodiscard]] float GetGFloat() const { return static_cast<float>(g) / 255.0f; }
     /// @brief Returns the blue channel as a 0.0-1.0 float.
-    [[nodiscard]] float getBFloat() const { return static_cast<float>(b) / 255.0f; }
+    [[nodiscard]] float GetBFloat() const { return static_cast<float>(b) / 255.0f; }
     /// @brief Returns the alpha channel as a 0.0-1.0 float.
-    [[nodiscard]] float getAFloat() const { return static_cast<float>(a) / 255.0f; }
+    [[nodiscard]] float GetAFloat() const { return static_cast<float>(a) / 255.0f; }
 
 #if __has_include("glm/vec4.hpp")
     /// @brief Returns the color as a glm::vec4 of 0.0-1.0 components (RGBA).
-    glm::vec4 asVec4() {
-        return { getRFloat(), getGFloat(), getBFloat(), getAFloat() };
+    glm::vec4 AsVec4() {
+        return { GetRFloat(), GetGFloat(), GetBFloat(), GetAFloat() };
     }
 #endif
 
 #if __has_include("SDL3/SDL.h")
     /// @brief Converts to an SDL_Color (8-bit 0-255 channels).
-    explicit operator SDL_Color()  const { return SDL_Color ({(Uint8)r, (Uint8)g, (Uint8)b, (Uint8)a}); }
+    explicit operator SDL_Color() const { return SDL_Color({ (Uint8)r, (Uint8)g, (Uint8)b, (Uint8)a }); }
     /// @brief Converts to an SDL_FColor (0.0-1.0 float channels).
-    explicit operator SDL_FColor() const { return SDL_FColor({getRFloat(), getGFloat(), getBFloat(), getAFloat()}); }
+    explicit operator SDL_FColor() const { return SDL_FColor({ GetRFloat(), GetGFloat(), GetBFloat(), GetAFloat() }); }
 #endif
 };

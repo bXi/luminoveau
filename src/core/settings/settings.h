@@ -5,64 +5,62 @@
 
 #include <filesystem>
 
-
 #include "platform/window/window.h"
 #include "util/helpers.h"
-//#include "mini.h"
+// #include "mini.h"
 
 /// @brief Application settings: resolution, fullscreen, vsync and audio volumes, with save/load.
 class Settings {
 public:
-
     /// @brief Sets the window resolution.
     /// @param width Width in pixels.
     /// @param height Height in pixels.
-    static void setRes(int width, int height) { get()._setRes(width, height); }
+    static void SetRes(int width, int height) { Get()._setRes(width, height); }
     /// @brief Toggles fullscreen mode.
-    static void ToggleFullscreen() { get()._toggleFullscreen(); }
+    static void ToggleFullscreen() { Get()._toggleFullscreen(); }
     /// @brief Toggles vertical sync.
-    static void toggleVsync() { get()._toggleVsync(); }
+    static void ToggleVsync() { Get()._toggleVsync(); }
     /// @brief Returns whether vsync is currently enabled.
-    static bool getVsync() { return get()._getVsync(); }
+    static bool GetVsync() { return Get()._getVsync(); }
     /// @brief Persists the current settings to disk.
-    static void saveSettings() { get()._saveSettings(); }
+    static void SaveSettings() { Get()._saveSettings(); }
     /// @brief Loads settings from disk (or defaults) and applies them.
-    static void Init() { get()._init(); }
+    static void Init() { Get()._init(); }
     /// @brief Returns the list of supported (width, height) resolutions.
-    static std::vector<std::pair<int, int>> resolutions() { return get()._resolutions(); }
+    static std::vector<std::pair<int, int>> Resolutions() { return Get()._resolutions(); }
     /// @brief Sets the music volume (0.0–1.0).
-    static void setMusicVolume(float volume) { get()._setMusicVolume(volume); }
+    static void SetMusicVolume(float volume) { Get()._setMusicVolume(volume); }
     /// @brief Sets the sound-effects volume (0.0–1.0).
-    static void setSoundVolume(float volume) { get()._setSoundVolume(volume); }
+    static void SetSoundVolume(float volume) { Get()._setSoundVolume(volume); }
     /// @brief Sets the master volume (0.0–1.0).
-    static void setMasterVolume(float volume) { get()._setMasterVolume(volume); }
+    static void SetMasterVolume(float volume) { Get()._setMasterVolume(volume); }
     /// @brief Returns the music volume (0.0–1.0).
-    static float getMusicVolume() { return get()._getMusicVolume(); }
+    static float GetMusicVolume() { return Get()._getMusicVolume(); }
     /// @brief Returns the sound-effects volume (0.0–1.0).
-    static float getSoundVolume() { return get()._getSoundVolume(); }
+    static float GetSoundVolume() { return Get()._getSoundVolume(); }
     /// @brief Returns the master volume (0.0–1.0).
-    static float getMasterVolume() { return get()._getMasterVolume(); }
+    static float GetMasterVolume() { return Get()._getMasterVolume(); }
     /// @brief Returns the monitor's refresh rate in Hz.
-    static int getMonitorRefreshRate() { return get()._getMonitorRefreshRate(); }
+    static int GetMonitorRefreshRate() { return Get()._getMonitorRefreshRate(); }
 
 private:
-    bool vsync = true;
-    bool fullscreen = false;
-    int resWidth = 1280;
-    int resHeight = 720;
+    bool _vsync      = true;
+    bool _fullscreen = false;
+    int  _resWidth   = 1280;
+    int  _resHeight  = 720;
 
-    //audio
-    float masterVolume = 1.0f;
-    float effectsVolume = 1.0f;
-    float musicVolume = 1.0f;
+    // audio
+    float _masterVolume  = 1.0f;
+    float _effectsVolume = 1.0f;
+    float _musicVolume   = 1.0f;
 
-    void _setRes(int width, int height);
-    void _toggleFullscreen();
-    void _toggleVsync();
-    bool _getVsync() const;
-    void _saveSettings() const;
-    void _init();
-    static std::vector<std::pair<int, int>> _resolutions();
+    void                                    _setRes(int width, int height);
+    void                                    _toggleFullscreen();
+    void                                    _toggleVsync();
+    bool                                    _getVsync() const;
+    void                                    _saveSettings() const;
+    void                                    _init();
+    static std::vector<std::pair<int, int>> _resolutions(); // NOLINT(readability-identifier-naming) — private static; clang-tidy files statics as ClassMethod
 
     void _setMusicVolume(float volume);
     void _setSoundVolume(float volume);
@@ -76,10 +74,12 @@ private:
 
 public:
     /// @cond INTERNAL
-    Settings(const Settings&) = delete;
-    static Settings& get() { static Settings instance; return instance; }
+    Settings(const Settings &) = delete;
+    static Settings &Get() {
+        static Settings instance;
+        return instance;
+    }
     /// @endcond
 private:
-    Settings() {}
-    ;
+    Settings() {};
 };

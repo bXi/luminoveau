@@ -25,7 +25,7 @@ public:
     /**
      * @brief Initializes the input system.
      */
-    static void Init() { get()._init(); }
+    static void Init() { Get()._init(); }
 
     /**
      * @brief Retrieves the input device for the specified controller index.
@@ -33,29 +33,29 @@ public:
      * @param index The index of the controller.
      * @return A pointer to the input device.
      */
-    static InputDevice *GetController(int index) { return get()._getController(index); }
+    static InputDevice *GetController(int index) { return Get()._getController(index); }
 
     /**
      * @brief Clears the input system.
      */
-    static void Clear() { get()._clear(); }
+    static void Clear() { Get()._clear(); }
 
     /**
      * @brief Retrieves all input devices.
      *
      * @return A vector containing pointers to all input devices.
      */
-    static std::vector<InputDevice *> GetAllInputs() { return get().inputs; }
+    static std::vector<InputDevice *> GetAllInputs() { return Get()._inputs; }
 
     /**
      * @brief Updates the input system.
      */
-    static void Update() { get()._update(); }
+    static void Update() { Get()._update(); }
 
     /**
      * @brief Updates the timings of all input devices.
      */
-    static void UpdateTimings() { get()._updateTimings(); }
+    static void UpdateTimings() { Get()._updateTimings(); }
 
     /**
      * @brief Retrieves the movement value of the specified gamepad axis.
@@ -64,7 +64,7 @@ public:
      * @param axis The axis to retrieve the movement value for.
      * @return The movement value of the axis.
      */
-    static float GetGamepadAxisMovement(int gamepadID, SDL_GamepadAxis axis) { return get()._getGamepadAxisMovement(gamepadID, axis); }
+    static float GetGamepadAxisMovement(int gamepadID, SDL_GamepadAxis axis) { return Get()._getGamepadAxisMovement(gamepadID, axis); }
 
     /**
      * @brief Checks if the specified button on the gamepad is pressed.
@@ -73,7 +73,7 @@ public:
      * @param button The button to check.
      * @return True if the button is pressed, false otherwise.
      */
-    static bool GamepadButtonPressed(int gamepadID, int button) { return get()._gamepadButtonPressed(gamepadID, button); }
+    static bool GamepadButtonPressed(int gamepadID, int button) { return Get()._gamepadButtonPressed(gamepadID, button); }
 
     /**
      * @brief Checks if the specified button on the gamepad is down.
@@ -82,7 +82,7 @@ public:
      * @param button The button to check.
      * @return True if the button is down, false otherwise.
      */
-    static bool GamepadButtonDown(int gamepadID, int button) { return get()._gamepadButtonDown(gamepadID, button); }
+    static bool GamepadButtonDown(int gamepadID, int button) { return Get()._gamepadButtonDown(gamepadID, button); }
 
     /**
      * @brief Checks if the specified key is pressed.
@@ -90,7 +90,7 @@ public:
      * @param key The key to check.
      * @return True if the key is pressed, false otherwise.
      */
-    static bool KeyPressed(int key) { return get()._keyPressed(key); }
+    static bool KeyPressed(int key) { return Get()._keyPressed(key); }
 
     /**
      * @brief Checks if the specified key is released.
@@ -98,7 +98,7 @@ public:
      * @param key The key to check.
      * @return True if the key is released, false otherwise.
      */
-    static bool KeyReleased(int key) { return get()._keyReleased(key); }
+    static bool KeyReleased(int key) { return Get()._keyReleased(key); }
 
     /**
      * @brief Checks if the specified key is down.
@@ -106,14 +106,14 @@ public:
      * @param key The key to check.
      * @return True if the key is down, false otherwise.
      */
-    static bool KeyDown(int key) { return get()._keyDown(key); }
+    static bool KeyDown(int key) { return Get()._keyDown(key); }
 
     /**
      * @brief Retrieves the current mouse position.
      *
      * @return The current mouse position.
      */
-    static vf2d GetMousePosition() { return get()._getMousePosition(); }
+    static vf2d GetMousePosition() { return Get()._getMousePosition(); }
 
     /**
      * @brief Checks if the specified mouse button is pressed.
@@ -121,7 +121,7 @@ public:
      * @param button The mouse button to check.
      * @return True if the mouse button is pressed, false otherwise.
      */
-    static bool MouseButtonPressed(int button) { return get()._mouseButtonPressed(button); }
+    static bool MouseButtonPressed(int button) { return Get()._mouseButtonPressed(button); }
 
     /**
      * @brief Checks if the specified mouse button is released.
@@ -129,7 +129,7 @@ public:
      * @param button The mouse button to check.
      * @return True if the mouse button is released, false otherwise.
      */
-    static bool MouseButtonReleased(int button) { return get()._mouseButtonReleased(button); }
+    static bool MouseButtonReleased(int button) { return Get()._mouseButtonReleased(button); }
 
     /**
      * @brief Checks if the specified mouse button is down.
@@ -137,52 +137,52 @@ public:
      * @param button The mouse button to check.
      * @return True if the mouse button is down, false otherwise.
      */
-    static bool MouseButtonDown(int button) { return get()._mouseButtonDown(button); };
+    static bool MouseButtonDown(int button) { return Get()._mouseButtonDown(button); };
 
     /// @brief Returns the mouse wheel scroll-up amount this frame (0 if none).
-    static Uint32 MouseScrolledUp() { return get()._mouseScrolledUp(); };
+    static Uint32 MouseScrolledUp() { return Get()._mouseScrolledUp(); };
 
     /// @brief Returns the mouse wheel scroll-down amount this frame (0 if none).
-    static Uint32 MouseScrolledDown() { return get()._mouseScrolledDown(); };
+    static Uint32 MouseScrolledDown() { return Get()._mouseScrolledDown(); };
 
     // === Virtual Controls (Onscreen Joystick/Buttons) ===
     /**
      * @brief Get the virtual controls instance
      */
-    static VirtualControls& GetVirtualControls() { return get().virtualControls; }
+    static VirtualControls &GetVirtualControls() { return Get()._virtualControls; }
 
     /**
      * @brief Handle touch events for virtual controls
      */
-    static void HandleTouchEvent(const SDL_Event* event) { get()._handleTouchEvent(event); }
+    static void HandleTouchEvent(const SDL_Event *event) { Get()._handleTouchEvent(event); }
 
     /// @cond INTERNAL
-    //For internal use. handle with care
-    static void UpdateInputs(std::vector<Uint8> keys, bool held) { get()._updateInputs(keys, held); }
+    // For internal use. handle with care
+    static void UpdateInputs(std::vector<Uint8> keys, bool held) { Get()._updateInputs(keys, held); }
 
-    static void AddGamepadDevice(SDL_JoystickID joystickID) { get()._addGamepadDevice(joystickID); }
+    static void AddGamepadDevice(SDL_JoystickID joystickID) { Get()._addGamepadDevice(joystickID); }
 
-    static void RemoveGamepadDevice(SDL_JoystickID joystickID) { get()._removeGamepadDevice(joystickID); }
+    static void RemoveGamepadDevice(SDL_JoystickID joystickID) { Get()._removeGamepadDevice(joystickID); }
 
-    static void UpdateScroll(int scrollDir) { get()._updateScroll(scrollDir); }
+    static void UpdateScroll(int scrollDir) { Get()._updateScroll(scrollDir); }
     /// @endcond
 
     /**
      * @brief Accumulates relative mouse motion (from SDL mouse-motion events).
      * Used for FPS-style mouse look in relative mouse mode.
      */
-    static void AccumulateMouseDelta(float dx, float dy) { get()._accumulateMouseDelta(dx, dy); }
+    static void AccumulateMouseDelta(float dx, float dy) { Get()._accumulateMouseDelta(dx, dy); }
 
     /**
      * @brief Returns relative mouse motion accumulated since the last frame.
      */
-    static vf2d GetMouseDelta() { return get()._getMouseDelta(); }
+    static vf2d GetMouseDelta() { return Get()._getMouseDelta(); }
 
     /// @cond INTERNAL
     std::vector<Uint8> currentKeyboardState;
     /// @endcond
 private:
-    std::vector<InputDevice *> inputs;
+    std::vector<InputDevice *> _inputs;
 
     void _init();
 
@@ -192,9 +192,16 @@ private:
 
     void _update();
 
-    void _accumulateMouseDelta(float dx, float dy) { _mouseDelta.x += dx; _mouseDelta.y += dy; }
-    vf2d _getMouseDelta() { vf2d d = _mouseDelta; _mouseDelta = {0.0f, 0.0f}; return d; }  // read-and-clear
-    vf2d _mouseDelta{0.0f, 0.0f};
+    void _accumulateMouseDelta(float dx, float dy) {
+        _mouseDelta.x += dx;
+        _mouseDelta.y += dy;
+    }
+    vf2d _getMouseDelta() {
+        vf2d d      = _mouseDelta;
+        _mouseDelta = { 0.0f, 0.0f };
+        return d;
+    } // read-and-clear
+    vf2d _mouseDelta { 0.0f, 0.0f };
 
     void _updateTimings();
 
@@ -218,9 +225,9 @@ private:
 
     bool _mouseButtonDown(int button);
 
-    Uint32 _mouseScrolledUp() { return get().scrolledUpTicks; };
+    Uint32 _mouseScrolledUp() { return Get()._scrolledUpTicks; };
 
-    Uint32 _mouseScrolledDown() { return get().scrolledDownTicks; };
+    Uint32 _mouseScrolledDown() { return Get()._scrolledDownTicks; };
 
     void _updateInputs(const std::vector<Uint8> &keys, bool held);
 
@@ -230,36 +237,37 @@ private:
 
     void _updateScroll(int scrollDir);
 
-    std::vector<Uint8> previousKeyboardState;
+    std::vector<Uint8> _previousKeyboardState;
 
-    Uint32 currentMouseButtons = 0;
-    Uint32 previousMouseButtons = 0;
+    Uint32 _currentMouseButtons  = 0;
+    Uint32 _previousMouseButtons = 0;
 
-    Uint32 scrolledUpTicks = 0;
-    Uint32 scrolledDownTicks = 0;
+    Uint32 _scrolledUpTicks   = 0;
+    Uint32 _scrolledDownTicks = 0;
 
-    const SDL_JoystickID *joystickIds = nullptr;
+    const SDL_JoystickID *_joystickIds = nullptr;
 
     /// @cond INTERNAL
-    struct gamepadInfo {
-        SDL_JoystickID joystickId;
-        SDL_Gamepad *gamepad;
+    struct GamepadInfo {
+        SDL_JoystickID    joystickId;
+        SDL_Gamepad      *gamepad;
         std::vector<bool> currentButtonState;
         std::vector<bool> previousButtonState;
     };
     /// @endcond
 
-    std::vector<gamepadInfo> gamepads;
+    std::vector<GamepadInfo> _gamepads;
 
-    VirtualControls virtualControls;
+    VirtualControls _virtualControls;
 
     bool _didInit = false;
-    void _handleTouchEvent(const SDL_Event* event);
+    void _handleTouchEvent(const SDL_Event *event);
+
 public:
     /// @cond INTERNAL
     Input(const Input &) = delete;
 
-    static Input &get() {
+    static Input &Get() {
         static Input instance;
         return instance;
     }
@@ -269,6 +277,6 @@ private:
     Input() {
         SDL_PumpEvents();
         currentKeyboardState.resize(SDL_SCANCODE_COUNT);
-        previousKeyboardState.resize(SDL_SCANCODE_COUNT);
+        _previousKeyboardState.resize(SDL_SCANCODE_COUNT);
     }
 };

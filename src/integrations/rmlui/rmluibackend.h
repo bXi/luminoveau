@@ -1,5 +1,5 @@
 /*
- * RmlUI Backend - SDL3 GPU Integration for Luminoveau
+ * RmlUI Backend - SDL3 GPU Integration for Lumi
  * Wraps RmlUi's platform and renderer for seamless integration
  */
 
@@ -21,16 +21,16 @@ namespace Backend {
  * Manages the RmlUi platform and renderer interfaces
  */
 struct BackendData {
-    std::unique_ptr<SystemInterface_SDL> system_interface;
+    std::unique_ptr<SystemInterface_SDL>     system_interface;
     std::unique_ptr<RenderInterface_SDL_GPU> render_interface;
-    
-    SDL_Window* window = nullptr;
-    SDL_GPUDevice* device = nullptr;
-    SDL_GPUCommandBuffer* command_buffer = nullptr;
-    SDL_GPUTexture* swapchain_texture = nullptr;
-    uint32_t swapchain_width = 0;
-    uint32_t swapchain_height = 0;
-    
+
+    SDL_Window           *window            = nullptr;
+    SDL_GPUDevice        *device            = nullptr;
+    SDL_GPUCommandBuffer *command_buffer    = nullptr;
+    SDL_GPUTexture       *swapchain_texture = nullptr;
+    uint32_t              swapchain_width   = 0;
+    uint32_t              swapchain_height  = 0;
+
     bool initialized = false;
 };
 
@@ -40,7 +40,7 @@ struct BackendData {
  * @param window SDL window
  * @return True on success
  */
-bool Initialize(SDL_GPUDevice* device, SDL_Window* window);
+bool Initialize(SDL_GPUDevice *device, SDL_Window *window);
 
 /**
  * @brief Shutdown the backend
@@ -51,7 +51,7 @@ void Shutdown();
  * @brief Get the backend data
  * @return Pointer to backend data
  */
-BackendData* GetBackendData();
+BackendData *GetBackendData();
 
 /**
  * @brief Begin a new frame
@@ -60,8 +60,8 @@ BackendData* GetBackendData();
  * @param width Swapchain width
  * @param height Swapchain height
  */
-void BeginFrame(SDL_GPUCommandBuffer* command_buffer, SDL_GPUTexture* swapchain_texture, 
-                uint32_t width, uint32_t height);
+void BeginFrame(SDL_GPUCommandBuffer *command_buffer, SDL_GPUTexture *swapchain_texture,
+    uint32_t width, uint32_t height);
 
 /**
  * @brief End the current frame
@@ -74,7 +74,7 @@ void EndFrame();
  * @param event SDL event
  * @return True if event was handled by RmlUi
  */
-bool ProcessEvent(Rml::Context* context, SDL_Event& event);
+bool ProcessEvent(Rml::Context *context, SDL_Event &event);
 
 } // namespace Backend
 } // namespace RmlUI

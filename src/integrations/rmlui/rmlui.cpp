@@ -20,13 +20,13 @@ namespace RmlUI {
 // ============================================================================
 
 struct State {
-    bool initialized = false;
-    Rml::Context* main_context = nullptr;
-    std::unordered_map<std::string, Rml::Context*> contexts;
-    std::unordered_map<std::string, Rml::ElementDocument*> documents;
+    bool                                                                                         initialized  = false;
+    Rml::Context                                                                                *main_context = nullptr;
+    std::unordered_map<std::string, Rml::Context *>                                              contexts;
+    std::unordered_map<std::string, Rml::ElementDocument *>                                      documents;
     std::unordered_map<std::string, std::unordered_map<std::string, std::vector<EventCallback>>> event_listeners;
-    std::unordered_map<std::string, std::string> debug_values;
-    bool debug_overlay_enabled = false;
+    std::unordered_map<std::string, std::string>                                                 debug_values;
+    bool                                                                                         debug_overlay_enabled = false;
 };
 
 static State g_state;
@@ -35,7 +35,7 @@ static State g_state;
 // FONT LOADING HELPERS
 // ============================================================================
 
-bool LoadFontFromFile(const std::string& filepath, bool fallback) {
+bool LoadFontFromFile(const std::string &filepath, bool fallback) {
     if (!g_state.initialized) {
         LOG_ERROR("RmlUI not initialized");
         return false;
@@ -50,16 +50,16 @@ bool LoadFontFromFile(const std::string& filepath, bool fallback) {
     return success;
 }
 
-bool LoadFontFromMemory(const unsigned char* data, size_t data_length,
-                       const std::string& family, Rml::Style::FontStyle style,
-                       Rml::Style::FontWeight weight, bool fallback) {
+bool LoadFontFromMemory(const unsigned char *data, size_t data_length,
+    const std::string &family, Rml::Style::FontStyle style,
+    Rml::Style::FontWeight weight, bool fallback) {
     if (!g_state.initialized) {
         LOG_ERROR("RmlUI not initialized");
         return false;
     }
 
     // Create a Span from the data
-    Rml::Span<const Rml::byte> font_data(reinterpret_cast<const Rml::byte*>(data), data_length);
+    Rml::Span<const Rml::byte> font_data(reinterpret_cast<const Rml::byte *>(data), data_length);
 
     bool success = Rml::LoadFontFace(font_data, family, style, weight, fallback);
     if (success) {
@@ -79,7 +79,7 @@ bool LoadDefaultFont() {
         "DroidSansMono",
         Rml::Style::FontStyle::Normal,
         Rml::Style::FontWeight::Normal,
-        true  // fallback=true makes this the default font
+        true // fallback=true makes this the default font
     );
 }
 
@@ -89,9 +89,10 @@ bool LoadDefaultFont() {
 
 class CustomEventListener : public Rml::EventListener {
 public:
-    CustomEventListener(EventCallback callback) : callback_(callback) {}
+    CustomEventListener(EventCallback callback)
+        : callback_(callback) { }
 
-    void ProcessEvent(Rml::Event& event) override {
+    void ProcessEvent(Rml::Event &event) override {
         if (callback_) {
             callback_(event);
         }
@@ -112,21 +113,20 @@ void Init() {
     }
 
     // Get window info from Window namespace
-    SDL_Window* window = Window::GetWindow();
+    SDL_Window *window = Window::GetWindow();
     if (!window) {
         LOG_ERROR("RmlUI::Init() failed: Window not initialized. Call Window::InitWindow() first.");
         return;
     }
 
     // Get GPU device from Renderer
-    SDL_GPUDevice* device = Renderer::GetDevice();
+    SDL_GPUDevice *device = Renderer::GetDevice();
 
     // Initialize backend
     if (!Backend::Initialize(device, window)) {
         LOG_ERROR("Failed to initialize RmlUI backend");
         return;
     }
-
 
     Rml::SetSystemInterface(&g_rml_system);
 
@@ -138,7 +138,7 @@ void Init() {
     }
 
     // Create main context
-    vf2d window_size = Window::GetSize();
+    vf2d window_size     = Window::GetSize();
     g_state.main_context = Rml::CreateContext("main",
         Rml::Vector2i(static_cast<int>(window_size.x), static_cast<int>(window_size.y)));
 
@@ -166,13 +166,13 @@ void Shutdown() {
     }
 
     // Clean up all event listeners
-    for (auto& [doc_path, listeners] : g_state.event_listeners) {
+    for (auto &[doc_path, listeners] : g_state.event_listeners) {
         listeners.clear();
     }
     g_state.event_listeners.clear();
 
     // Unload all documents
-    for (auto& [path, doc] : g_state.documents) {
+    for (auto &[path, doc] : g_state.documents) {
         if (doc && doc->GetContext()) {
             doc->Close();
         }
@@ -180,7 +180,7 @@ void Shutdown() {
     g_state.documents.clear();
 
     // Remove all contexts
-    for (auto& [name, context] : g_state.contexts) {
+    for (auto &[name, context] : g_state.contexts) {
         if (context) {
             Rml::RemoveContext(name);
         }
@@ -202,11 +202,11 @@ void Shutdown() {
 // CONTEXT MANAGEMENT
 // ============================================================================
 
-Rml::Context* GetContext() {
+Rml::Context *GetContext() {
     return g_state.main_context;
 }
 
-Rml::Context* CreateContext(const std::string& name, vf2d size) {
+Rml::Context *CreateContext(const std::string &name, vf2d size) {
     if (!g_state.initialized) {
         LOG_ERROR("RmlUI not initialized");
         return nullptr;
@@ -217,7 +217,7 @@ Rml::Context* CreateContext(const std::string& name, vf2d size) {
         return g_state.contexts[name];
     }
 
-    Rml::Context* context = Rml::CreateContext(name,
+    Rml::Context *context = Rml::CreateContext(name,
         Rml::Vector2i(static_cast<int>(size.x), static_cast<int>(size.y)));
 
     if (context) {
@@ -228,7 +228,7 @@ Rml::Context* CreateContext(const std::string& name, vf2d size) {
     return context;
 }
 
-Rml::Context* GetContextByName(const std::string& name) {
+Rml::Context *GetContextByName(const std::string &name) {
     auto it = g_state.contexts.find(name);
     return (it != g_state.contexts.end()) ? it->second : nullptr;
 }
@@ -237,7 +237,7 @@ Rml::Context* GetContextByName(const std::string& name) {
 // DOCUMENT MANAGEMENT
 // ============================================================================
 
-Rml::ElementDocument* LoadDocument(const std::string& filepath) {
+Rml::ElementDocument *LoadDocument(const std::string &filepath) {
     if (!g_state.initialized) {
         LOG_ERROR("RmlUI not initialized");
         return nullptr;
@@ -251,7 +251,7 @@ Rml::ElementDocument* LoadDocument(const std::string& filepath) {
     }
 
     // Load the document
-    Rml::ElementDocument* document = g_state.main_context->LoadDocument(filepath);
+    Rml::ElementDocument *document = g_state.main_context->LoadDocument(filepath);
 
     if (!document) {
         LOG_ERROR("Failed to load RML document: {}", filepath);
@@ -264,13 +264,13 @@ Rml::ElementDocument* LoadDocument(const std::string& filepath) {
     return document;
 }
 
-Rml::ElementDocument* GetDocument(const std::string& filepath) {
+Rml::ElementDocument *GetDocument(const std::string &filepath) {
     auto it = g_state.documents.find(filepath);
     return (it != g_state.documents.end()) ? it->second : nullptr;
 }
 
-void ShowDocument(const std::string& filepath) {
-    Rml::ElementDocument* doc = GetDocument(filepath);
+void ShowDocument(const std::string &filepath) {
+    Rml::ElementDocument *doc = GetDocument(filepath);
     if (!doc) {
         doc = LoadDocument(filepath);
     }
@@ -280,15 +280,15 @@ void ShowDocument(const std::string& filepath) {
     }
 }
 
-void HideDocument(const std::string& filepath) {
-    Rml::ElementDocument* doc = GetDocument(filepath);
+void HideDocument(const std::string &filepath) {
+    Rml::ElementDocument *doc = GetDocument(filepath);
     if (doc) {
         doc->Hide();
     }
 }
 
-void ToggleDocument(const std::string& filepath) {
-    Rml::ElementDocument* doc = GetDocument(filepath);
+void ToggleDocument(const std::string &filepath) {
+    Rml::ElementDocument *doc = GetDocument(filepath);
     if (!doc) {
         doc = LoadDocument(filepath);
         if (doc) {
@@ -304,12 +304,12 @@ void ToggleDocument(const std::string& filepath) {
     }
 }
 
-bool IsDocumentVisible(const std::string& filepath) {
-    Rml::ElementDocument* doc = GetDocument(filepath);
+bool IsDocumentVisible(const std::string &filepath) {
+    Rml::ElementDocument *doc = GetDocument(filepath);
     return doc ? doc->IsVisible() : false;
 }
 
-void UnloadDocument(const std::string& filepath) {
+void UnloadDocument(const std::string &filepath) {
     auto it = g_state.documents.find(filepath);
     if (it != g_state.documents.end()) {
         if (it->second && it->second->GetContext()) {
@@ -324,7 +324,7 @@ void UnloadDocument(const std::string& filepath) {
     }
 }
 
-void CloseDocument(const std::string& filepath) {
+void CloseDocument(const std::string &filepath) {
     UnloadDocument(filepath);
 }
 
@@ -338,7 +338,7 @@ void Render() {
     }
 
     // Update and render all contexts
-    for (auto& [name, context] : g_state.contexts) {
+    for (auto &[name, context] : g_state.contexts) {
         if (context) {
             context->Update();
             context->Render();
@@ -352,7 +352,7 @@ void Update() {
     }
 
     // Update all contexts without rendering
-    for (auto& [name, context] : g_state.contexts) {
+    for (auto &[name, context] : g_state.contexts) {
         if (context) {
             context->Update();
         }
@@ -363,30 +363,30 @@ void Update() {
 // ELEMENT MANIPULATION
 // ============================================================================
 
-void SetElementText(const std::string& document_path, const std::string& element_id, const std::string& text) {
-    Rml::Element* element = GetElement(document_path, element_id);
+void SetElementText(const std::string &document_path, const std::string &element_id, const std::string &text) {
+    Rml::Element *element = GetElement(document_path, element_id);
     if (element) {
         element->SetInnerRML(text);
     }
 }
 
-void SetElementValue(const std::string& document_path, const std::string& element_id, const std::string& value) {
-    Rml::Element* element = GetElement(document_path, element_id);
+void SetElementValue(const std::string &document_path, const std::string &element_id, const std::string &value) {
+    Rml::Element *element = GetElement(document_path, element_id);
     if (element) {
         element->SetAttribute("value", value);
     }
 }
 
-std::string GetElementText(const std::string& document_path, const std::string& element_id) {
-    Rml::Element* element = GetElement(document_path, element_id);
+std::string GetElementText(const std::string &document_path, const std::string &element_id) {
+    Rml::Element *element = GetElement(document_path, element_id);
     if (element) {
         return element->GetInnerRML();
     }
     return "";
 }
 
-std::string GetElementValue(const std::string& document_path, const std::string& element_id) {
-    Rml::Element* element = GetElement(document_path, element_id);
+std::string GetElementValue(const std::string &document_path, const std::string &element_id) {
+    Rml::Element *element = GetElement(document_path, element_id);
     if (element) {
         auto variant = element->GetAttribute("value");
         if (variant) {
@@ -396,14 +396,14 @@ std::string GetElementValue(const std::string& document_path, const std::string&
     return "";
 }
 
-Rml::Element* GetElement(const std::string& document_path, const std::string& element_id) {
-    Rml::ElementDocument* doc = GetDocument(document_path);
+Rml::Element *GetElement(const std::string &document_path, const std::string &element_id) {
+    Rml::ElementDocument *doc = GetDocument(document_path);
     if (!doc) {
         LOG_WARNING("Document not found: {}", document_path);
         return nullptr;
     }
 
-    Rml::Element* element = doc->GetElementById(element_id);
+    Rml::Element *element = doc->GetElementById(element_id);
     if (!element) {
         LOG_WARNING("Element '{}' not found in document '{}'", element_id, document_path);
     }
@@ -415,20 +415,20 @@ Rml::Element* GetElement(const std::string& document_path, const std::string& el
 // EVENT HANDLING
 // ============================================================================
 
-void RegisterEventListener(const std::string& document_path, const std::string& element_id,
-                          const std::string& event_type, EventCallback callback) {
+void RegisterEventListener(const std::string &document_path, const std::string &element_id,
+    const std::string &event_type, EventCallback callback) {
     if (!callback) {
         LOG_WARNING("Null callback provided for event listener");
         return;
     }
 
-    Rml::Element* element = GetElement(document_path, element_id);
+    Rml::Element *element = GetElement(document_path, element_id);
     if (!element) {
         return;
     }
 
     // Create and attach the event listener
-    auto* listener = new CustomEventListener(callback);
+    auto *listener = new CustomEventListener(callback);
     element->AddEventListener(event_type, listener, false);
 
     // Store callback for cleanup
@@ -438,7 +438,7 @@ void RegisterEventListener(const std::string& document_path, const std::string& 
     LOG_INFO("Registered event listener: {} on {}.{}", event_type, document_path, element_id);
 }
 
-bool ProcessEvent(SDL_Event& event) {
+bool ProcessEvent(SDL_Event &event) {
     if (!g_state.initialized || !g_state.main_context) {
         return false;
     }
@@ -450,30 +450,30 @@ bool ProcessEvent(SDL_Event& event) {
 // STYLING HELPERS
 // ============================================================================
 
-void SetElementStyle(const std::string& document_path, const std::string& element_id,
-                     const std::string& property, const std::string& value) {
-    Rml::Element* element = GetElement(document_path, element_id);
+void SetElementStyle(const std::string &document_path, const std::string &element_id,
+    const std::string &property, const std::string &value) {
+    Rml::Element *element = GetElement(document_path, element_id);
     if (element) {
         element->SetProperty(property, value);
     }
 }
 
-void AddClass(const std::string& document_path, const std::string& element_id, const std::string& class_name) {
-    Rml::Element* element = GetElement(document_path, element_id);
+void AddClass(const std::string &document_path, const std::string &element_id, const std::string &class_name) {
+    Rml::Element *element = GetElement(document_path, element_id);
     if (element) {
         element->SetClass(class_name, true);
     }
 }
 
-void RemoveClass(const std::string& document_path, const std::string& element_id, const std::string& class_name) {
-    Rml::Element* element = GetElement(document_path, element_id);
+void RemoveClass(const std::string &document_path, const std::string &element_id, const std::string &class_name) {
+    Rml::Element *element = GetElement(document_path, element_id);
     if (element) {
         element->SetClass(class_name, false);
     }
 }
 
-bool HasClass(const std::string& document_path, const std::string& element_id, const std::string& class_name) {
-    Rml::Element* element = GetElement(document_path, element_id);
+bool HasClass(const std::string &document_path, const std::string &element_id, const std::string &class_name) {
+    Rml::Element *element = GetElement(document_path, element_id);
     if (element) {
         return element->IsClassSet(class_name);
     }
@@ -484,7 +484,7 @@ bool HasClass(const std::string& document_path, const std::string& element_id, c
 // DATA BINDING
 // ============================================================================
 
-Rml::DataModelConstructor BindDataModel(const std::string& model_name) {
+Rml::DataModelConstructor BindDataModel(const std::string &model_name) {
     if (!g_state.initialized || !g_state.main_context) {
         LOG_ERROR("RmlUI not initialized");
         return Rml::DataModelConstructor();
@@ -504,8 +504,8 @@ Rml::DataModelConstructor BindDataModel(const std::string& model_name) {
 // COMMON UI HELPERS
 // ============================================================================
 
-void ShowMessageBox(const std::string& title, const std::string& message,
-                   std::function<void()> on_ok) {
+void ShowMessageBox(const std::string &title, const std::string &message,
+    std::function<void()> on_ok) {
     if (!g_state.initialized) {
         return;
     }
@@ -514,7 +514,8 @@ void ShowMessageBox(const std::string& title, const std::string& message,
     std::string rml = R"(
 <rml>
 <head>
-    <title>)" + title + R"(</title>
+    <title>)"
+        + title + R"(</title>
     <style>
         body {
             width: 400px;
@@ -555,34 +556,36 @@ void ShowMessageBox(const std::string& title, const std::string& message,
     </style>
 </head>
 <body>
-    <div class="title">)" + title + R"(</div>
-    <div class="message">)" + message + R"(</div>
+    <div class="title">)"
+        + title + R"(</div>
+    <div class="message">)"
+        + message + R"(</div>
     <button id="ok_button">OK</button>
 </body>
 </rml>
 )";
 
     // Load the message box
-    Rml::ElementDocument* doc = g_state.main_context->LoadDocumentFromMemory(rml);
+    Rml::ElementDocument *doc = g_state.main_context->LoadDocumentFromMemory(rml);
     if (doc) {
         doc->Show();
 
         // Register OK button handler
         if (on_ok) {
-            RegisterEventListener("msgbox", "ok_button", "click", [on_ok, doc](Rml::Event&) {
+            RegisterEventListener("msgbox", "ok_button", "click", [on_ok, doc](Rml::Event &) {
                 on_ok();
                 doc->Close();
             });
         } else {
-            RegisterEventListener("msgbox", "ok_button", "click", [doc](Rml::Event&) {
+            RegisterEventListener("msgbox", "ok_button", "click", [doc](Rml::Event &) {
                 doc->Close();
             });
         }
     }
 }
 
-void ShowConfirmDialog(const std::string& title, const std::string& message,
-                      std::function<void(bool)> callback) {
+void ShowConfirmDialog(const std::string &title, const std::string &message,
+    std::function<void(bool)> callback) {
     if (!g_state.initialized || !callback) {
         return;
     }
@@ -591,7 +594,8 @@ void ShowConfirmDialog(const std::string& title, const std::string& message,
     std::string rml = R"(
 <rml>
 <head>
-    <title>)" + title + R"(</title>
+    <title>)"
+        + title + R"(</title>
     <style>
         body {
             width: 400px;
@@ -637,8 +641,10 @@ void ShowConfirmDialog(const std::string& title, const std::string& message,
     </style>
 </head>
 <body>
-    <div class="title">)" + title + R"(</div>
-    <div class="message">)" + message + R"(</div>
+    <div class="title">)"
+        + title + R"(</div>
+    <div class="message">)"
+        + message + R"(</div>
     <div class="buttons">
         <button id="yes_button">Yes</button>
         <button id="no_button">No</button>
@@ -647,17 +653,17 @@ void ShowConfirmDialog(const std::string& title, const std::string& message,
 </rml>
 )";
 
-    Rml::ElementDocument* doc = g_state.main_context->LoadDocumentFromMemory(rml);
+    Rml::ElementDocument *doc = g_state.main_context->LoadDocumentFromMemory(rml);
     if (doc) {
         doc->Show();
 
         // Register button handlers
-        RegisterEventListener("confirm", "yes_button", "click", [callback, doc](Rml::Event&) {
+        RegisterEventListener("confirm", "yes_button", "click", [callback, doc](Rml::Event &) {
             callback(true);
             doc->Close();
         });
 
-        RegisterEventListener("confirm", "no_button", "click", [callback, doc](Rml::Event&) {
+        RegisterEventListener("confirm", "no_button", "click", [callback, doc](Rml::Event &) {
             callback(false);
             doc->Close();
         });
@@ -673,7 +679,7 @@ void ShowDebugOverlay(bool show) {
     // Note: Actual debug visualization would be implemented in the render loop
 }
 
-void SetDebugText(const std::string& key, const std::string& value) {
+void SetDebugText(const std::string &key, const std::string &value) {
     g_state.debug_values[key] = value;
 }
 

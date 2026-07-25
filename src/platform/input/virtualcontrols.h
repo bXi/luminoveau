@@ -8,7 +8,7 @@
 
 /**
  * @brief Manages virtual onscreen controls for touch devices
- * 
+ *
  * Provides joystick and button controls that can be rendered on screen
  * and respond to touch input. Useful for mobile devices and tablets.
  */
@@ -16,36 +16,36 @@ class VirtualControls {
 public:
     /// @brief How the onscreen joystick is positioned and shown.
     enum class JoystickMode {
-        DISABLED,   ///< No joystick shown.
-        STATIC,     ///< Joystick fixed at a set position.
-        RELATIVE    ///< Joystick appears where you first touch.
+        DISABLED, ///< No joystick shown.
+        STATIC,   ///< Joystick fixed at a set position.
+        RELATIVE  ///< Joystick appears where you first touch.
     };
 
     /// @brief One onscreen touch button (state, layout and optional custom texture).
     struct VirtualButton {
-        vf2d individualOffset;          ///< Offset from the anchor point, for this button's layout.
-        float radius;                   ///< Button radius in pixels.
-        bool isPressed;                 ///< True while the button is currently held.
-        bool wasPressed;                ///< Press state from the previous frame (for edge detection).
-        SDL_FingerID activeFinger;      ///< Finger currently pressing this button, if any.
+        vf2d          individualOffset; ///< Offset from the anchor point, for this button's layout.
+        float         radius;           ///< Button radius in pixels.
+        bool          isPressed;        ///< True while the button is currently held.
+        bool          wasPressed;       ///< Press state from the previous frame (for edge detection).
+        SDL_FingerID  activeFinger;     ///< Finger currently pressing this button, if any.
         TextureAsset *customTexture;    ///< Custom texture, or nullptr to use the default.
-        std::string label;              ///< Optional text label drawn centered on the button.
+        std::string   label;            ///< Optional text label drawn centered on the button.
 
         /**
          * @brief Get the actual screen position of this button
          * @param anchorOffset The anchor point offset (base position + group offset)
          */
-        vf2d GetScreenPosition(const vf2d& anchorOffset) const;
+        vf2d GetScreenPosition(const vf2d &anchorOffset) const;
     };
 
     /// @cond INTERNAL
     struct JoystickState {
-        vf2d direction;                 // Normalized direction vector
-        float magnitude;                // 0.0 to 1.0
-        vf2d touchStart;                // Where touch began
-        vf2d touchCurrent;              // Current touch position
-        SDL_FingerID activeFinger;      // Which finger is controlling
-        bool isActive;
+        vf2d         direction;    // Normalized direction vector
+        float        magnitude;    // 0.0 to 1.0
+        vf2d         touchStart;   // Where touch began
+        vf2d         touchCurrent; // Current touch position
+        SDL_FingerID activeFinger; // Which finger is controlling
+        bool         isActive;
     };
     /// @endcond
 
@@ -81,12 +81,12 @@ public:
      * @brief Show or hide the debug window
      * @param show True to show, false to hide
      */
-    void ShowDebugWindow(bool show) { m_showDebugWindow = show; }
+    void ShowDebugWindow(bool show) { _showDebugWindow = show; }
 
     /**
      * @brief Check if debug window is visible
      */
-    bool IsDebugWindowVisible() const { return m_showDebugWindow; }
+    bool IsDebugWindowVisible() const { return _showDebugWindow; }
 #endif
 
     // === Configuration ===
@@ -94,37 +94,37 @@ public:
      * @brief Enable or disable virtual controls
      * @param enabled True to enable, false to disable
      */
-    void SetEnabled(bool enabled) { m_enabled = enabled; }
+    void SetEnabled(bool enabled) { _enabled = enabled; }
 
     /**
      * @brief Check if virtual controls are enabled
      */
-    bool IsEnabled() const { return m_enabled; }
+    bool IsEnabled() const { return _enabled; }
 
     /**
      * @brief Set the joystick mode
      * @param mode The joystick mode (DISABLED, STATIC, RELATIVE)
      */
-    void SetJoystickMode(JoystickMode mode) { m_joystickMode = mode; }
+    void SetJoystickMode(JoystickMode mode) { _joystickMode = mode; }
 
     /**
      * @brief Get the current joystick mode
      */
-    JoystickMode GetJoystickMode() const { return m_joystickMode; }
+    JoystickMode GetJoystickMode() const { return _joystickMode; }
 
     /**
      * @brief Set the button group offset from bottom-right corner
      * @param offset Offset from bottom-right corner
      */
-    void SetButtonGroupOffset(const vf2d& offset) { 
-        m_buttonGroupOffset = offset;
-        LayoutButtons();
+    void SetButtonGroupOffset(const vf2d &offset) {
+        _buttonGroupOffset = offset;
+        _layoutButtons();
     }
 
     /**
      * @brief Get the button group offset from bottom-right corner
      */
-    vf2d GetButtonGroupOffset() const { return m_buttonGroupOffset; }
+    vf2d GetButtonGroupOffset() const { return _buttonGroupOffset; }
 
     /**
      * @brief Get the anchor point offset (default position + group offset)
@@ -141,7 +141,7 @@ public:
      * @brief Set the joystick offset from bottom-left corner (for STATIC mode)
      * @param offset Offset from bottom-left corner
      */
-    void SetJoystickPosition(const vf2d &offset) { m_joystickOffset = offset; }
+    void SetJoystickPosition(const vf2d &offset) { _joystickOffset = offset; }
 
     /**
      * @brief Get the actual joystick position (calculated from offset and window size)
@@ -152,26 +152,26 @@ public:
      * @brief Set the joystick base radius
      * @param radius Radius in pixels
      */
-    void SetJoystickRadius(float radius) { m_joystickRadius = radius; }
+    void SetJoystickRadius(float radius) { _joystickRadius = radius; }
 
     /**
      * @brief Set the joystick dead zone (0.0 to 1.0)
      * @param deadZone Dead zone threshold
      */
-    void SetJoystickDeadZone(float deadZone) { m_joystickDeadZone = deadZone; }
+    void SetJoystickDeadZone(float deadZone) { _joystickDeadZone = deadZone; }
 
     // === Textures ===
     /**
      * @brief Set custom texture for joystick base
      * @param texture Pointer to texture (nullptr to use default)
      */
-    void SetJoystickBaseTexture(TextureAsset *texture) { m_joystickBaseTexture = texture; }
+    void SetJoystickBaseTexture(TextureAsset *texture) { _joystickBaseTexture = texture; }
 
     /**
      * @brief Set custom texture for joystick stick
      * @param texture Pointer to texture (nullptr to use default)
      */
-    void SetJoystickStickTexture(TextureAsset *texture) { m_joystickStickTexture = texture; }
+    void SetJoystickStickTexture(TextureAsset *texture) { _joystickStickTexture = texture; }
 
     /**
      * @brief Set custom texture for a specific button
@@ -197,7 +197,7 @@ public:
      * in the same space and stay anchored to the real screen corners.
      * @param usePhysical True → physical pixels; false (default) → logical.
      */
-    void SetUsePhysicalCoords(bool usePhysical) { m_usePhysicalCoords = usePhysical; }
+    void SetUsePhysicalCoords(bool usePhysical) { _usePhysicalCoords = usePhysical; }
 
     /**
      * @brief Uniformly scale the on-screen controls (joystick + buttons + offsets).
@@ -229,7 +229,7 @@ public:
      * mirror each finger, which would double-drive the look region and joystick.
      * Disable this when genuine touch input is present. Default: enabled.
      */
-    void SetMouseEmulationEnabled(bool enabled) { m_mouseEmulation = enabled; }
+    void SetMouseEmulationEnabled(bool enabled) { _mouseEmulation = enabled; }
 
     // === Look region (right-side drag → camera delta) ===
     /**
@@ -238,7 +238,7 @@ public:
      *        for camera turn/pitch. Works alongside the left joystick and buttons.
      * @param enabled True to enable.
      */
-    void SetLookRegionEnabled(bool enabled) { m_lookEnabled = enabled; }
+    void SetLookRegionEnabled(bool enabled) { _lookEnabled = enabled; }
 
     /**
      * @brief Consume the look-drag delta accumulated since the last call.
@@ -249,7 +249,7 @@ public:
     /**
      * @brief Whether a finger/mouse is currently dragging in the look region.
      */
-    bool IsLookActive() const { return m_lookActive; }
+    bool IsLookActive() const { return _lookActive; }
 
     /**
      * @brief Consume a "tap" in the look region: a press+release that barely moved
@@ -262,17 +262,17 @@ public:
     /**
      * @brief Get the joystick state
      */
-    const JoystickState &GetJoystickState() const { return m_joystick; }
+    const JoystickState &GetJoystickState() const { return _joystick; }
 
     /**
      * @brief Get the joystick direction vector (normalized)
      */
-    vf2d GetJoystickDirection() const { return m_joystick.direction; }
+    vf2d GetJoystickDirection() const { return _joystick.direction; }
 
     /**
      * @brief Get the joystick magnitude (0.0 to 1.0)
      */
-    float GetJoystickMagnitude() const { return m_joystick.magnitude; }
+    float GetJoystickMagnitude() const { return _joystick.magnitude; }
 
     // === Right joystick (twin-stick) ===
     // A second analog joystick anchored to the bottom-right, activated by a touch in the right half
@@ -283,23 +283,23 @@ public:
     /**
      * @brief Set the right joystick mode (DISABLED, STATIC, RELATIVE). Default DISABLED.
      */
-    void SetRightJoystickMode(JoystickMode mode) { m_joystickRightMode = mode; }
+    void SetRightJoystickMode(JoystickMode mode) { _joystickRightMode = mode; }
     /**
      * @brief Get the right joystick mode.
      */
-    JoystickMode GetRightJoystickMode() const { return m_joystickRightMode; }
+    JoystickMode GetRightJoystickMode() const { return _joystickRightMode; }
     /**
      * @brief Get the right joystick state.
      */
-    const JoystickState &GetRightJoystickState() const { return m_joystickRight; }
+    const JoystickState &GetRightJoystickState() const { return _joystickRight; }
     /**
      * @brief Get the right joystick direction vector (normalized).
      */
-    vf2d GetRightJoystickDirection() const { return m_joystickRight.direction; }
+    vf2d GetRightJoystickDirection() const { return _joystickRight.direction; }
     /**
      * @brief Get the right joystick magnitude (0.0 to 1.0).
      */
-    float GetRightJoystickMagnitude() const { return m_joystickRight.magnitude; }
+    float GetRightJoystickMagnitude() const { return _joystickRight.magnitude; }
 
     /**
      * @brief Check if a button is currently pressed
@@ -320,44 +320,44 @@ public:
     bool IsButtonJustReleased(int buttonIndex) const;
 
 private:
-    bool m_enabled;
-    JoystickMode m_joystickMode;
+    bool         _enabled;
+    JoystickMode _joystickMode;
 
     // Coordinate space: logical (default) or physical (device) pixels.
-    bool m_usePhysicalCoords = false;
+    bool _usePhysicalCoords = false;
 
     // Uniform size multiplier for all controls (1.0 = default cm sizing).
-    float m_controlScale = 1.0f;
+    float _controlScale = 1.0f;
     // Viewport-relative sizing: joystick radius as a fraction of min(view) when >0.
-    float m_relJoystickFrac = 0.0f;
-    float m_lastViewW = 0.0f, m_lastViewH = 0.0f;
-    void ApplyViewportScale();   ///< Recompute m_controlScale from the viewport.
+    float _relJoystickFrac = 0.0f;
+    float _lastViewW = 0.0f, _lastViewH = 0.0f;
+    void  _applyViewportScale(); ///< Recompute _controlScale from the viewport.
     // Drive controls with the mouse (desktop test). Off on real touch devices.
-    bool m_mouseEmulation = true;
-    float viewW() const;   ///< Active-space window width (logical or physical).
-    float viewH() const;   ///< Active-space window height.
+    bool  _mouseEmulation = true;
+    float _viewW() const; ///< Active-space window width (logical or physical).
+    float _viewH() const; ///< Active-space window height.
 
     // Look region (right-side drag → accumulated camera delta).
-    bool m_lookEnabled = false;
-    bool m_lookActive = false;
-    SDL_FingerID m_lookFinger = static_cast<SDL_FingerID>(-1);
-    vf2d m_lookLast{0.0f, 0.0f};
-    vf2d m_lookAccum{0.0f, 0.0f};
-    vf2d m_lookStart{0.0f, 0.0f};    ///< Where the current look touch began.
-    float m_lookMaxDist2 = 0.0f;     ///< Max squared travel from start (tap vs drag).
-    bool m_lookTap = false;          ///< A tap (barely-moved press+release) is pending.
-    bool IsInLookRegion(const vf2d &pos) const;   ///< Right half, and look enabled.
+    bool         _lookEnabled = false;
+    bool         _lookActive  = false;
+    SDL_FingerID _lookFinger  = static_cast<SDL_FingerID>(-1);
+    vf2d         _lookLast { 0.0f, 0.0f };
+    vf2d         _lookAccum { 0.0f, 0.0f };
+    vf2d         _lookStart { 0.0f, 0.0f };              ///< Where the current look touch began.
+    float        _lookMaxDist2 = 0.0f;                   ///< Max squared travel from start (tap vs drag).
+    bool         _lookTap      = false;                  ///< A tap (barely-moved press+release) is pending.
+    bool         _isInLookRegion(const vf2d &pos) const; ///< Right half, and look enabled.
 
     // Right joystick (twin-stick). Shares the left stick's radius/dead-zone/textures; position mirrors
     // the left offset to the bottom-right corner. Touch-driven only.
-    JoystickMode  m_joystickRightMode = JoystickMode::DISABLED;
-    JoystickState m_joystickRight{};
-    vf2d GetRightJoystickPosition() const;                     ///< Resting centre (bottom-right).
-    bool IsTouchInRightJoystickArea(const vf2d &pos) const;    ///< Right half of the screen.
-    void RenderStick(const JoystickState &js, JoystickMode mode, const vf2d &basePos);  ///< Shared draw.
+    JoystickMode  _joystickRightMode = JoystickMode::DISABLED;
+    JoystickState _joystickRight {};
+    vf2d          _getRightJoystickPosition() const;                                             ///< Resting centre (bottom-right).
+    bool          _isTouchInRightJoystickArea(const vf2d &pos) const;                            ///< Right half of the screen.
+    void          _renderStick(const JoystickState &js, JoystickMode mode, const vf2d &basePos); ///< Shared draw.
 
 #ifdef LUMINOVEAU_WITH_IMGUI
-    bool m_showDebugWindow;
+    bool _showDebugWindow;
 #endif
 
     /**
@@ -365,41 +365,41 @@ private:
      * @param wantedCM Desired size in centimeters
      * @return Size in pixels
      */
-    float cm(float wantedCM) const;
+    float _cm(float wantedCM) const;
 
     /**
      * @brief Convert pixels to centimeters based on platform DPI
      * @param pixels Size in pixels
      * @return Size in centimeters
      */
-    float pixelsToCm(float pixels) const;
+    float _pixelsToCm(float pixels) const;
 
     // Joystick
-    JoystickState m_joystick;
-    vf2d m_joystickOffset;                  // Offset from bottom-left corner
-    float m_joystickRadius;
-    float m_joystickDeadZone;
-    TextureAsset *m_joystickBaseTexture;
-    TextureAsset *m_joystickStickTexture;
+    JoystickState _joystick;
+    vf2d          _joystickOffset; // Offset from bottom-left corner
+    float         _joystickRadius;
+    float         _joystickDeadZone;
+    TextureAsset *_joystickBaseTexture;
+    TextureAsset *_joystickStickTexture;
 
     // Buttons
-    std::vector<VirtualButton> m_buttons;
-    int m_buttonCount;
-    vf2d m_buttonGroupOffset;  // Offset from bottom-right corner for button group
+    std::vector<VirtualButton> _buttons;
+    int                        _buttonCount;
+    vf2d                       _buttonGroupOffset; // Offset from bottom-right corner for button group
 
     // Default white circle texture
-    TextureAsset *m_defaultTexture;
+    TextureAsset *_defaultTexture;
 
     // Helper methods
-    void UpdateJoystick();
-    void UpdateButtons();
-    void UpdateMouse();
-    void RenderJoystick();
-    void RenderButtons();
-    void InitializeDefaultTexture();
-    void LayoutButtons();
+    void _updateJoystick();
+    void _updateButtons();
+    void _updateMouse();
+    void _renderJoystick();
+    void _renderButtons();
+    void _initializeDefaultTexture();
+    void _layoutButtons();
 
     // Touch handling helpers
-    bool IsTouchInJoystickArea(const vf2d &touchPos);
-    int GetButtonAtPosition(const vf2d &position);
+    bool _isTouchInJoystickArea(const vf2d &touchPos);
+    int  _getButtonAtPosition(const vf2d &position);
 };

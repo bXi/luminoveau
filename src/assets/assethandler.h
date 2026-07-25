@@ -28,9 +28,9 @@
 
 // Forward declarations for cleanup
 namespace msdfgen {
-    class FontHandle;
-    void destroyFont(FontHandle*);
-}
+class FontHandle;
+void destroyFont(FontHandle *);
+} // namespace msdfgen
 
 #include "renderer/renderer.h"
 
@@ -45,14 +45,14 @@ public:
      * @param fileName The name of the texture file.
      * @return The texture corresponding to the file name.
      */
-    static Texture GetTexture(const char *fileName) { return get()._getTexture(fileName); }
+    static Texture GetTexture(const char *fileName) { return Get()._getTexture(fileName); }
 
     /**
      * @brief Loads a texture from the specified file.
      *
      * @param fileName The name of the texture file to load.
      */
-    static void LoadTexture(const char *fileName) { get()._loadTexture(fileName); }
+    static void LoadTexture(const char *fileName) { Get()._loadTexture(fileName); }
 
     /**
      * @brief Load a texture file to a GPU asset WITHOUT caching (caller owns it).
@@ -62,7 +62,7 @@ public:
      * Returns an empty TextureAsset (gpuTexture == 0) on failure.
      */
     static TextureAsset LoadTextureFile(const std::string &path) {
-        return get()._loadTextureFile(path);
+        return Get()._loadTextureFile(path);
     }
 
     /**
@@ -76,30 +76,30 @@ public:
      * on Metal the per-texture commit overhead is otherwise significant. Calls must be paired;
      * nesting is not supported (Begin while already batching is a no-op-with-warning).
      */
-    static void BeginUploadBatch() { get()._beginUploadBatch(); }
+    static void BeginUploadBatch() { Get()._beginUploadBatch(); }
     /// @brief Ends an upload batch started with BeginUploadBatch(), flushing pending uploads.
-    static void EndUploadBatch()   { get()._endUploadBatch(); }
+    static void EndUploadBatch() { Get()._endUploadBatch(); }
 
     /// @brief Creates a texture from raw RGBA pixel data.
     /// @param size Texture dimensions.
     /// @param pixelData Pointer to tightly-packed RGBA8 pixels.
     /// @param fileName Name to register the resulting texture under.
     /// @return The created texture asset.
-    static TextureAsset LoadFromPixelData(const vf2d& size, void *pixelData, std::string fileName) { return get()._loadFromPixelData(size, pixelData, std::move(fileName)); }
+    static TextureAsset LoadFromPixelData(const vf2d &size, void *pixelData, std::string fileName) { return Get()._loadFromPixelData(size, pixelData, std::move(fileName)); }
 
     /**
      * @brief Sets a scaling mode for all textures loaded after this call.
      *
      * @param mode The new ScaleMode to set as default.
      */
-    static void SetDefaultTextureScaleMode(ScaleMode mode) { get()._setDefaultTextureScaleMode(mode); }
+    static void SetDefaultTextureScaleMode(ScaleMode mode) { Get()._setDefaultTextureScaleMode(mode); }
 
     /**
      * @brief Gets the current scaling mode.
      *
      * @return The current ScaleMode.
      */
-    static ScaleMode GetDefaultTextureScaleMode() { return get()._getDefaultTextureScaleMode(); }
+    static ScaleMode GetDefaultTextureScaleMode() { return Get()._getDefaultTextureScaleMode(); }
 
     /**
      * @brief Saves the given texture as a PNG file.
@@ -107,7 +107,7 @@ public:
      * @param texture The texture to save.
      * @param fileName The name of the PNG file to save.
      */
-    static void SaveTextureAsPNG(Texture texture, const char *fileName) { get()._saveTextureAsPNG(texture, fileName); }
+    static void SaveTextureAsPNG(Texture texture, const char *fileName) { Get()._saveTextureAsPNG(texture, fileName); }
 
     /**
      * @brief Creates an empty texture with the specified size.
@@ -115,19 +115,19 @@ public:
      * @param size The size of the empty texture.
      * @return The created empty texture.
      */
-    static TextureAsset CreateEmptyTexture(const vf2d &size) { return get()._createEmptyTexture(size); }
+    static TextureAsset CreateEmptyTexture(const vf2d &size) { return Get()._createEmptyTexture(size); }
     /// @brief Creates an empty texture with an explicit pixel format.
     /// @param size The size of the empty texture.
     /// @param format The GPU pixel format to allocate.
     /// @return The created empty texture.
-    static TextureAsset CreateEmptyTexture(const vf2d &size, GpuTextureFormat format) { return get()._createEmptyTexture(size, format); }
+    static TextureAsset CreateEmptyTexture(const vf2d &size, GpuTextureFormat format) { return Get()._createEmptyTexture(size, format); }
 
     /**
      * @brief Retrieves a map of all loaded textures.
      *
      * @return The map of loaded textures.
      */
-    static const std::unordered_map<std::string, TextureAsset>& GetTextures() { return get()._textures; }
+    static const std::unordered_map<std::string, TextureAsset> &GetTextures() { return Get()._textures; }
 
     /**
      * @brief Retrieves a font asset with the specified filename and font size.
@@ -137,7 +137,7 @@ public:
      * @return The font asset.
      */
     static Font GetFont(const char *fileName, const int fontSize) {
-        return get()._getFont(fileName, fontSize);
+        return Get()._getFont(fileName, fontSize);
     }
 
     /**
@@ -147,7 +147,7 @@ public:
      * @return The music asset.
      */
     static Music &GetMusic(const char *fileName) {
-        return get()._getMusic(fileName);
+        return Get()._getMusic(fileName);
     }
 
     /**
@@ -157,7 +157,7 @@ public:
      * @return The sound asset.
      */
     static Sound GetSound(const char *fileName) {
-        return get()._getSound(fileName);
+        return Get()._getSound(fileName);
     }
 
     /**
@@ -166,7 +166,7 @@ public:
      * @return The default font.
      */
     static Font GetDefaultFont() {
-        return get().defaultFont;
+        return Get()._defaultFont;
     }
 
     /**
@@ -176,7 +176,7 @@ public:
      * @return The texture corresponding to the file name.
      */
     static Shader GetShader(const char *fileName) {
-        return get()._getShader(fileName);
+        return Get()._getShader(fileName);
     }
 
     /**
@@ -188,8 +188,8 @@ public:
      * @param fileName Path to the .comp shader file.
      * @return Reference to the cached ComputePipelineAsset.
      */
-    static ComputePipelineAsset& GetComputePipeline(const char *fileName) {
-        return get()._getComputePipeline(fileName);
+    static ComputePipelineAsset &GetComputePipeline(const char *fileName) {
+        return Get()._getComputePipeline(fileName);
     }
 
     /// @brief Creates a depth texture usable as a depth render target.
@@ -197,12 +197,12 @@ public:
     /// @param height Target height in pixels.
     /// @return The created depth-target texture.
     static TextureAsset CreateDepthTarget(uint32_t width, uint32_t height) {
-        return get()._createDepthTarget(width, height);
+        return Get()._createDepthTarget(width, height);
     }
 
     /// @brief Creates a 1×1 opaque white texture, handy as a tint/solid-fill source.
     static TextureAsset CreateWhitePixel() {
-        return get()._createWhitePixel();
+        return Get()._createWhitePixel();
     }
 
     /**
@@ -213,36 +213,35 @@ public:
      * @return A ModelAsset containing a cube.
      */
     static ModelAsset CreateCube(float size = 1.0f, CubeUVLayout layout = CubeUVLayout::Atlas4x4) {
-        return get()._createCube(size, layout);
+        return Get()._createCube(size, layout);
     }
 
     /// @brief Releases an asset's GPU/CPU resources and drops it from the cache.
     /// @tparam T The asset type (deduced from the argument).
     /// @param asset The asset to delete.
-    template<typename T>
+    template <typename T>
     static void Delete(T &asset) {
-        get()._delete(asset);
+        Get()._delete(asset);
     }
 
     /// @brief Returns the map of currently loaded music assets, keyed by file name.
     static std::unordered_map<std::string, MusicAsset> &GetLoadedMusics() {
-        return get()._musics;
+        return Get()._musics;
     }
 
     /**
      * @brief Get the embedded DroidSansMono font data
      * @return Pointer to font data and length as a pair
      */
-    static std::pair<const unsigned char*, size_t> GetEmbeddedFontData() {
-        return {DroidSansMono_ttf, get().DroidSansMono_ttf_len};
+    static std::pair<const unsigned char *, size_t> GetEmbeddedFontData() {
+        return { DROID_SANS_MONO_TTF, DROID_SANS_MONO_TTF_LEN };
     }
 
     /**
      * @brief Cleans up all loaded assets.
      * @note Called automatically on shutdown. You rarely need to call this manually.
      */
-    static void Cleanup() { get()._cleanup(); }
-
+    static void Cleanup() { Get()._cleanup(); }
 
 private:
     // Textures
@@ -251,28 +250,28 @@ private:
 
     TextureAsset _loadTexture(const std::string &fileName);
 
-    TextureAsset _loadTextureFile(const std::string &path);     // uncached; dispatches KTX2/SDL_image
-    TextureAsset _loadKtx2(const uint8_t *data, size_t size);   // transcode KTX2/Basis -> BC GPU texture
+    TextureAsset _loadTextureFile(const std::string &path);   // uncached; dispatches KTX2/SDL_image
+    TextureAsset _loadKtx2(const uint8_t *data, size_t size); // transcode KTX2/Basis -> BC GPU texture
 
     TextureAsset _loadFromPixelData(const vf2d &size, void *pixelData, std::string fileName);
 
-    bool _copy_to_texture(void *src_data, uint32_t src_data_len, GpuTextureHandle dst_texture,
-                          uint32_t dst_texture_width, uint32_t dst_texture_height);
+    bool _copyToTexture(void *srcData, uint32_t srcDataLen, GpuTextureHandle dstTexture,
+        uint32_t dstTextureWidth, uint32_t dstTextureHeight);
 
     // ── Upload batching (see Begin/EndUploadBatch) ────────────────────────────
-    // While batching, texture uploads share m_batchCmd and defer transfer-buffer release until a
+    // While batching, texture uploads share _batchCmd and defer transfer-buffer release until a
     // flush; otherwise each upload acquires + submits its own command buffer (original behavior).
     void               _beginUploadBatch();
     void               _endUploadBatch();
-    GpuCmdBufferHandle _batchAcquire();                       // shared cmd while batching, else fresh
-    void               _batchTrack(GpuTransferBufferHandle tb, uint32_t bytes);  // defer release + budget
-    void               _batchFinishUpload(GpuCmdBufferHandle cmd);  // submit+release now, or defer to flush
-    void               _batchFlush();                         // submit shared cmd + release tracked buffers
+    GpuCmdBufferHandle _batchAcquire();                                         // shared cmd while batching, else fresh
+    void               _batchTrack(GpuTransferBufferHandle tb, uint32_t bytes); // defer release + budget
+    void               _batchFinishUpload(GpuCmdBufferHandle cmd);              // submit+release now, or defer to flush
+    void               _batchFlush();                                           // submit shared cmd + release tracked buffers
 
-    bool                                 m_uploadBatching = false;
-    GpuCmdBufferHandle                   m_batchCmd       = 0;
-    std::vector<GpuTransferBufferHandle> m_batchStaging;
-    size_t                               m_batchBytes     = 0;
+    bool                                 _uploadBatching = false;
+    GpuCmdBufferHandle                   _batchCmd       = 0;
+    std::vector<GpuTransferBufferHandle> _batchStaging;
+    size_t                               _batchBytes = 0;
 
     void _setDefaultTextureScaleMode(ScaleMode mode);
 
@@ -288,7 +287,7 @@ private:
     TextureAsset _createWhitePixel();
 
     // Models
-    
+
     ModelAsset _createCube(float size, CubeUVLayout layout);
 
     // Fonts
@@ -311,46 +310,45 @@ private:
 
     // Compute pipelines
 
-    ComputePipelineAsset& _getComputePipeline(const std::string &fileName);
+    ComputePipelineAsset &_getComputePipeline(const std::string &fileName);
 
-    //Containers
+    // Containers
 
-    std::unordered_map<std::string, FontAsset>             _fonts;
-    std::unordered_map<std::string, MusicAsset>            _musics;
-    std::unordered_map<std::string, ShaderAsset>           _shaders;
-    std::unordered_map<std::string, SoundAsset>            _sounds;
-    std::unordered_map<std::string, TextureAsset>          _textures;
-    std::unordered_map<std::string, ComputePipelineAsset>  _computePipelines;
+    std::unordered_map<std::string, FontAsset>            _fonts;
+    std::unordered_map<std::string, MusicAsset>           _musics;
+    std::unordered_map<std::string, ShaderAsset>          _shaders;
+    std::unordered_map<std::string, SoundAsset>           _sounds;
+    std::unordered_map<std::string, TextureAsset>         _textures;
+    std::unordered_map<std::string, ComputePipelineAsset> _computePipelines;
 
-    ScaleMode defaultMode = ScaleMode::Nearest;
+    ScaleMode _defaultMode = ScaleMode::Nearest;
 
     // Thread safety
-    std::mutex assetMutex;
+    std::mutex _assetMutex;
 
     // Font cache
-    ResourcePack* _fontCache = nullptr;
-    void _initFontCache();
-    void _saveFontCache();
-    bool _loadFontFromCache(const std::string& fileName, int fontSize, FontAsset& outFont, const std::string& precomputedHash = "");
-    void _saveFontToCache(const std::string& fileName, const FontAsset& font, const std::vector<unsigned char>& rgbaData, const std::string& precomputedHash = "");
-    std::string _computeFontCacheKey(const std::string& fileName);
-    std::string _computeFontCacheKeyFromData(const void* data, size_t size);
+    ResourcePack *_fontCache = nullptr;
+    void          _initFontCache();
+    void          _saveFontCache();
+    bool          _loadFontFromCache(const std::string &fileName, int fontSize, FontAsset &outFont, const std::string &precomputedHash = "");
+    void          _saveFontToCache(const std::string &fileName, const FontAsset &font, const std::vector<unsigned char> &rgbaData, const std::string &precomputedHash = "");
+    std::string   _computeFontCacheKey(const std::string &fileName);
+    std::string   _computeFontCacheKeyFromData(const void *data, size_t size);
 #if defined(LUMINOVEAU_HAVE_FONT_ATLAS_BLOB)
     // Load the default font from the baked atlas blob (tools/font_baker) instead of generating it.
-    bool _loadDefaultFontFromBlob(FontAsset& font);
+    bool _loadDefaultFontFromBlob(FontAsset &font);
 #endif
 
     // Cleanup
     void _cleanup();
 
+    // Default font asset (Droid Sans Mono.ttf), embedded as a blob in DroidSansMono.cpp.
+    static const unsigned char    DROID_SANS_MONO_TTF[];
+    static constexpr unsigned int DROID_SANS_MONO_TTF_LEN = 119380;
 
-    // default font asset Droid Sans Mono.ttf
-    static const unsigned char DroidSansMono_ttf[];
-    unsigned int               DroidSansMono_ttf_len = 119380;
+    FontAsset _defaultFont;
 
-    FontAsset defaultFont;
-
-    template<typename T>
+    template <typename T>
     void _delete(T &asset) {
 
         if constexpr (std::is_same_v<T, FontAsset>) {
@@ -370,7 +368,7 @@ private:
                     asset.glyphMap = nullptr;
                 }
                 if (asset.atlasTexture) {
-                    Renderer::GetGpu().releaseTexture(asset.atlasTexture);
+                    Renderer::GetGpu().ReleaseTexture(asset.atlasTexture);
                     asset.atlasTexture = 0;
                 }
                 if (asset.fontHandle) {
@@ -417,7 +415,7 @@ private:
 
             if (it != _textures.end()) {
                 if (asset.gpuTexture) {
-                    Renderer::GetGpu().releaseTexture(asset.gpuTexture);
+                    Renderer::GetGpu().ReleaseTexture(asset.gpuTexture);
                     asset.gpuTexture = 0;
                 }
                 _textures.erase(it);
@@ -437,7 +435,7 @@ public:
         _cleanup();
     }
 
-    static AssetHandler &get() {
+    static AssetHandler &Get() {
         static AssetHandler instance;
         return instance;
     }

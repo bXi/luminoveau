@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // GpuPresets — ready-made sampler and blend state descriptors.
 //
-// Pass directly to IGpu::createSampler() or into GpuGraphicsPipelineCreateInfo.
+// Pass directly to IGpu::CreateSampler() or into GpuGraphicsPipelineCreateInfo.
 // All values are constexpr — zero runtime cost.
 //
 // Quick reference:
@@ -13,6 +13,10 @@
 //   Blend:       AlphaBlend, SrcAlphaBlend, AdditiveBlend, PremultipliedAlpha, Opaque
 // ─────────────────────────────────────────────────────────────────────────────
 
+// These are an API vocabulary of named preset values (used as GpuPresets::AlphaBlend,
+// GpuPresets::LinearClamp), read as enum-like values alongside the PascalCase enums they
+// build from — not magic-number constants. Kept PascalCase, not UPPER_CASE.
+// NOLINTBEGIN(readability-identifier-naming)
 namespace GpuPresets {
 
 // ── Samplers ─────────────────────────────────────────────────────────────────
@@ -135,3 +139,4 @@ inline constexpr GpuColorTargetBlendState Opaque = {
 };
 
 } // namespace GpuPresets
+// NOLINTEND(readability-identifier-naming)

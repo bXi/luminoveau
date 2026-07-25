@@ -17,11 +17,11 @@
 namespace {
 
 struct GamepadTest {
-    bool North = false, South = false, East = false, West = false;
-    bool DPadUp = false, DPadDown = false, DPadLeft = false, DPadRight = false;
-    bool Back = false, Start = false, Guide = false;
-    bool LeftStickClick = false, RightStickClick = false;
-    bool LeftShoulder = false, RightShoulder = false;
+    bool  North = false, South = false, East = false, West = false;
+    bool  DPadUp = false, DPadDown = false, DPadLeft = false, DPadRight = false;
+    bool  Back = false, Start = false, Guide = false;
+    bool  LeftStickClick = false, RightStickClick = false;
+    bool  LeftShoulder = false, RightShoulder = false;
     float LeftStickX = 0, LeftStickY = 0;
     float RightStickX = 0, RightStickY = 0;
     float LeftTrigger = 0, RightTrigger = 0;
@@ -58,46 +58,46 @@ bool audioVisible    = false;
 bool inputVisible    = false;
 bool demoVisible     = false;
 
-SDL_Window* g_imguiWindow = nullptr;
+SDL_Window *g_imguiWindow = nullptr;
 
 void SetupStyle() {
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 #ifdef LUMINOVEAU_WITH_IMGUI_DOCKING
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 #endif
 
-    ImGuiStyle& style = ImGui::GetStyle();
+    ImGuiStyle &style = ImGui::GetStyle();
 
-    style.Alpha                     = 1.0f;
-    style.DisabledAlpha             = 0.5f;
-    style.WindowPadding             = ImVec2(11.69999980926514f, 6.0f);
-    style.WindowRounding            = 10.0f;
-    style.WindowBorderSize          = 0.0f;
-    style.WindowMinSize             = ImVec2(20.0f, 20.0f);
-    style.WindowTitleAlign          = ImVec2(0.0f, 0.5f);
-    style.WindowMenuButtonPosition  = ImGuiDir_Right;
-    style.ChildRounding             = 0.0f;
-    style.ChildBorderSize           = 1.0f;
-    style.PopupRounding             = 0.0f;
-    style.PopupBorderSize           = 1.0f;
-    style.FramePadding              = ImVec2(20.0f, 9.899999618530273f);
-    style.FrameRounding             = 5.0f;
-    style.FrameBorderSize           = 0.0f;
-    style.ItemSpacing               = ImVec2(8.0f, 4.0f);
-    style.ItemInnerSpacing          = ImVec2(4.0f, 4.0f);
-    style.CellPadding               = ImVec2(4.0f, 2.0f);
-    style.IndentSpacing             = 21.0f;
-    style.ColumnsMinSpacing         = 6.0f;
-    style.ScrollbarSize             = 14.0f;
-    style.ScrollbarRounding         = 9.0f;
-    style.GrabMinSize               = 10.0f;
-    style.GrabRounding              = 0.0f;
-    style.TabRounding               = 4.0f;
-    style.TabBorderSize             = 0.0f;
-    style.ColorButtonPosition       = ImGuiDir_Right;
-    style.ButtonTextAlign           = ImVec2(0.5f, 0.5f);
-    style.SelectableTextAlign       = ImVec2(0.0f, 0.0f);
+    style.Alpha                    = 1.0f;
+    style.DisabledAlpha            = 0.5f;
+    style.WindowPadding            = ImVec2(11.69999980926514f, 6.0f);
+    style.WindowRounding           = 10.0f;
+    style.WindowBorderSize         = 0.0f;
+    style.WindowMinSize            = ImVec2(20.0f, 20.0f);
+    style.WindowTitleAlign         = ImVec2(0.0f, 0.5f);
+    style.WindowMenuButtonPosition = ImGuiDir_Right;
+    style.ChildRounding            = 0.0f;
+    style.ChildBorderSize          = 1.0f;
+    style.PopupRounding            = 0.0f;
+    style.PopupBorderSize          = 1.0f;
+    style.FramePadding             = ImVec2(20.0f, 9.899999618530273f);
+    style.FrameRounding            = 5.0f;
+    style.FrameBorderSize          = 0.0f;
+    style.ItemSpacing              = ImVec2(8.0f, 4.0f);
+    style.ItemInnerSpacing         = ImVec2(4.0f, 4.0f);
+    style.CellPadding              = ImVec2(4.0f, 2.0f);
+    style.IndentSpacing            = 21.0f;
+    style.ColumnsMinSpacing        = 6.0f;
+    style.ScrollbarSize            = 14.0f;
+    style.ScrollbarRounding        = 9.0f;
+    style.GrabMinSize              = 10.0f;
+    style.GrabRounding             = 0.0f;
+    style.TabRounding              = 4.0f;
+    style.TabBorderSize            = 0.0f;
+    style.ColorButtonPosition      = ImGuiDir_Right;
+    style.ButtonTextAlign          = ImVec2(0.5f, 0.5f);
+    style.SelectableTextAlign      = ImVec2(0.0f, 0.0f);
 
     style.Colors[ImGuiCol_Text]                  = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
     style.Colors[ImGuiCol_TextDisabled]          = ImVec4(0.5843137502670288f, 0.5960784554481506f, 0.615686297416687f, 1.0f);
@@ -158,13 +158,13 @@ void SetupStyle() {
 
 namespace ImGuiIntegration {
 
-void Init(SDL_Window* window) {
+void Init(SDL_Window *window) {
     g_imguiWindow = window;
     ImGui::CreateContext();
     SetupStyle();
 }
 
-void InitRenderer(SDL_Window* window) {
+void InitRenderer(SDL_Window *window) {
     ImGuiBackend::InitRenderer(window);
 }
 
@@ -174,32 +174,35 @@ void Shutdown() {
     ImGui::DestroyContext();
 }
 
-void ProcessEvent(SDL_Event* event) {
+void ProcessEvent(SDL_Event *event) {
 #ifdef __EMSCRIPTEN__
     // SDL mouse events are in SDL window space (e.g. 1280×720). ImGui needs canvas/
     // swapchain space — scale mouse coords before ImGui sees them. Browser only.
-    const uint32_t cw = Renderer::GetCanvasWidth();
-    const uint32_t ch = Renderer::GetCanvasHeight();
-    int sdlW = 0, sdlH = 0;
+    const uint32_t cw   = Renderer::GetCanvasWidth();
+    const uint32_t ch   = Renderer::GetCanvasHeight();
+    int            sdlW = 0, sdlH = 0;
     SDL_GetWindowSize(g_imguiWindow, &sdlW, &sdlH);
-    if (cw > 0 && ch > 0 && sdlW > 0 && sdlH > 0 &&
-        (cw != (uint32_t)sdlW || ch != (uint32_t)sdlH)) {
-        const float sx = (float)cw / (float)sdlW;
-        const float sy = (float)ch / (float)sdlH;
-        SDL_Event scaled = *event;
+    if (cw > 0 && ch > 0 && sdlW > 0 && sdlH > 0 && (cw != (uint32_t)sdlW || ch != (uint32_t)sdlH)) {
+        const float sx     = (float)cw / (float)sdlW;
+        const float sy     = (float)ch / (float)sdlH;
+        SDL_Event   scaled = *event;
         switch (event->type) {
-            case SDL_EVENT_MOUSE_MOTION:
-                scaled.motion.x *= sx; scaled.motion.y *= sy;
-                scaled.motion.xrel *= sx; scaled.motion.yrel *= sy;
-                break;
-            case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            case SDL_EVENT_MOUSE_BUTTON_UP:
-                scaled.button.x *= sx; scaled.button.y *= sy;
-                break;
-            case SDL_EVENT_MOUSE_WHEEL:
-                // wheel coords are not positional, no scaling needed
-                break;
-            default: break;
+        case SDL_EVENT_MOUSE_MOTION:
+            scaled.motion.x *= sx;
+            scaled.motion.y *= sy;
+            scaled.motion.xrel *= sx;
+            scaled.motion.yrel *= sy;
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            scaled.button.x *= sx;
+            scaled.button.y *= sy;
+            break;
+        case SDL_EVENT_MOUSE_WHEEL:
+            // wheel coords are not positional, no scaling needed
+            break;
+        default:
+            break;
         }
         ImGui_ImplSDL3_ProcessEvent(&scaled);
         return;
@@ -212,7 +215,7 @@ void NewFrame() {
     ImGui_ImplSDL3_NewFrame();
 #ifdef __EMSCRIPTEN__
     {
-        ImGuiIO& io = ImGui::GetIO();
+        ImGuiIO       &io = ImGui::GetIO();
         const uint32_t cw = Renderer::GetCanvasWidth();
         const uint32_t ch = Renderer::GetCanvasHeight();
         if (cw > 0 && ch > 0) {
@@ -239,26 +242,30 @@ void DrawDebugMenu() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Exit")) {
-                //TODO: implement proper exit
+                // TODO: implement proper exit
             }
             ImGui::EndMenu();
         }
 
         if (ImGui::BeginMenu("Debug")) {
-            if (ImGui::MenuItem("Textures"))      texturesVisible = !texturesVisible;
-            if (ImGui::MenuItem("Audio chunks"))  audioVisible    = !audioVisible;
-            if (ImGui::MenuItem("Input devices")) inputVisible    = !inputVisible;
-            if (ImGui::MenuItem("ImGui Demo"))    demoVisible     = !demoVisible;
+            if (ImGui::MenuItem("Textures"))
+                texturesVisible = !texturesVisible;
+            if (ImGui::MenuItem("Audio chunks"))
+                audioVisible = !audioVisible;
+            if (ImGui::MenuItem("Input devices"))
+                inputVisible = !inputVisible;
+            if (ImGui::MenuItem("ImGui Demo"))
+                demoVisible = !demoVisible;
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
     }
 
     if (texturesVisible) {
-        ImGui::SetNextWindowSizeConstraints({200, 200}, {FLT_MAX, FLT_MAX});
+        ImGui::SetNextWindowSizeConstraints({ 200, 200 }, { FLT_MAX, FLT_MAX });
         ImGui::Begin("Textures", &texturesVisible);
         ImGui::BeginChild("Loaded textures");
-        for (auto& texture : AssetHandler::GetTextures()) {
+        for (auto &texture : AssetHandler::GetTextures()) {
             ImGui::Text("%s", texture.first.c_str());
         }
         ImGui::EndChild();
@@ -266,141 +273,174 @@ void DrawDebugMenu() {
     }
 
     if (inputVisible) {
-        ImGui::SetNextWindowSizeConstraints({200, 200}, {FLT_MAX, FLT_MAX});
+        ImGui::SetNextWindowSizeConstraints({ 200, 200 }, { FLT_MAX, FLT_MAX });
         ImGui::Begin("Gamepads", &inputVisible);
 
-        int numJoysticks;
-        const SDL_JoystickID* joysticks = SDL_GetGamepads(&numJoysticks);
+        int                   numJoysticks;
+        const SDL_JoystickID *joysticks = SDL_GetGamepads(&numJoysticks);
 
         for (int i = 0; i < numJoysticks; ++i) {
             int offSetX = 40;
             int offSetY = 70;
 
-            SDL_Gamepad* gamepad = SDL_OpenGamepad(joysticks[i]);
+            SDL_Gamepad *gamepad = SDL_OpenGamepad(joysticks[i]);
             ImGui::BeginChild(SDL_GetGamepadName(gamepad));
             ImGui::Text("Gamepad %d: %s", i + 1, SDL_GetGamepadName(gamepad));
 
             GamepadTest d;
-            d.DPadUp    = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP);
-            d.DPadDown  = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
-            d.DPadLeft  = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT);
-            d.DPadRight = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
-            d.North     = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_NORTH);
-            d.South     = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_SOUTH);
-            d.East      = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_EAST);
-            d.West      = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_WEST);
+            d.DPadUp        = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP);
+            d.DPadDown      = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+            d.DPadLeft      = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT);
+            d.DPadRight     = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
+            d.North         = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_NORTH);
+            d.South         = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_SOUTH);
+            d.East          = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_EAST);
+            d.West          = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_WEST);
             d.LeftShoulder  = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
             d.RightShoulder = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
-            d.Start  = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_START);
-            d.Back   = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_BACK);
-            d.Guide  = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_GUIDE);
-            d.LeftStickX  = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTX)  / 32768.f;
-            d.LeftStickY  = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTY)  / 32768.f;
-            d.RightStickX = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTX) / 32768.f;
-            d.RightStickY = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTY) / 32768.f;
-            d.LeftTrigger  = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER)  / 32768.f;
-            d.RightTrigger = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) / 32768.f;
+            d.Start         = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_START);
+            d.Back          = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_BACK);
+            d.Guide         = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_GUIDE);
+            d.LeftStickX    = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTX) / 32768.f;
+            d.LeftStickY    = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTY) / 32768.f;
+            d.RightStickX   = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTX) / 32768.f;
+            d.RightStickY   = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTY) / 32768.f;
+            d.LeftTrigger   = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) / 32768.f;
+            d.RightTrigger  = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) / 32768.f;
 
             std::map<SDL_GamepadButton, std::string> buttonNames;
             switch (SDL_GetGamepadType(gamepad)) {
-                case SDL_GAMEPAD_TYPE_XBOXONE:
-                    buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "Y"; buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "A";
-                    buttonNames[SDL_GAMEPAD_BUTTON_EAST]  = "B"; buttonNames[SDL_GAMEPAD_BUTTON_WEST]  = "X";
-                    break;
-                case SDL_GAMEPAD_TYPE_PS3: case SDL_GAMEPAD_TYPE_PS4: case SDL_GAMEPAD_TYPE_PS5:
-                    buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "Triangle"; buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "X";
-                    buttonNames[SDL_GAMEPAD_BUTTON_EAST]  = "Circle";   buttonNames[SDL_GAMEPAD_BUTTON_WEST]  = "Square";
-                    break;
-                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR: case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO:
-                    buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "X"; buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "B";
-                    buttonNames[SDL_GAMEPAD_BUTTON_EAST]  = "A"; buttonNames[SDL_GAMEPAD_BUTTON_WEST]  = "Y";
-                    break;
-                default:
-                    buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "2"; buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "0";
-                    buttonNames[SDL_GAMEPAD_BUTTON_EAST]  = "1"; buttonNames[SDL_GAMEPAD_BUTTON_WEST]  = "3";
-                    break;
+            case SDL_GAMEPAD_TYPE_XBOXONE:
+                buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "Y";
+                buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "A";
+                buttonNames[SDL_GAMEPAD_BUTTON_EAST]  = "B";
+                buttonNames[SDL_GAMEPAD_BUTTON_WEST]  = "X";
+                break;
+            case SDL_GAMEPAD_TYPE_PS3:
+            case SDL_GAMEPAD_TYPE_PS4:
+            case SDL_GAMEPAD_TYPE_PS5:
+                buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "Triangle";
+                buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "X";
+                buttonNames[SDL_GAMEPAD_BUTTON_EAST]  = "Circle";
+                buttonNames[SDL_GAMEPAD_BUTTON_WEST]  = "Square";
+                break;
+            case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR:
+            case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO:
+                buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "X";
+                buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "B";
+                buttonNames[SDL_GAMEPAD_BUTTON_EAST]  = "A";
+                buttonNames[SDL_GAMEPAD_BUTTON_WEST]  = "Y";
+                break;
+            default:
+                buttonNames[SDL_GAMEPAD_BUTTON_NORTH] = "2";
+                buttonNames[SDL_GAMEPAD_BUTTON_SOUTH] = "0";
+                buttonNames[SDL_GAMEPAD_BUTTON_EAST]  = "1";
+                buttonNames[SDL_GAMEPAD_BUTTON_WEST]  = "3";
+                break;
             }
 
-            ImGui::SetCursorPos(ImVec2(offSetX + 20,  offSetY + 70));  ImGui::Checkbox("Left",  &d.DPadLeft);
-            ImGui::SetCursorPos(ImVec2(offSetX + 70,  offSetY + 120)); ImGui::Checkbox("Down",  &d.DPadDown);
-            ImGui::SetCursorPos(ImVec2(offSetX + 70,  offSetY + 20));  ImGui::Checkbox("Up",    &d.DPadUp);
-            ImGui::SetCursorPos(ImVec2(offSetX + 120, offSetY + 70));  ImGui::Checkbox("Right", &d.DPadRight);
+            ImGui::SetCursorPos(ImVec2(offSetX + 20, offSetY + 70));
+            ImGui::Checkbox("Left", &d.DPadLeft);
+            ImGui::SetCursorPos(ImVec2(offSetX + 70, offSetY + 120));
+            ImGui::Checkbox("Down", &d.DPadDown);
+            ImGui::SetCursorPos(ImVec2(offSetX + 70, offSetY + 20));
+            ImGui::Checkbox("Up", &d.DPadUp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 120, offSetY + 70));
+            ImGui::Checkbox("Right", &d.DPadRight);
 
-            ImGui::SetCursorPos(ImVec2(offSetX + 60,  offSetY + 200)); ImGui::SetNextItemWidth(150.0f);
-            ImGui::SliderFloat(" ",  &d.LeftStickX, -1.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
-            ImGui::SetCursorPos(ImVec2(offSetX + 30,  offSetY + 230));
-            ImGui::VSliderFloat("  ", {30, 150}, &d.LeftStickY, 1.0f, -1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
-            ImGui::SetCursorPos(ImVec2(offSetX + 70,  offSetY + 240)); ImGui::Text("Left joystick");
-            ImGui::SetCursorPos(ImVec2(offSetX + 70,  offSetY + 260)); ImGui::Text("X: %.3f", d.LeftStickX);
-            ImGui::SetCursorPos(ImVec2(offSetX + 70,  offSetY + 280)); ImGui::Text("Y: %.3f", d.LeftStickY);
+            ImGui::SetCursorPos(ImVec2(offSetX + 60, offSetY + 200));
+            ImGui::SetNextItemWidth(150.0f);
+            ImGui::SliderFloat(" ", &d.LeftStickX, -1.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 30, offSetY + 230));
+            ImGui::VSliderFloat("  ", { 30, 150 }, &d.LeftStickY, 1.0f, -1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 70, offSetY + 240));
+            ImGui::Text("Left joystick");
+            ImGui::SetCursorPos(ImVec2(offSetX + 70, offSetY + 260));
+            ImGui::Text("X: %.3f", d.LeftStickX);
+            ImGui::SetCursorPos(ImVec2(offSetX + 70, offSetY + 280));
+            ImGui::Text("Y: %.3f", d.LeftStickY);
 
-            ImGui::SetCursorPos(ImVec2(offSetX + 330, offSetY + 200)); ImGui::SetNextItemWidth(150.0f);
-            ImGui::SliderFloat(" ",  &d.RightStickX, -1.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 330, offSetY + 200));
+            ImGui::SetNextItemWidth(150.0f);
+            ImGui::SliderFloat(" ", &d.RightStickX, -1.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
             ImGui::SetCursorPos(ImVec2(offSetX + 300, offSetY + 230));
-            ImGui::VSliderFloat("  ", {30, 150}, &d.RightStickY, 1.0f, -1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
-            ImGui::SetCursorPos(ImVec2(offSetX + 340, offSetY + 240)); ImGui::Text("Right joystick");
-            ImGui::SetCursorPos(ImVec2(offSetX + 340, offSetY + 260)); ImGui::Text("X: %.3f", d.RightStickX);
-            ImGui::SetCursorPos(ImVec2(offSetX + 340, offSetY + 280)); ImGui::Text("Y: %.3f", d.RightStickY);
+            ImGui::VSliderFloat("  ", { 30, 150 }, &d.RightStickY, 1.0f, -1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 340, offSetY + 240));
+            ImGui::Text("Right joystick");
+            ImGui::SetCursorPos(ImVec2(offSetX + 340, offSetY + 260));
+            ImGui::Text("X: %.3f", d.RightStickX);
+            ImGui::SetCursorPos(ImVec2(offSetX + 340, offSetY + 280));
+            ImGui::Text("Y: %.3f", d.RightStickY);
 
-            ImGui::SetCursorPos(ImVec2(offSetX - 30,  offSetY - 40));
-            ImGui::VSliderFloat("      ", {30, 150}, &d.LeftTrigger, 0.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
-            ImGui::SetCursorPos(ImVec2(offSetX + 10,  offSetY - 40)); ImGui::Checkbox("Left shoulder", &d.LeftShoulder);
+            ImGui::SetCursorPos(ImVec2(offSetX - 30, offSetY - 40));
+            ImGui::VSliderFloat("      ", { 30, 150 }, &d.LeftTrigger, 0.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 10, offSetY - 40));
+            ImGui::Checkbox("Left shoulder", &d.LeftShoulder);
 
             ImGui::SetCursorPos(ImVec2(offSetX + 470, offSetY - 40));
-            ImGui::VSliderFloat("        ", {30, 150}, &d.RightTrigger, 0.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
-            ImGui::SetCursorPos(ImVec2(offSetX + 430, offSetY - 40)); ImGui::Checkbox("    ", &d.RightShoulder);
-            ImGui::SetCursorPos(ImVec2(offSetX + 325, offSetY - 30)); ImGui::Text("Right shoulder");
+            ImGui::VSliderFloat("        ", { 30, 150 }, &d.RightTrigger, 0.0f, 1.0f, "", ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+            ImGui::SetCursorPos(ImVec2(offSetX + 430, offSetY - 40));
+            ImGui::Checkbox("    ", &d.RightShoulder);
+            ImGui::SetCursorPos(ImVec2(offSetX + 325, offSetY - 30));
+            ImGui::Text("Right shoulder");
 
-            ImGui::SetCursorPos(ImVec2(offSetX + 370, offSetY + 20));  ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_NORTH].c_str(), &d.North);
-            ImGui::SetCursorPos(ImVec2(offSetX + 420, offSetY + 70));  ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_EAST].c_str(),  &d.East);
-            ImGui::SetCursorPos(ImVec2(offSetX + 320, offSetY + 70));  ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_WEST].c_str(),  &d.West);
-            ImGui::SetCursorPos(ImVec2(offSetX + 370, offSetY + 120)); ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_SOUTH].c_str(), &d.South);
-            ImGui::SetCursorPos(ImVec2(offSetX + 150, offSetY + 150)); ImGui::Checkbox("Back",  &d.Back);
-            ImGui::SetCursorPos(ImVec2(offSetX + 300, offSetY + 150)); ImGui::Checkbox("Start", &d.Start);
-            ImGui::SetCursorPos(ImVec2(offSetX + 225, offSetY + 120)); ImGui::Checkbox("Guide", &d.Guide);
+            ImGui::SetCursorPos(ImVec2(offSetX + 370, offSetY + 20));
+            ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_NORTH].c_str(), &d.North);
+            ImGui::SetCursorPos(ImVec2(offSetX + 420, offSetY + 70));
+            ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_EAST].c_str(), &d.East);
+            ImGui::SetCursorPos(ImVec2(offSetX + 320, offSetY + 70));
+            ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_WEST].c_str(), &d.West);
+            ImGui::SetCursorPos(ImVec2(offSetX + 370, offSetY + 120));
+            ImGui::Checkbox(buttonNames[SDL_GAMEPAD_BUTTON_SOUTH].c_str(), &d.South);
+            ImGui::SetCursorPos(ImVec2(offSetX + 150, offSetY + 150));
+            ImGui::Checkbox("Back", &d.Back);
+            ImGui::SetCursorPos(ImVec2(offSetX + 300, offSetY + 150));
+            ImGui::Checkbox("Start", &d.Start);
+            ImGui::SetCursorPos(ImVec2(offSetX + 225, offSetY + 120));
+            ImGui::Checkbox("Guide", &d.Guide);
 
             if (SDL_GetGamepadType(gamepad) != SDL_GAMEPAD_TYPE_PS5) {
                 SDL_PropertiesID props = SDL_GetGamepadProperties(gamepad);
                 if (SDL_GetBooleanProperty(props, SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false)) {
                     ImGui::SetCursorPos(ImVec2(offSetX + 550, offSetY - 40));
-                    ImGui::VSliderFloat("      ", {30, 150}, &d.rumbleLeft,  0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+                    ImGui::VSliderFloat("      ", { 30, 150 }, &d.rumbleLeft, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
                     ImGui::SetCursorPos(ImVec2(offSetX + 600, offSetY - 40));
-                    ImGui::VSliderFloat("        ", {30, 150}, &d.rumbleRight, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
-                    float rl = std::clamp(d.rumbleLeft  * 65535.f, 0.f, 65535.f);
+                    ImGui::VSliderFloat("        ", { 30, 150 }, &d.rumbleRight, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+                    float rl = std::clamp(d.rumbleLeft * 65535.f, 0.f, 65535.f);
                     float rr = std::clamp(d.rumbleRight * 65535.f, 0.f, 65535.f);
                     SDL_RumbleGamepad(gamepad, (Uint16)rl, (Uint16)rr, 100);
                 }
                 if (SDL_GetBooleanProperty(props, SDL_PROP_GAMEPAD_CAP_TRIGGER_RUMBLE_BOOLEAN, false)) {
                     ImGui::SetCursorPos(ImVec2(offSetX + 550, offSetY + 200));
-                    ImGui::VSliderFloat("          ", {30, 150}, &d.rumbleTriggerLeft,  0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+                    ImGui::VSliderFloat("          ", { 30, 150 }, &d.rumbleTriggerLeft, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
                     ImGui::SetCursorPos(ImVec2(offSetX + 600, offSetY + 200));
-                    ImGui::VSliderFloat("             ", {30, 150}, &d.rumbleTriggerRight, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
-                    float rtl = std::clamp(d.rumbleTriggerLeft  * 65535.f, 0.f, 65535.f);
+                    ImGui::VSliderFloat("             ", { 30, 150 }, &d.rumbleTriggerRight, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+                    float rtl = std::clamp(d.rumbleTriggerLeft * 65535.f, 0.f, 65535.f);
                     float rtr = std::clamp(d.rumbleTriggerRight * 65535.f, 0.f, 65535.f);
                     SDL_RumbleGamepadTriggers(gamepad, (Uint16)rtl, (Uint16)rtr, 100);
                 }
             } else {
                 DS5EffectsState_t state;
-                Uint8 effects[4][11] = {
-                    {0x05, 0,   0,   0,   0, 0, 0, 0, 0, 0, 0},
-                    {0x21, 255, 110, 0,   0, 0, 0, 0, 0, 0, 0},
-                    {0x26, 15,  63,  128, 0, 0, 0, 0, 0, 0, 0},
-                    {0x25, 15,  63,  128, 0, 0, 0, 0, 0, 0, 0},
+                Uint8             effects[4][11] = {
+                    { 0x05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+                    { 0x21, 255, 110, 0, 0, 0, 0, 0, 0, 0, 0 },
+                    { 0x26, 15, 63, 128, 0, 0, 0, 0, 0, 0, 0 },
+                    { 0x25, 15, 63, 128, 0, 0, 0, 0, 0, 0, 0 },
                 };
                 SDL_zero(state);
                 state.ucEnableBits1 |= (0x04 | 0x08);
 
                 ImGui::SetCursorPos(ImVec2(offSetX + 550, offSetY - 40));
-                ImGui::VSliderFloat("      ", {30, 150}, &d.rumbleLeft,  0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+                ImGui::VSliderFloat("      ", { 30, 150 }, &d.rumbleLeft, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
                 ImGui::SetCursorPos(ImVec2(offSetX + 600, offSetY - 40));
-                ImGui::VSliderFloat("        ", {30, 150}, &d.rumbleRight, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
-                float rl = std::clamp(d.rumbleLeft  * 65535.f, 0.f, 65535.f);
-                float rr = std::clamp(d.rumbleRight * 65535.f, 0.f, 65535.f);
+                ImGui::VSliderFloat("        ", { 30, 150 }, &d.rumbleRight, 0.0f, 1.0f, "", ImGuiSliderFlags_AlwaysClamp);
+                float rl            = std::clamp(d.rumbleLeft * 65535.f, 0.f, 65535.f);
+                float rr            = std::clamp(d.rumbleRight * 65535.f, 0.f, 65535.f);
                 state.ucRumbleLeft  = (int)rl / 256;
                 state.ucRumbleRight = (int)rr / 256;
                 SDL_RumbleGamepad(gamepad, (Uint16)rl, (Uint16)rr, 100);
                 SDL_memcpy(state.rgucRightTriggerEffect, effects[0], sizeof(effects[0]));
-                SDL_memcpy(state.rgucLeftTriggerEffect,  effects[0], sizeof(effects[0]));
+                SDL_memcpy(state.rgucLeftTriggerEffect, effects[0], sizeof(effects[0]));
             }
 
             ImGui::EndChild();

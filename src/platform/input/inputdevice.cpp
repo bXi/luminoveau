@@ -2,14 +2,14 @@
 
 #include "platform/window/window.h"
 
-InputType InputDevice::getType() {
-    return type;
+InputType InputDevice::GetType() {
+    return _type;
 }
 
-void InputDevice::updateTimings() {
+void InputDevice::UpdateTimings() {
     SDL_UpdateGamepads();
 
-    for (auto &timing: pressedTimings) {
+    for (auto &timing : _pressedTimings) {
         if (timing.second > 0.0f) {
             timing.second -= Window::GetFrameTime();
         } else {
@@ -18,113 +18,105 @@ void InputDevice::updateTimings() {
     }
 }
 
-bool InputDevice::isButtonPressed(Buttons button) {
+bool InputDevice::_isButtonPressed(Buttons button) {
     int keysHeld = 0;
-    switch (type) {
-        case InputType::GAMEPAD:
-            if (button == Buttons::LEFT && pressedTimings[Buttons::LEFT] == 0.0f &&
-                Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTX) != 0.0f) {
-                keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTX) < 0.0f) ? 1 : 0;
-                pressedTimings[Buttons::LEFT] = joystickCooldown;
-            }
-            if (button == Buttons::RIGHT && pressedTimings[Buttons::RIGHT] == 0.0f &&
-                Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTX) != 0.0f) {
-                keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTX) > 0.0f) ? 1 : 0;
-                pressedTimings[Buttons::RIGHT] = joystickCooldown;
-            }
-            if (button == Buttons::UP && pressedTimings[Buttons::UP] == 0.0f &&
-                Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) {
-                keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) < 0.0f) ? 1 : 0;
-                pressedTimings[Buttons::UP] = joystickCooldown;
-            }
-            if (button == Buttons::DOWN && pressedTimings[Buttons::DOWN] == 0.0f &&
-                Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) {
-                keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) > 0.0f) ? 1 : 0;
-                //TODO figure out this line
-                //keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY && Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) > 0.0f) ? 1 : 0;
-                pressedTimings[Buttons::DOWN] = joystickCooldown;
-            }
+    switch (_type) {
+    case InputType::GAMEPAD:
+        if (button == Buttons::LEFT && _pressedTimings[Buttons::LEFT] == 0.0f && Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_LEFTX) != 0.0f) {
+            keysHeld += (Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_LEFTX) < 0.0f) ? 1 : 0;
+            _pressedTimings[Buttons::LEFT] = _joystickCooldown;
+        }
+        if (button == Buttons::RIGHT && _pressedTimings[Buttons::RIGHT] == 0.0f && Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_LEFTX) != 0.0f) {
+            keysHeld += (Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_LEFTX) > 0.0f) ? 1 : 0;
+            _pressedTimings[Buttons::RIGHT] = _joystickCooldown;
+        }
+        if (button == Buttons::UP && _pressedTimings[Buttons::UP] == 0.0f && Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) {
+            keysHeld += (Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_LEFTY) < 0.0f) ? 1 : 0;
+            _pressedTimings[Buttons::UP] = _joystickCooldown;
+        }
+        if (button == Buttons::DOWN && _pressedTimings[Buttons::DOWN] == 0.0f && Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) {
+            keysHeld += (Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_LEFTY) > 0.0f) ? 1 : 0;
+            // TODO figure out this line
+            // keysHeld += (Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY && Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) != 0.0f) > 0.0f) ? 1 : 0;
+            _pressedTimings[Buttons::DOWN] = _joystickCooldown;
+        }
 
-            for (const auto &key: mappingGP[button])
-                keysHeld += static_cast<int>(Input::GamepadButtonPressed(gamepadID, key));
-            return (keysHeld != 0);
-        case InputType::MOUSE_KB:
+        for (const auto &key : _mappingGP[button])
+            keysHeld += static_cast<int>(Input::GamepadButtonPressed(_gamepadID, key));
+        return (keysHeld != 0);
+    case InputType::MOUSE_KB:
 
-            for (const auto &key: mappingKB[button])
-                keysHeld += static_cast<int>(Input::KeyPressed(key));
-            return (keysHeld != 0);
+        for (const auto &key : _mappingKB[button])
+            keysHeld += static_cast<int>(Input::KeyPressed(key));
+        return (keysHeld != 0);
     }
     return false;
 }
 
-bool InputDevice::isButtonHeld(Buttons button) {
+bool InputDevice::_isButtonHeld(Buttons button) {
     int keysHeld = 0;
-    switch (type) {
-        case InputType::GAMEPAD:
-            for (const auto &key: mappingGP[button])
-                keysHeld += static_cast<int>(Input::GamepadButtonDown(gamepadID, key));
-            return (keysHeld != 0);
-        case InputType::MOUSE_KB:
-            if (button == Buttons::SHOOT) {
-                keysHeld += static_cast<int>(Input::MouseButtonDown(SDL_BUTTON_LEFT));
-
-            }
-            for (const auto &key: mappingKB[button])
-                keysHeld += static_cast<int>(Input::KeyDown(key));
-            return (keysHeld != 0);
+    switch (_type) {
+    case InputType::GAMEPAD:
+        for (const auto &key : _mappingGP[button])
+            keysHeld += static_cast<int>(Input::GamepadButtonDown(_gamepadID, key));
+        return (keysHeld != 0);
+    case InputType::MOUSE_KB:
+        if (button == Buttons::SHOOT) {
+            keysHeld += static_cast<int>(Input::MouseButtonDown(SDL_BUTTON_LEFT));
+        }
+        for (const auto &key : _mappingKB[button])
+            keysHeld += static_cast<int>(Input::KeyDown(key));
+        return (keysHeld != 0);
     }
     return false;
 }
 
-
-bool InputDevice::is(Buttons button, Action action) {
+bool InputDevice::Is(Buttons button, Action action) {
     switch (action) {
-        case Action::HELD:
-            return isButtonHeld(button);
-        case Action::PRESSED:
-            return isButtonPressed(button);
+    case Action::HELD:
+        return _isButtonHeld(button);
+    case Action::PRESSED:
+        return _isButtonPressed(button);
     }
     return false;
 }
 
-vf2d InputDevice::getLeftStick() {
-    switch (type) {
-        case InputType::GAMEPAD:
-            return { Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTX),
-                     Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_LEFTY) };
-        case InputType::MOUSE_KB:
-            return { float(Input::KeyDown(SDLK_D) - Input::KeyDown(SDLK_A)),
-                     float(Input::KeyDown(SDLK_S) - Input::KeyDown(SDLK_W)) };
+vf2d InputDevice::GetLeftStick() {
+    switch (_type) {
+    case InputType::GAMEPAD:
+        return { Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_LEFTX),
+            Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_LEFTY) };
+    case InputType::MOUSE_KB:
+        return { float(Input::KeyDown(SDLK_D) - Input::KeyDown(SDLK_A)),
+            float(Input::KeyDown(SDLK_S) - Input::KeyDown(SDLK_W)) };
     }
-    return {0.0f, 0.0f};
+    return { 0.0f, 0.0f };
 }
 
-vf2d InputDevice::getRightStick() {
-    switch (type) {
-        case InputType::GAMEPAD:
-            return { Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_RIGHTX),
-                     Input::GetGamepadAxisMovement(gamepadID, SDL_GAMEPAD_AXIS_RIGHTY) };
-        case InputType::MOUSE_KB:
-            return { float(Input::KeyDown(SDLK_RIGHT) - Input::KeyDown(SDLK_LEFT)),
-                     float(Input::KeyDown(SDLK_DOWN)  - Input::KeyDown(SDLK_UP)) };
+vf2d InputDevice::GetRightStick() {
+    switch (_type) {
+    case InputType::GAMEPAD:
+        return { Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_RIGHTX),
+            Input::GetGamepadAxisMovement(_gamepadID, SDL_GAMEPAD_AXIS_RIGHTY) };
+    case InputType::MOUSE_KB:
+        return { float(Input::KeyDown(SDLK_RIGHT) - Input::KeyDown(SDLK_LEFT)),
+            float(Input::KeyDown(SDLK_DOWN) - Input::KeyDown(SDLK_UP)) };
     }
-    return {0.0f, 0.0f};
+    return { 0.0f, 0.0f };
 }
 
-int InputDevice::getGamepadID() const {
-    return gamepadID;
+int InputDevice::GetGamepadID() const {
+    return _gamepadID;
 }
 
-void InputDevice::setGamepadID(int id) {
-    gamepadID = id;
+void InputDevice::SetGamepadID(int id) {
+    _gamepadID = id;
 }
 
-InputDevice::InputDevice(InputType _type) {
-    type = _type;
-    gamepadID = -1;
-}
+InputDevice::InputDevice(InputType type)
+    : _type(type)
+    , _gamepadID(-1) { }
 
-InputDevice::InputDevice(InputType _type, int _gamepadID) {
-    type = _type;
-    gamepadID = _gamepadID;
-}
+InputDevice::InputDevice(InputType type, int gamepadId)
+    : _type(type)
+    , _gamepadID(gamepadId) { }

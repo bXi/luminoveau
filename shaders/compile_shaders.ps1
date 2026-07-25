@@ -164,11 +164,9 @@ function Discover-Shaders
 
         if (Test-Path $fragFile)
         {
-            # Convert base name to PascalCase for symbol name
-            # e.g., fullscreen_quad -> FullscreenQuad
-            $symbolName = ($baseName -split '_' | ForEach-Object {
-                    $_.Substring(0,1).ToUpper() + $_.Substring(1).ToLower()
-                }) -join ''
+            # Symbol name = UPPER_SNAKE_CASE (engine GlobalConstantCase rule)
+            # e.g., fullscreen_quad -> FULLSCREEN_QUAD
+            $symbolName = $baseName.ToUpper()
 
             $shaderPairs += @{
                 Name = $symbolName
@@ -207,18 +205,16 @@ function Discover-ComputeShaders
     {
         $baseName = $compFile.Name -replace '\.comp\.hlsl$', ''
 
-        $symbolName = ($baseName -split '_' | ForEach-Object {
-                $_.Substring(0,1).ToUpper() + $_.Substring(1).ToLower()
-            }) -join ''
+        $symbolName = $baseName.ToUpper()
 
         $computeShaders += @{
             Name = $symbolName
             BaseName = $baseName
             CompFile = $compFile.Name
-            CompSymbol = "${symbolName}_Comp"
+            CompSymbol = "${symbolName}_COMP"
         }
 
-        Write-Success "Found compute shader: $baseName -> ${symbolName}_Comp"
+        Write-Success "Found compute shader: $baseName -> ${symbolName}_COMP"
     }
 
     Write-Host "`nDiscovered $($computeShaders.Count) compute shader(s)`n" -ForegroundColor White
@@ -613,16 +609,16 @@ function Generate-CppFile
 #include <cstdint>
 #include <cstddef>
 
-namespace Luminoveau {
+namespace Lumi {
 namespace Shaders {
 
 extern const uint8_t ${SymbolName}[] = {
 $byteArray};
 
-extern const size_t ${SymbolName}_Size = $length;
+extern const size_t ${SymbolName}_SIZE = $length;
 
 } // namespace Shaders
-} // namespace Luminoveau
+} // namespace Lumi
 "@
 
     # Normalise to LF so line-ending differences (autocrlf, editors) never cause spurious rewrites
@@ -667,7 +663,7 @@ function Generate-HeaderFile
 #include <cstdint>
 #include <cstddef>
 
-namespace Luminoveau {
+namespace Lumi {
 namespace Shaders {
 
 "@
@@ -677,9 +673,9 @@ namespace Shaders {
         $headerContent += @"
     // $($shader.Name) Shaders
     extern const uint8_t $($shader.VertSymbol)[];
-    extern const size_t $($shader.VertSymbol)_Size;
+    extern const size_t $($shader.VertSymbol)_SIZE;
     extern const uint8_t $($shader.FragSymbol)[];
-    extern const size_t $($shader.FragSymbol)_Size;
+    extern const size_t $($shader.FragSymbol)_SIZE;
 
 "@
     }
@@ -689,14 +685,14 @@ namespace Shaders {
         $headerContent += @"
     // $($compute.Name) Compute Shader (always SPIR-V - SDL_ShaderCross handles cross-compilation)
     extern const uint8_t $($compute.CompSymbol)[];
-    extern const size_t $($compute.CompSymbol)_Size;
+    extern const size_t $($compute.CompSymbol)_SIZE;
 
 "@
     }
 
     $headerContent += @"
 } // namespace Shaders
-} // namespace Luminoveau
+} // namespace Lumi
 "@
 
     $headerContent = $headerContent -replace "`r`n", "`n" -replace "`r", "`n"
@@ -952,8 +948,8 @@ function Compile-AllShaders
 
         $shaderInfo = @{
             Name = $shaderDef.Name
-            VertSymbol = "$($shaderDef.Name)_Vert"
-            FragSymbol = "$($shaderDef.Name)_Frag"
+            VertSymbol = "$($shaderDef.Name)_VERT"
+            FragSymbol = "$($shaderDef.Name)_FRAG"
             VertCppSPIRV = ""
             FragCppSPIRV = ""
             VertCppDXIL = ""

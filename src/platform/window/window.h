@@ -52,7 +52,7 @@ public:
      * @param flags Additional flags for window creation.
      */
     static void InitWindow(const std::string &title, int width = 800, int height = 600, int scale = 1, unsigned int flags = 0) {
-        get()._initWindow(title, width, height, scale, flags);
+        Get()._initWindow(title, width, height, scale, flags);
     }
 
     /**
@@ -60,14 +60,14 @@ public:
      *
      * @param filename Path to the icon file.
      */
-    static void SetIcon(const std::string &filename) { get()._setIcon(filename); }
+    static void SetIcon(const std::string &filename) { Get()._setIcon(filename); }
 
     /**
      * @brief Sets the mouse cursor icon.
      *
      * @param filename Path to the cursor icon file.
      */
-    static void SetCursor(const std::string &filename) { get()._setCursor(filename); }
+    static void SetCursor(const std::string &filename) { Get()._setCursor(filename); }
 
     /**
      * @brief Enables/disables relative mouse mode (FPS capture): hides and
@@ -75,30 +75,30 @@ public:
      *
      * @param enabled true to capture the mouse, false to release it.
      */
-    static void SetRelativeMouseMode(bool enabled) { get()._setRelativeMouseMode(enabled); }
+    static void SetRelativeMouseMode(bool enabled) { Get()._setRelativeMouseMode(enabled); }
 
     /**
      * @brief Sets the window title.
      *
      * @param title The new title to set as the window title.
      */
-    static void SetTitle(const std::string &title) { get()._setTitle(title); }
+    static void SetTitle(const std::string &title) { Get()._setTitle(title); }
 
     /**
      * @brief Closes the application window.
-     * 
+     *
      * If called during a frame (e.g. from update logic), the actual cleanup
      * is deferred until EndFrame() completes. This prevents GPU operations
      * from running after the device is destroyed.
      */
-    static void Close() { get()._requestClose(); }
+    static void Close() { Get()._requestClose(); }
 
     /**
      * @brief Retrieves the SDL window object.
      *
      * @return Pointer to the SDL window object.
      */
-    static SDL_Window *GetWindow() { return get()._getWindow(); }
+    static SDL_Window *GetWindow() { return Get()._getWindow(); }
 
     /**
      * @brief Whether the window currently holds keyboard/input focus.
@@ -106,21 +106,21 @@ public:
      * False while another window is focused or during an OS modal move/resize of this
      * window. Useful to release relative-mouse capture so the title bar can be dragged.
      */
-    static bool HasInputFocus() { return get()._hasInputFocus(); }
+    static bool HasInputFocus() { return Get()._hasInputFocus(); }
 
     /**
      * @brief Sets the scale factor of the window.
      *
      * @param scalefactor The scale factor to set.
      */
-    static void SetScale(int scalefactor) { get()._setScale(scalefactor); }
+    static void SetScale(int scalefactor) { Get()._setScale(scalefactor); }
 
     /**
      * @brief Gets the scale factor of the window.
      *
      * @return The currently used scaling factor.
      */
-    static float GetScale() { return get()._getScale(); }
+    static float GetScale() { return Get()._getScale(); }
 
     /**
      * @brief Sets the size of the window.
@@ -128,7 +128,7 @@ public:
      * @param width The width of the window.
      * @param height The height of the window.
      */
-    static void SetSize(int width, int height) { get()._setSize(width, height); }
+    static void SetSize(int width, int height) { Get()._setSize(width, height); }
 
     /**
      * @brief Sets the scaled size of the window.
@@ -137,7 +137,7 @@ public:
      * @param height The height of the window in virtual pixels.
      * @param scale The scale factor of the window (0 to keep current scale).
      */
-    static void SetScaledSize(int width, int height, int scale = 0) { get()._setScaledSize(width, height, scale); }
+    static void SetScaledSize(int width, int height, int scale = 0) { Get()._setScaledSize(width, height, scale); }
 
     /**
      * @brief Retrieves the size of the window in logical (virtual) pixels.
@@ -145,7 +145,7 @@ public:
      * @param getRealSize Flag indicating whether to retrieve the real size (not divided by user scale).
      * @return The size of the window.
      */
-    static vf2d GetSize(bool getRealSize = false) { return get()._getSize(getRealSize); }
+    static vf2d GetSize(bool getRealSize = false) { return Get()._getSize(getRealSize); }
 
     /**
      * @brief Retrieves the width of the window in logical (virtual) pixels.
@@ -153,7 +153,7 @@ public:
      * @param getRealSize Flag indicating whether to retrieve the real size (not divided by user scale).
      * @return The width of the window.
      */
-    static int GetWidth(bool getRealSize = false) { return (int) get()._getSize(getRealSize).x; }
+    static int GetWidth(bool getRealSize = false) { return (int)Get()._getSize(getRealSize).x; }
 
     /**
      * @brief Retrieves the height of the window in logical (virtual) pixels.
@@ -161,7 +161,7 @@ public:
      * @param getRealSize Flag indicating whether to retrieve the real size (not divided by user scale).
      * @return The height of the window.
      */
-    static int GetHeight(bool getRealSize = false) { return (int) get()._getSize(getRealSize).y; }
+    static int GetHeight(bool getRealSize = false) { return (int)Get()._getSize(getRealSize).y; }
 
     /**
      * @brief Retrieves the size of the window in physical (device) pixels.
@@ -171,19 +171,19 @@ public:
      *
      * @return The physical pixel size of the window.
      */
-    static vf2d GetPhysicalSize() { return get()._getPhysicalSize(); }
+    static vf2d GetPhysicalSize() { return Get()._getPhysicalSize(); }
 
     /**
      * @brief Retrieves the width of the window in physical (device) pixels.
      * @return The physical pixel width of the window.
      */
-    static int GetPhysicalWidth() { return (int) get()._getPhysicalSize().x; }
+    static int GetPhysicalWidth() { return (int)Get()._getPhysicalSize().x; }
 
     /**
      * @brief Retrieves the height of the window in physical (device) pixels.
      * @return The physical pixel height of the window.
      */
-    static int GetPhysicalHeight() { return (int) get()._getPhysicalSize().y; }
+    static int GetPhysicalHeight() { return (int)Get()._getPhysicalSize().y; }
 
     /**
      * @brief Gets the HiDPI display scale factor.
@@ -192,7 +192,7 @@ public:
      *
      * @return The display scale factor.
      */
-    static float GetDisplayScale() { return EngineState::_displayScale; }
+    static float GetDisplayScale() { return EngineState::displayScale; }
 
     /**
      * @brief Returns the display bounds the window currently lives on.
@@ -204,29 +204,29 @@ public:
      * @param outW Receives display width in pixels.
      * @param outH Receives display height in pixels.
      */
-    static void GetDisplayBounds(uint32_t& outW, uint32_t& outH);
+    static void GetDisplayBounds(uint32_t &outW, uint32_t &outH);
 
     /**
      * @brief Starts a new frame for rendering.
      */
-    static void StartFrame() { get()._startFrame(); }
+    static void StartFrame() { Get()._startFrame(); }
 
     /**
      * @brief Ends the current frame.
      */
-    static void EndFrame() { get()._endFrame(); }
+    static void EndFrame() { Get()._endFrame(); }
 
     /**
      * @brief Toggles the fullscreen mode of the window.
      */
-    static void ToggleFullscreen() { get()._toggleFullscreen(); }
+    static void ToggleFullscreen() { Get()._toggleFullscreen(); }
 
     /**
      * @brief Checks if the window is currently in fullscreen mode.
      *
      * @return True if the window is in fullscreen mode, false otherwise.
      */
-    static bool IsFullscreen() { return get()._isFullscreen(); }
+    static bool IsFullscreen() { return Get()._isFullscreen(); }
 
     /**
      * @brief Gets the total runtime of the application.
@@ -234,7 +234,7 @@ public:
      * @return The total runtime of the application in seconds.
      */
     static double GetRunTime() {
-        return (double) std::chrono::duration_cast<std::chrono::milliseconds>(EngineState::_currentTime - EngineState::_startTime).count() / 1000.;
+        return (double)std::chrono::duration_cast<std::chrono::milliseconds>(EngineState::currentTime - EngineState::startTime).count() / 1000.;
     }
 
     /**
@@ -242,12 +242,12 @@ public:
      *
      * @return True if the application should quit, false otherwise.
      */
-    static bool ShouldQuit() { return EngineState::_shouldQuit; }
+    static bool ShouldQuit() { return EngineState::shouldQuit; }
 
     /**
      * @brief Signals that the application should quit.
      */
-    static void SignalEndLoop() { EngineState::_shouldQuit = true; }
+    static void SignalEndLoop() { EngineState::shouldQuit = true; }
 
     /**
      * @brief Gets the time taken to render the last frame.
@@ -259,7 +259,7 @@ public:
     // the display refresh rate (see Window::_startFrame), so this stays close to the
     // actual frame interval even on platforms where AppIterate would otherwise spin
     // far faster than vsync.
-    static double GetFrameTime() { return EngineState::_lastFrameTime; }
+    static double GetFrameTime() { return EngineState::lastFrameTime; }
 
     /**
      * @brief Gets the frames per second (FPS) of the application.
@@ -267,23 +267,23 @@ public:
      * @param milliseconds The time interval to calculate FPS over.
      * @return The frames per second (FPS) of the application.
      */
-    static int GetFPS(float milliseconds = 400.f) { return get()._getFPS(milliseconds); }
+    static int GetFPS(float milliseconds = 400.f) { return Get()._getFPS(milliseconds); }
 
     /**
      * @brief Handles input events.
      */
-    static void HandleInput() { get()._handleInput(); }
+    static void HandleInput() { Get()._handleInput(); }
 
     /**
      * @brief Toggles the debug menu visibility.
      */
-    static void ToggleDebugMenu() { get()._toggleDebugMenu(); }
+    static void ToggleDebugMenu() { Get()._toggleDebugMenu(); }
 
     /**
      * @brief Take a screenshot and save it to a file
      * @param filename Optional filename (default: screenshot_TIMESTAMP.png)
      */
-    static void TakeScreenshot(const std::string& filename = "") { get()._takeScreenshot(filename); }
+    static void TakeScreenshot(const std::string &filename = "") { Get()._takeScreenshot(filename); }
 
     /**
      * @brief Sets the WebGPU canvas scaling mode and internal render resolution.
@@ -295,30 +295,30 @@ public:
      * @param renderHeight Internal render height (ignored in Native mode).
      */
     static void SetWebGpuScaling(WebGpuScaleMode mode, int renderWidth = 1280, int renderHeight = 720) {
-        get()._webGpuScaleMode    = mode;
-        get()._webGpuRenderWidth  = renderWidth;
-        get()._webGpuRenderHeight = renderHeight;
+        Get()._webGpuScaleMode    = mode;
+        Get()._webGpuRenderWidth  = renderWidth;
+        Get()._webGpuRenderHeight = renderHeight;
     }
 
     /// @brief Returns the WebGPU canvas scaling mode (no-op on native builds).
-    static WebGpuScaleMode GetWebGpuScaleMode()  { return get()._webGpuScaleMode;    }
+    static WebGpuScaleMode GetWebGpuScaleMode() { return Get()._webGpuScaleMode; }
     /// @brief Returns the WebGPU internal render width in pixels (web builds).
-    static int GetWebGpuRenderWidth()             { return get()._webGpuRenderWidth;  }
+    static int GetWebGpuRenderWidth() { return Get()._webGpuRenderWidth; }
     /// @brief Returns the WebGPU internal render height in pixels (web builds).
-    static int GetWebGpuRenderHeight()            { return get()._webGpuRenderHeight; }
-    
+    static int GetWebGpuRenderHeight() { return Get()._webGpuRenderHeight; }
+
     /**
      * @brief Check if there's a pending screenshot
      */
-    static bool HasPendingScreenshot() { return get()._pendingScreenshot; }
-    
+    static bool HasPendingScreenshot() { return Get()._pendingScreenshot; }
+
     /**
      * @brief Get pending screenshot filename and clear the flag
      */
     static std::string GetAndClearPendingScreenshot() {
-        std::string filename = get()._pendingScreenshotFilename;
-        get()._pendingScreenshot = false;
-        get()._pendingScreenshotFilename.clear();
+        std::string filename     = Get()._pendingScreenshotFilename;
+        Get()._pendingScreenshot = false;
+        Get()._pendingScreenshotFilename.clear();
         return filename;
     }
 
@@ -327,8 +327,8 @@ public:
      *
      * @param callback Function to call when text input is received.
      */
-    static void SetTextInputCallback(std::function<void(const char*)> callback) {
-        get()._textInputCallback = std::move(callback);
+    static void SetTextInputCallback(std::function<void(const char *)> callback) {
+        Get()._textInputCallback = std::move(callback);
     }
 
 #ifdef SDL_MAIN_USE_CALLBACKS
@@ -340,7 +340,7 @@ public:
      *
      * @param event Pointer to the SDL event to process.
      */
-    static void ProcessEvent(SDL_Event* event) { get()._processEvent(event); }
+    static void ProcessEvent(SDL_Event *event) { Get()._processEvent(event); }
 #endif
 
 private:
@@ -374,7 +374,7 @@ private:
     int _getFPS(float milliseconds);
 
     SDL_Window *_getWindow();
-    bool _hasInputFocus();
+    bool        _hasInputFocus();
 
     void _setScale(int scalefactor);
 
@@ -390,11 +390,11 @@ private:
 
     void _toggleDebugMenu();
 
-    void _takeScreenshot(const std::string& filename);
+    void _takeScreenshot(const std::string &filename);
 
-    void _processEvent(SDL_Event* event);
+    void _processEvent(SDL_Event *event);
 
-    SDL_Window *m_window = nullptr;
+    SDL_Window *_window = nullptr;
 
     WebGpuScaleMode _webGpuScaleMode    = WebGpuScaleMode::Native;
     int             _webGpuRenderWidth  = 1280;
@@ -403,13 +403,13 @@ private:
     int  _lastWindowWidth  = 0;
     int  _lastWindowHeight = 0;
     bool _maximized        = false;
-    
-    bool _inFrame = false;
-    bool _pendingClose = false;
-    bool _pendingScreenshot = false;
+
+    bool        _inFrame           = false;
+    bool        _pendingClose      = false;
+    bool        _pendingScreenshot = false;
     std::string _pendingScreenshotFilename;
 
-    std::function<void(const char*)> _textInputCallback = nullptr;
+    std::function<void(const char *)> _textInputCallback = nullptr;
 
     bool _sizeDirty = false;
 
@@ -422,7 +422,7 @@ public:
     /// @cond INTERNAL
     Window(const Window &) = delete;
 
-    static Window &get() {
+    static Window &Get() {
         static Window instance;
         return instance;
     }
@@ -430,6 +430,6 @@ public:
 
 private:
     Window() {
-        EngineState::_startTime = std::chrono::high_resolution_clock::now();
+        EngineState::startTime = std::chrono::high_resolution_clock::now();
     }
 };

@@ -19,10 +19,10 @@ typedef struct Vertex {
 
 /// @brief CPU-side vertex/index geometry produced when laying out text.
 typedef struct GeometryData {
-    Vertex *vertices;   ///< Pointer to the vertex array.
-    int    vertex_count; ///< Number of vertices.
-    int    *indices;    ///< Pointer to the index array.
-    int    index_count; ///< Number of indices.
+    Vertex *vertices;    ///< Pointer to the vertex array.
+    int     vertexCount; ///< Number of vertices.
+    int    *indices;     ///< Pointer to the index array.
+    int     indexCount;  ///< Number of indices.
 } GeometryData;
 
 /**
@@ -30,7 +30,6 @@ typedef struct GeometryData {
  */
 class Text {
 public:
-
     /**
      * @brief Draws text using the specified font, position, text to draw, and color.
      *
@@ -40,8 +39,8 @@ public:
      * @param color The color of the text.
      * @param renderSize The size to render at in pixels. Use -1 (default) to render at font's generated atlas size.
      */
-    static void DrawText(Font font, const vf2d& pos, const std::string& textToDraw, Color color, float renderSize = -1.0f) {
-        get()._drawText(font, pos, textToDraw, color, renderSize);
+    static void DrawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color, float renderSize = -1.0f) {
+        Get()._drawText(font, pos, textToDraw, color, renderSize);
     }
 
     /**
@@ -56,7 +55,7 @@ public:
      * @param renderSize The size to render at in pixels. Use -1 (default) to render at font's default size.
      */
     static void DrawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color, float renderSize = -1.0f) {
-        get()._drawWrappedText(font, pos, textToDraw, maxWidth, color, renderSize);
+        Get()._drawWrappedText(font, pos, textToDraw, maxWidth, color, renderSize);
     }
 
     /**
@@ -67,7 +66,7 @@ public:
      * @return The width of the text in pixels.
      */
     static int MeasureText(Font font, std::string text, float renderSize = -1.0f) {
-        return get()._measureText(font, text, renderSize);
+        return Get()._measureText(font, text, renderSize);
     }
 
     /**
@@ -79,7 +78,7 @@ public:
      */
 
     static vf2d GetRenderedTextSize(Font font, std::string text, float renderSize = -1.0f) {
-        return get()._getRenderedTextSize(font, text, renderSize);
+        return Get()._getRenderedTextSize(font, text, renderSize);
     }
 
     /**
@@ -91,12 +90,11 @@ public:
      * @return A Texture object representing the rendered text, or an empty texture if rendering fails.
      */
     static TextureAsset DrawTextToTexture(Font font, std::string textToDraw, Color color) {
-        return get()._drawTextToTexture(font, textToDraw, color);
+        return Get()._drawTextToTexture(font, textToDraw, color);
     }
 
 private:
-
-    void _drawText(Font font, const vf2d& pos, const std::string &textToDraw, Color color, float renderSize = -1.0f);
+    void _drawText(Font font, const vf2d &pos, const std::string &textToDraw, Color color, float renderSize = -1.0f);
 
     void _drawWrappedText(Font font, vf2d pos, std::string textToDraw, float maxWidth, Color color, float renderSize = -1.0f);
 
@@ -110,7 +108,7 @@ public:
     /// @cond INTERNAL
     Text(const Text &) = delete;
 
-    static Text &get() {
+    static Text &Get() {
         static Text instance;
         return instance;
     }

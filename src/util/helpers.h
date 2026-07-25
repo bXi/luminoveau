@@ -21,12 +21,14 @@
 
 #endif
 
-#define MAX_TEXT_BUFFER_LENGTH              1024
+#define MAX_TEXT_BUFFER_LENGTH 1024
 
-template<typename... T>
-inline void LUMI_UNUSED(T&&...) {}
+template <typename... T>
+inline void LUMI_UNUSED(T &&...) { } // NOLINT(readability-identifier-naming) — macro-style unused-arg sink
 
-namespace Platform {
+/// @brief Platform-specific queries (thread budget, and future host-capability hooks).
+class Platform {
+public:
     /**
      * @brief Returns a sensible default thread count for parallelizable work.
      *
@@ -34,35 +36,51 @@ namespace Platform {
      * Emscripten without -pthread (can't spawn std::thread); elsewhere scales toward
      * hardware concurrency, capped to avoid oversubscribing many-core machines.
      */
-    inline unsigned int DefaultThreadCount() {
+    static unsigned int DefaultThreadCount() { return Get()._defaultThreadCount(); }
+
+private:
+    unsigned int _defaultThreadCount() {
 #ifdef __EMSCRIPTEN__
         return 1u;
 #else
         return 8u;
 #endif
     }
-}
+
+public:
+    /// @cond INTERNAL
+    Platform(const Platform &) = delete;
+
+    static Platform &Get() {
+        static Platform instance;
+        return instance;
+    }
+    /// @endcond
+
+private:
+    Platform() = default;
+};
 
 /// @brief Assorted math, random, geometry and string utility helpers.
 class Helpers {
 public:
     /// @brief Clamps an integer to the inclusive [min, max] range.
-    static int clamp(int input, int min, int max);
+    static int Clamp(int input, int min, int max);
 
     /// @brief Linearly remaps x from the [in_min, in_max] range to [out_min, out_max].
-    static float mapValues(float x, float in_min, float in_max, float out_min, float out_max);
+    static float MapValues(float x, float inMin, float inMax, float outMin, float outMax);
 
     /// @brief Returns a scaled difficulty modifier from a base value.
-    static float getDifficultyModifier(float mod);
+    static float GetDifficultyModifier(float mod);
 
     /// @brief Returns true if the line segment intersects the rectangle.
-    static bool lineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, rectf rect);
+    static bool LineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, rectf rect);
 
     /// @brief Returns the four edges of a rectangle as start/end point pairs.
-    static std::vector<std::pair<vf2d, vf2d>> getLinesFromRectangle(rectf rect);
+    static std::vector<std::pair<vf2d, vf2d>> GetLinesFromRectangle(rectf rect);
 
     /// @brief Returns true with probability `required` (0.0–1.0).
-    static bool randomChance(const float required);
+    static bool RandomChance(const float required);
 
     /// @brief printf-style formats text into a rotating static buffer (raylib-style).
     static const char *TextFormat(const char *text, ...);
@@ -77,5 +95,5 @@ public:
     static std::string Slugify(std::string input);
 
     /// @brief Returns a file's last-modification time (0 if it doesn't exist).
-    static time_t GetFileModificationTime(const std::string& filepath);
+    static time_t GetFileModificationTime(const std::string &filepath);
 };
