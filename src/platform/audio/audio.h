@@ -31,28 +31,28 @@ public:
      * @brief Initializes the audio system.
      */
     static void Init() {
-        get()._init();
+        Get()._init();
     }
 
     /**
      * @brief Closes the audio system and releases resources.
      */
     static void Close() {
-        get()._close();
+        Get()._close();
     }
 
     /**
      * @brief Updates music streams.
      */
     static void UpdateMusicStreams() {
-        get()._updateMusicStreams();
+        Get()._updateMusicStreams();
     }
 
     /**
      * @brief Stops music playback.
      */
     static void StopMusic() {
-        get()._stopMusic();
+        Get()._stopMusic();
     }
 
     /**
@@ -61,7 +61,7 @@ public:
      * @param music The Music asset to play.
      */
     static void PlayMusic(Music &music) {
-        get()._playMusic(music);
+        Get()._playMusic(music);
     }
 
     /**
@@ -71,7 +71,7 @@ public:
      * @param volume The new volume for the Music asset.
      */
     static void SetMusicVolume(Music &music, float volume) {
-        get()._setMusicVolume(music, volume);
+        Get()._setMusicVolume(music, volume);
     }
 
     /**
@@ -80,28 +80,28 @@ public:
      * @param music The Music asset to rewind.
      */
     static void RewindMusic(Music &music) {
-        get()._rewindMusic(music);
+        Get()._rewindMusic(music);
     }
 
     /**
      * @brief Pauses music playback, preserving the playback position.
      */
     static void PauseMusic(Music &music) {
-        get()._pauseMusic(music);
+        Get()._pauseMusic(music);
     }
 
     /**
      * @brief Resumes music playback from where it was paused.
      */
     static void ResumeMusic(Music &music) {
-        get()._resumeMusic(music);
+        Get()._resumeMusic(music);
     }
 
     /**
      * @brief Sets whether the music loops when it reaches the end.
      */
     static void SetMusicLooping(Music &music, bool looping) {
-        get()._setMusicLooping(music, looping);
+        Get()._setMusicLooping(music, looping);
     }
 
     /**
@@ -111,7 +111,7 @@ public:
      * @param channel The audio channel to route through (default: SFX).
      */
     static void PlaySound(Sound sound, AudioChannel channel = AudioChannel::SFX) {
-        get()._playSound(sound, channel);
+        Get()._playSound(sound, channel);
     }
 
     /**
@@ -123,7 +123,7 @@ public:
      * @param channel The audio channel to route through (default: SFX).
      */
     static void PlaySound(Sound sound, float volume, float panning, AudioChannel channel = AudioChannel::SFX) {
-        get()._playSound(sound, volume, panning, channel);
+        Get()._playSound(sound, volume, panning, channel);
     }
 
     /**
@@ -142,35 +142,35 @@ public:
      */
     static SoundInstance PlaySoundInstance(Sound sound, float volume, float panning,
         bool looping, AudioChannel channel = AudioChannel::SFX) {
-        return get()._playSoundInstance(sound, volume, panning, looping, channel);
+        return Get()._playSoundInstance(sound, volume, panning, looping, channel);
     }
 
     /**
      * @brief Sets the volume of a playing sound instance.
      */
     static void SetSoundInstanceVolume(SoundInstance &instance, float volume) {
-        get()._setSoundInstanceVolume(instance, volume);
+        Get()._setSoundInstanceVolume(instance, volume);
     }
 
     /**
      * @brief Sets the panning of a playing sound instance.
      */
     static void SetSoundInstancePanning(SoundInstance &instance, float panning) {
-        get()._setSoundInstancePanning(instance, panning);
+        Get()._setSoundInstancePanning(instance, panning);
     }
 
     /**
      * @brief Returns whether a sound instance is currently playing.
      */
     static bool IsSoundInstancePlaying(const SoundInstance &instance) {
-        return get()._isSoundInstancePlaying(instance);
+        return Get()._isSoundInstancePlaying(instance);
     }
 
     /**
      * @brief Stops and releases a sound instance. Do not use the handle afterwards.
      */
     static void StopSoundInstance(SoundInstance &instance) {
-        get()._stopSoundInstance(instance);
+        Get()._stopSoundInstance(instance);
     }
 
     /**
@@ -179,7 +179,7 @@ public:
      * @return True if music is playing, false otherwise.
      */
     static bool IsMusicPlaying() {
-        return get()._isMusicPlaying();
+        return Get()._isMusicPlaying();
     }
 
     /**
@@ -190,7 +190,7 @@ public:
      * @note This needs to be called before Audio::Init().
      */
     static void SetNumberOfChannels(int newNumberOfChannels) {
-        get()._setNumberOfChannels(newNumberOfChannels);
+        Get()._setNumberOfChannels(newNumberOfChannels);
     }
 
     // ── Channel control ──
@@ -202,7 +202,7 @@ public:
      * @param volume Volume from 0.0f to 1.0f.
      */
     static void SetChannelVolume(AudioChannel channel, float volume) {
-        get()._setChannelVolume(channel, volume);
+        Get()._setChannelVolume(channel, volume);
     }
 
     /**
@@ -212,7 +212,7 @@ public:
      * @return Current volume (0.0f to 1.0f).
      */
     static float GetChannelVolume(AudioChannel channel) {
-        return get()._getChannelVolume(channel);
+        return Get()._getChannelVolume(channel);
     }
 
     /**
@@ -222,7 +222,7 @@ public:
      * @param panning Panning from -1.0f (left) to 1.0f (right).
      */
     static void SetChannelPanning(AudioChannel channel, float panning) {
-        get()._setChannelPanning(channel, panning);
+        Get()._setChannelPanning(channel, panning);
     }
 
     /**
@@ -232,7 +232,7 @@ public:
      * @return Current panning (-1.0f to 1.0f). Always 0.0f for Master.
      */
     static float GetChannelPanning(AudioChannel channel) {
-        return get()._getChannelPanning(channel);
+        return Get()._getChannelPanning(channel);
     }
 
     /**
@@ -242,7 +242,7 @@ public:
      * @param muted True to mute, false to unmute.
      */
     static void MuteChannel(AudioChannel channel, bool muted) {
-        get()._muteChannel(channel, muted);
+        Get()._muteChannel(channel, muted);
     }
 
     /**
@@ -252,7 +252,7 @@ public:
      * @return True if muted.
      */
     static bool IsChannelMuted(AudioChannel channel) {
-        return get()._isChannelMuted(channel);
+        return Get()._isChannelMuted(channel);
     }
 
     // ── PCM generators ──
@@ -270,7 +270,7 @@ public:
      * @return A PCMSound handle. Caller owns it and must call DestroyPCMSound when done.
      */
     static PCMSound CreatePCMGenerator(const PCMFormat &format, PCMGenerateCallback callback, void *userData = nullptr) {
-        return get()._createPCMGenerator(format, callback, userData);
+        return Get()._createPCMGenerator(format, callback, userData);
     }
 
     /**
@@ -283,7 +283,7 @@ public:
      * @param channel The audio channel to route through (default: SFX).
      */
     static void PlayPCMSound(PCMSound &sound, AudioChannel channel = AudioChannel::SFX) {
-        get()._playPCMSound(sound, channel);
+        Get()._playPCMSound(sound, channel);
     }
 
     /**
@@ -292,7 +292,7 @@ public:
      * @param sound The PCMSound to stop.
      */
     static void StopPCMSound(PCMSound &sound) {
-        get()._stopPCMSound(sound);
+        Get()._stopPCMSound(sound);
     }
 
     /**
@@ -301,7 +301,7 @@ public:
      * @param sound The PCMSound to destroy. Do not use after this call.
      */
     static void DestroyPCMSound(PCMSound &sound) {
-        get()._destroyPCMSound(sound);
+        Get()._destroyPCMSound(sound);
     }
 
     // ── Channel effects ──
@@ -319,7 +319,7 @@ public:
      * @param userData Pointer passed to the callback. You own the lifetime.
      */
     static void SetChannelEffect(AudioChannel channel, PCMEffectCallback callback, void *userData = nullptr) {
-        get()._setChannelEffect(channel, callback, userData);
+        Get()._setChannelEffect(channel, callback, userData);
     }
 
     /**
@@ -328,12 +328,12 @@ public:
      * @param channel The channel to remove the effect from.
      */
     static void RemoveChannelEffect(AudioChannel channel) {
-        get()._removeChannelEffect(channel);
+        Get()._removeChannelEffect(channel);
     }
 
     /// @brief Returns the underlying miniaudio engine for advanced/direct access.
     static ma_engine *GetAudioEngine() {
-        return &get().engine;
+        return &Get()._engine;
     }
 
     /**
@@ -343,7 +343,7 @@ public:
      * @return Pointer to the channel's ma_sound_group, or nullptr if Master or not initialized.
      */
     static ma_sound_group *GetChannelGroup(AudioChannel channel) {
-        return get()._getChannelGroup(channel);
+        return Get()._getChannelGroup(channel);
     }
 
 private:
@@ -455,10 +455,10 @@ private:
 
     int _numberChannels = 2;
 
-    bool                audioInit = false;
-    ma_device           device;
-    ma_engine           engine;
-    ma_resource_manager resourceManager;
+    bool                _audioInit = false;
+    ma_device           _device;
+    ma_engine           _engine;
+    ma_resource_manager _resourceManager;
 
     /// Pool of polyphonic sound instances
     std::array<ma_sound *, 128> _soundPool;
@@ -468,13 +468,13 @@ private:
     static ma_data_source_vtable pcmDataSourceVtable;
     static ma_node_vtable        effectNodeVtable;
 
-    static void ma_data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount);
+    static void ma_data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount); // NOLINT(readability-identifier-naming) — miniaudio callback signature
 
 public:
     /// @cond INTERNAL
     Audio(const Audio &) = delete;
 
-    static Audio &get() {
+    static Audio &Get() {
         static Audio instance;
         return instance;
     }

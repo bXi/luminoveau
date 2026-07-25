@@ -8,7 +8,7 @@
 #include <thread>
 #include <utility>
 
-void IGpu::requestScreenshot(GpuCmdBufferHandle cmd,
+void IGpu::RequestScreenshot(GpuCmdBufferHandle cmd,
     GpuTextureHandle                            src,
     uint32_t width, uint32_t height,
     const std::string &filename) {
@@ -16,7 +16,7 @@ void IGpu::requestScreenshot(GpuCmdBufferHandle cmd,
         return;
 
     size_t                  dataSize = static_cast<size_t>(width) * height * 4;
-    GpuTransferBufferHandle xfer     = createTransferBuffer({ (uint32_t)dataSize, GpuTransferUsage::Download });
+    GpuTransferBufferHandle xfer     = CreateTransferBuffer({ (uint32_t)dataSize, GpuTransferUsage::Download });
     if (!xfer) {
         LOG_ERROR("requestScreenshot: failed to create transfer buffer");
         return;
@@ -29,9 +29,9 @@ void IGpu::requestScreenshot(GpuCmdBufferHandle cmd,
     srcRegion.depth   = 1;
     GpuTransferBufferRegion dstInfo {};
     dstInfo.transferBuffer = xfer;
-    dstInfo.pixels_per_row = width;
-    dstInfo.rows_per_layer = height;
-    downloadFromTexture(cmd, srcRegion, dstInfo);
+    dstInfo.pixelsPerRow   = width;
+    dstInfo.rowsPerLayer   = height;
+    DownloadFromTexture(cmd, srcRegion, dstInfo);
 
     PendingScreenshot p;
     p.filename       = filename;
@@ -39,22 +39,22 @@ void IGpu::requestScreenshot(GpuCmdBufferHandle cmd,
     p.width          = width;
     p.height         = height;
     p.dataSize       = dataSize;
-    p.isBGRA         = (getSwapchainFormat() == GpuTextureFormat::B8G8R8A8_Unorm);
-    m_pendingScreenshots.push_back(std::move(p));
+    p.isBGRA         = (GetSwapchainFormat() == GpuTextureFormat::B8G8R8A8_Unorm);
+    _pendingScreenshots.push_back(std::move(p));
 }
 
-void IGpu::processPendingScreenshots() {
-    if (m_pendingScreenshots.empty())
+void IGpu::ProcessPendingScreenshots() {
+    if (_pendingScreenshots.empty())
         return;
 
     // Wait for the GPU to finish the staged downloads.
-    waitIdle();
+    WaitIdle();
 
-    for (auto &p : m_pendingScreenshots) {
+    for (auto &p : _pendingScreenshots) {
         if (!p.transferBuffer)
             continue;
 
-        void *gpuData = mapTransferBuffer(p.transferBuffer, false);
+        void *gpuData = MapTransferBuffer(p.transferBuffer, false);
         if (gpuData) {
             // Copy to a heap buffer the background thread will own.
             unsigned char *pixelCopy = (unsigned char *)malloc(p.dataSize);
@@ -82,11 +82,11 @@ void IGpu::processPendingScreenshots() {
                     free(pixelCopy);
                 }).detach();
             }
-            unmapTransferBuffer(p.transferBuffer);
+            UnmapTransferBuffer(p.transferBuffer);
         }
 
-        releaseTransferBuffer(p.transferBuffer);
+        ReleaseTransferBuffer(p.transferBuffer);
         p.transferBuffer = 0;
     }
-    m_pendingScreenshots.clear();
+    _pendingScreenshots.clear();
 }

@@ -50,31 +50,31 @@ public:
     // Internal implementation - called by macros
     template <typename... Args>
     static void DebugImpl(const char *file, int line, const char *func, fmt::format_string<Args...> fmt, Args &&...args) {
-        get()._logImpl(LogLevel::Debug, false, file, line, func, fmt::format(fmt, std::forward<Args>(args)...));
+        Get()._logImpl(LogLevel::Debug, false, file, line, func, fmt::format(fmt, std::forward<Args>(args)...));
     }
 
     template <typename... Args>
     static void InfoImpl(const char *file, int line, const char *func, fmt::format_string<Args...> fmt, Args &&...args) {
-        get()._logImpl(LogLevel::Info, false, file, line, func, fmt::format(fmt, std::forward<Args>(args)...));
+        Get()._logImpl(LogLevel::Info, false, file, line, func, fmt::format(fmt, std::forward<Args>(args)...));
     }
 
     template <typename... Args>
     static void WarningImpl(const char *file, int line, const char *func, fmt::format_string<Args...> fmt, Args &&...args) {
-        get()._logImpl(LogLevel::Warning, false, file, line, func, fmt::format(fmt, std::forward<Args>(args)...));
+        Get()._logImpl(LogLevel::Warning, false, file, line, func, fmt::format(fmt, std::forward<Args>(args)...));
     }
 
     template <typename... Args>
     [[noreturn]] static void ErrorImpl(const char *file, int line, const char *func, fmt::format_string<Args...> fmt, Args &&...args) {
         std::string message = fmt::format(fmt, std::forward<Args>(args)...);
-        get()._logImpl(LogLevel::Error, false, file, line, func, message);
+        Get()._logImpl(LogLevel::Error, false, file, line, func, message);
         throw std::runtime_error(message);
     }
 
     template <typename... Args>
     [[noreturn]] static void CriticalImpl(const char *file, int line, const char *func, fmt::format_string<Args...> fmt, Args &&...args) {
         std::string message = fmt::format(fmt, std::forward<Args>(args)...);
-        get()._logImpl(LogLevel::Critical, false, file, line, func, message);
-        get()._flushAll(); // Flush all logs before exit
+        Get()._logImpl(LogLevel::Critical, false, file, line, func, message);
+        Get()._flushAll(); // Flush all logs before exit
         std::exit(EXIT_FAILURE);
     }
     /// @endcond
@@ -96,20 +96,20 @@ private:
     }
 
     // Sink management
-    static void AddSink(std::unique_ptr<LogSink> sink) { get()._addSink(std::move(sink)); }
-    static void ClearSinks() { get()._clearSinks(); }
-    static void FlushAll() { get()._flushAll(); }
+    static void AddSink(std::unique_ptr<LogSink> sink) { Get()._addSink(std::move(sink)); }
+    static void ClearSinks() { Get()._clearSinks(); }
+    static void FlushAll() { Get()._flushAll(); }
 
     // Configuration
-    static void SetMinLevel(LogLevel level) { get()._setMinLevel(level); }
+    static void SetMinLevel(LogLevel level) { Get()._setMinLevel(level); }
 
     // Retrieval (from memory buffer sink if present)
-    static std::vector<LogEntry> GetLines(LogLevel minLevel = LogLevel::Debug) { return get()._getLines(minLevel); }
-    static std::vector<LogEntry> GetUserLines() { return get()._getUserLines(); }
+    static std::vector<LogEntry> GetLines(LogLevel minLevel = LogLevel::Debug) { return Get()._getLines(minLevel); }
+    static std::vector<LogEntry> GetUserLines() { return Get()._getUserLines(); }
 
     // Dump to file
     static bool DumpToFile(const std::string &filename, LogLevel minLevel = LogLevel::Debug) {
-        return get()._dumpToFile(filename, minLevel);
+        return Get()._dumpToFile(filename, minLevel);
     }
 
     std::vector<std::unique_ptr<LogSink>> _sinks;
@@ -126,8 +126,8 @@ private:
     bool                  _dumpToFile(const std::string &filename, LogLevel minLevel);
 
     // Helper functions
-    static std::string _extractFilename(const char *path);
-    static std::string _cleanFunctionName(const char *funcName);
+    static std::string _extractFilename(const char *path);       // NOLINT(readability-identifier-naming) — private static; clang-tidy files statics as ClassMethod
+    static std::string _cleanFunctionName(const char *funcName); // NOLINT(readability-identifier-naming) — private static; clang-tidy files statics as ClassMethod
     void               _writeToSinks(const LogEntry &entry);
 
 public:
@@ -137,7 +137,7 @@ public:
     Log &operator=(const Log &) = delete;
 
     // Get singleton instance (auto-initializes on first use)
-    static Log &get() {
+    static Log &Get() {
         static Log instance;
         return instance;
     }

@@ -26,7 +26,7 @@ struct PhysFSFileData {
  * - If not set, defaults to executable directory (except Android, which uses internal storage)
  *
  * Usage:
- *   FileHandler::SetOrganizationName("Luminoveau");
+ *   FileHandler::SetOrganizationName("Lumi");
  *   FileHandler::SetApplicationName("DeltaLight2");
  *
  *   std::string data = FileHandler::ReadTextFile("config.json");
@@ -40,15 +40,15 @@ public:
 
     /**
      * @brief Sets the organization/company name for writable storage paths.
-     * @param name Organization name (e.g., "Luminoveau")
+     * @param name Organization name (e.g., "Lumi")
      */
-    static void SetOrganizationName(const std::string &name) { get()._orgName = name; }
+    static void SetOrganizationName(const std::string &name) { Get()._orgName = name; }
 
     /**
      * @brief Sets the application/game name for writable storage paths.
      * @param name Application name (e.g., "DeltaLight2")
      */
-    static void SetApplicationName(const std::string &name) { get()._appName = name; }
+    static void SetApplicationName(const std::string &name) { Get()._appName = name; }
 
     // ========================================================================
     // PATH RETRIEVAL
@@ -62,7 +62,7 @@ public:
      *
      * @return Path to writable directory with trailing slash
      */
-    static std::string GetWritableDirectory() { return get()._getWritableDirectory(); }
+    static std::string GetWritableDirectory() { return Get()._getWritableDirectory(); }
 
     /**
      * @brief Gets the system directory for engine files (shader cache, logs, etc.).
@@ -74,7 +74,7 @@ public:
      * @brief Gets the base executable directory (read-only on mobile platforms).
      * @return Path to executable directory with trailing slash
      */
-    static std::string GetBaseDirectory() { return get()._getBaseDirectory(); }
+    static std::string GetBaseDirectory() { return Get()._getBaseDirectory(); }
 
     /**
      * @brief Directory for regenerable engine caches (font/shader cache, etc.).
@@ -82,13 +82,13 @@ public:
      * with SetCacheDirectory() for installed/read-only layouts.
      * @return Cache directory with trailing slash.
      */
-    static std::string GetCacheDirectory() { return get()._getCacheDirectory(); }
+    static std::string GetCacheDirectory() { return Get()._getCacheDirectory(); }
 
     /**
      * @brief Overrides the cache directory. Empty string restores the default
      * (executable directory). A trailing slash is added if missing.
      */
-    static void SetCacheDirectory(const std::string &dir) { get()._setCacheDirectory(dir); }
+    static void SetCacheDirectory(const std::string &dir) { Get()._setCacheDirectory(dir); }
 
     // ========================================================================
     // FILE READING
@@ -98,14 +98,14 @@ public:
      * @brief Initializes the PhysFS file system for asset loading.
      * @return true if initialization succeeded, false otherwise
      */
-    static bool InitPhysFS() { return get()._initPhysFS(); }
+    static bool InitPhysFS() { return Get()._initPhysFS(); }
 
     /**
      * @brief Reads a file from PhysFS (for assets bundled with the game).
      * @param filename Relative path to the file
      * @return PhysFSFileData containing the file data (caller must free data pointer)
      */
-    static PhysFSFileData ReadFile(const std::string &filename) { return get()._readFile(filename); }
+    static PhysFSFileData ReadFile(const std::string &filename) { return Get()._readFile(filename); }
 
     /**
      * @brief Legacy API - same as ReadFile().
@@ -123,7 +123,7 @@ public:
      * @param filepath Path to the text file
      * @return File contents as string, or empty string on error
      */
-    static std::string ReadTextFile(const std::string &filepath) { return get()._readTextFile(filepath); }
+    static std::string ReadTextFile(const std::string &filepath) { return Get()._readTextFile(filepath); }
 
     /**
      * @brief Reads an entire file as binary data.
@@ -134,7 +134,7 @@ public:
      * @param filepath Path to the file
      * @return File contents as byte vector, or empty vector on error
      */
-    static std::vector<uint8_t> ReadBinaryFile(const std::string &filepath) { return get()._readBinaryFile(filepath); }
+    static std::vector<uint8_t> ReadBinaryFile(const std::string &filepath) { return Get()._readBinaryFile(filepath); }
 
     // ========================================================================
     // FILE WRITING
@@ -148,7 +148,7 @@ public:
      * @return true if write succeeded, false otherwise
      */
     static bool WriteFile(const std::string &filepath, const void *data, size_t size) {
-        return get()._writeFile(filepath, data, size);
+        return Get()._writeFile(filepath, data, size);
     }
 
     /**
@@ -170,21 +170,21 @@ public:
      * @param filepath Path to check
      * @return true if file exists and is readable
      */
-    static bool FileExists(const std::string &filepath) { return get()._fileExists(filepath); }
+    static bool FileExists(const std::string &filepath) { return Get()._fileExists(filepath); }
 
     /**
      * @brief Checks if a directory exists.
      * @param dirpath Directory path to check
      * @return true if directory exists
      */
-    static bool DirectoryExists(const std::string &dirpath) { return get()._directoryExists(dirpath); }
+    static bool DirectoryExists(const std::string &dirpath) { return Get()._directoryExists(dirpath); }
 
     /**
      * @brief Gets the size of a file in bytes.
      * @param filepath Path to the file
      * @return File size in bytes, or 0 on error
      */
-    static size_t GetFileSize(const std::string &filepath) { return get()._getFileSize(filepath); }
+    static size_t GetFileSize(const std::string &filepath) { return Get()._getFileSize(filepath); }
 
     // ========================================================================
     // FILE/DIRECTORY DELETION
@@ -195,14 +195,14 @@ public:
      * @param filepath Path to the file to delete
      * @return true if deletion succeeded, false otherwise
      */
-    static bool DeleteFile(const std::string &filepath) { return get()._deleteFile(filepath); }
+    static bool DeleteFile(const std::string &filepath) { return Get()._deleteFile(filepath); }
 
     /**
      * @brief Deletes a directory and all its contents recursively.
      * @param dirpath Path to the directory to delete
      * @return true if deletion succeeded, false otherwise
      */
-    static bool DeleteDirectory(const std::string &dirpath) { return get()._deleteDirectory(dirpath); }
+    static bool DeleteDirectory(const std::string &dirpath) { return Get()._deleteDirectory(dirpath); }
 
     /**
      * @brief Clears the entire LumiSystem directory (deletes all engine files).
@@ -229,7 +229,7 @@ public:
      *
      * @return true if all logs were deleted successfully
      */
-    static bool ClearLogs() { return get()._clearLogs(); }
+    static bool ClearLogs() { return Get()._clearLogs(); }
 
     // ========================================================================
     // PERSISTENT STORAGE
@@ -242,14 +242,14 @@ public:
      * IndexedDB into MEMFS so subsequent reads see prior sessions' content. On native,
      * ensures the system directory exists.
      */
-    static bool InitPersistentStorage() { return get()._initPersistentStorage(); }
+    static bool InitPersistentStorage() { return Get()._initPersistentStorage(); }
 
     /**
      * @brief Returns the directory prefix (trailing slash) for reload-surviving cache files.
      *
      * Native: same as GetSystemDirectory(). Web: the IDBFS mount point.
      */
-    static std::string GetPersistentStorageDirectory() { return get()._getPersistentStorageDirectory(); }
+    static std::string GetPersistentStorageDirectory() { return Get()._getPersistentStorageDirectory(); }
 
     /**
      * @brief Flushes pending persistent-storage writes so they survive a reload.
@@ -257,7 +257,7 @@ public:
      * On Emscripten, pushes MEMFS writes into IndexedDB; call after a batch of writes.
      * No-op on native (writes already hit disk).
      */
-    static bool FlushPersistentStorage() { return get()._flushPersistentStorage(); }
+    static bool FlushPersistentStorage() { return Get()._flushPersistentStorage(); }
 
 private:
     // Configuration
@@ -305,7 +305,7 @@ public:
     /// @cond INTERNAL
     FileHandler(const FileHandler &) = delete;
 
-    static FileHandler &get() {
+    static FileHandler &Get() {
         static FileHandler instance;
         return instance;
     }

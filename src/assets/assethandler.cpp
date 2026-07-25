@@ -38,16 +38,16 @@ AssetHandler::AssetHandler() {
     // Load default font using MSDF from embedded data
 
     // Compute hash of embedded font data for cache validation
-    std::string embeddedHash = _computeFontCacheKeyFromData(DroidSansMono_ttf, DroidSansMono_ttf_len);
+    std::string embeddedHash = _computeFontCacheKeyFromData(DROID_SANS_MONO_TTF, DROID_SANS_MONO_TTF_LEN);
 
     bool loaded = false;
 #if defined(LUMINOVEAU_HAVE_FONT_ATLAS_BLOB)
     // Prefer the baked atlas blob: no MSDF generation, and no dependence on a persistent cache
     // (Emscripten MEMFS is wiped each reload, so the runtime font cache never survives on the web).
-    loaded = _loadDefaultFontFromBlob(defaultFont);
+    loaded = _loadDefaultFontFromBlob(_defaultFont);
 #endif
     // Otherwise the on-disk font cache; generate from scratch only as a last resort.
-    if (!loaded && !_loadFontFromCache("__default_font__", 16, defaultFont, embeddedHash)) {
+    if (!loaded && !_loadFontFromCache("__default_font__", 16, _defaultFont, embeddedHash)) {
         // Cache miss — generate from scratch
         LOG_INFO("Default font not in cache, generating MSDF atlas");
 
@@ -56,10 +56,10 @@ AssetHandler::AssetHandler() {
             LOG_CRITICAL("Failed to initialize FreeType for default font");
         }
 
-        defaultFont.fontHandle = msdfgen::loadFontData(ft,
-            (const unsigned char *)DroidSansMono_ttf, DroidSansMono_ttf_len);
+        _defaultFont.fontHandle = msdfgen::loadFontData(ft,
+            (const unsigned char *)DROID_SANS_MONO_TTF, DROID_SANS_MONO_TTF_LEN);
 
-        if (!defaultFont.fontHandle) {
+        if (!_defaultFont.fontHandle) {
             msdfgen::deinitializeFreetype(ft);
             LOG_CRITICAL("Failed to load default font");
         }
@@ -71,11 +71,11 @@ AssetHandler::AssetHandler() {
         msdf_atlas::Charset      charset;
         for (uint32_t cp = 0x20; cp <= 0x17F; ++cp)
             charset.add(cp);
-        fontGeometry.loadCharset(defaultFont.fontHandle, 1.0, charset);
+        fontGeometry.loadCharset(_defaultFont.fontHandle, 1.0, charset);
 
-        defaultFont.ascender   = fontGeometry.getMetrics().ascenderY;
-        defaultFont.descender  = fontGeometry.getMetrics().descenderY;
-        defaultFont.lineHeight = fontGeometry.getMetrics().lineHeight;
+        _defaultFont.ascender   = fontGeometry.getMetrics().ascenderY;
+        _defaultFont.descender  = fontGeometry.getMetrics().descenderY;
+        _defaultFont.lineHeight = fontGeometry.getMetrics().lineHeight;
 
         const double maxCornerAngle = 3.0;
         for (msdf_atlas::GlyphGeometry &glyph : msdfGlyphs) {
@@ -89,26 +89,26 @@ AssetHandler::AssetHandler() {
         packer.setMiterLimit(1.0);
         packer.pack(msdfGlyphs.data(), msdfGlyphs.size());
 
-        packer.getDimensions(defaultFont.atlasWidth, defaultFont.atlasHeight);
+        packer.getDimensions(_defaultFont.atlasWidth, _defaultFont.atlasHeight);
 
-        LOG_INFO("Default font MSDF atlas: {}x{}", defaultFont.atlasWidth, defaultFont.atlasHeight);
+        LOG_INFO("Default font MSDF atlas: {}x{}", _defaultFont.atlasWidth, _defaultFont.atlasHeight);
 
         msdf_atlas::ImmediateAtlasGenerator<
             float, 3,
             msdf_atlas::msdfGenerator,
             msdf_atlas::BitmapAtlasStorage<unsigned char, 3>>
-            generator(defaultFont.atlasWidth, defaultFont.atlasHeight);
+            generator(_defaultFont.atlasWidth, _defaultFont.atlasHeight);
 
         generator.setThreadCount(Platform::DefaultThreadCount());
         generator.generate(msdfGlyphs.data(), msdfGlyphs.size());
 
         msdfgen::BitmapConstRef<unsigned char, 3> bitmap = generator.atlasStorage();
 
-        std::vector<unsigned char> rgbaData(defaultFont.atlasWidth * defaultFont.atlasHeight * 4);
-        for (int y = 0; y < defaultFont.atlasHeight; ++y) {
-            for (int x = 0; x < defaultFont.atlasWidth; ++x) {
-                int                  srcY  = defaultFont.atlasHeight - 1 - y;
-                int                  idx   = (y * defaultFont.atlasWidth + x);
+        std::vector<unsigned char> rgbaData(_defaultFont.atlasWidth * _defaultFont.atlasHeight * 4);
+        for (int y = 0; y < _defaultFont.atlasHeight; ++y) {
+            for (int x = 0; x < _defaultFont.atlasWidth; ++x) {
+                int                  srcY  = _defaultFont.atlasHeight - 1 - y;
+                int                  idx   = (y * _defaultFont.atlasWidth + x);
                 const unsigned char *pixel = bitmap(x, srcY);
                 rgbaData[idx * 4 + 0]      = pixel[0];
                 rgbaData[idx * 4 + 1]      = pixel[1];
@@ -118,54 +118,54 @@ AssetHandler::AssetHandler() {
         }
 
         GpuTextureCreateInfo textureInfo {
-            .width         = static_cast<uint32_t>(defaultFont.atlasWidth),
-            .height        = static_cast<uint32_t>(defaultFont.atlasHeight),
+            .width         = static_cast<uint32_t>(_defaultFont.atlasWidth),
+            .height        = static_cast<uint32_t>(_defaultFont.atlasHeight),
             .depthOrLayers = 1,
             .numLevels     = 1,
             .format        = GpuTextureFormat::R8G8B8A8_Unorm,
-            .sampleCount   = GpuSampleCount::x1,
+            .sampleCount   = GpuSampleCount::X1,
             .usage         = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
         };
-        defaultFont.atlasTexture = Renderer::GetGpu().createTexture(textureInfo);
+        _defaultFont.atlasTexture = Renderer::GetGpu().CreateTexture(textureInfo);
 
-        if (!_copy_to_texture(rgbaData.data(), (uint32_t)rgbaData.size(),
-                defaultFont.atlasTexture,
-                defaultFont.atlasWidth, defaultFont.atlasHeight)) {
+        if (!_copyToTexture(rgbaData.data(), (uint32_t)rgbaData.size(),
+                _defaultFont.atlasTexture,
+                _defaultFont.atlasWidth, _defaultFont.atlasHeight)) {
             LOG_CRITICAL("Failed to upload default font MSDF atlas to GPU");
         }
 
         // Convert msdf_atlas::GlyphGeometry -> CachedGlyph
-        defaultFont.glyphs   = new std::vector<CachedGlyph>();
-        defaultFont.glyphMap = new std::unordered_map<uint32_t, size_t>();
+        _defaultFont.glyphs   = new std::vector<CachedGlyph>();
+        _defaultFont.glyphMap = new std::unordered_map<uint32_t, size_t>();
         for (size_t i = 0; i < msdfGlyphs.size(); ++i) {
             CachedGlyph cached;
             cached.codepoint = msdfGlyphs[i].getCodepoint();
             cached.advance   = msdfGlyphs[i].getAdvance();
             msdfGlyphs[i].getQuadPlaneBounds(cached.pl, cached.pb, cached.pr, cached.pt);
             msdfGlyphs[i].getQuadAtlasBounds(cached.al, cached.ab, cached.ar, cached.at);
-            defaultFont.glyphs->push_back(cached);
+            _defaultFont.glyphs->push_back(cached);
             if (cached.codepoint > 0) {
-                (*defaultFont.glyphMap)[cached.codepoint] = i;
+                (*_defaultFont.glyphMap)[cached.codepoint] = i;
             }
         }
 
-        defaultFont.generatedSize     = 64;
-        defaultFont.defaultRenderSize = 16;
+        _defaultFont.generatedSize     = 64;
+        _defaultFont.defaultRenderSize = 16;
 
         // Save to cache for next startup
-        _saveFontToCache("__default_font__", defaultFont, rgbaData, embeddedHash);
+        _saveFontToCache("__default_font__", _defaultFont, rgbaData, embeddedHash);
     }
 };
 
 void AssetHandler::_cleanup() {
 
-    std::lock_guard<std::mutex> lock(assetMutex);
+    std::lock_guard<std::mutex> lock(_assetMutex);
     auto                       &gpu = Renderer::GetGpu();
 
     // Cleanup textures
     for (auto &[name, tex] : _textures) {
         if (tex.gpuTexture) {
-            gpu.releaseTexture(tex.gpuTexture);
+            gpu.ReleaseTexture(tex.gpuTexture);
             tex.gpuTexture = 0;
         }
     }
@@ -174,7 +174,7 @@ void AssetHandler::_cleanup() {
     // Cleanup shaders
     for (auto &[name, shader] : _shaders) {
         if (shader.gpuShader) {
-            gpu.releaseShader(shader.gpuShader);
+            gpu.ReleaseShader(shader.gpuShader);
             shader.gpuShader = 0;
         }
     }
@@ -183,7 +183,7 @@ void AssetHandler::_cleanup() {
     // Cleanup compute pipelines
     for (auto &[name, cp] : _computePipelines) {
         if (cp.pipeline) {
-            gpu.releaseComputePipeline(cp.pipeline);
+            gpu.ReleaseComputePipeline(cp.pipeline);
             cp.pipeline = 0;
         }
     }
@@ -204,7 +204,7 @@ void AssetHandler::_cleanup() {
             font.glyphMap = nullptr;
         }
         if (font.atlasTexture) {
-            gpu.releaseTexture(font.atlasTexture);
+            gpu.ReleaseTexture(font.atlasTexture);
             font.atlasTexture = 0;
         }
         if (font.fontData) {
@@ -243,21 +243,21 @@ void AssetHandler::_cleanup() {
     _musics.clear();
 
     // Cleanup default font
-    if (defaultFont.fontHandle) {
-        msdfgen::destroyFont(defaultFont.fontHandle);
-        defaultFont.fontHandle = nullptr;
+    if (_defaultFont.fontHandle) {
+        msdfgen::destroyFont(_defaultFont.fontHandle);
+        _defaultFont.fontHandle = nullptr;
     }
-    if (defaultFont.glyphs) {
-        delete defaultFont.glyphs;
-        defaultFont.glyphs = nullptr;
+    if (_defaultFont.glyphs) {
+        delete _defaultFont.glyphs;
+        _defaultFont.glyphs = nullptr;
     }
-    if (defaultFont.glyphMap) {
-        delete defaultFont.glyphMap;
-        defaultFont.glyphMap = nullptr;
+    if (_defaultFont.glyphMap) {
+        delete _defaultFont.glyphMap;
+        _defaultFont.glyphMap = nullptr;
     }
-    if (defaultFont.atlasTexture) {
-        gpu.releaseTexture(defaultFont.atlasTexture);
-        defaultFont.atlasTexture = 0;
+    if (_defaultFont.atlasTexture) {
+        gpu.ReleaseTexture(_defaultFont.atlasTexture);
+        _defaultFont.atlasTexture = 0;
     }
     // Note: defaultFont.fontData is NOT allocated (uses embedded data), so no need to free
 
@@ -271,7 +271,7 @@ void AssetHandler::_cleanup() {
 }
 
 Texture AssetHandler::_getTexture(const std::string &fileName) {
-    std::lock_guard<std::mutex> lock(assetMutex);
+    std::lock_guard<std::mutex> lock(_assetMutex);
 
     if (_textures.find(fileName) == _textures.end()) {
         _loadTexture(fileName);
@@ -294,7 +294,7 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
 
     // KTX2/Basis containers can't go through SDL_image — transcode them (UASTC -> BC7).
     // Same TextureAsset out, so callers/shaders are oblivious to the format.
-    static const uint8_t KTX2_MAGIC[12] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
+    static const uint8_t KTX2_MAGIC[12] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A }; // NOLINT(readability-identifier-naming)
     if (filedata.data && filedata.fileSize >= 12 && memcmp(filedata.data, KTX2_MAGIC, 12) == 0) {
         texture = _loadKtx2(reinterpret_cast<const uint8_t *>(filedata.data), filedata.fileSize);
         free(filedata.data);
@@ -330,22 +330,22 @@ TextureAsset AssetHandler::_loadTexture(const std::string &fileName) {
         .depthOrLayers = 1,
         .numLevels     = 1,
         .format        = GpuTextureFormat::R8G8B8A8_Unorm,
-        .sampleCount   = GpuSampleCount::x1,
+        .sampleCount   = GpuSampleCount::X1,
         .usage         = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
     };
-    GpuTextureHandle gpuTexture = gpu.createTexture(texInfo);
+    GpuTextureHandle gpuTexture = gpu.CreateTexture(texInfo);
     if (!gpuTexture) {
         LOG_CRITICAL("failed to create texture: {}", fileName.c_str());
     }
 
-    if (!_copy_to_texture(surface->pixels,
+    if (!_copyToTexture(surface->pixels,
             static_cast<uint32_t>(texture.width * texture.height * 4),
             gpuTexture, texture.width, texture.height)) {
-        gpu.releaseTexture(gpuTexture);
+        gpu.ReleaseTexture(gpuTexture);
         LOG_CRITICAL("failed to copy image data to texture");
     }
 
-    texture.gpuSampler = Renderer::GetSampler(defaultMode);
+    texture.gpuSampler = Renderer::GetSampler(_defaultMode);
     texture.gpuTexture = gpuTexture;
 
     SDL_DestroySurface(surface);
@@ -374,7 +374,7 @@ TextureAsset AssetHandler::_loadTextureFile(const std::string &path) {
         return out;
     }
 
-    static const uint8_t KTX2_MAGIC[12] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A }; // «KTX 20»\r\n\x1A\n
+    static const uint8_t KTX2_MAGIC[12] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A }; // NOLINT(readability-identifier-naming) «KTX 20»\r\n\x1A\n
     bool                 isKtx2         = (memcmp(fd.data, KTX2_MAGIC, 12) == 0);
 
     if (isKtx2) {
@@ -404,11 +404,11 @@ TextureAsset AssetHandler::_loadTextureFile(const std::string &path) {
         .depthOrLayers = 1,
         .numLevels     = 1,
         .format        = GpuTextureFormat::R8G8B8A8_Unorm,
-        .sampleCount   = GpuSampleCount::x1,
+        .sampleCount   = GpuSampleCount::X1,
         .usage         = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
     };
-    GpuTextureHandle tex = gpu.createTexture(tci);
-    _copy_to_texture(surface->pixels, (uint32_t)(surface->w * surface->h * 4), tex, surface->w, surface->h);
+    GpuTextureHandle tex = gpu.CreateTexture(tci);
+    _copyToTexture(surface->pixels, (uint32_t)(surface->w * surface->h * 4), tex, surface->w, surface->h);
     out.gpuTexture = tex;
     out.gpuSampler = Renderer::GetSampler(ScaleMode::Linear);
     out.width      = surface->w;
@@ -422,10 +422,10 @@ TextureAsset AssetHandler::_loadTextureFile(const std::string &path) {
 TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
     TextureAsset out;
 #if defined(LUMINOVEAU_WITH_KTX2)
-    static bool s_basisInit = false;
-    if (!s_basisInit) {
+    static bool basisInit = false;
+    if (!basisInit) {
         basist::basisu_transcoder_init();
-        s_basisInit = true;
+        basisInit = true;
     }
 
     basist::ktx2_transcoder t;
@@ -443,7 +443,7 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
         levels = 1;
     auto &gpu = Renderer::GetGpu();
 
-    // Only attempt BC7 if the backend reports support — on WebGPU createTexture(BC7) THROWS
+    // Only attempt BC7 if the backend reports support — on WebGPU CreateTexture(BC7) THROWS
     // (aborting wasm) when texture-compression-bc is off, so we can't rely on a null return
     // there. SDL/Metal report true and still null-return on a genuinely unsupported format,
     // caught below.
@@ -454,7 +454,7 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
     // on-disk cache of pre-transcoded blocks if VRAM becomes a concern.
     bool useBC7 = false;
 #else
-    bool useBC7 = gpu.supportsBCTextures();
+    bool useBC7 = gpu.SupportsBCTextures();
 #endif
 
     // BC works in 4x4 blocks, and WebGPU's writeTexture rejects compressed copies for mips
@@ -477,12 +477,12 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
         .depthOrLayers = 1,
         .numLevels     = levels,
         .format        = GpuTextureFormat::BC7_Unorm,
-        .sampleCount   = GpuSampleCount::x1,
+        .sampleCount   = GpuSampleCount::X1,
         .usage         = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
     };
     GpuTextureHandle tex = 0;
     if (useBC7) {
-        tex = gpu.createTexture(tci);
+        tex = gpu.CreateTexture(tci);
         if (!tex) {
             LOG_WARNING("KTX2: BC7 texture create failed ({}x{}) -> RGBA8 fallback",
                 t.get_width(), t.get_height());
@@ -491,7 +491,7 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
     }
     if (!useBC7) {
         tci.format = GpuTextureFormat::R8G8B8A8_Unorm;
-        tex        = gpu.createTexture(tci);
+        tex        = gpu.CreateTexture(tci);
         if (!tex) {
             LOG_WARNING("KTX2: RGBA8 fallback create also failed");
             return out;
@@ -519,19 +519,19 @@ TextureAsset AssetHandler::_loadKtx2(const uint8_t *data, size_t size) {
         uint32_t rowPx    = useBC7 ? 0u : li.m_orig_width; // BC7: infer block-aligned; RGBA: explicit
 
         GpuTransferBufferCreateInfo tbci { dstBytes, GpuTransferUsage::Upload };
-        GpuTransferBufferHandle     tb  = gpu.createTransferBuffer(tbci);
-        void                       *dst = gpu.mapTransferBuffer(tb, false);
+        GpuTransferBufferHandle     tb  = gpu.CreateTransferBuffer(tbci);
+        void                       *dst = gpu.MapTransferBuffer(tb, false);
         bool                        ok  = t.transcode_image_level(lvl, 0, 0, dst, count, tfmt);
-        gpu.unmapTransferBuffer(tb);
+        gpu.UnmapTransferBuffer(tb);
         if (!ok) {
-            gpu.releaseTransferBuffer(tb);
+            gpu.ReleaseTransferBuffer(tb);
             LOG_WARNING("KTX2: transcode level {} failed", lvl);
             continue;
         }
 
         GpuTransferBufferRegion src { tb, 0, rowPx, 0 };
         GpuTextureRegion        dr { tex, lvl, 0, 0, 0, 0, li.m_orig_width, li.m_orig_height, 1 };
-        gpu.uploadToTexture(cmd, src, dr, false);
+        gpu.UploadToTexture(cmd, src, dr, false);
         _batchTrack(tb, dstBytes);
     }
     _batchFinishUpload(cmd);
@@ -560,12 +560,12 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size) {
         .height        = static_cast<uint32_t>(size.y),
         .depthOrLayers = 1,
         .numLevels     = 1,
-        .format        = Renderer::GetGpu().getSwapchainFormat(),
-        .sampleCount   = GpuSampleCount::x1,
+        .format        = Renderer::GetGpu().GetSwapchainFormat(),
+        .sampleCount   = GpuSampleCount::X1,
         .usage         = GpuTextureUsage::ColorTarget | GpuTextureUsage::Sampler,
     };
-    texture.gpuSampler = Renderer::GetSampler(defaultMode);
-    texture.gpuTexture = Renderer::GetGpu().createTexture(info);
+    texture.gpuSampler = Renderer::GetSampler(_defaultMode);
+    texture.gpuTexture = Renderer::GetGpu().CreateTexture(info);
     return texture;
 }
 
@@ -580,12 +580,12 @@ TextureAsset AssetHandler::_createEmptyTexture(const vf2d &size, GpuTextureForma
         .depthOrLayers = 1,
         .numLevels     = 1,
         .format        = format,
-        .sampleCount   = GpuSampleCount::x1,
+        .sampleCount   = GpuSampleCount::X1,
         .usage         = GpuTextureUsage::ColorTarget | GpuTextureUsage::Sampler
             | GpuTextureUsage::StorageRead | GpuTextureUsage::StorageWrite,
     };
-    texture.gpuSampler = Renderer::GetSampler(defaultMode);
-    texture.gpuTexture = Renderer::GetGpu().createTexture(info);
+    texture.gpuSampler = Renderer::GetSampler(_defaultMode);
+    texture.gpuTexture = Renderer::GetGpu().CreateTexture(info);
     return texture;
 }
 
@@ -594,24 +594,24 @@ void AssetHandler::_saveTextureAsPNG(Texture texture, const char *fileName) {
 }
 
 Sound AssetHandler::_getSound(const std::string &fileName) {
-    std::lock_guard<std::mutex> lock(assetMutex);
+    std::lock_guard<std::mutex> lock(_assetMutex);
 
     if (_sounds.find(fileName) == _sounds.end()) {
-        SoundAsset _sound;
-        _sound.sound    = new ma_sound();
-        _sound.fileName = fileName;
+        SoundAsset soundAsset;
+        soundAsset.sound    = new ma_sound();
+        soundAsset.fileName = fileName;
 
         auto filedata = FileHandler::ReadFile(fileName);
 
         // Store fileData so we can free it in cleanup
-        _sound.fileData = filedata.data;
+        soundAsset.fileData = filedata.data;
 
         ma_resource_manager_register_encoded_data(Audio::GetAudioEngine()->pResourceManager, fileName.c_str(), filedata.data, filedata.fileSize);
 
         ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
             MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC,
             Audio::GetChannelGroup(AudioChannel::SFX),
-            nullptr, _sound.sound);
+            nullptr, soundAsset.sound);
 
         if (result != MA_SUCCESS) {
             // Non-fatal: a single undecodable sound must not kill the app (LOG_CRITICAL
@@ -620,15 +620,15 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
             ma_resource_manager_unregister_data(Audio::GetAudioEngine()->pResourceManager,
                 fileName.c_str());
             free(filedata.data);
-            delete _sound.sound;
-            _sound.sound    = nullptr;
-            _sound.fileData = nullptr;
+            delete soundAsset.sound;
+            soundAsset.sound    = nullptr;
+            soundAsset.fileData = nullptr;
             // LOG_WARNING, not LOG_ERROR/LOG_CRITICAL — both of those are fatal here
             // (Error throws [[noreturn]], Critical exits). A bad sound must not abort.
             LOG_WARNING("GetSound failed (sound will be silent): {}", fileName.c_str());
         }
 
-        _sounds[fileName] = _sound;
+        _sounds[fileName] = soundAsset;
 
         return _sounds[fileName];
     } else {
@@ -637,34 +637,34 @@ Sound AssetHandler::_getSound(const std::string &fileName) {
 }
 
 Music AssetHandler::_getMusic(const std::string &fileName) {
-    std::lock_guard<std::mutex> lock(assetMutex);
+    std::lock_guard<std::mutex> lock(_assetMutex);
 
     if (_musics.find(fileName) == _musics.end()) {
-        MusicAsset _music;
+        MusicAsset musicAsset;
 
-        _music.music = new ma_sound();
+        musicAsset.music = new ma_sound();
 
         auto filedata = FileHandler::ReadFile(fileName);
 
         // Store fileData so we can free it in cleanup
-        _music.fileData = filedata.data;
+        musicAsset.fileData = filedata.data;
 
         ma_resource_manager_register_encoded_data(Audio::GetAudioEngine()->pResourceManager, fileName.c_str(), filedata.data, filedata.fileSize);
 
         ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
             MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC,
             Audio::GetChannelGroup(AudioChannel::Music),
-            nullptr, _music.music);
+            nullptr, musicAsset.music);
 
         if (result != MA_SUCCESS) {
             // Non-fatal (LOG_CRITICAL exits). Keep filedata (registered with the
-            // resource manager; tracked in _music.fileData for cleanup).
-            delete _music.music;
-            _music.music = nullptr;
+            // resource manager; tracked in musicAsset.fileData for cleanup).
+            delete musicAsset.music;
+            musicAsset.music = nullptr;
             LOG_WARNING("GetMusic failed (music will be silent): {}", fileName.c_str());
         }
 
-        _musics[fileName] = _music;
+        _musics[fileName] = musicAsset;
 
         return _musics[fileName];
     } else {
@@ -673,7 +673,7 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
 }
 
 Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
-    std::lock_guard<std::mutex> lock(assetMutex);
+    std::lock_guard<std::mutex> lock(_assetMutex);
 
     // Check if this font file is already loaded (ignore size, we'll set defaultRenderSize)
     auto it = _fonts.find(fileName);
@@ -683,17 +683,17 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
     }
 
     // Try loading from font cache
-    FontAsset _font;
-    if (_loadFontFromCache(fileName, fontSize, _font)) {
-        _fonts[fileName] = _font;
+    FontAsset fontAsset;
+    if (_loadFontFromCache(fileName, fontSize, fontAsset)) {
+        _fonts[fileName] = fontAsset;
         return _fonts[fileName];
     }
 
     // Cache miss - generate MSDF atlas from scratch
     LOG_INFO("Generating MSDF font {} (atlas size: 64, default render: {})", fileName.c_str(), fontSize);
 
-    auto filedata  = FileHandler::ReadFile(fileName);
-    _font.fontData = filedata.data;
+    auto filedata      = FileHandler::ReadFile(fileName);
+    fontAsset.fontData = filedata.data;
 
     msdfgen::FreetypeHandle *ft = msdfgen::initializeFreetype();
     if (!ft) {
@@ -701,10 +701,10 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
         LOG_CRITICAL("Failed to initialize FreeType for MSDF: {}", fileName.c_str());
     }
 
-    _font.fontHandle = msdfgen::loadFontData(ft,
+    fontAsset.fontHandle = msdfgen::loadFontData(ft,
         (const unsigned char *)filedata.data, filedata.fileSize);
 
-    if (!_font.fontHandle) {
+    if (!fontAsset.fontHandle) {
         free(filedata.data);
         msdfgen::deinitializeFreetype(ft);
         LOG_CRITICAL("Failed to load font for MSDF: {}", fileName.c_str());
@@ -716,18 +716,18 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
     msdf_atlas::Charset      charset;
     for (uint32_t cp = 0x20; cp <= 0x17F; ++cp)
         charset.add(cp);
-    fontGeometry.loadCharset(_font.fontHandle, 1.0, charset);
+    fontGeometry.loadCharset(fontAsset.fontHandle, 1.0, charset);
 
-    _font.ascender   = fontGeometry.getMetrics().ascenderY;
-    _font.descender  = fontGeometry.getMetrics().descenderY;
-    _font.lineHeight = fontGeometry.getMetrics().lineHeight;
+    fontAsset.ascender   = fontGeometry.getMetrics().ascenderY;
+    fontAsset.descender  = fontGeometry.getMetrics().descenderY;
+    fontAsset.lineHeight = fontGeometry.getMetrics().lineHeight;
 
     const double maxCornerAngle = 3.0;
     for (msdf_atlas::GlyphGeometry &glyph : msdfGlyphs) {
         glyph.edgeColoring(&msdfgen::edgeColoringInkTrap, maxCornerAngle, 0);
     }
 
-    const int ATLAS_GENERATION_SIZE = 64;
+    const int ATLAS_GENERATION_SIZE = 64; // NOLINT(readability-identifier-naming)
 
     msdf_atlas::TightAtlasPacker packer;
     packer.setDimensionsConstraint(msdf_atlas::DimensionsConstraint::SQUARE);
@@ -736,26 +736,26 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
     packer.setMiterLimit(1.0);
     packer.pack(msdfGlyphs.data(), msdfGlyphs.size());
 
-    packer.getDimensions(_font.atlasWidth, _font.atlasHeight);
+    packer.getDimensions(fontAsset.atlasWidth, fontAsset.atlasHeight);
 
-    LOG_INFO("MSDF atlas for {}: {}x{}", fileName.c_str(), _font.atlasWidth, _font.atlasHeight);
+    LOG_INFO("MSDF atlas for {}: {}x{}", fileName.c_str(), fontAsset.atlasWidth, fontAsset.atlasHeight);
 
     msdf_atlas::ImmediateAtlasGenerator<
         float, 3,
         msdf_atlas::msdfGenerator,
         msdf_atlas::BitmapAtlasStorage<unsigned char, 3>>
-        generator(_font.atlasWidth, _font.atlasHeight);
+        generator(fontAsset.atlasWidth, fontAsset.atlasHeight);
 
     generator.setThreadCount(Platform::DefaultThreadCount());
     generator.generate(msdfGlyphs.data(), msdfGlyphs.size());
 
     msdfgen::BitmapConstRef<unsigned char, 3> bitmap = generator.atlasStorage();
 
-    std::vector<unsigned char> rgbaData(_font.atlasWidth * _font.atlasHeight * 4);
-    for (int y = 0; y < _font.atlasHeight; ++y) {
-        for (int x = 0; x < _font.atlasWidth; ++x) {
-            int                  srcY  = _font.atlasHeight - 1 - y;
-            int                  idx   = (y * _font.atlasWidth + x);
+    std::vector<unsigned char> rgbaData(fontAsset.atlasWidth * fontAsset.atlasHeight * 4);
+    for (int y = 0; y < fontAsset.atlasHeight; ++y) {
+        for (int x = 0; x < fontAsset.atlasWidth; ++x) {
+            int                  srcY  = fontAsset.atlasHeight - 1 - y;
+            int                  idx   = (y * fontAsset.atlasWidth + x);
             const unsigned char *pixel = bitmap(x, srcY);
             rgbaData[idx * 4 + 0]      = pixel[0];
             rgbaData[idx * 4 + 1]      = pixel[1];
@@ -765,58 +765,58 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
     }
 
     GpuTextureCreateInfo textureInfo {
-        .width         = static_cast<uint32_t>(_font.atlasWidth),
-        .height        = static_cast<uint32_t>(_font.atlasHeight),
+        .width         = static_cast<uint32_t>(fontAsset.atlasWidth),
+        .height        = static_cast<uint32_t>(fontAsset.atlasHeight),
         .depthOrLayers = 1,
         .numLevels     = 1,
         .format        = GpuTextureFormat::R8G8B8A8_Unorm,
-        .sampleCount   = GpuSampleCount::x1,
+        .sampleCount   = GpuSampleCount::X1,
         .usage         = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
     };
-    _font.atlasTexture = Renderer::GetGpu().createTexture(textureInfo);
+    fontAsset.atlasTexture = Renderer::GetGpu().CreateTexture(textureInfo);
 
-    if (!_copy_to_texture(rgbaData.data(), (uint32_t)rgbaData.size(),
-            _font.atlasTexture, _font.atlasWidth, _font.atlasHeight)) {
+    if (!_copyToTexture(rgbaData.data(), (uint32_t)rgbaData.size(),
+            fontAsset.atlasTexture, fontAsset.atlasWidth, fontAsset.atlasHeight)) {
         LOG_CRITICAL("Failed to upload MSDF atlas to GPU: {}", fileName.c_str());
     }
 
     // Convert msdf_atlas::GlyphGeometry -> CachedGlyph
-    _font.glyphs   = new std::vector<CachedGlyph>();
-    _font.glyphMap = new std::unordered_map<uint32_t, size_t>();
+    fontAsset.glyphs   = new std::vector<CachedGlyph>();
+    fontAsset.glyphMap = new std::unordered_map<uint32_t, size_t>();
     for (size_t i = 0; i < msdfGlyphs.size(); ++i) {
         CachedGlyph cached;
         cached.codepoint = msdfGlyphs[i].getCodepoint();
         cached.advance   = msdfGlyphs[i].getAdvance();
         msdfGlyphs[i].getQuadPlaneBounds(cached.pl, cached.pb, cached.pr, cached.pt);
         msdfGlyphs[i].getQuadAtlasBounds(cached.al, cached.ab, cached.ar, cached.at);
-        _font.glyphs->push_back(cached);
+        fontAsset.glyphs->push_back(cached);
         if (cached.codepoint > 0) {
-            (*_font.glyphMap)[cached.codepoint] = i;
+            (*fontAsset.glyphMap)[cached.codepoint] = i;
         }
     }
 
-    _font.generatedSize     = ATLAS_GENERATION_SIZE;
-    _font.defaultRenderSize = fontSize;
+    fontAsset.generatedSize     = ATLAS_GENERATION_SIZE;
+    fontAsset.defaultRenderSize = fontSize;
 
     // Save to font cache
-    _saveFontToCache(fileName, _font, rgbaData);
+    _saveFontToCache(fileName, fontAsset, rgbaData);
 
-    LOG_INFO("Loaded MSDF font {} ({} glyphs, default render size: {})", fileName.c_str(), _font.glyphs->size(), fontSize);
+    LOG_INFO("Loaded MSDF font {} ({} glyphs, default render size: {})", fileName.c_str(), fontAsset.glyphs->size(), fontSize);
 
-    _fonts[fileName] = _font;
+    _fonts[fileName] = fontAsset;
     return _fonts[fileName];
 }
 
 void AssetHandler::_setDefaultTextureScaleMode(ScaleMode mode) {
-    defaultMode = mode;
+    _defaultMode = mode;
 }
 
 ScaleMode AssetHandler::_getDefaultTextureScaleMode() {
-    return defaultMode;
+    return _defaultMode;
 }
 
 Shader AssetHandler::_getShader(const std::string &fileName) {
-    std::lock_guard<std::mutex> lock(assetMutex);
+    std::lock_guard<std::mutex> lock(_assetMutex);
 
     if (_shaders.find(fileName) == _shaders.end()) {
         LOG_INFO("loading shader: {}", fileName.c_str());
@@ -827,7 +827,7 @@ Shader AssetHandler::_getShader(const std::string &fileName) {
 }
 
 ComputePipelineAsset &AssetHandler::_getComputePipeline(const std::string &fileName) {
-    std::lock_guard<std::mutex> lock(assetMutex);
+    std::lock_guard<std::mutex> lock(_assetMutex);
 
     auto it = _computePipelines.find(fileName);
     if (it != _computePipelines.end()) {
@@ -839,44 +839,44 @@ ComputePipelineAsset &AssetHandler::_getComputePipeline(const std::string &fileN
     return _computePipelines[fileName];
 }
 
-bool AssetHandler::_copy_to_texture(void *src_data, uint32_t src_data_len,
-    GpuTextureHandle dst_texture,
-    uint32_t dst_texture_width, uint32_t dst_texture_height) {
+bool AssetHandler::_copyToTexture(void *srcData, uint32_t srcDataLen,
+    GpuTextureHandle dstTexture,
+    uint32_t dstTextureWidth, uint32_t dstTextureHeight) {
     auto &gpu = Renderer::GetGpu();
 
-    GpuTransferBufferCreateInfo tbInfo { .size = src_data_len, .usage = GpuTransferUsage::Upload };
-    GpuTransferBufferHandle     tb = gpu.createTransferBuffer(tbInfo);
+    GpuTransferBufferCreateInfo tbInfo { .size = srcDataLen, .usage = GpuTransferUsage::Upload };
+    GpuTransferBufferHandle     tb = gpu.CreateTransferBuffer(tbInfo);
     if (!tb)
         return false;
 
-    void *ptr = gpu.mapTransferBuffer(tb, false);
+    void *ptr = gpu.MapTransferBuffer(tb, false);
     if (!ptr) {
-        gpu.releaseTransferBuffer(tb);
+        gpu.ReleaseTransferBuffer(tb);
         return false;
     }
-    std::memcpy(ptr, src_data, src_data_len);
-    gpu.unmapTransferBuffer(tb);
+    std::memcpy(ptr, srcData, srcDataLen);
+    gpu.UnmapTransferBuffer(tb);
 
     GpuCmdBufferHandle cmd = _batchAcquire();
     if (!cmd) {
-        gpu.releaseTransferBuffer(tb);
+        gpu.ReleaseTransferBuffer(tb);
         return false;
     }
 
     GpuTransferBufferRegion src { .transferBuffer = tb, .offset = 0 };
     GpuTextureRegion        dst {
-               .texture  = dst_texture,
+               .texture  = dstTexture,
                .mipLevel = 0,
                .layer    = 0,
                .x        = 0,
                .y        = 0,
                .z        = 0,
-               .width    = dst_texture_width,
-               .height   = dst_texture_height,
+               .width    = dstTextureWidth,
+               .height   = dstTextureHeight,
                .depth    = 1,
     };
-    gpu.uploadToTexture(cmd, src, dst, false);
-    _batchTrack(tb, src_data_len);
+    gpu.UploadToTexture(cmd, src, dst, false);
+    _batchTrack(tb, srcDataLen);
     _batchFinishUpload(cmd);
     return true;
 }
@@ -888,67 +888,67 @@ bool AssetHandler::_copy_to_texture(void *src_data, uint32_t src_data_len,
 // one GPU commit each to one per flush — the win on Metal's relatively costly per-submit path.
 
 void AssetHandler::_beginUploadBatch() {
-    if (m_uploadBatching) {
+    if (_uploadBatching) {
         LOG_WARNING("BeginUploadBatch: already batching (nesting unsupported)");
         return;
     }
-    m_uploadBatching = true;
-    m_batchCmd       = 0;
-    m_batchStaging.clear();
-    m_batchBytes = 0;
+    _uploadBatching = true;
+    _batchCmd       = 0;
+    _batchStaging.clear();
+    _batchBytes = 0;
 }
 
 void AssetHandler::_endUploadBatch() {
-    if (!m_uploadBatching)
+    if (!_uploadBatching)
         return;
     _batchFlush(); // submit whatever's pending + release its transfer buffers
-    m_uploadBatching = false;
+    _uploadBatching = false;
 }
 
 GpuCmdBufferHandle AssetHandler::_batchAcquire() {
     auto &gpu = Renderer::GetGpu();
-    if (!m_uploadBatching)
-        return gpu.acquireCommandBuffer();
-    if (!m_batchCmd)
-        m_batchCmd = gpu.acquireCommandBuffer();
-    return m_batchCmd;
+    if (!_uploadBatching)
+        return gpu.AcquireCommandBuffer();
+    if (!_batchCmd)
+        _batchCmd = gpu.AcquireCommandBuffer();
+    return _batchCmd;
 }
 
 void AssetHandler::_batchTrack(GpuTransferBufferHandle tb, uint32_t bytes) {
     // Used in both modes: while batching this is the deferred-release list (freed at flush);
     // otherwise it's this single upload's transient list, freed by _batchFinishUpload below.
-    m_batchStaging.push_back(tb);
-    m_batchBytes += bytes;
+    _batchStaging.push_back(tb);
+    _batchBytes += bytes;
 }
 
 void AssetHandler::_batchFinishUpload(GpuCmdBufferHandle cmd) {
     auto &gpu = Renderer::GetGpu();
-    if (!m_uploadBatching) {
-        gpu.submitCommandBuffer(cmd);
-        for (GpuTransferBufferHandle tb : m_batchStaging)
-            gpu.releaseTransferBuffer(tb);
-        m_batchStaging.clear();
-        m_batchBytes = 0;
+    if (!_uploadBatching) {
+        gpu.SubmitCommandBuffer(cmd);
+        for (GpuTransferBufferHandle tb : _batchStaging)
+            gpu.ReleaseTransferBuffer(tb);
+        _batchStaging.clear();
+        _batchBytes = 0;
         return;
     }
     // Batching: keep recording into the shared command buffer. Flush opportunistically once the
     // pending transfer buffers exceed a budget so a large map doesn't pin hundreds of MB of
     // host-visible staging at once. (BC7 512^2 + mips ≈ 0.35 MB; x4 maps x hundreds of surfaces.)
     static constexpr size_t kBatchFlushBytes = 64u * 1024u * 1024u;
-    if (m_batchBytes >= kBatchFlushBytes)
+    if (_batchBytes >= kBatchFlushBytes)
         _batchFlush();
 }
 
 void AssetHandler::_batchFlush() {
     auto &gpu = Renderer::GetGpu();
-    if (m_batchCmd) {
-        gpu.submitCommandBuffer(m_batchCmd);
-        m_batchCmd = 0;
+    if (_batchCmd) {
+        gpu.SubmitCommandBuffer(_batchCmd);
+        _batchCmd = 0;
     }
-    for (GpuTransferBufferHandle tb : m_batchStaging)
-        gpu.releaseTransferBuffer(tb);
-    m_batchStaging.clear();
-    m_batchBytes = 0;
+    for (GpuTransferBufferHandle tb : _batchStaging)
+        gpu.ReleaseTransferBuffer(tb);
+    _batchStaging.clear();
+    _batchBytes = 0;
 }
 
 TextureAsset AssetHandler::_createDepthTarget(uint32_t width, uint32_t height) {
@@ -958,15 +958,15 @@ TextureAsset AssetHandler::_createDepthTarget(uint32_t width, uint32_t height) {
         .depthOrLayers = 1,
         .numLevels     = 1,
         .format        = GpuTextureFormat::D32_Float_S8_Uint,
-        .sampleCount   = GpuSampleCount::x1,
+        .sampleCount   = GpuSampleCount::X1,
         .usage         = GpuTextureUsage::DepthStencilTarget,
     };
-    GpuTextureHandle handle = Renderer::GetGpu().createTexture(info);
+    GpuTextureHandle handle = Renderer::GetGpu().CreateTexture(info);
     if (!handle)
         LOG_CRITICAL("failed to create depth texture");
 
     TextureAsset tex;
-    tex.gpuSampler = Renderer::GetSampler(defaultMode);
+    tex.gpuSampler = Renderer::GetSampler(_defaultMode);
     tex.gpuTexture = handle;
     return tex;
 }
@@ -981,15 +981,15 @@ TextureAsset AssetHandler::_createWhitePixel() {
         .depthOrLayers = 1,
         .numLevels     = 1,
         .format        = GpuTextureFormat::R8G8B8A8_Unorm,
-        .sampleCount   = GpuSampleCount::x1,
+        .sampleCount   = GpuSampleCount::X1,
         .usage         = GpuTextureUsage::ColorTarget | GpuTextureUsage::Sampler
             | GpuTextureUsage::Transfer,
     };
-    whitePixel.gpuSampler = Renderer::GetSampler(defaultMode);
-    whitePixel.gpuTexture = Renderer::GetGpu().createTexture(info);
+    whitePixel.gpuSampler = Renderer::GetSampler(_defaultMode);
+    whitePixel.gpuTexture = Renderer::GetGpu().CreateTexture(info);
 
     uint32_t white = 0xFFFFFFFF;
-    _copy_to_texture(&white, sizeof(white), whitePixel.gpuTexture, 1, 1);
+    _copyToTexture(&white, sizeof(white), whitePixel.gpuTexture, 1, 1);
 
     return whitePixel;
 }
@@ -1013,7 +1013,7 @@ ModelAsset AssetHandler::_createCube(float size, CubeUVLayout layout) {
 
     // UV inset to avoid sampling at exact atlas boundaries
     // This prevents texture bleeding between atlas regions
-    constexpr float UV_INSET = 0.00005f; // ~0.25 pixel on 512x512 texture
+    constexpr float UV_INSET = 0.00005f; // NOLINT(readability-identifier-naming) ~0.25 px on a 512x512 texture
 
     // Helper lambda to apply inset to UV coordinates
     auto insetUV = [](float uMin, float vMin, float uMax, float vMax) {
@@ -1146,16 +1146,19 @@ static constexpr uint32_t FONT_CACHE_VERSION = 1;
 #include "font_atlas_generated.h"
 // The decode-only zstd bundled by basis_universal (zstddeclib.c) — declared here so we don't need
 // its header. Used to inflate the baked atlas.
+// NOLINTBEGIN(readability-identifier-naming) — these declare zstd's own C API; the names
+// are upstream's and must match exactly for the linker to resolve them.
 extern "C" {
 size_t   ZSTD_decompress(void *dst, size_t dstCap, const void *src, size_t srcSize);
 unsigned ZSTD_isError(size_t code);
 }
+// NOLINTEND(readability-identifier-naming)
 
 // Load the default font from the baked blob (tools/font_baker output): parse the layout table (same
 // format as .fontmeta) + inflate the zstd RGBA atlas + upload it. No MSDF generation, no font cache.
 bool AssetHandler::_loadDefaultFontFromBlob(FontAsset &font) {
-    const uint8_t *p   = lumi_font_atlas_meta;
-    size_t         rem = lumi_font_atlas_meta_len;
+    const uint8_t *p   = LUMI_FONT_ATLAS_META;
+    size_t         rem = LUMI_FONT_ATLAS_META_LEN;
     auto           rd  = [&](auto &v) {
         if (rem < sizeof(v))
             return false;
@@ -1192,9 +1195,9 @@ bool AssetHandler::_loadDefaultFontFromBlob(FontAsset &font) {
             (*font.glyphMap)[g.codepoint] = i;
     }
 
-    std::vector<unsigned char> rgba(lumi_font_atlas_rgba_len);
+    std::vector<unsigned char> rgba(LUMI_FONT_ATLAS_RGBA_LEN);
     size_t                     got = ZSTD_decompress(rgba.data(), rgba.size(),
-                            lumi_font_atlas_rgba_zstd, lumi_font_atlas_rgba_zstd_len);
+                            LUMI_FONT_ATLAS_RGBA_ZSTD, LUMI_FONT_ATLAS_RGBA_ZSTD_LEN);
     if (ZSTD_isError(got) || got != rgba.size()) {
         LOG_WARNING("Font atlas blob: zstd inflate failed");
         return false;
@@ -1206,11 +1209,11 @@ bool AssetHandler::_loadDefaultFontFromBlob(FontAsset &font) {
         .depthOrLayers = 1,
         .numLevels     = 1,
         .format        = GpuTextureFormat::R8G8B8A8_Unorm,
-        .sampleCount   = GpuSampleCount::x1,
+        .sampleCount   = GpuSampleCount::X1,
         .usage         = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
     };
-    font.atlasTexture = Renderer::GetGpu().createTexture(textureInfo);
-    if (!font.atlasTexture || !_copy_to_texture(rgba.data(), (uint32_t)rgba.size(), font.atlasTexture, atlasW, atlasH)) {
+    font.atlasTexture = Renderer::GetGpu().CreateTexture(textureInfo);
+    if (!font.atlasTexture || !_copyToTexture(rgba.data(), (uint32_t)rgba.size(), font.atlasTexture, atlasW, atlasH)) {
         LOG_WARNING("Font atlas blob: GPU upload failed");
         return false;
     }
@@ -1269,7 +1272,7 @@ bool AssetHandler::_loadFontFromCache(const std::string &fileName, int fontSize,
     // Verify hash
     std::string currentHash = precomputedHash.empty() ? _computeFontCacheKey(fileName) : precomputedHash;
     auto        hashBuf     = _fontCache->GetFileBuffer(hashKey);
-    std::string cachedHash(hashBuf.vMemory.begin(), hashBuf.vMemory.end());
+    std::string cachedHash(hashBuf.memory.begin(), hashBuf.memory.end());
     if (currentHash != cachedHash) {
         LOG_INFO("Font cache invalid for {} (file changed), regenerating", fileName.c_str());
         return false;
@@ -1277,8 +1280,8 @@ bool AssetHandler::_loadFontFromCache(const std::string &fileName, int fontSize,
 
     // Load metadata
     auto           metaBuf   = _fontCache->GetFileBuffer(metaKey);
-    const uint8_t *ptr       = metaBuf.vMemory.data();
-    size_t         remaining = metaBuf.vMemory.size();
+    const uint8_t *ptr       = metaBuf.memory.data();
+    size_t         remaining = metaBuf.memory.size();
 
     auto readVal = [&](auto &val) {
         if (remaining < sizeof(val))
@@ -1326,7 +1329,7 @@ bool AssetHandler::_loadFontFromCache(const std::string &fileName, int fontSize,
     // Load atlas RGBA data
     auto   atlasBuf     = _fontCache->GetFileBuffer(atlasKey);
     size_t expectedSize = (size_t)atlasWidth * atlasHeight * 4;
-    if (atlasBuf.vMemory.size() != expectedSize) {
+    if (atlasBuf.memory.size() != expectedSize) {
         LOG_WARNING("Font cache atlas size mismatch for {}", fileName.c_str());
         delete glyphs;
         delete glyphMap;
@@ -1340,14 +1343,14 @@ bool AssetHandler::_loadFontFromCache(const std::string &fileName, int fontSize,
         .depthOrLayers = 1,
         .numLevels     = 1,
         .format        = GpuTextureFormat::R8G8B8A8_Unorm,
-        .sampleCount   = GpuSampleCount::x1,
+        .sampleCount   = GpuSampleCount::X1,
         .usage         = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
     };
-    GpuTextureHandle gpuTex = Renderer::GetGpu().createTexture(textureInfo);
-    if (!gpuTex || !_copy_to_texture(atlasBuf.vMemory.data(), (uint32_t)atlasBuf.vMemory.size(), gpuTex, atlasWidth, atlasHeight)) {
+    GpuTextureHandle gpuTex = Renderer::GetGpu().CreateTexture(textureInfo);
+    if (!gpuTex || !_copyToTexture(atlasBuf.memory.data(), (uint32_t)atlasBuf.memory.size(), gpuTex, atlasWidth, atlasHeight)) {
         LOG_WARNING("Font cache GPU upload failed for {}", fileName.c_str());
         if (gpuTex)
-            Renderer::GetGpu().releaseTexture(gpuTex);
+            Renderer::GetGpu().ReleaseTexture(gpuTex);
         delete glyphs;
         delete glyphMap;
         return false;

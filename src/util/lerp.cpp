@@ -4,35 +4,35 @@
 
 LerpAnimator *Lerp::_getLerp(const char *name, float startValue, float change, float duration) {
 
-    if (lerpList.find(name) == lerpList.end()) {
-        tempLerp             = new LerpAnimator();
-        tempLerp->time       = 0.0f;
-        tempLerp->startValue = startValue;
-        tempLerp->change     = change;
-        tempLerp->duration   = duration;
-        lerpList.try_emplace(name, tempLerp);
-        tempLerp = nullptr;
+    if (_lerpList.find(name) == _lerpList.end()) {
+        _tempLerp             = new LerpAnimator();
+        _tempLerp->time       = 0.0f;
+        _tempLerp->startValue = startValue;
+        _tempLerp->change     = change;
+        _tempLerp->duration   = duration;
+        _lerpList.try_emplace(name, _tempLerp);
+        _tempLerp = nullptr;
     }
-    return lerpList[name];
+    return _lerpList[name];
 }
 
 LerpAnimator *Lerp::_getLerp(const char *name) {
-    if (lerpList.contains(name)) {
-        return lerpList[name];
+    if (_lerpList.contains(name)) {
+        return _lerpList[name];
     }
 
     return nullptr;
 }
 
 void Lerp::_resetTime(const char *name) {
-    if (lerpList.contains(name))
-        lerpList[name]->time = 0.0f;
+    if (_lerpList.contains(name))
+        _lerpList[name]->time = 0.0f;
 }
 
 void Lerp::_updateLerps() {
-    for (auto &lerp : lerpList) {
+    for (auto &lerp : _lerpList) {
         if (lerp.second->started) {
-            if (lerp.second->isFinished())
+            if (lerp.second->IsFinished())
                 lerp.second->canDelete = true;
             else {
                 lerp.second->time += (float)Window::GetFrameTime();

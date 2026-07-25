@@ -20,8 +20,8 @@ struct Vertex2D {
  * 8 bytes per vertex (4 half-floats)
  */
 struct CompactVertex2D {
-    uint32_t pos_xy; // x,y as half-floats
-    uint32_t uv;     // u,v as half-floats
+    uint32_t posXy; // x,y as half-floats
+    uint32_t uv;    // u,v as half-floats
 
     // Helper to pack from Vertex2D
     static CompactVertex2D FromVertex(const Vertex2D &v);
@@ -72,13 +72,13 @@ public:
      * @brief Creates a unit quad geometry (0,0) to (1,1)
      * Vertices are at corners, UVs match positions
      */
-    static Geometry2D *CreateQuad() { return get()._createQuad(); }
+    static Geometry2D *CreateQuad() { return Get()._createQuad(); }
 
     /**
      * @brief Creates a unit circle geometry centered at origin
      * @param segments Number of segments around the circle (triangles = segments)
      */
-    static Geometry2D *CreateCircle(int segments = 32) { return get()._createCircle(segments); }
+    static Geometry2D *CreateCircle(int segments = 32) { return Get()._createCircle(segments); }
 
     /**
      * @brief Creates a unit rounded rectangle geometry (0,0) to (1,1) with rounded corners
@@ -86,12 +86,12 @@ public:
      * @param cornerRadiusY Normalized radius along Y axis (0.0 to 0.5)
      * @param cornerSegments Number of segments per corner arc
      */
-    static Geometry2D *CreateRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments = 8) { return get()._createRoundedRect(cornerRadiusX, cornerRadiusY, cornerSegments); }
+    static Geometry2D *CreateRoundedRect(float cornerRadiusX, float cornerRadiusY, int cornerSegments = 8) { return Get()._createRoundedRect(cornerRadiusX, cornerRadiusY, cornerSegments); }
 
     /**
      * @brief Releases all cached geometries
      */
-    static void ReleaseAll() { get()._releaseAll(); }
+    static void ReleaseAll() { Get()._releaseAll(); }
 
 private:
     Geometry2D *_createQuad();
@@ -105,7 +105,7 @@ public:
     /// @cond INTERNAL
     Geometry2DFactory(const Geometry2DFactory &) = delete;
 
-    static Geometry2DFactory &get() {
+    static Geometry2DFactory &Get() {
         static Geometry2DFactory instance;
         return instance;
     }

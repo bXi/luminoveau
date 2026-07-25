@@ -1,4 +1,5 @@
 #include "gpu/geometry/geometry2d.h"
+#include "gpu/halffloat.h"
 #include "gpu/IGpu.h"
 #include "renderer/renderer.h"
 #include <cmath>
@@ -8,57 +9,10 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-// Fast inline clamp - compiles to conditional moves (branchless)
-static inline float fast_clamp(float v, float min, float max) {
-    return (v < min) ? min : (v > max ? max : v);
-}
-
-// Float32 to Float16 conversion
-static inline uint16_t float_to_half(float f) {
-    union {
-        float    f;
-        uint32_t i;
-    } u           = { f };
-    uint32_t bits = u.i;
-
-    uint32_t sign     = (bits >> 16) & 0x8000;
-    int32_t  exponent = ((bits >> 23) & 0xFF) - 127 + 15;
-    uint32_t mantissa = (bits >> 13) & 0x3FF;
-
-    if (exponent <= 0) {
-        if (exponent < -10) {
-            return static_cast<uint16_t>(sign);
-        }
-        mantissa = (mantissa | 0x400) >> (1 - exponent);
-        return static_cast<uint16_t>(sign | mantissa);
-    }
-
-    if (exponent >= 31) {
-        return static_cast<uint16_t>(sign | 0x7C00);
-    }
-
-    return static_cast<uint16_t>(sign | (exponent << 10) | mantissa);
-}
-
-// Pack two half-floats into a uint32
-static inline uint32_t pack_half2(float a, float b) {
-    if (!std::isfinite(a))
-        a = 0.0f;
-    if (!std::isfinite(b))
-        b = 0.0f;
-
-    a = fast_clamp(a, -65504.0f, 65504.0f);
-    b = fast_clamp(b, -65504.0f, 65504.0f);
-
-    uint16_t ha = float_to_half(a);
-    uint16_t hb = float_to_half(b);
-    return static_cast<uint32_t>(ha) | (static_cast<uint32_t>(hb) << 16);
-}
-
 CompactVertex2D CompactVertex2D::FromVertex(const Vertex2D &v) {
     return {
-        .pos_xy = pack_half2(v.x, v.y),
-        .uv     = pack_half2(v.u, v.v)
+        .posXy = packHalf2(v.x, v.y),
+        .uv    = packHalf2(v.u, v.v)
     };
 }
 
@@ -75,43 +29,43 @@ void Geometry2D::UploadToGPU() {
     uint32_t vertexDataSize = static_cast<uint32_t>(compactVertices.size() * sizeof(CompactVertex2D));
     uint32_t indexDataSize  = static_cast<uint32_t>(indices.size() * sizeof(uint16_t));
 
-    vertexTransferBuffer = gpu.createTransferBuffer({ vertexDataSize, GpuTransferUsage::Upload });
-    vertexBuffer         = gpu.createBuffer({ vertexDataSize, GpuBufferUsage::Vertex });
+    vertexTransferBuffer = gpu.CreateTransferBuffer({ vertexDataSize, GpuTransferUsage::Upload });
+    vertexBuffer         = gpu.CreateBuffer({ vertexDataSize, GpuBufferUsage::Vertex });
 
-    void *vertData = gpu.mapTransferBuffer(vertexTransferBuffer, false);
+    void *vertData = gpu.MapTransferBuffer(vertexTransferBuffer, false);
     std::memcpy(vertData, compactVertices.data(), vertexDataSize);
-    gpu.unmapTransferBuffer(vertexTransferBuffer);
+    gpu.UnmapTransferBuffer(vertexTransferBuffer);
 
-    indexTransferBuffer = gpu.createTransferBuffer({ indexDataSize, GpuTransferUsage::Upload });
-    indexBuffer         = gpu.createBuffer({ indexDataSize, GpuBufferUsage::Index });
+    indexTransferBuffer = gpu.CreateTransferBuffer({ indexDataSize, GpuTransferUsage::Upload });
+    indexBuffer         = gpu.CreateBuffer({ indexDataSize, GpuBufferUsage::Index });
 
-    void *idxData = gpu.mapTransferBuffer(indexTransferBuffer, false);
+    void *idxData = gpu.MapTransferBuffer(indexTransferBuffer, false);
     std::memcpy(idxData, indices.data(), indexDataSize);
-    gpu.unmapTransferBuffer(indexTransferBuffer);
+    gpu.UnmapTransferBuffer(indexTransferBuffer);
 
-    GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
-    gpu.uploadToBuffer(cmd, vertexTransferBuffer, 0, vertexBuffer, 0, vertexDataSize);
-    gpu.uploadToBuffer(cmd, indexTransferBuffer, 0, indexBuffer, 0, indexDataSize);
-    gpu.submitCommandBuffer(cmd);
-    gpu.waitIdle();
+    GpuCmdBufferHandle cmd = gpu.AcquireCommandBuffer();
+    gpu.UploadToBuffer(cmd, vertexTransferBuffer, 0, vertexBuffer, 0, vertexDataSize);
+    gpu.UploadToBuffer(cmd, indexTransferBuffer, 0, indexBuffer, 0, indexDataSize);
+    gpu.SubmitCommandBuffer(cmd);
+    gpu.WaitIdle();
 }
 
 void Geometry2D::Release() {
     IGpu &gpu = Renderer::GetGpu();
     if (vertexBuffer) {
-        gpu.releaseBuffer(vertexBuffer);
+        gpu.ReleaseBuffer(vertexBuffer);
         vertexBuffer = 0;
     }
     if (indexBuffer) {
-        gpu.releaseBuffer(indexBuffer);
+        gpu.ReleaseBuffer(indexBuffer);
         indexBuffer = 0;
     }
     if (vertexTransferBuffer) {
-        gpu.releaseTransferBuffer(vertexTransferBuffer);
+        gpu.ReleaseTransferBuffer(vertexTransferBuffer);
         vertexTransferBuffer = 0;
     }
     if (indexTransferBuffer) {
-        gpu.releaseTransferBuffer(indexTransferBuffer);
+        gpu.ReleaseTransferBuffer(indexTransferBuffer);
         indexTransferBuffer = 0;
     }
 }

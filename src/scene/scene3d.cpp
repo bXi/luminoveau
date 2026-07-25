@@ -2,38 +2,38 @@
 #include <stdexcept>
 
 void Scene::_new(const std::string &name) {
-    if (scenes.find(name) != scenes.end()) {
+    if (_scenes.find(name) != _scenes.end()) {
         LOG_CRITICAL("scene with name {} already exists", name);
     }
-    scenes[name] = SceneData();
+    _scenes[name] = SceneData();
 }
 
 void Scene::_switch(const std::string &name) {
-    if (scenes.find(name) == scenes.end()) {
+    if (_scenes.find(name) == _scenes.end()) {
         LOG_CRITICAL("scene with name {} does not exist", name);
     }
-    currentSceneName = name;
+    _currentSceneName = name;
 }
 
 // Camera
 void Scene::_setCamera(vf3d position, vf3d target) {
-    auto &scene           = getCurrentScene();
+    auto &scene           = _getCurrentScene();
     scene.camera.position = position;
     scene.camera.target   = target;
 }
 
 void Scene::_setCameraFOV(float fov) {
-    getCurrentScene().camera.fov = fov;
+    _getCurrentScene().camera.fov = fov;
 }
 
 void Scene::_setCameraClipPlanes(float nearPlane, float farPlane) {
-    auto &scene            = getCurrentScene();
+    auto &scene            = _getCurrentScene();
     scene.camera.nearPlane = nearPlane;
     scene.camera.farPlane  = farPlane;
 }
 
 Camera3D &Scene::_getCamera() {
-    return getCurrentScene().camera;
+    return _getCurrentScene().camera;
 }
 
 // Models
@@ -43,20 +43,20 @@ ModelInstance &Scene::_addModel(ModelAsset *model, vf3d position, vf3d rotation,
     instance.position = position;
     instance.rotation = rotation;
     instance.scale    = scale;
-    getCurrentScene().models.push_back(instance);
-    return getCurrentScene().models.back();
+    _getCurrentScene().models.push_back(instance);
+    return _getCurrentScene().models.back();
 }
 
 std::vector<ModelInstance> &Scene::_getModels() {
-    return getCurrentScene().models;
+    return _getCurrentScene().models;
 }
 
 // Lights
 Light &Scene::_addPointLight(const Light &light) {
     Light newLight = light;
     newLight.type  = LightType::Point;
-    getCurrentScene().lights.push_back(newLight);
-    return getCurrentScene().lights.back();
+    _getCurrentScene().lights.push_back(newLight);
+    return _getCurrentScene().lights.back();
 }
 
 Light &Scene::_addPointLight(vf3d position, Color color, float intensity) {
@@ -65,16 +65,16 @@ Light &Scene::_addPointLight(vf3d position, Color color, float intensity) {
     light.position  = position;
     light.color     = color;
     light.intensity = intensity;
-    getCurrentScene().lights.push_back(light);
-    return getCurrentScene().lights.back();
+    _getCurrentScene().lights.push_back(light);
+    return _getCurrentScene().lights.back();
 }
 
 Light &Scene::_addDirectionalLight(const Light &light) {
     Light newLight     = light;
     newLight.type      = LightType::Directional;
     newLight.direction = newLight.direction.norm();
-    getCurrentScene().lights.push_back(newLight);
-    return getCurrentScene().lights.back();
+    _getCurrentScene().lights.push_back(newLight);
+    return _getCurrentScene().lights.back();
 }
 
 Light &Scene::_addDirectionalLight(vf3d direction, Color color, float intensity) {
@@ -83,37 +83,37 @@ Light &Scene::_addDirectionalLight(vf3d direction, Color color, float intensity)
     light.direction = direction.norm();
     light.color     = color;
     light.intensity = intensity;
-    getCurrentScene().lights.push_back(light);
-    return getCurrentScene().lights.back();
+    _getCurrentScene().lights.push_back(light);
+    return _getCurrentScene().lights.back();
 }
 
 Light &Scene::_addSpotLight(const Light &light) {
     Light newLight     = light;
     newLight.type      = LightType::Spot;
     newLight.direction = newLight.direction.norm();
-    getCurrentScene().lights.push_back(newLight);
-    return getCurrentScene().lights.back();
+    _getCurrentScene().lights.push_back(newLight);
+    return _getCurrentScene().lights.back();
 }
 
 std::vector<Light> &Scene::_getLights() {
-    return getCurrentScene().lights;
+    return _getCurrentScene().lights;
 }
 
 void Scene::_setAmbientLight(Color color) {
-    getCurrentScene().ambientLight = color;
+    _getCurrentScene().ambientLight = color;
 }
 
 Color Scene::_getAmbientLight() {
-    return getCurrentScene().ambientLight;
+    return _getCurrentScene().ambientLight;
 }
 
 // Clear
 void Scene::_clearModels() {
-    getCurrentScene().models.clear();
+    _getCurrentScene().models.clear();
 }
 
 void Scene::_clearLights() {
-    getCurrentScene().lights.clear();
+    _getCurrentScene().lights.clear();
 }
 
 void Scene::_clear() {
@@ -125,11 +125,11 @@ void Scene::_delete(const std::string &name) {
     if (name == "defaultScene") {
         LOG_CRITICAL("cannot delete the default scene");
     }
-    if (scenes.find(name) == scenes.end()) {
+    if (_scenes.find(name) == _scenes.end()) {
         LOG_CRITICAL("scene with name {} does not exist", name);
     }
-    if (currentSceneName == name) {
-        currentSceneName = "defaultScene";
+    if (_currentSceneName == name) {
+        _currentSceneName = "defaultScene";
     }
-    scenes.erase(name);
+    _scenes.erase(name);
 }

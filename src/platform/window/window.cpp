@@ -54,13 +54,13 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 
     auto window = SDL_CreateWindow(title.c_str(), width, height, flags);
     if (window) {
-        m_window = window;
+        _window = window;
     } else {
         LOG_CRITICAL("couldn't create window: {}", SDL_GetError());
     }
 
 #ifdef LUMINOVEAU_WITH_IMGUI
-    ImGuiIntegration::Init(m_window);
+    ImGuiIntegration::Init(_window);
 #endif
 
     // Query HiDPI display scale factor
@@ -68,7 +68,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 
     Renderer::InitRendering();
 
-    WindowBackend::PostInit(m_window);
+    WindowBackend::PostInit(_window);
 
     if (!FileHandler::InitPhysFS()) {
         LOG_CRITICAL("AssetHandler::InitPhysFS failed");
@@ -85,8 +85,8 @@ void Window::_requestClose() {
     LOG_INFO("Shutting down");
     if (_inFrame) {
         // Mid-frame: defer actual close until EndFrame completes
-        _pendingClose            = true;
-        EngineState::_shouldQuit = true;
+        _pendingClose           = true;
+        EngineState::shouldQuit = true;
     } else {
         // Outside frame (e.g. after game loop): close immediately
         _close();
@@ -94,7 +94,7 @@ void Window::_requestClose() {
 }
 
 void Window::_close() {
-    if (!m_window)
+    if (!_window)
         return; // Already closed
 
 #ifdef LUMINOVEAU_WITH_RMLUI
@@ -113,9 +113,9 @@ void Window::_close() {
     Renderer::Close();
 
     // Destroy the window
-    if (m_window) {
-        SDL_DestroyWindow(m_window);
-        m_window = nullptr;
+    if (_window) {
+        SDL_DestroyWindow(_window);
+        _window = nullptr;
     }
 
     // SDL_QuitSubSystem is ref-counted
@@ -136,14 +136,14 @@ void Window::_toggleFullscreen() {
         _lastWindowWidth  = (int)_getSize().x;
         _lastWindowHeight = (int)_getSize().y;
 
-        SDL_SetWindowFullscreen(m_window, true);
-        SDL_SyncWindow(m_window);
+        SDL_SetWindowFullscreen(_window, true);
+        SDL_SyncWindow(_window);
 
         _setSize((int)_getSize().x, (int)_getSize().y);
     } else {
 
-        SDL_SetWindowFullscreen(m_window, false);
-        SDL_SyncWindow(m_window);
+        SDL_SetWindowFullscreen(_window, false);
+        SDL_SyncWindow(_window);
         _setSize(_lastWindowWidth, _lastWindowHeight);
     }
 }
@@ -156,31 +156,31 @@ int Window::_getFPS(float milliseconds) {
     const double windowSeconds = (double)milliseconds / 1000.0;
     auto         now           = clock::now();
 
-    static auto     s_sampleStart      = now;
-    static uint64_t s_sampleStartCount = EngineState::_presentCount;
+    static auto     sampleStart      = now;
+    static uint64_t sampleStartCount = EngineState::presentCount;
 
     double elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                         now - s_sampleStart)
+                         now - sampleStart)
                          .count()
         / 1e9;
 
     if (elapsed >= windowSeconds && elapsed > 0.0) {
-        uint64_t delta     = EngineState::_presentCount - s_sampleStartCount;
-        EngineState::_fps  = (int)((double)delta / elapsed);
-        s_sampleStart      = now;
-        s_sampleStartCount = EngineState::_presentCount;
+        uint64_t delta   = EngineState::presentCount - sampleStartCount;
+        EngineState::fps = (int)((double)delta / elapsed);
+        sampleStart      = now;
+        sampleStartCount = EngineState::presentCount;
     }
-    return EngineState::_fps;
+    return EngineState::fps;
 }
 
 // Two-finger pinch → mouse-wheel ticks, so touch devices can zoom demos that use the scroll wheel.
 // Driven from SDL finger events (same event stream/timing as the real wheel). tfinger coords are
 // normalised (0..1); a spread past a small threshold emits one wheel notch (out = zoom in).
-static void _handlePinch(const SDL_Event *event) {
+static void handlePinch(const SDL_Event *event) {
     static std::unordered_map<SDL_FingerID, vf2d> fingers;
-    static float                                  prevDist = -1.0f;
-    static float                                  accum    = 0.0f;
-    const float                                   TH       = 0.03f;
+    static float                                  prevDist       = -1.0f;
+    static float                                  accum          = 0.0f;
+    const float                                   pinchThreshold = 0.03f;
 
     SDL_FingerID id = event->tfinger.fingerID;
     if (event->type == SDL_EVENT_FINGER_UP) {
@@ -199,13 +199,13 @@ static void _handlePinch(const SDL_Event *event) {
         float d = std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
         if (prevDist >= 0.0f) {
             accum += d - prevDist;
-            while (accum > TH) {
+            while (accum > pinchThreshold) {
                 Input::UpdateScroll(1);
-                accum -= TH;
+                accum -= pinchThreshold;
             }
-            while (accum < -TH) {
+            while (accum < -pinchThreshold) {
                 Input::UpdateScroll(-1);
-                accum += TH;
+                accum += pinchThreshold;
             }
         }
         prevDist = d;
@@ -226,7 +226,7 @@ void Window::_processEvent(SDL_Event *event) {
 
     switch (event->type) {
     case SDL_EventType::SDL_EVENT_QUIT:
-        EngineState::_shouldQuit = true;
+        EngineState::shouldQuit = true;
         break;
     case SDL_EventType::SDL_EVENT_KEY_DOWN:
         _bufferedKeysDown.push_back(event->key.scancode);
@@ -268,7 +268,7 @@ void Window::_processEvent(SDL_Event *event) {
     case SDL_EVENT_FINGER_MOTION:
     case SDL_EVENT_FINGER_UP: {
         Input::HandleTouchEvent(event);
-        _handlePinch(event); // two-finger spread → mouse-wheel ticks (zoom)
+        handlePinch(event); // two-finger spread → mouse-wheel ticks (zoom)
         break;
     }
     case SDL_EventType::SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED: {
@@ -318,7 +318,7 @@ void Window::_handleInput() {
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) {
-        EngineState::_debugMenuVisible = !EngineState::_debugMenuVisible;
+        EngineState::debugMenuVisible = !EngineState::debugMenuVisible;
     }
 #endif
 }
@@ -336,7 +336,7 @@ void Window::_handleInput() {
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     if (Input::KeyPressed(SDLK_F11) && Input::KeyDown(SDLK_LSHIFT)) {
-        EngineState::_debugMenuVisible = !EngineState::_debugMenuVisible;
+        EngineState::debugMenuVisible = !EngineState::debugMenuVisible;
     }
 #endif
 }
@@ -348,9 +348,9 @@ void Window::ProcessEvent(SDL_Event *event) {
 #endif
 
 bool Window::_isFullscreen() {
-    auto flag          = SDL_GetWindowFlags(m_window);
-    auto is_fullscreen = flag & SDL_WINDOW_FULLSCREEN;
-    return is_fullscreen == SDL_WINDOW_FULLSCREEN;
+    auto flag         = SDL_GetWindowFlags(_window);
+    auto isFullscreen = flag & SDL_WINDOW_FULLSCREEN;
+    return isFullscreen == SDL_WINDOW_FULLSCREEN;
 }
 
 vf2d Window::_getSize(bool getRealSize) {
@@ -359,22 +359,22 @@ vf2d Window::_getSize(bool getRealSize) {
     // WebGPU backend reports canvas-CSS-pixel swapchain dims; SDL backend defers
     // (returns false) and we fall through to the normal SDL size logic below.
     vf2d backendSize;
-    if (WindowBackend::GetSizeOverride(m_window, _webGpuScaleMode,
+    if (WindowBackend::GetSizeOverride(_window, _webGpuScaleMode,
             _webGpuRenderWidth, _webGpuRenderHeight,
             backendSize)) {
         // Apply the SetScale render divisor here too — same as the SDL path below. Without this the
         // backend (web) reports the full canvas while the camera ortho and mouse mapping are divided
         // by the scale, so GetWidth/Height disagree with draw + input space under SetScale(N>1).
-        if (!getRealSize && EngineState::_scaleFactor > 1) {
-            backendSize.x /= (float)EngineState::_scaleFactor;
-            backendSize.y /= (float)EngineState::_scaleFactor;
+        if (!getRealSize && EngineState::scaleFactor > 1) {
+            backendSize.x /= (float)EngineState::scaleFactor;
+            backendSize.y /= (float)EngineState::scaleFactor;
         }
         return backendSize;
     }
 
 #ifdef LUMI_USE_PHYSICAL_PIXELS
     // Physical pixel mode: always return actual device pixels
-    SDL_GetWindowSizeInPixels(m_window, &w, &h);
+    SDL_GetWindowSizeInPixels(_window, &w, &h);
 #else
     // Virtual pixel mode (default): return logical points
     if (_isFullscreen()) {
@@ -393,13 +393,13 @@ vf2d Window::_getSize(bool getRealSize) {
         w = dm->w;
         h = dm->h;
     } else {
-        SDL_GetWindowSize(m_window, &w, &h);
+        SDL_GetWindowSize(_window, &w, &h);
     }
 #endif
 
-    if (!getRealSize && EngineState::_scaleFactor > 1) {
-        w /= EngineState::_scaleFactor;
-        h /= EngineState::_scaleFactor;
+    if (!getRealSize && EngineState::scaleFactor > 1) {
+        w /= EngineState::scaleFactor;
+        h /= EngineState::scaleFactor;
     }
 
     return { (float)w, (float)h };
@@ -411,17 +411,17 @@ vf2d Window::_getPhysicalSize() {
     // emscripten/SDL3 builds). SDL backend defers and we use the SDL value.
     vf2d size;
     vf2d backendSize;
-    if (WindowBackend::GetPhysicalSizeOverride(m_window, _webGpuScaleMode, backendSize)) {
+    if (WindowBackend::GetPhysicalSizeOverride(_window, _webGpuScaleMode, backendSize)) {
         size = backendSize;
-    } else if (EngineState::_swapchainWidth > 0 && EngineState::_swapchainHeight > 0) {
+    } else if (EngineState::swapchainWidth > 0 && EngineState::swapchainHeight > 0) {
         // Prefer the actual swapchain dimensions from the last acquire -- that's the size we truly
         // present into, and the viewport/blit must match it. SDL_GetWindowSizeInPixels can disagree
         // on Wayland fractional scaling (scene rendered bigger than the window).
-        size = { (float)EngineState::_swapchainWidth, (float)EngineState::_swapchainHeight };
+        size = { (float)EngineState::swapchainWidth, (float)EngineState::swapchainHeight };
     } else {
         // Fall back to the SDL size before the first frame's acquire, or if a backend reports nothing.
         int w, h;
-        SDL_GetWindowSizeInPixels(m_window, &w, &h);
+        SDL_GetWindowSizeInPixels(_window, &w, &h);
         size = { (float)w, (float)h };
     }
 
@@ -430,7 +430,7 @@ vf2d Window::_getPhysicalSize() {
     // every pixel — sprites, text AND fullscreen shaders — gets the same chunky N:N enlargement.
     // This is the "render resolution divisor" model; WebGpuScaleMode still governs canvas-vs-app fit
     // on top. scaleFactor == 1 is a no-op.
-    int s = EngineState::_scaleFactor > 1 ? EngineState::_scaleFactor : 1;
+    int s = EngineState::scaleFactor > 1 ? EngineState::scaleFactor : 1;
     if (s > 1) {
         size.x = (float)std::max(1, (int)size.x / s);
         size.y = (float)std::max(1, (int)size.y / s);
@@ -439,17 +439,17 @@ vf2d Window::_getPhysicalSize() {
 }
 
 void Window::_updateDisplayScale() {
-    if (!m_window)
+    if (!_window)
         return;
-    float scale = SDL_GetWindowDisplayScale(m_window);
+    float scale = SDL_GetWindowDisplayScale(_window);
     if (scale > 0.0f) {
-        EngineState::_displayScale = scale;
+        EngineState::displayScale = scale;
     }
 }
 
 void Window::_setSize(int width, int height) {
-    SDL_SetWindowSize(m_window, width, height);
-    SDL_SyncWindow(m_window);
+    SDL_SetWindowSize(_window, width, height);
+    SDL_SyncWindow(_window);
 
     // Update camera immediately so rendering adapts to new size
     Renderer::UpdateCameraProjection();
@@ -459,7 +459,7 @@ void Window::_setSize(int width, int height) {
 
 void Window::_startFrame() {
     _inFrame = true;
-    Lerp::updateLerps();
+    Lerp::UpdateLerps();
 
     Window::HandleInput();
 
@@ -473,12 +473,12 @@ void Window::_startFrame() {
         _sizeDirty = false;
     }
 
-    EngineState::_frameCount++;
-    EngineState::_previousTime = EngineState::_currentTime;
-    EngineState::_currentTime  = std::chrono::high_resolution_clock::now();
+    EngineState::frameCount++;
+    EngineState::previousTime = EngineState::currentTime;
+    EngineState::currentTime  = std::chrono::high_resolution_clock::now();
 
     double rawFrameTime = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(
-                              EngineState::_currentTime - EngineState::_previousTime)
+                              EngineState::currentTime - EngineState::previousTime)
                               .count()
         / 1e9;
 
@@ -488,7 +488,7 @@ void Window::_startFrame() {
     // window drag — can't inject a multi-second step into gameplay or the GPU particle sim
     // (which would otherwise emit one huge synchronized burst). 100 ms == a 10 FPS floor.
     constexpr double kMaxFrameTime = 0.1;
-    EngineState::_lastFrameTime    = (EngineState::_frameCount <= 1) ? 0.0 : std::min(rawFrameTime, kMaxFrameTime);
+    EngineState::lastFrameTime     = (EngineState::frameCount <= 1) ? 0.0 : std::min(rawFrameTime, kMaxFrameTime);
 
     Renderer::StartFrame();
 
@@ -500,7 +500,7 @@ void Window::_endFrame() {
     Perf::FrameEnd(); // CPU ms + sample + draw the perf HUD (before the frame is submitted)
 
 #ifdef LUMINOVEAU_WITH_IMGUI
-    if (EngineState::_debugMenuVisible) {
+    if (EngineState::debugMenuVisible) {
         ImGuiIntegration::DrawDebugMenu();
     }
 #endif
@@ -522,31 +522,31 @@ void Window::_endFrame() {
 }
 
 SDL_Window *Window::_getWindow() {
-    return m_window;
+    return _window;
 }
 
 bool Window::_hasInputFocus() {
-    if (!m_window)
+    if (!_window)
         return true;
-    return (SDL_GetWindowFlags(m_window) & SDL_WINDOW_INPUT_FOCUS) != 0;
+    return (SDL_GetWindowFlags(_window) & SDL_WINDOW_INPUT_FOCUS) != 0;
 }
 
 void Window::_toggleDebugMenu() {
 #ifdef LUMINOVEAU_WITH_IMGUI
-    EngineState::_debugMenuVisible = !EngineState::_debugMenuVisible;
+    EngineState::debugMenuVisible = !EngineState::debugMenuVisible;
 #endif
 }
 
 void Window::_setScale(int scalefactor) {
     if (scalefactor < 1)
         scalefactor = 1;
-    if (EngineState::_scaleFactor == scalefactor)
+    if (EngineState::scaleFactor == scalefactor)
         return;
-    EngineState::_scaleFactor = scalefactor;
+    EngineState::scaleFactor = scalefactor;
     // A runtime scale change has to rebuild the camera projection (and refresh pass surfaces) so 2D
     // content rescales immediately — that's what makes SetScale work outside of InitWindow. Skip
     // before the first frame: the renderer isn't up yet and the projection is built on init anyway.
-    if (EngineState::_swapchainWidth > 0)
+    if (EngineState::swapchainWidth > 0)
         Renderer::OnResize();
 }
 
@@ -556,11 +556,11 @@ void Window::_setScaledSize(int widthInScaledPixels, int heightInScaledPixels, i
         SetScale(scale);
     }
 
-    _setSize(EngineState::_scaleFactor * widthInScaledPixels, EngineState::_scaleFactor * heightInScaledPixels);
+    _setSize(EngineState::scaleFactor * widthInScaledPixels, EngineState::scaleFactor * heightInScaledPixels);
 }
 
 float Window::_getScale() {
-    return (float)EngineState::_scaleFactor;
+    return (float)EngineState::scaleFactor;
 }
 
 void Window::_setIcon(const std::string &filename) {
@@ -599,8 +599,8 @@ void Window::_setCursor(const std::string &filename) {
 }
 
 void Window::_setRelativeMouseMode(bool enabled) {
-    if (m_window)
-        SDL_SetWindowRelativeMouseMode(m_window, enabled);
+    if (_window)
+        SDL_SetWindowRelativeMouseMode(_window, enabled);
 }
 
 void Window::_takeScreenshot(const std::string &filename) {

@@ -26,20 +26,20 @@
 #include <emscripten.h>
 #endif
 
-int Helpers::clamp(const int input, const int min, const int max) {
+int Helpers::Clamp(const int input, const int min, const int max) {
     const int a = (input < min) ? min : input;
     return (a > max ? max : a);
 }
 
-float Helpers::mapValues(const float x, const float in_min, const float in_max, const float out_min, const float out_max) {
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+float Helpers::MapValues(const float x, const float inMin, const float inMax, const float outMin, const float outMax) {
+    return (x - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
 }
 
-float Helpers::getDifficultyModifier(float mod) {
+float Helpers::GetDifficultyModifier(float mod) {
     return 1.0f + ((mod / 10.0f) * (mod / 10.0f) / 1.9f);
 }
 
-bool Helpers::lineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, rectf rect) {
+bool Helpers::LineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, rectf rect) {
 
     auto doIntersect = [](vf2d p1, vf2d q1, vf2d p2, vf2d q2) -> bool {
         auto orientation = [](vf2d p, vf2d q, vf2d r) -> int {
@@ -85,7 +85,7 @@ bool Helpers::lineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, rectf rect) 
         return false; // Doesn't fall in any of the above cases
     };
 
-    auto lines = Helpers::getLinesFromRectangle(rect);
+    auto lines = Helpers::GetLinesFromRectangle(rect);
 
     for (auto &line : lines) {
         if (doIntersect(line.first, line.second, lineStart, lineEnd)) {
@@ -96,7 +96,7 @@ bool Helpers::lineIntersectsRectangle(vf2d lineStart, vf2d lineEnd, rectf rect) 
     return false;
 }
 
-std::vector<std::pair<vf2d, vf2d>> Helpers::getLinesFromRectangle(rectf rect) {
+std::vector<std::pair<vf2d, vf2d>> Helpers::GetLinesFromRectangle(rectf rect) {
     float x           = rect.x;
     float y           = rect.y;
     vf2d  topLeft     = { x, y };
@@ -117,7 +117,7 @@ std::vector<std::pair<vf2d, vf2d>> Helpers::getLinesFromRectangle(rectf rect) {
     };
 }
 
-bool Helpers::randomChance(const float required) {
+bool Helpers::RandomChance(const float required) {
 
     std::default_random_engine             generator(time(0));
     std::uniform_real_distribution<double> distribution;

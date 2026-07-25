@@ -42,7 +42,7 @@ static void pollUntil(bool &flag) {
 // Lifecycle
 // ─────────────────────────────────────────────────────────────────────────────
 
-bool WebGpuGpuBackend::init(void *windowHandle) {
+bool WebGpuGpuBackend::Init(void *windowHandle) {
     // 1. Instance
     WGPUInstanceDescriptor instDesc {};
     m_instance = wgpuCreateInstance(&instDesc);
@@ -265,8 +265,8 @@ bool WebGpuGpuBackend::init(void *windowHandle) {
     return true;
 }
 
-void WebGpuGpuBackend::shutdown() {
-    waitIdle();
+void WebGpuGpuBackend::Shutdown() {
+    WaitIdle();
 
     if (m_currentSurfaceView) {
         wgpuTextureViewRelease(m_currentSurfaceView);
@@ -305,7 +305,7 @@ void WebGpuGpuBackend::shutdown() {
 }
 
 WebGpuGpuBackend::~WebGpuGpuBackend() {
-    shutdown();
+    Shutdown();
 }
 
 WGPUBuffer WebGpuGpuBackend::_acquireUniformBuffer(uint32_t alignedSize) {
@@ -333,7 +333,7 @@ void WebGpuGpuBackend::_recycleUniformBuffer(WGPUBuffer buf, uint32_t alignedSiz
     bucket.push_back(buf);
 }
 
-void WebGpuGpuBackend::waitIdle() {
+void WebGpuGpuBackend::WaitIdle() {
     // Submitting an empty command buffer and waiting for its completion is
     // the portable WebGPU way to flush all pending GPU work.
     WGPUCommandEncoderDescriptor encDesc {};
@@ -362,7 +362,7 @@ void WebGpuGpuBackend::waitIdle() {
 // Frame management
 // ─────────────────────────────────────────────────────────────────────────────
 
-GpuCmdBufferHandle WebGpuGpuBackend::acquireCommandBuffer() {
+GpuCmdBufferHandle WebGpuGpuBackend::AcquireCommandBuffer() {
     WGPUCommandEncoderDescriptor desc {};
     WGPUCommandEncoder           enc = wgpuDeviceCreateCommandEncoder(m_device, &desc);
     auto                        *cb  = new WgpuCmdBuffer();
@@ -370,7 +370,7 @@ GpuCmdBufferHandle WebGpuGpuBackend::acquireCommandBuffer() {
     return reinterpret_cast<GpuCmdBufferHandle>(cb);
 }
 
-void WebGpuGpuBackend::submitCommandBuffer(GpuCmdBufferHandle cmd) {
+void WebGpuGpuBackend::SubmitCommandBuffer(GpuCmdBufferHandle cmd) {
     auto                       *cb = reinterpret_cast<WgpuCmdBuffer *>(cmd);
     WGPUCommandBufferDescriptor desc {};
     WGPUCommandBuffer           gpuCmd = wgpuCommandEncoderFinish(cb->encoder, &desc);
@@ -394,12 +394,12 @@ void WebGpuGpuBackend::submitCommandBuffer(GpuCmdBufferHandle cmd) {
     cb->cleanup.tempBindGroups.clear();
     delete cb;
 
-    // Frame-end present is done separately by the renderer via presentSwapchain() so that
+    // Frame-end present is done separately by the renderer via PresentSwapchain() so that
     // mid-frame submits (e.g. texture uploads during scene init) don't release the
     // currently-acquired swapchain view.
 }
 
-void WebGpuGpuBackend::presentSwapchain() {
+void WebGpuGpuBackend::PresentSwapchain() {
 #ifndef __EMSCRIPTEN__
     if (m_currentSurfaceView)
         wgpuTextureViewRelease(m_currentSurfaceView);
@@ -419,7 +419,7 @@ void WebGpuGpuBackend::presentSwapchain() {
     m_currentSurfaceTex  = nullptr;
 }
 
-GpuTextureHandle WebGpuGpuBackend::acquireSwapchainTexture(GpuCmdBufferHandle /*cmd*/,
+GpuTextureHandle WebGpuGpuBackend::AcquireSwapchainTexture(GpuCmdBufferHandle /*cmd*/,
     uint32_t &outWidth,
     uint32_t &outHeight) {
     // Check window.innerWidth/Height each frame; resize canvas + surface when it changes.
@@ -493,7 +493,7 @@ GpuTextureHandle WebGpuGpuBackend::acquireSwapchainTexture(GpuCmdBufferHandle /*
     return reinterpret_cast<GpuTextureHandle>(m_currentSurfaceView);
 }
 
-GpuTextureFormat WebGpuGpuBackend::getSwapchainFormat() const {
+GpuTextureFormat WebGpuGpuBackend::GetSwapchainFormat() const {
     return fromWGPU(m_swapchainFormat);
 }
 
@@ -501,7 +501,7 @@ GpuTextureFormat WebGpuGpuBackend::getSwapchainFormat() const {
 // Render pass
 // ─────────────────────────────────────────────────────────────────────────────
 
-GpuRenderPassHandle WebGpuGpuBackend::beginRenderPass(GpuCmdBufferHandle cmd,
+GpuRenderPassHandle WebGpuGpuBackend::BeginRenderPass(GpuCmdBufferHandle cmd,
     const GpuColorTargetInfo                                            *colorTargets,
     uint32_t                                                             colorTargetCount,
     const GpuDepthStencilTargetInfo                                     *depthTarget) {
@@ -584,7 +584,7 @@ GpuRenderPassHandle WebGpuGpuBackend::beginRenderPass(GpuCmdBufferHandle cmd,
     return reinterpret_cast<GpuRenderPassHandle>(rp);
 }
 
-void WebGpuGpuBackend::endRenderPass(GpuRenderPassHandle pass) {
+void WebGpuGpuBackend::EndRenderPass(GpuRenderPassHandle pass) {
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
     wgpuRenderPassEncoderEnd(rp->encoder);
     wgpuRenderPassEncoderRelease(rp->encoder);
@@ -595,7 +595,7 @@ void WebGpuGpuBackend::endRenderPass(GpuRenderPassHandle pass) {
 // Compute pass
 // ─────────────────────────────────────────────────────────────────────────────
 
-GpuComputePassHandle WebGpuGpuBackend::beginComputePass(GpuCmdBufferHandle cmd,
+GpuComputePassHandle WebGpuGpuBackend::BeginComputePass(GpuCmdBufferHandle cmd,
     const GpuStorageTextureBinding *rwTex, uint32_t rwTexCount,
     const GpuStorageBufferBinding *rwBuf, uint32_t rwBufCount) {
     auto *cb = reinterpret_cast<WgpuCmdBuffer *>(cmd);
@@ -625,7 +625,7 @@ GpuComputePassHandle WebGpuGpuBackend::beginComputePass(GpuCmdBufferHandle cmd,
     return reinterpret_cast<GpuComputePassHandle>(cp);
 }
 
-void WebGpuGpuBackend::endComputePass(GpuComputePassHandle pass) {
+void WebGpuGpuBackend::EndComputePass(GpuComputePassHandle pass) {
     auto *cp = reinterpret_cast<WgpuComputePass *>(pass);
     wgpuComputePassEncoderEnd(cp->encoder);
     wgpuComputePassEncoderRelease(cp->encoder);
@@ -636,7 +636,7 @@ void WebGpuGpuBackend::endComputePass(GpuComputePassHandle pass) {
 // Pipeline binding
 // ─────────────────────────────────────────────────────────────────────────────
 
-void WebGpuGpuBackend::bindGraphicsPipeline(GpuRenderPassHandle pass, GpuGraphicsPipelineHandle pipeline) {
+void WebGpuGpuBackend::BindGraphicsPipeline(GpuRenderPassHandle pass, GpuGraphicsPipelineHandle pipeline) {
     auto *rp            = reinterpret_cast<WgpuRenderPass *>(pass);
     auto *pl            = reinterpret_cast<WgpuGraphicsPipeline *>(pipeline);
     rp->currentPipeline = pl;
@@ -651,7 +651,7 @@ void WebGpuGpuBackend::bindGraphicsPipeline(GpuRenderPassHandle pass, GpuGraphic
     }
 }
 
-void WebGpuGpuBackend::bindComputePipeline(GpuComputePassHandle pass, GpuComputePipelineHandle pipeline) {
+void WebGpuGpuBackend::BindComputePipeline(GpuComputePassHandle pass, GpuComputePipelineHandle pipeline) {
     auto *cp            = reinterpret_cast<WgpuComputePass *>(pass);
     auto *pl            = reinterpret_cast<WgpuComputePipelineData *>(pipeline);
     cp->currentPipeline = pl;
@@ -663,7 +663,7 @@ void WebGpuGpuBackend::bindComputePipeline(GpuComputePassHandle pass, GpuCompute
 // Vertex / index binding
 // ─────────────────────────────────────────────────────────────────────────────
 
-void WebGpuGpuBackend::bindVertexBuffers(GpuRenderPassHandle pass, uint32_t firstSlot,
+void WebGpuGpuBackend::BindVertexBuffers(GpuRenderPassHandle pass, uint32_t firstSlot,
     const GpuBufferBinding *bindings, uint32_t count) {
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
     for (uint32_t i = 0; i < count; ++i) {
@@ -673,7 +673,7 @@ void WebGpuGpuBackend::bindVertexBuffers(GpuRenderPassHandle pass, uint32_t firs
     }
 }
 
-void WebGpuGpuBackend::bindIndexBuffer(GpuRenderPassHandle pass, GpuBufferBinding binding,
+void WebGpuGpuBackend::BindIndexBuffer(GpuRenderPassHandle pass, GpuBufferBinding binding,
     bool use16BitIndices) {
     auto *rp  = reinterpret_cast<WgpuRenderPass *>(pass);
     auto *buf = reinterpret_cast<WgpuBuffer *>(binding.buffer);
@@ -687,7 +687,7 @@ void WebGpuGpuBackend::bindIndexBuffer(GpuRenderPassHandle pass, GpuBufferBindin
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Build and set a bind group for fragment sampler pairs (group 2).
-void WebGpuGpuBackend::bindFragmentSamplers(GpuRenderPassHandle pass, uint32_t first,
+void WebGpuGpuBackend::BindFragmentSamplers(GpuRenderPassHandle pass, uint32_t first,
     const GpuTextureSamplerBinding *bindings, uint32_t count) {
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
     if (!rp->currentPipeline || !rp->currentPipeline->bgLayouts[2])
@@ -749,7 +749,7 @@ void WebGpuGpuBackend::bindFragmentSamplers(GpuRenderPassHandle pass, uint32_t f
     rp->cmdBuf->cleanup.tempBindGroups.push_back(bg);
 }
 
-void WebGpuGpuBackend::bindVertexSamplers(GpuRenderPassHandle pass, uint32_t first,
+void WebGpuGpuBackend::BindVertexSamplers(GpuRenderPassHandle pass, uint32_t first,
     const GpuTextureSamplerBinding *bindings, uint32_t count) {
     // Map to group 4 (vertex sampler+texture pairs) — same logic as fragment but group 4.
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
@@ -762,7 +762,7 @@ void WebGpuGpuBackend::bindVertexSamplers(GpuRenderPassHandle pass, uint32_t fir
     // Stub: vertex samplers are rare; add when needed.
 }
 
-void WebGpuGpuBackend::bindFragmentStorageTextures(GpuRenderPassHandle pass, uint32_t first,
+void WebGpuGpuBackend::BindFragmentStorageTextures(GpuRenderPassHandle pass, uint32_t first,
     const GpuTextureHandle *textures, uint32_t count) {
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
     if (!rp->currentPipeline || !rp->currentPipeline->bgLayouts[3])
@@ -784,7 +784,7 @@ void WebGpuGpuBackend::bindFragmentStorageTextures(GpuRenderPassHandle pass, uin
     rp->cmdBuf->cleanup.tempBindGroups.push_back(bg);
 }
 
-void WebGpuGpuBackend::bindVertexStorageBuffers(GpuRenderPassHandle pass, uint32_t first,
+void WebGpuGpuBackend::BindVertexStorageBuffers(GpuRenderPassHandle pass, uint32_t first,
     const GpuBufferHandle *buffers, uint32_t count) {
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
     if (!rp->currentPipeline || !rp->currentPipeline->bgLayouts[3])
@@ -808,7 +808,7 @@ void WebGpuGpuBackend::bindVertexStorageBuffers(GpuRenderPassHandle pass, uint32
     rp->cmdBuf->cleanup.tempBindGroups.push_back(bg);
 }
 
-void WebGpuGpuBackend::bindComputeSamplers(GpuComputePassHandle pass, uint32_t first,
+void WebGpuGpuBackend::BindComputeSamplers(GpuComputePassHandle pass, uint32_t first,
     const GpuTextureSamplerBinding *bindings, uint32_t count) {
     auto *cp = reinterpret_cast<WgpuComputePass *>(pass);
     // Samplers live in group 1 (SDL set0 -> group 1 via the compute @group remap), with the
@@ -841,7 +841,7 @@ void WebGpuGpuBackend::bindComputeSamplers(GpuComputePassHandle pass, uint32_t f
     cp->cmdBuf->cleanup.tempBindGroups.push_back(bg);
 }
 
-void WebGpuGpuBackend::bindComputeStorageTextures(GpuComputePassHandle pass, uint32_t first,
+void WebGpuGpuBackend::BindComputeStorageTextures(GpuComputePassHandle pass, uint32_t first,
     const GpuTextureHandle *textures, uint32_t count) {
     auto *cp = reinterpret_cast<WgpuComputePass *>(pass);
     // RO storage textures occupy group 1 (same slot RO storage buffers would use for buf-only pipelines).
@@ -863,7 +863,7 @@ void WebGpuGpuBackend::bindComputeStorageTextures(GpuComputePassHandle pass, uin
     cp->cmdBuf->cleanup.tempBindGroups.push_back(bg);
 }
 
-void WebGpuGpuBackend::bindComputeStorageBuffers(GpuComputePassHandle pass, uint32_t first,
+void WebGpuGpuBackend::BindComputeStorageBuffers(GpuComputePassHandle pass, uint32_t first,
     const GpuBufferHandle *buffers, uint32_t count) {
     auto *cp = reinterpret_cast<WgpuComputePass *>(pass);
     if (!cp->currentPipeline || !cp->currentPipeline->bgLayouts[1])
@@ -890,19 +890,19 @@ void WebGpuGpuBackend::bindComputeStorageBuffers(GpuComputePassHandle pass, uint
 // Push-constant emulation — cache data; flushed on draw/dispatch
 // ─────────────────────────────────────────────────────────────────────────────
 
-void WebGpuGpuBackend::pushVertexUniformData(GpuCmdBufferHandle cmd, uint32_t slot,
+void WebGpuGpuBackend::PushVertexUniformData(GpuCmdBufferHandle cmd, uint32_t slot,
     const void *data, uint32_t size) {
     auto *cb = reinterpret_cast<WgpuCmdBuffer *>(cmd);
     cb->vertexUniforms.set(slot, data, size);
 }
 
-void WebGpuGpuBackend::pushFragmentUniformData(GpuCmdBufferHandle cmd, uint32_t slot,
+void WebGpuGpuBackend::PushFragmentUniformData(GpuCmdBufferHandle cmd, uint32_t slot,
     const void *data, uint32_t size) {
     auto *cb = reinterpret_cast<WgpuCmdBuffer *>(cmd);
     cb->fragmentUniforms.set(slot, data, size);
 }
 
-void WebGpuGpuBackend::pushComputeUniformData(GpuCmdBufferHandle cmd, uint32_t slot,
+void WebGpuGpuBackend::PushComputeUniformData(GpuCmdBufferHandle cmd, uint32_t slot,
     const void *data, uint32_t size) {
     auto *cb = reinterpret_cast<WgpuCmdBuffer *>(cmd);
     cb->computeUniforms.set(slot, data, size);
@@ -1000,7 +1000,7 @@ void WebGpuGpuBackend::_flushComputeUniforms(WgpuComputePass *cp) {
 // Draw calls
 // ─────────────────────────────────────────────────────────────────────────────
 
-void WebGpuGpuBackend::drawPrimitives(GpuRenderPassHandle pass, uint32_t vertexCount,
+void WebGpuGpuBackend::DrawPrimitives(GpuRenderPassHandle pass, uint32_t vertexCount,
     uint32_t instanceCount, uint32_t firstVertex,
     uint32_t firstInstance) {
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
@@ -1009,7 +1009,7 @@ void WebGpuGpuBackend::drawPrimitives(GpuRenderPassHandle pass, uint32_t vertexC
     wgpuRenderPassEncoderDraw(rp->encoder, vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
-void WebGpuGpuBackend::drawIndexedPrimitives(GpuRenderPassHandle pass, uint32_t indexCount,
+void WebGpuGpuBackend::DrawIndexedPrimitives(GpuRenderPassHandle pass, uint32_t indexCount,
     uint32_t instanceCount, uint32_t firstIndex,
     int32_t vertexOffset, uint32_t firstInstance) {
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
@@ -1019,7 +1019,7 @@ void WebGpuGpuBackend::drawIndexedPrimitives(GpuRenderPassHandle pass, uint32_t 
         firstIndex, vertexOffset, firstInstance);
 }
 
-void WebGpuGpuBackend::dispatchCompute(GpuComputePassHandle pass,
+void WebGpuGpuBackend::DispatchCompute(GpuComputePassHandle pass,
     uint32_t gX, uint32_t gY, uint32_t gZ) {
     auto *cp = reinterpret_cast<WgpuComputePass *>(pass);
     _flushComputeUniforms(cp);
@@ -1064,14 +1064,14 @@ void WebGpuGpuBackend::dispatchCompute(GpuComputePassHandle pass,
 // Scissor / viewport
 // ─────────────────────────────────────────────────────────────────────────────
 
-void WebGpuGpuBackend::setScissor(GpuRenderPassHandle pass,
+void WebGpuGpuBackend::SetScissor(GpuRenderPassHandle pass,
     int32_t x, int32_t y, uint32_t w, uint32_t h) {
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
     wgpuRenderPassEncoderSetScissorRect(rp->encoder,
         static_cast<uint32_t>(x), static_cast<uint32_t>(y), w, h);
 }
 
-void WebGpuGpuBackend::setViewport(GpuRenderPassHandle pass,
+void WebGpuGpuBackend::SetViewport(GpuRenderPassHandle pass,
     float x, float y, float w, float h,
     float minDepth, float maxDepth) {
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
@@ -1188,7 +1188,7 @@ WGPUBindGroupLayout WebGpuGpuBackend::_makeStorageBufBGL(uint32_t count, WGPUSha
 // Resource creation
 // ─────────────────────────────────────────────────────────────────────────────
 
-GpuTextureHandle WebGpuGpuBackend::createTexture(const GpuTextureCreateInfo &info) {
+GpuTextureHandle WebGpuGpuBackend::CreateTexture(const GpuTextureCreateInfo &info) {
     auto *t   = new WgpuTexture();
     t->format = toWGPU(info.format);
     t->width  = info.width;
@@ -1237,7 +1237,7 @@ GpuTextureHandle WebGpuGpuBackend::createTexture(const GpuTextureCreateInfo &inf
     return reinterpret_cast<GpuTextureHandle>(t);
 }
 
-GpuBufferHandle WebGpuGpuBackend::createBuffer(const GpuBufferCreateInfo &info) {
+GpuBufferHandle WebGpuGpuBackend::CreateBuffer(const GpuBufferCreateInfo &info) {
     auto *b = new WgpuBuffer();
     b->size = info.size;
 
@@ -1251,7 +1251,7 @@ GpuBufferHandle WebGpuGpuBackend::createBuffer(const GpuBufferCreateInfo &info) 
     return reinterpret_cast<GpuBufferHandle>(b);
 }
 
-GpuTransferBufferHandle WebGpuGpuBackend::createTransferBuffer(const GpuTransferBufferCreateInfo &info) {
+GpuTransferBufferHandle WebGpuGpuBackend::CreateTransferBuffer(const GpuTransferBufferCreateInfo &info) {
     auto *tb       = new WgpuTransferBuffer();
     tb->size       = info.size;
     tb->isDownload = (info.usage == GpuTransferUsage::Download);
@@ -1270,7 +1270,7 @@ GpuTransferBufferHandle WebGpuGpuBackend::createTransferBuffer(const GpuTransfer
     return reinterpret_cast<GpuTransferBufferHandle>(tb);
 }
 
-GpuSamplerHandle WebGpuGpuBackend::createSampler(const GpuSamplerCreateInfo &info) {
+GpuSamplerHandle WebGpuGpuBackend::CreateSampler(const GpuSamplerCreateInfo &info) {
     auto *s = new WgpuSampler();
 
     WGPUSamplerDescriptor desc {};
@@ -1290,7 +1290,7 @@ GpuSamplerHandle WebGpuGpuBackend::createSampler(const GpuSamplerCreateInfo &inf
     return reinterpret_cast<GpuSamplerHandle>(s);
 }
 
-GpuShaderHandle WebGpuGpuBackend::createShader(const GpuShaderCreateInfo &info) {
+GpuShaderHandle WebGpuGpuBackend::CreateShader(const GpuShaderCreateInfo &info) {
     auto *sh                = new WgpuShader();
     sh->entrypoint          = info.entrypoint ? info.entrypoint : "main";
     sh->stage               = info.stage;
@@ -1312,16 +1312,16 @@ GpuShaderHandle WebGpuGpuBackend::createShader(const GpuShaderCreateInfo &info) 
     return reinterpret_cast<GpuShaderHandle>(sh);
 }
 
-GpuGraphicsPipelineHandle WebGpuGpuBackend::createGraphicsPipeline(const GpuGraphicsPipelineCreateInfo &info) {
-    auto *sh_v = reinterpret_cast<WgpuShader *>(info.vertexShader);
-    auto *sh_f = reinterpret_cast<WgpuShader *>(info.fragmentShader);
-    auto *pl   = new WgpuGraphicsPipeline();
+GpuGraphicsPipelineHandle WebGpuGpuBackend::CreateGraphicsPipeline(const GpuGraphicsPipelineCreateInfo &info) {
+    auto *shaderVert = reinterpret_cast<WgpuShader *>(info.vertexShader);
+    auto *shaderFrag = reinterpret_cast<WgpuShader *>(info.fragmentShader);
+    auto *pl         = new WgpuGraphicsPipeline();
 
-    pl->vertexUniformCount      = sh_v ? sh_v->uniformBufferCount : 0;
-    pl->fragmentUniformCount    = sh_f ? sh_f->uniformBufferCount : 0;
-    pl->fragmentSamplerCount    = sh_f ? sh_f->samplerCount : 0;
-    pl->fragmentSamplerCubeMask = sh_f ? sh_f->samplerCubeMask : 0;
-    pl->fragmentStorageTexCount = sh_f ? sh_f->storageTextureCount : 0;
+    pl->vertexUniformCount      = shaderVert ? shaderVert->uniformBufferCount : 0;
+    pl->fragmentUniformCount    = shaderFrag ? shaderFrag->uniformBufferCount : 0;
+    pl->fragmentSamplerCount    = shaderFrag ? shaderFrag->samplerCount : 0;
+    pl->fragmentSamplerCubeMask = shaderFrag ? shaderFrag->samplerCubeMask : 0;
+    pl->fragmentStorageTexCount = shaderFrag ? shaderFrag->storageTextureCount : 0;
     pl->vertexStorageBufCount   = info.vertexStorageBufferCount;
 
     // Build bind group layouts
@@ -1417,16 +1417,16 @@ GpuGraphicsPipelineHandle WebGpuGpuBackend::createGraphicsPipeline(const GpuGrap
     }
 
     WGPUFragmentState fragState {};
-    fragState.module      = sh_f ? sh_f->module : nullptr;
-    fragState.entryPoint  = wgpuStr(sh_f ? sh_f->entrypoint.c_str() : "main");
+    fragState.module      = shaderFrag ? shaderFrag->module : nullptr;
+    fragState.entryPoint  = wgpuStr(shaderFrag ? shaderFrag->entrypoint.c_str() : "main");
     fragState.targetCount = numColor;
     fragState.targets     = colorTargets.data();
 
     WGPURenderPipelineDescriptor rpDesc {};
     rpDesc.layout = pl->layout;
 
-    rpDesc.vertex.module      = sh_v ? sh_v->module : nullptr;
-    rpDesc.vertex.entryPoint  = wgpuStr(sh_v ? sh_v->entrypoint.c_str() : "main");
+    rpDesc.vertex.module      = shaderVert ? shaderVert->module : nullptr;
+    rpDesc.vertex.entryPoint  = wgpuStr(shaderVert ? shaderVert->entrypoint.c_str() : "main");
     rpDesc.vertex.bufferCount = static_cast<uint32_t>(vbufs.size());
     rpDesc.vertex.buffers     = vbufs.empty() ? nullptr : vbufs.data();
 
@@ -1461,18 +1461,18 @@ GpuGraphicsPipelineHandle WebGpuGpuBackend::createGraphicsPipeline(const GpuGrap
 // shaders take the WGSL path (see assets/webgpu/assethandler.cpp) instead.
 // ─────────────────────────────────────────────────────────────────────────────
 
-GpuShaderHandle WebGpuGpuBackend::createShaderFromSPIRV(const GpuShaderCreateInfo &) {
+GpuShaderHandle WebGpuGpuBackend::CreateShaderFromSPIRV(const GpuShaderCreateInfo &) {
     LOG_ERROR("WebGpuGpuBackend::createShaderFromSPIRV: WebGPU cannot consume SPIRV (expects WGSL)");
     return 0;
 }
 
-GpuComputePipelineHandle WebGpuGpuBackend::createComputePipelineFromSPIRV(const uint8_t *, size_t,
+GpuComputePipelineHandle WebGpuGpuBackend::CreateComputePipelineFromSPIRV(const uint8_t *, size_t,
     const char *, GpuComputeReflection *) {
     LOG_ERROR("WebGpuGpuBackend::createComputePipelineFromSPIRV: WebGPU cannot consume SPIRV (expects WGSL)");
     return 0;
 }
 
-GpuComputePipelineHandle WebGpuGpuBackend::createComputePipeline(const GpuComputePipelineCreateInfo &info) {
+GpuComputePipelineHandle WebGpuGpuBackend::CreateComputePipeline(const GpuComputePipelineCreateInfo &info) {
     auto *pl                 = new WgpuComputePipelineData();
     pl->uniformCount         = info.uniformBufferCount;
     pl->roStorageBufferCount = info.readonlyStorageBufferCount;
@@ -1593,7 +1593,7 @@ GpuComputePipelineHandle WebGpuGpuBackend::createComputePipeline(const GpuComput
 // Resource release
 // ─────────────────────────────────────────────────────────────────────────────
 
-void WebGpuGpuBackend::releaseTexture(GpuTextureHandle handle) {
+void WebGpuGpuBackend::ReleaseTexture(GpuTextureHandle handle) {
     if (!handle)
         return;
     auto *t = reinterpret_cast<WgpuTexture *>(handle);
@@ -1609,7 +1609,7 @@ void WebGpuGpuBackend::releaseTexture(GpuTextureHandle handle) {
     delete t;
 }
 
-void WebGpuGpuBackend::releaseBuffer(GpuBufferHandle handle) {
+void WebGpuGpuBackend::ReleaseBuffer(GpuBufferHandle handle) {
     if (!handle)
         return;
     auto *b = reinterpret_cast<WgpuBuffer *>(handle);
@@ -1618,7 +1618,7 @@ void WebGpuGpuBackend::releaseBuffer(GpuBufferHandle handle) {
     delete b;
 }
 
-void WebGpuGpuBackend::releaseTransferBuffer(GpuTransferBufferHandle handle) {
+void WebGpuGpuBackend::ReleaseTransferBuffer(GpuTransferBufferHandle handle) {
     if (!handle)
         return;
     auto *tb = reinterpret_cast<WgpuTransferBuffer *>(handle);
@@ -1627,7 +1627,7 @@ void WebGpuGpuBackend::releaseTransferBuffer(GpuTransferBufferHandle handle) {
     delete tb;
 }
 
-void WebGpuGpuBackend::releaseSampler(GpuSamplerHandle handle) {
+void WebGpuGpuBackend::ReleaseSampler(GpuSamplerHandle handle) {
     if (!handle)
         return;
     auto *s = reinterpret_cast<WgpuSampler *>(handle);
@@ -1657,7 +1657,7 @@ void WebGpuGpuBackend::_evictSamplerBgsBySampler(WGPUSampler sampler) {
     }
 }
 
-void WebGpuGpuBackend::releaseShader(GpuShaderHandle handle) {
+void WebGpuGpuBackend::ReleaseShader(GpuShaderHandle handle) {
     if (!handle)
         return;
     auto *sh = reinterpret_cast<WgpuShader *>(handle);
@@ -1666,7 +1666,7 @@ void WebGpuGpuBackend::releaseShader(GpuShaderHandle handle) {
     delete sh;
 }
 
-void WebGpuGpuBackend::releaseGraphicsPipeline(GpuGraphicsPipelineHandle handle) {
+void WebGpuGpuBackend::ReleaseGraphicsPipeline(GpuGraphicsPipelineHandle handle) {
     if (!handle)
         return;
     auto *pl = reinterpret_cast<WgpuGraphicsPipeline *>(handle);
@@ -1687,7 +1687,7 @@ void WebGpuGpuBackend::releaseGraphicsPipeline(GpuGraphicsPipelineHandle handle)
     delete pl;
 }
 
-void WebGpuGpuBackend::releaseComputePipeline(GpuComputePipelineHandle handle) {
+void WebGpuGpuBackend::ReleaseComputePipeline(GpuComputePipelineHandle handle) {
     if (!handle)
         return;
     auto *pl = reinterpret_cast<WgpuComputePipelineData *>(handle);
@@ -1706,7 +1706,7 @@ void WebGpuGpuBackend::releaseComputePipeline(GpuComputePipelineHandle handle) {
 // Transfer buffer mapping
 // ─────────────────────────────────────────────────────────────────────────────
 
-void *WebGpuGpuBackend::mapTransferBuffer(GpuTransferBufferHandle handle, bool /*cycle*/) {
+void *WebGpuGpuBackend::MapTransferBuffer(GpuTransferBufferHandle handle, bool /*cycle*/) {
     auto *tb = reinterpret_cast<WgpuTransferBuffer *>(handle);
     if (tb->isDownload) {
         // Map the download buffer (must be called after GPU copy finishes)
@@ -1727,7 +1727,7 @@ void *WebGpuGpuBackend::mapTransferBuffer(GpuTransferBufferHandle handle, bool /
     return tb->stagingData.data();
 }
 
-void WebGpuGpuBackend::unmapTransferBuffer(GpuTransferBufferHandle handle) {
+void WebGpuGpuBackend::UnmapTransferBuffer(GpuTransferBufferHandle handle) {
     auto *tb = reinterpret_cast<WgpuTransferBuffer *>(handle);
     if (tb->isDownload && tb->downloadBuffer) {
         wgpuBufferUnmap(tb->downloadBuffer);
@@ -1739,7 +1739,7 @@ void WebGpuGpuBackend::unmapTransferBuffer(GpuTransferBufferHandle handle) {
 // Upload / download
 // ─────────────────────────────────────────────────────────────────────────────
 
-void WebGpuGpuBackend::uploadToTexture(GpuCmdBufferHandle /*cmd*/,
+void WebGpuGpuBackend::UploadToTexture(GpuCmdBufferHandle /*cmd*/,
     const GpuTransferBufferRegion &src,
     const GpuTextureRegion        &dst,
     bool /*cycle*/) {
@@ -1777,8 +1777,8 @@ void WebGpuGpuBackend::uploadToTexture(GpuCmdBufferHandle /*cmd*/,
 
     WGPUTexelCopyBufferLayout layout {};
     layout.offset       = src.offset;
-    layout.bytesPerRow  = (src.pixels_per_row ? src.pixels_per_row : dst.width) * bpp;
-    layout.rowsPerImage = src.rows_per_layer ? src.rows_per_layer : dst.height;
+    layout.bytesPerRow  = (src.pixelsPerRow ? src.pixelsPerRow : dst.width) * bpp;
+    layout.rowsPerImage = src.rowsPerLayer ? src.rowsPerLayer : dst.height;
 
     WGPUExtent3D extent = { dst.width, dst.height, dst.depth };
 
@@ -1786,7 +1786,7 @@ void WebGpuGpuBackend::uploadToTexture(GpuCmdBufferHandle /*cmd*/,
         tb->stagingData.size() - src.offset, &layout, &extent);
 }
 
-void WebGpuGpuBackend::uploadToBuffer(GpuCmdBufferHandle /*cmd*/,
+void WebGpuGpuBackend::UploadToBuffer(GpuCmdBufferHandle /*cmd*/,
     GpuTransferBufferHandle src, uint32_t srcOffset,
     GpuBufferHandle dst, uint32_t dstOffset,
     uint32_t size, bool /*cycle*/) {
@@ -1807,7 +1807,7 @@ void WebGpuGpuBackend::uploadToBuffer(GpuCmdBufferHandle /*cmd*/,
     }
 }
 
-void WebGpuGpuBackend::downloadFromTexture(GpuCmdBufferHandle cmd,
+void WebGpuGpuBackend::DownloadFromTexture(GpuCmdBufferHandle cmd,
     const GpuTextureRegion                                   &src,
     const GpuTransferBufferRegion                            &dst) {
     auto *cb  = reinterpret_cast<WgpuCmdBuffer *>(cmd);
@@ -1823,14 +1823,14 @@ void WebGpuGpuBackend::downloadFromTexture(GpuCmdBufferHandle cmd,
     WGPUTexelCopyBufferInfo dstCopy {};
     dstCopy.buffer              = tb->downloadBuffer;
     dstCopy.layout.offset       = dst.offset;
-    dstCopy.layout.bytesPerRow  = dst.pixels_per_row * 4;
-    dstCopy.layout.rowsPerImage = dst.rows_per_layer ? dst.rows_per_layer : src.height;
+    dstCopy.layout.bytesPerRow  = dst.pixelsPerRow * 4;
+    dstCopy.layout.rowsPerImage = dst.rowsPerLayer ? dst.rowsPerLayer : src.height;
 
     WGPUExtent3D extent = { src.width, src.height, src.depth };
     wgpuCommandEncoderCopyTextureToBuffer(cb->encoder, &srcCopy, &dstCopy, &extent);
 }
 
-void WebGpuGpuBackend::blitTexture(GpuCmdBufferHandle /*cmd*/,
+void WebGpuGpuBackend::BlitTexture(GpuCmdBufferHandle /*cmd*/,
     GpuTextureHandle src, GpuTextureHandle dst,
     uint32_t srcX, uint32_t srcY, uint32_t srcW, uint32_t srcH,
     uint32_t dstX, uint32_t dstY, uint32_t dstW, uint32_t dstH,

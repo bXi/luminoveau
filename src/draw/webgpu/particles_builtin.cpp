@@ -11,7 +11,7 @@
 
 #include <cstring>
 
-static const char kParticlesCompWgsl[] = R"WGSL(
+static const char PARTICLES_COMP_WGSL[] = R"WGSL(
 struct GPUParticle {
     posAndLife:      vec4<f32>,
     velAndMaxLife:   vec4<f32>,
@@ -147,10 +147,10 @@ fn main(@builtin(global_invocation_id) dispatchID: vec3<u32>) {
 }
 )WGSL";
 
-GpuComputePipelineHandle ParticlesBuiltin::CreateComputePipeline() {
+GpuComputePipelineHandle ParticlesBuiltin::_createComputePipeline() {
     GpuComputePipelineCreateInfo info;
-    info.code                        = reinterpret_cast<const uint8_t *>(kParticlesCompWgsl);
-    info.codeSize                    = sizeof(kParticlesCompWgsl) - 1;
+    info.code                        = reinterpret_cast<const uint8_t *>(PARTICLES_COMP_WGSL);
+    info.codeSize                    = sizeof(PARTICLES_COMP_WGSL) - 1;
     info.entrypoint                  = "main";
     info.threadCountX                = 64;
     info.threadCountY                = 1;
@@ -159,7 +159,7 @@ GpuComputePipelineHandle ParticlesBuiltin::CreateComputePipeline() {
     info.readwriteStorageBufferCount = 1; // group2: particles(b0)
     info.uniformBufferCount          = 1; // group0: ComputeUniforms(b0)
 
-    GpuComputePipelineHandle ph = Renderer::GetGpu().createComputePipeline(info);
+    GpuComputePipelineHandle ph = Renderer::GetGpu().CreateComputePipeline(info);
     if (!ph) {
         LOG_WARNING("Particles: built-in WebGPU compute pipeline creation FAILED (check Dawn validation error above)");
     } else {

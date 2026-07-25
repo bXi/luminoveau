@@ -154,23 +154,23 @@ ShaderAsset AssetHandler::_loadShaderFromDisk(const std::string &fileName) {
     glslang::FinalizeProcess();
 
     // Reflect SPIR-V → uniform offsets/sizes, resource counts
-    ShaderAsset _shader;
-    _shader.shaderFilename = fileName;
+    ShaderAsset shaderAsset;
+    shaderAsset.shaderFilename = fileName;
     try {
         spirv_cross::Compiler spvComp(spirv);
         auto                  spvRes = spvComp.get_shader_resources();
 
-        _shader.samplerCount        = static_cast<uint32_t>(spvRes.sampled_images.size());
-        _shader.uniformBufferCount  = static_cast<uint32_t>(spvRes.uniform_buffers.size());
-        _shader.storageBufferCount  = static_cast<uint32_t>(spvRes.storage_buffers.size());
-        _shader.storageTextureCount = static_cast<uint32_t>(spvRes.storage_images.size());
+        shaderAsset.samplerCount        = static_cast<uint32_t>(spvRes.sampled_images.size());
+        shaderAsset.uniformBufferCount  = static_cast<uint32_t>(spvRes.uniform_buffers.size());
+        shaderAsset.storageBufferCount  = static_cast<uint32_t>(spvRes.storage_buffers.size());
+        shaderAsset.storageTextureCount = static_cast<uint32_t>(spvRes.storage_images.size());
 
         for (const auto &ub : spvRes.uniform_buffers) {
             auto &bufType = spvComp.get_type(ub.base_type_id);
             for (size_t i = 0; i < bufType.member_types.size(); ++i) {
-                const std::string &name      = spvComp.get_member_name(ub.base_type_id, i);
-                _shader.uniformOffsets[name] = spvComp.type_struct_member_offset(bufType, i);
-                _shader.uniformSizes[name]   = spvComp.get_declared_struct_member_size(bufType, i);
+                const std::string &name          = spvComp.get_member_name(ub.base_type_id, i);
+                shaderAsset.uniformOffsets[name] = spvComp.type_struct_member_offset(bufType, i);
+                shaderAsset.uniformSizes[name]   = spvComp.get_declared_struct_member_size(bufType, i);
             }
         }
     } catch (const std::exception &e) {
@@ -231,11 +231,11 @@ ShaderAsset AssetHandler::_loadShaderFromDisk(const std::string &fileName) {
     shaderCI.codeSize            = wgsl.size();
     shaderCI.entrypoint          = "main";
     shaderCI.stage               = gpuStage;
-    shaderCI.samplerCount        = _shader.samplerCount;
-    shaderCI.uniformBufferCount  = _shader.uniformBufferCount;
-    shaderCI.storageBufferCount  = _shader.storageBufferCount;
-    shaderCI.storageTextureCount = _shader.storageTextureCount;
+    shaderCI.samplerCount        = shaderAsset.samplerCount;
+    shaderCI.uniformBufferCount  = shaderAsset.uniformBufferCount;
+    shaderCI.storageBufferCount  = shaderAsset.storageBufferCount;
+    shaderCI.storageTextureCount = shaderAsset.storageTextureCount;
 
-    _shader.gpuShader = Renderer::GetGpu().createShader(shaderCI);
-    return _shader;
+    shaderAsset.gpuShader = Renderer::GetGpu().CreateShader(shaderCI);
+    return shaderAsset;
 }

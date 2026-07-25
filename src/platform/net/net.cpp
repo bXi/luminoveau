@@ -1,5 +1,5 @@
 // Net — transport-agnostic core: lifecycle, typed-message framing + dispatch. The actual
-// sockets live behind NetTransport::ITransport (see sdl/ and webgpu/). Wire format for a typed message is
+// sockets live behind ITransport (see sdl/ and webgpu/). Wire format for a typed message is
 // [uint32 typeId][payload bytes]; net.cpp adds/peels the prefix and routes to handlers.
 
 #include "platform/net/net.h"
@@ -11,7 +11,7 @@
 
 bool Net::_ensureTransport() {
     if (!_transport)
-        _transport = NetTransport::createTransport();
+        _transport = createTransport();
     return _transport != nullptr;
 }
 
@@ -25,7 +25,7 @@ bool Net::_init() {
 
 void Net::_shutdown() {
     if (_transport) {
-        _transport->disconnect();
+        _transport->Disconnect();
         delete _transport;
         _transport = nullptr;
     }
@@ -33,26 +33,26 @@ void Net::_shutdown() {
 }
 
 bool Net::_host(uint16_t port) {
-    return _ensureTransport() && _transport->host(port);
+    return _ensureTransport() && _transport->Host(port);
 }
 
 bool Net::_connect(const std::string &address, uint16_t port) {
-    return _ensureTransport() && _transport->connect(address, port);
+    return _ensureTransport() && _transport->Connect(address, port);
 }
 
 void Net::_disconnect() {
     if (_transport)
-        _transport->disconnect();
+        _transport->Disconnect();
 }
 
 void Net::_update() {
     if (!_transport)
         return;
-    static std::vector<NetTransport::TransportEvent> events;
+    static std::vector<TransportEvent> events;
     events.clear();
-    _transport->poll(events);
-    for (const NetTransport::TransportEvent &e : events) {
-        if (e.type != NetTransport::TransportEvent::Receive)
+    _transport->Poll(events);
+    for (const TransportEvent &e : events) {
+        if (e.type != TransportEvent::Receive)
             continue;
         if (e.data.size() < sizeof(uint32_t))
             continue;
@@ -66,12 +66,11 @@ void Net::_update() {
     }
 }
 
-bool Net::_isServer() { return _transport && _transport->isServer(); }
-bool Net::_isClient() { return _transport && _transport->isClient(); }
-Net::Peer Net::_getClientID() { return _transport ? _transport->selfId() : 0; }
-uint32_t Net::_getPeerCount() { return _transport ? _transport->peerCount() : 0; }
-uint32_t Net::_getPing(Peer peer) { return _transport ? _transport->ping(peer) : 0; }
-
+bool      Net::_isServer() { return _transport && _transport->IsServer(); }
+bool      Net::_isClient() { return _transport && _transport->IsClient(); }
+Net::Peer Net::_getClientID() { return _transport ? _transport->SelfId() : 0; }
+uint32_t  Net::_getPeerCount() { return _transport ? _transport->PeerCount() : 0; }
+uint32_t  Net::_getPing(Peer peer) { return _transport ? _transport->Ping(peer) : 0; }
 
 // Build [typeId][payload] once, reused by send + broadcast.
 static std::vector<uint8_t> frame(uint32_t typeId, const void *data, uint32_t size) {
@@ -86,17 +85,16 @@ void Net::_sendRaw(Peer peer, uint32_t typeId, const void *data, uint32_t size, 
     if (!_transport)
         return;
     auto buf = frame(typeId, data, size);
-    _transport->send(peer, buf.data(), (uint32_t)buf.size(), reliable);
+    _transport->Send(peer, buf.data(), (uint32_t)buf.size(), reliable);
 }
 
 void Net::_broadcastRaw(uint32_t typeId, const void *data, uint32_t size, bool reliable) {
     if (!_transport)
         return;
     auto buf = frame(typeId, data, size);
-    _transport->broadcast(buf.data(), (uint32_t)buf.size(), reliable);
+    _transport->Broadcast(buf.data(), (uint32_t)buf.size(), reliable);
 }
 
 void Net::_registerRaw(uint32_t typeId, std::function<void(Peer, const void *, uint32_t)> handler) {
     _handlers[typeId] = std::move(handler);
 }
-

@@ -71,7 +71,7 @@ void Draw::_initPixelBuffer() {
     _pixelBufferData.resize(_pixelBufferWidth * _pixelBufferHeight, 0x00000000);
 
     uint32_t sz          = static_cast<uint32_t>(_pixelBufferWidth * _pixelBufferHeight * sizeof(uint32_t));
-    _pixelTransferBuffer = Renderer::GetGpu().createTransferBuffer({ sz, GpuTransferUsage::Upload });
+    _pixelTransferBuffer = Renderer::GetGpu().CreateTransferBuffer({ sz, GpuTransferUsage::Upload });
     if (!_pixelTransferBuffer) {
         LOG_ERROR("failed to create pixel transfer buffer");
     }
@@ -85,9 +85,9 @@ void Draw::_flushPixels() {
 
     IGpu &gpu = Renderer::GetGpu();
 
-    GpuTextureHandle gpuTex = gpu.createTexture({ _pixelBufferWidth, _pixelBufferHeight, 1, 1,
+    GpuTextureHandle gpuTex = gpu.CreateTexture({ _pixelBufferWidth, _pixelBufferHeight, 1, 1,
         GpuTextureFormat::R8G8B8A8_Unorm,
-        GpuSampleCount::x1, GpuTextureUsage::Sampler });
+        GpuSampleCount::X1, GpuTextureUsage::Sampler });
     if (!gpuTex) {
         LOG_ERROR("failed to create pixel flush texture");
         return;
@@ -96,7 +96,7 @@ void Draw::_flushPixels() {
     _pixelFrameTextures.push_back(gpuTex);
 
     // cycle=true: re-use transfer buffer without stomping in-flight data
-    void *mappedData = gpu.mapTransferBuffer(_pixelTransferBuffer, true);
+    void *mappedData = gpu.MapTransferBuffer(_pixelTransferBuffer, true);
     if (!mappedData) {
         LOG_ERROR("failed to map pixel transfer buffer");
         return;
@@ -104,9 +104,9 @@ void Draw::_flushPixels() {
 
     std::memcpy(mappedData, _pixelBufferData.data(),
         _pixelBufferWidth * _pixelBufferHeight * sizeof(uint32_t));
-    gpu.unmapTransferBuffer(_pixelTransferBuffer);
+    gpu.UnmapTransferBuffer(_pixelTransferBuffer);
 
-    GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
+    GpuCmdBufferHandle cmd = gpu.AcquireCommandBuffer();
     if (!cmd) {
         LOG_ERROR("failed to acquire GPU command buffer for pixel flush");
         return;
@@ -114,8 +114,8 @@ void Draw::_flushPixels() {
 
     GpuTransferBufferRegion src { _pixelTransferBuffer, 0, 0, 0 };
     GpuTextureRegion        dst { gpuTex, 0, 0, 0, 0, 0, _pixelBufferWidth, _pixelBufferHeight, 1 };
-    gpu.uploadToTexture(cmd, src, dst, false);
-    gpu.submitCommandBuffer(cmd);
+    gpu.UploadToTexture(cmd, src, dst, false);
+    gpu.SubmitCommandBuffer(cmd);
 
     std::fill(_pixelBufferData.begin(), _pixelBufferData.end(), 0x00000000);
     _pixelsDirty = false;
@@ -133,7 +133,7 @@ void Draw::_flushPixels() {
 void Draw::_releaseFramePixelTextures() {
     IGpu &gpu = Renderer::GetGpu();
     for (GpuTextureHandle tex : _pixelPrevFrameTextures) {
-        gpu.releaseTexture(tex);
+        gpu.ReleaseTexture(tex);
     }
     _pixelPrevFrameTextures = std::move(_pixelFrameTextures);
     _pixelFrameTextures.clear();
@@ -145,11 +145,11 @@ void Draw::_cleanupPixelBuffer() {
     if (Renderer::HasGpu()) {
         IGpu &gpu = Renderer::GetGpu();
         for (GpuTextureHandle tex : _pixelFrameTextures)
-            gpu.releaseTexture(tex);
+            gpu.ReleaseTexture(tex);
         for (GpuTextureHandle tex : _pixelPrevFrameTextures)
-            gpu.releaseTexture(tex);
+            gpu.ReleaseTexture(tex);
         if (_pixelTransferBuffer) {
-            gpu.releaseTransferBuffer(_pixelTransferBuffer);
+            gpu.ReleaseTransferBuffer(_pixelTransferBuffer);
         }
     }
     _pixelFrameTextures.clear();
@@ -366,10 +366,10 @@ void Draw::_drawTexture(TextureType texture, const vf2d &pos, const vf2d &size, 
 
         .rotation = 0.f,
 
-        .tex_u = 0.f,
-        .tex_v = 0.f,
-        .tex_w = 1.f,
-        .tex_h = 1.f,
+        .texU = 0.f,
+        .texV = 0.f,
+        .texW = 1.f,
+        .texH = 1.f,
 
         .r = (float)color.r / 255.f,
         .g = (float)color.g / 255.f,
@@ -379,13 +379,13 @@ void Draw::_drawTexture(TextureType texture, const vf2d &pos, const vf2d &size, 
         .w = dstRect.w, // Use transformed size
         .h = dstRect.h, // Use transformed size
 
-        .pivot_x = 0.5f,
-        .pivot_y = 0.5f,
+        .pivotX = 0.5f,
+        .pivotY = 0.5f,
 
         .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    _getTargetPass()->addToRenderQueue(renderable);
+    _getTargetPass()->AddToRenderQueue(renderable);
 }
 
 void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &size, const rectf &src, Color color) {
@@ -396,10 +396,10 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &si
     bool      flipV   = src.height < 0.f;
     SDL_FRect srcRect = { src.x, src.y, std::abs(src.width), std::abs(src.height) };
 
-    float u0 = (srcRect.x / (float)texture.getSize().x);
-    float v0 = (srcRect.y / (float)texture.getSize().y);
-    float u1 = ((srcRect.x + srcRect.w) / (float)texture.getSize().x);
-    float v1 = ((srcRect.y + srcRect.h) / (float)texture.getSize().y);
+    float u0 = (srcRect.x / (float)texture.GetSize().x);
+    float v0 = (srcRect.y / (float)texture.GetSize().y);
+    float u1 = ((srcRect.x + srcRect.w) / (float)texture.GetSize().x);
+    float v1 = ((srcRect.y + srcRect.h) / (float)texture.GetSize().y);
 
     if (flipH)
         std::swap(u0, u1);
@@ -416,10 +416,10 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &si
 
         .rotation = 0.f,
 
-        .tex_u = u0,
-        .tex_v = v0,
-        .tex_w = u1 - u0,
-        .tex_h = v1 - v0,
+        .texU = u0,
+        .texV = v0,
+        .texW = u1 - u0,
+        .texH = v1 - v0,
 
         .r = (float)color.r / 255.f,
         .g = (float)color.g / 255.f,
@@ -429,13 +429,13 @@ void Draw::_drawTexturePart(TextureType texture, const vf2d &pos, const vf2d &si
         .w = dstRect.w,
         .h = dstRect.h,
 
-        .pivot_x = 0.5f,
-        .pivot_y = 0.5f,
+        .pivotX = 0.5f,
+        .pivotY = 0.5f,
 
         .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    _getTargetPass()->addToRenderQueue(renderable);
+    _getTargetPass()->AddToRenderQueue(renderable);
 }
 
 void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, vf2d size, float angle, const vf2d &pivot, Color color) {
@@ -456,10 +456,10 @@ void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, vf2d size, f
 
         .rotation = fmod(angle, 2.0f * PI), // Wrap radians to 0-2π
 
-        .tex_u = 0.f,
-        .tex_v = 0.f,
-        .tex_w = 1.f,
-        .tex_h = 1.f,
+        .texU = 0.f,
+        .texV = 0.f,
+        .texW = 1.f,
+        .texH = 1.f,
 
         .r = (float)color.r / 255.f,
         .g = (float)color.g / 255.f,
@@ -469,13 +469,13 @@ void Draw::_drawRotatedTexture(Draw::TextureType texture, vf2d pos, vf2d size, f
         .w = size.x,
         .h = size.y,
 
-        .pivot_x = pivot.x,
-        .pivot_y = pivot.y,
+        .pivotX = pivot.x,
+        .pivotY = pivot.y,
 
         .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    _getTargetPass()->addToRenderQueue(renderable);
+    _getTargetPass()->AddToRenderQueue(renderable);
 }
 
 void Draw::_drawRotatedTexturePart(Draw::TextureType texture, vf2d pos, vf2d size, const rectf &src, float angle, const vf2d &pivot, Color color) {
@@ -488,10 +488,10 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, vf2d pos, vf2d siz
 
     SDL_FRect srcRect = { src.x, src.y, std::abs(src.width), std::abs(src.height) };
 
-    float u0 = (srcRect.x / (float)texture.getSize().x);
-    float v0 = (srcRect.y / (float)texture.getSize().y);
-    float u1 = ((srcRect.x + srcRect.w) / (float)texture.getSize().x);
-    float v1 = ((srcRect.y + srcRect.h) / (float)texture.getSize().y);
+    float u0 = (srcRect.x / (float)texture.GetSize().x);
+    float v0 = (srcRect.y / (float)texture.GetSize().y);
+    float u1 = ((srcRect.x + srcRect.w) / (float)texture.GetSize().x);
+    float v1 = ((srcRect.y + srcRect.h) / (float)texture.GetSize().y);
 
     Renderable renderable = {
         .texture  = texture,
@@ -503,10 +503,10 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, vf2d pos, vf2d siz
 
         .rotation = fmod(angle, 2.0f * PI), // Wrap radians to 0-2π
 
-        .tex_u = u0,
-        .tex_v = v0,
-        .tex_w = u1,
-        .tex_h = v1,
+        .texU = u0,
+        .texV = v0,
+        .texW = u1,
+        .texH = v1,
 
         .r = (float)color.r / 255.f,
         .g = (float)color.g / 255.f,
@@ -516,13 +516,13 @@ void Draw::_drawRotatedTexturePart(Draw::TextureType texture, vf2d pos, vf2d siz
         .w = size.x,
         .h = size.y,
 
-        .pivot_x = pivot.x,
-        .pivot_y = pivot.x,
+        .pivotX = pivot.x,
+        .pivotY = pivot.x,
 
         .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    _getTargetPass()->addToRenderQueue(renderable);
+    _getTargetPass()->AddToRenderQueue(renderable);
 }
 
 void Draw::_setScissorMode(const rectf &area) {
@@ -568,10 +568,10 @@ void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color 
 
         .rotation = 0.f,
 
-        .tex_u = 0.f,
-        .tex_v = 0.f,
-        .tex_w = 1.f,
-        .tex_h = 1.f,
+        .texU = 0.f,
+        .texV = 0.f,
+        .texW = 1.f,
+        .texH = 1.f,
 
         .r = (float)color.r / 255.f,
         .g = (float)color.g / 255.f,
@@ -581,13 +581,13 @@ void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color 
         .w = size.x,
         .h = size.y,
 
-        .pivot_x = 0.5f,
-        .pivot_y = 0.5f,
+        .pivotX = 0.5f,
+        .pivotY = 0.5f,
 
         .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    _getTargetPass()->addToRenderQueue(renderable);
+    _getTargetPass()->AddToRenderQueue(renderable);
 }
 
 void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
@@ -609,10 +609,10 @@ void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
 
         .rotation = 0.f,
 
-        .tex_u = 0.f,
-        .tex_v = 0.f,
-        .tex_w = 1.f,
-        .tex_h = 1.f,
+        .texU = 0.f,
+        .texV = 0.f,
+        .texW = 1.f,
+        .texH = 1.f,
 
         .r = (float)color.r / 255.f,
         .g = (float)color.g / 255.f,
@@ -622,13 +622,13 @@ void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
         .w = radius,
         .h = radius,
 
-        .pivot_x = 0.5f,
-        .pivot_y = 0.5f,
+        .pivotX = 0.5f,
+        .pivotY = 0.5f,
 
         .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    _getTargetPass()->addToRenderQueue(renderable);
+    _getTargetPass()->AddToRenderQueue(renderable);
 }
 
 void Draw::_drawArcFilled(vf2d center, float radius, float startAngle, float endAngle, int segments, Color color) {
@@ -686,7 +686,7 @@ void Draw::_drawThickLine(vf2d start, vf2d end, Color color, float width) {
     vf2d line = end - start;
 
     // Early exit for (nearly) zero-length lines
-    const float EPS = 1e-6f;
+    const float EPS = 1e-6f; // NOLINT(readability-identifier-naming)
     if (std::fabs(line.x) < EPS && std::fabs(line.y) < EPS) {
         if (cameraWasActive)
             Camera::Activate(); // Restore camera state before early return
@@ -795,10 +795,10 @@ void Draw::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
 
         .rotation = 0.0f,
 
-        .tex_u = 0.f,
-        .tex_v = 0.f,
-        .tex_w = 1.f,
-        .tex_h = 1.f,
+        .texU = 0.f,
+        .texV = 0.f,
+        .texW = 1.f,
+        .texH = 1.f,
 
         .r = (float)color.r / 255.f,
         .g = (float)color.g / 255.f,
@@ -808,13 +808,13 @@ void Draw::_drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color) {
         .w = size.x,
         .h = size.y,
 
-        .pivot_x = 0.0f,
-        .pivot_y = 0.0f,
+        .pivotX = 0.0f,
+        .pivotY = 0.0f,
 
         .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    _getTargetPass()->addToRenderQueue(renderable);
+    _getTargetPass()->AddToRenderQueue(renderable);
 }
 
 void Draw::_drawEllipseFilled(vf2d center, float radiusX, float radiusY, Color color) {
@@ -850,7 +850,7 @@ void Draw::_drawPixel(const vi2d &pos, Color color) {
 }
 
 // Helper function to convert screen position to Mode 7 texture UV coordinates
-static vf2d ScreenToMode7UV(vf2d screenPos, const Mode7Parameters &params, const TextureAsset &texture) {
+static vf2d screenToMode7UV(vf2d screenPos, const Mode7Parameters &params, const TextureAsset &texture) {
     // Get position relative to screen center
     int relX = (int)screenPos.x - params.snesScreenWidth / 2;
     int relY = (int)screenPos.y - params.snesScreenHeight / 2;
@@ -875,10 +875,10 @@ void Draw::_drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mod
     rectf dstRect = _doCamera(pos, size);
 
     // Calculate UV coordinates for the four corners using Mode 7 transform
-    vf2d topLeft     = ScreenToMode7UV(dstRect.pos, params, texture);
-    vf2d topRight    = ScreenToMode7UV({ dstRect.pos.x + dstRect.size.x, dstRect.pos.y }, params, texture);
-    vf2d bottomLeft  = ScreenToMode7UV({ dstRect.pos.x, dstRect.pos.y + dstRect.size.y }, params, texture);
-    vf2d bottomRight = ScreenToMode7UV(dstRect.pos + dstRect.size, params, texture);
+    vf2d topLeft     = screenToMode7UV(dstRect.pos, params, texture);
+    vf2d topRight    = screenToMode7UV({ dstRect.pos.x + dstRect.size.x, dstRect.pos.y }, params, texture);
+    vf2d bottomLeft  = screenToMode7UV({ dstRect.pos.x, dstRect.pos.y + dstRect.size.y }, params, texture);
+    vf2d bottomRight = screenToMode7UV(dstRect.pos + dstRect.size, params, texture);
 
     // Create custom geometry with transformed UVs — tracked for deletion at frame end
     Geometry2D *mode7Geom = new Geometry2D();
@@ -907,10 +907,10 @@ void Draw::_drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mod
 
         .rotation = 0.0f,
 
-        .tex_u = 0.f,
-        .tex_v = 0.f,
-        .tex_w = 1.f,
-        .tex_h = 1.f,
+        .texU = 0.f,
+        .texV = 0.f,
+        .texW = 1.f,
+        .texH = 1.f,
 
         .r = (float)color.r / 255.f,
         .g = (float)color.g / 255.f,
@@ -920,13 +920,13 @@ void Draw::_drawMode7Texture(TextureType texture, vf2d pos, vf2d size, const Mod
         .w = dstRect.size.x,
         .h = dstRect.size.y,
 
-        .pivot_x = 0.0f,
-        .pivot_y = 0.0f,
+        .pivotX = 0.0f,
+        .pivotY = 0.0f,
 
         .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    _getTargetPass()->addToRenderQueue(renderable);
+    _getTargetPass()->AddToRenderQueue(renderable);
 }
 
 void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size,
@@ -962,15 +962,15 @@ void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size,
         vf2d rightScreen = { dstRect.pos.x + dstRect.size.x, screenY };
 
         // Transform to Mode 7 UV coordinates
-        vf2d leftUV  = ScreenToMode7UV(leftScreen, params, texture);
-        vf2d rightUV = ScreenToMode7UV(rightScreen, params, texture);
+        vf2d leftUV  = screenToMode7UV(leftScreen, params, texture);
+        vf2d rightUV = screenToMode7UV(rightScreen, params, texture);
 
         // Get parameters for next scanline for bottom UVs
         Mode7Parameters nextParams        = getParamsForLine(std::min(y + scanlineStep, numScanlines - 1));
         vf2d            leftBottomScreen  = { dstRect.pos.x, nextScreenY };
         vf2d            rightBottomScreen = { dstRect.pos.x + dstRect.size.x, nextScreenY };
-        vf2d            leftBottomUV      = ScreenToMode7UV(leftBottomScreen, nextParams, texture);
-        vf2d            rightBottomUV     = ScreenToMode7UV(rightBottomScreen, nextParams, texture);
+        vf2d            leftBottomUV      = screenToMode7UV(leftBottomScreen, nextParams, texture);
+        vf2d            rightBottomUV     = screenToMode7UV(rightBottomScreen, nextParams, texture);
 
         // Normalize vertex positions to 0-1 range relative to entire drawable area
         float normY     = (float)y / dstRect.size.y;
@@ -1006,10 +1006,10 @@ void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size,
 
         .rotation = 0.0f,
 
-        .tex_u = 0.f,
-        .tex_v = 0.f,
-        .tex_w = 1.f,
-        .tex_h = 1.f,
+        .texU = 0.f,
+        .texV = 0.f,
+        .texW = 1.f,
+        .texH = 1.f,
 
         .r = (float)color.r / 255.f,
         .g = (float)color.g / 255.f,
@@ -1019,13 +1019,13 @@ void Draw::_drawMode7TextureScanline(TextureType texture, vf2d pos, vf2d size,
         .w = dstRect.size.x,
         .h = dstRect.size.y,
 
-        .pivot_x = 0.0f,
-        .pivot_y = 0.0f,
+        .pivotX = 0.0f,
+        .pivotY = 0.0f,
 
         .effectIndex = _getOrCreateEffectIndex(),
     };
 
-    _getTargetPass()->addToRenderQueue(renderable);
+    _getTargetPass()->AddToRenderQueue(renderable);
 }
 
 void Draw::Particles(const ParticleSystemHandle &handle) {

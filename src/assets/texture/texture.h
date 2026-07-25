@@ -16,7 +16,7 @@ struct TextureAsset {
     GpuSamplerHandle gpuSampler = 0; ///< Opaque backend handle to the sampler.
 
     /// @brief Returns the texture size as a (width, height) vector.
-    vi2d getSize() const { return { width, height }; }
+    vi2d GetSize() const { return { width, height }; }
 };
 
 using Texture = TextureAsset &;

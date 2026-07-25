@@ -9,10 +9,10 @@
 #include "renderer/renderer.h"
 #include "assets/shaders_generated.h"
 
-GpuComputePipelineHandle ParticlesBuiltin::CreateComputePipeline() {
+GpuComputePipelineHandle ParticlesBuiltin::_createComputePipeline() {
     GpuComputePipelineCreateInfo info;
-    info.code                        = Luminoveau::Shaders::Particles_Comp;
-    info.codeSize                    = Luminoveau::Shaders::Particles_Comp_Size;
+    info.code                        = Lumi::Shaders::PARTICLES_COMP;
+    info.codeSize                    = Lumi::Shaders::PARTICLES_COMP_SIZE;
     info.entrypoint                  = "main";
     info.threadCountX                = 64;
     info.threadCountY                = 1;
@@ -20,7 +20,7 @@ GpuComputePipelineHandle ParticlesBuiltin::CreateComputePipeline() {
     info.readonlyStorageBufferCount  = 2; // systems, colliders
     info.readwriteStorageBufferCount = 1; // particles
     info.uniformBufferCount          = 1;
-    GpuComputePipelineHandle ph      = Renderer::GetGpu().createComputePipeline(info);
+    GpuComputePipelineHandle ph      = Renderer::GetGpu().CreateComputePipeline(info);
     if (!ph) {
         LOG_WARNING("Particles: built-in compute pipeline creation FAILED");
     }

@@ -25,7 +25,8 @@ struct CachedGlyph {
 /**
  * @brief Represents a font asset for rendering text using MSDF.
  */
-// Forward declaration for cleanup
+// Forward declaration for cleanup — external library namespace, not ours to rename.
+// NOLINTNEXTLINE(readability-identifier-naming)
 namespace msdfgen {
 class FontHandle;
 }

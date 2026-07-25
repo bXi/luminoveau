@@ -64,13 +64,13 @@ SDL_GPUTextureFormat toSDL(GpuTextureFormat fmt) {
 
 SDL_GPUSampleCount toSDL(GpuSampleCount count) {
     switch (count) {
-    case GpuSampleCount::x1:
+    case GpuSampleCount::X1:
         return SDL_GPU_SAMPLECOUNT_1;
-    case GpuSampleCount::x2:
+    case GpuSampleCount::X2:
         return SDL_GPU_SAMPLECOUNT_2;
-    case GpuSampleCount::x4:
+    case GpuSampleCount::X4:
         return SDL_GPU_SAMPLECOUNT_4;
-    case GpuSampleCount::x8:
+    case GpuSampleCount::X8:
         return SDL_GPU_SAMPLECOUNT_8;
     default:
         return SDL_GPU_SAMPLECOUNT_1;

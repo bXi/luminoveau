@@ -16,12 +16,12 @@ public:
 
     // Returns the raw native device handle.
     // Cast to the appropriate type for the active backend:
-    //   SDL backend  →  reinterpret_cast<SDL_GPUDevice*>(getRawDevice())
+    //   SDL backend  →  reinterpret_cast<SDL_GPUDevice*>(GetRawDevice())
     //   GL  backend  →  not meaningful; returns nullptr
     //   SW  backend  →  not meaningful; returns nullptr
-    virtual void *getRawDevice() const = 0;
+    virtual void *GetRawDevice() const = 0;
 
     // Returns the native sampler for the given scale mode.
-    // SDL  →  reinterpret_cast<SDL_GPUSampler*>(getRawSampler(mode))
-    virtual void *getRawSampler(int scaleModeInt) const = 0;
+    // SDL  →  reinterpret_cast<SDL_GPUSampler*>(GetRawSampler(mode))
+    virtual void *GetRawSampler(int scaleModeInt) const = 0;
 };

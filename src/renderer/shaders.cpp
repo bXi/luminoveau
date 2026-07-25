@@ -26,26 +26,26 @@
 #include "picosha2.h"
 
 // ── ShaderMetadata serialization ─────────────────────────────────────────────────
-std::string ShaderMetadata::serialize() const {
+std::string ShaderMetadata::Serialize() const {
     std::ostringstream oss;
-    oss << "source_hash=" << source_hash << "\n";
-    oss << "shader_format=" << static_cast<int>(shader_format) << "\n";
-    oss << "num_samplers=" << num_samplers << "\n";
-    oss << "num_uniform_buffers=" << num_uniform_buffers << "\n";
-    oss << "num_storage_buffers=" << num_storage_buffers << "\n";
-    oss << "num_storage_textures=" << num_storage_textures << "\n";
+    oss << "source_hash=" << sourceHash << "\n";
+    oss << "shader_format=" << static_cast<int>(shaderFormat) << "\n";
+    oss << "num_samplers=" << numSamplers << "\n";
+    oss << "num_uniform_buffers=" << numUniformBuffers << "\n";
+    oss << "num_storage_buffers=" << numStorageBuffers << "\n";
+    oss << "num_storage_textures=" << numStorageTextures << "\n";
 
-    for (size_t i = 0; i < sampler_names.size(); ++i) {
-        oss << "sampler_" << i << "=" << sampler_names[i] << "\n";
+    for (size_t i = 0; i < samplerNames.size(); ++i) {
+        oss << "sampler_" << i << "=" << samplerNames[i] << "\n";
     }
-    for (const auto &[name, offset] : uniform_offsets) {
+    for (const auto &[name, offset] : uniformOffsets) {
         oss << "uniform_" << name << "_offset=" << offset << "\n";
-        oss << "uniform_" << name << "_size=" << uniform_sizes.at(name) << "\n";
+        oss << "uniform_" << name << "_size=" << uniformSizes.at(name) << "\n";
     }
     return oss.str();
 }
 
-ShaderMetadata ShaderMetadata::deserialize(const std::string &data) {
+ShaderMetadata ShaderMetadata::Deserialize(const std::string &data) {
     ShaderMetadata     metadata;
     std::istringstream iss(data);
     std::string        line;
@@ -57,27 +57,27 @@ ShaderMetadata ShaderMetadata::deserialize(const std::string &data) {
         std::string value = line.substr(pos + 1);
 
         if (key == "source_hash") {
-            metadata.source_hash = value;
+            metadata.sourceHash = value;
         } else if (key == "shader_format") {
-            metadata.shader_format = static_cast<uint32_t>(std::stoi(value));
+            metadata.shaderFormat = static_cast<uint32_t>(std::stoi(value));
         } else if (key == "num_samplers") {
-            metadata.num_samplers = std::stoul(value);
+            metadata.numSamplers = std::stoul(value);
         } else if (key == "num_uniform_buffers") {
-            metadata.num_uniform_buffers = std::stoul(value);
+            metadata.numUniformBuffers = std::stoul(value);
         } else if (key == "num_storage_buffers") {
-            metadata.num_storage_buffers = std::stoul(value);
+            metadata.numStorageBuffers = std::stoul(value);
         } else if (key == "num_storage_textures") {
-            metadata.num_storage_textures = std::stoul(value);
+            metadata.numStorageTextures = std::stoul(value);
         } else if (key.find("sampler_") == 0) {
-            metadata.sampler_names.push_back(value);
+            metadata.samplerNames.push_back(value);
         } else if (key.find("uniform_") == 0 && key.find("_offset") != std::string::npos) {
-            size_t      uniform_pos                = key.find("_offset");
-            std::string uniform_name               = key.substr(8, uniform_pos - 8);
-            metadata.uniform_offsets[uniform_name] = std::stoul(value);
+            size_t      uniformPos               = key.find("_offset");
+            std::string uniformName              = key.substr(8, uniformPos - 8);
+            metadata.uniformOffsets[uniformName] = std::stoul(value);
         } else if (key.find("uniform_") == 0 && key.find("_size") != std::string::npos) {
-            size_t      uniform_pos              = key.find("_size");
-            std::string uniform_name             = key.substr(8, uniform_pos - 8);
-            metadata.uniform_sizes[uniform_name] = std::stoul(value);
+            size_t      uniformPos             = key.find("_size");
+            std::string uniformName            = key.substr(8, uniformPos - 8);
+            metadata.uniformSizes[uniformName] = std::stoul(value);
         }
     }
     return metadata;
@@ -161,7 +161,7 @@ bool Shaders::_loadCachedShader(const std::string &cacheKey, std::vector<uint8_t
         return false;
     try {
         auto buffer = _shaderCache->GetFileBuffer(cacheKey);
-        outData.assign(buffer.vMemory.begin(), buffer.vMemory.end());
+        outData.assign(buffer.memory.begin(), buffer.memory.end());
         return true;
     } catch (const std::exception &e) {
         LOG_ERROR("Failed to load cached shader {}: {}", cacheKey.c_str(), e.what());
@@ -174,8 +174,8 @@ bool Shaders::_loadCachedMetadata(const std::string &metadataKey, ShaderMetadata
         return false;
     try {
         auto        buffer = _shaderCache->GetFileBuffer(metadataKey);
-        std::string metadataStr(buffer.vMemory.begin(), buffer.vMemory.end());
-        outMetadata = ShaderMetadata::deserialize(metadataStr);
+        std::string metadataStr(buffer.memory.begin(), buffer.memory.end());
+        outMetadata = ShaderMetadata::Deserialize(metadataStr);
         return true;
     } catch (const std::exception &e) {
         LOG_ERROR("Failed to parse metadata from cache: {}", e.what());
@@ -198,7 +198,7 @@ void Shaders::_saveCachedShader(const std::string &cacheKey, const std::vector<u
 
 void Shaders::_saveCachedMetadata(const std::string &metadataKey, const ShaderMetadata &metadata) {
     if (_shaderCache) {
-        std::string          metadataStr = metadata.serialize();
+        std::string          metadataStr = metadata.Serialize();
         std::vector<uint8_t> metadataBytes(metadataStr.begin(), metadataStr.end());
         _shaderCache->AddFile(metadataKey, metadataBytes);
         if (_shaderCache->SavePack()) {
@@ -219,23 +219,23 @@ static ShaderMetadata extractMetadataFromSPIRV(const std::vector<uint32_t> &spir
 
         for (const auto &sampler : resources.sampled_images) {
             const std::string &samplerName = compiler.get_name(sampler.id);
-            metadata.sampler_names.push_back(samplerName);
+            metadata.samplerNames.push_back(samplerName);
         }
-        metadata.num_samplers = static_cast<uint32_t>(metadata.sampler_names.size());
+        metadata.numSamplers = static_cast<uint32_t>(metadata.samplerNames.size());
 
         for (const auto &uniform : resources.uniform_buffers) {
             auto &bufferType = compiler.get_type(uniform.base_type_id);
             for (size_t i = 0; i < bufferType.member_types.size(); ++i) {
-                const std::string &memberName        = compiler.get_member_name(uniform.base_type_id, i);
-                size_t             memberSize        = compiler.get_declared_struct_member_size(bufferType, i);
-                size_t             memberOffset      = compiler.type_struct_member_offset(bufferType, i);
-                metadata.uniform_offsets[memberName] = memberOffset;
-                metadata.uniform_sizes[memberName]   = memberSize;
+                const std::string &memberName       = compiler.get_member_name(uniform.base_type_id, i);
+                size_t             memberSize       = compiler.get_declared_struct_member_size(bufferType, i);
+                size_t             memberOffset     = compiler.type_struct_member_offset(bufferType, i);
+                metadata.uniformOffsets[memberName] = memberOffset;
+                metadata.uniformSizes[memberName]   = memberSize;
             }
         }
-        metadata.num_uniform_buffers  = static_cast<uint32_t>(resources.uniform_buffers.size());
-        metadata.num_storage_buffers  = static_cast<uint32_t>(resources.storage_buffers.size());
-        metadata.num_storage_textures = static_cast<uint32_t>(resources.storage_images.size());
+        metadata.numUniformBuffers  = static_cast<uint32_t>(resources.uniform_buffers.size());
+        metadata.numStorageBuffers  = static_cast<uint32_t>(resources.storage_buffers.size());
+        metadata.numStorageTextures = static_cast<uint32_t>(resources.storage_images.size());
     } catch (const std::exception &e) {
         LOG_ERROR("SPIRV reflection failed: {}", e.what());
     }
@@ -287,7 +287,7 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
         std::string source(static_cast<char *>(sourceFile.data), sourceFile.fileSize);
         std::string sourceHash = computeSourceHash(source);
 
-        if (sourceHash == cachedMetadata.source_hash) {
+        if (sourceHash == cachedMetadata.sourceHash) {
             LOG_INFO("Loaded cached shader: {}", filename.c_str());
             filedata.fileDataVector = std::move(cachedData);
             filedata.data           = filedata.fileDataVector.data();
@@ -315,8 +315,8 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
     }
 
     ShaderMetadata metadata = extractMetadataFromSPIRV(spirvBlob);
-    metadata.source_hash    = computeSourceHash(source);
-    metadata.shader_format  = runtimeFormat;
+    metadata.sourceHash     = computeSourceHash(source);
+    metadata.shaderFormat   = runtimeFormat;
 
     std::vector<uint8_t> spirvBytes(
         reinterpret_cast<const uint8_t *>(spirvBlob.data()),
@@ -363,7 +363,7 @@ ShaderMetadata Shaders::_getShaderMetadata(const std::string &filename) {
 }
 
 uint32_t Shaders::_getShaderFormat(const std::string &filename) {
-    return _getShaderMetadata(filename).shader_format;
+    return _getShaderMetadata(filename).shaderFormat;
 }
 
 GpuShaderHandle Shaders::_createGpuShader(const std::string &filename, GpuShaderStage stage) {
@@ -381,12 +381,12 @@ GpuShaderHandle Shaders::_createGpuShader(const std::string &filename, GpuShader
     info.codeSize            = static_cast<size_t>(shaderData.fileSize);
     info.entrypoint          = "main";
     info.stage               = stage;
-    info.samplerCount        = metadata.num_samplers;
-    info.uniformBufferCount  = metadata.num_uniform_buffers;
-    info.storageBufferCount  = metadata.num_storage_buffers;
-    info.storageTextureCount = metadata.num_storage_textures;
+    info.samplerCount        = metadata.numSamplers;
+    info.uniformBufferCount  = metadata.numUniformBuffers;
+    info.storageBufferCount  = metadata.numStorageBuffers;
+    info.storageTextureCount = metadata.numStorageTextures;
 
-    GpuShaderHandle shader = Renderer::GetGpu().createShaderFromSPIRV(info);
+    GpuShaderHandle shader = Renderer::GetGpu().CreateShaderFromSPIRV(info);
     if (!shader)
         LOG_ERROR("Failed to create GPU shader for {}", filename.c_str());
     return shader;
@@ -399,20 +399,20 @@ ShaderAsset Shaders::_createShaderAsset(const std::string &filename, GpuShaderSt
 
     asset.shaderFilename      = filename;
     asset.fileData            = shaderData.fileDataVector;
-    asset.samplerCount        = metadata.num_samplers;
-    asset.uniformBufferCount  = metadata.num_uniform_buffers;
-    asset.storageBufferCount  = metadata.num_storage_buffers;
-    asset.storageTextureCount = metadata.num_storage_textures;
+    asset.samplerCount        = metadata.numSamplers;
+    asset.uniformBufferCount  = metadata.numUniformBuffers;
+    asset.storageBufferCount  = metadata.numStorageBuffers;
+    asset.storageTextureCount = metadata.numStorageTextures;
 
     // Copy reflected uniform layout so consumers (EffectHandler etc.) can read it the
     // same way on both backends — WebGPU populates these at shader-load time.
-    asset.uniformOffsets = metadata.uniform_offsets;
-    asset.uniformSizes   = metadata.uniform_sizes;
+    asset.uniformOffsets = metadata.uniformOffsets;
+    asset.uniformSizes   = metadata.uniformSizes;
 
     asset.gpuShader = _createGpuShader(filename, stage);
 
     LOG_INFO("Created ShaderAsset for {} (format={}, samplers={})",
-        filename.c_str(), metadata.shader_format, asset.samplerCount);
+        filename.c_str(), metadata.shaderFormat, asset.samplerCount);
     return asset;
 }
 
@@ -431,7 +431,7 @@ ComputePipelineAsset Shaders::_createComputePipeline(const std::string &filename
         LOG_ERROR("Failed to create compute pipeline {}", filename);
     } else {
         LOG_INFO("Created compute pipeline: {} (threads: {}x{}x{})",
-            filename, asset.threadcount_x, asset.threadcount_y, asset.threadcount_z);
+            filename, asset.threadCountX, asset.threadCountY, asset.threadCountZ);
     }
     return asset;
 }
@@ -439,21 +439,20 @@ ComputePipelineAsset Shaders::_createComputePipeline(const std::string &filename
 ComputePipelineAsset Shaders::_createComputePipelineFromBytes(const uint8_t *spirvBytes, size_t spirvSize) {
     // The backend reflects the shader's resource layout while translating it.
     GpuComputeReflection     refl {};
-    GpuComputePipelineHandle pipeline =
-        Renderer::GetGpu().createComputePipelineFromSPIRV(spirvBytes, spirvSize, "main", &refl);
+    GpuComputePipelineHandle pipeline = Renderer::GetGpu().CreateComputePipelineFromSPIRV(spirvBytes, spirvSize, "main", &refl);
 
     ComputePipelineAsset asset;
-    asset.filename                       = "<embedded>";
-    asset.pipeline                       = pipeline;
-    asset.threadcount_x                  = refl.threadCountX;
-    asset.threadcount_y                  = refl.threadCountY;
-    asset.threadcount_z                  = refl.threadCountZ;
-    asset.num_samplers                   = refl.samplerCount;
-    asset.num_readonly_storage_textures  = refl.readonlyStorageTextureCount;
-    asset.num_readwrite_storage_textures = refl.readwriteStorageTextureCount;
-    asset.num_readonly_storage_buffers   = refl.readonlyStorageBufferCount;
-    asset.num_readwrite_storage_buffers  = refl.readwriteStorageBufferCount;
-    asset.num_uniform_buffers            = refl.uniformBufferCount;
+    asset.filename                    = "<embedded>";
+    asset.pipeline                    = pipeline;
+    asset.threadCountX                = refl.threadCountX;
+    asset.threadCountY                = refl.threadCountY;
+    asset.threadCountZ                = refl.threadCountZ;
+    asset.numSamplers                 = refl.samplerCount;
+    asset.numReadonlyStorageTextures  = refl.readonlyStorageTextureCount;
+    asset.numReadwriteStorageTextures = refl.readwriteStorageTextureCount;
+    asset.numReadonlyStorageBuffers   = refl.readonlyStorageBufferCount;
+    asset.numReadwriteStorageBuffers  = refl.readwriteStorageBufferCount;
+    asset.numUniformBuffers           = refl.uniformBufferCount;
 
     if (!asset.pipeline)
         LOG_ERROR("Shaders::CreateComputePipelineFromBytes: failed to create pipeline");
@@ -602,4 +601,3 @@ static void fillResources(TBuiltInResource *resource) {
     resource->limits.generalConstantMatrixVectorIndexing  = 1;
 }
 /// @endcond
-

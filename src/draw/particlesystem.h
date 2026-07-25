@@ -21,8 +21,8 @@ struct alignas(16) GPUParticle {
     float     endSize;         // billboard size at death (pixels)
     float     angle;           // current rotation (radians)
     float     angularVelocity; // radians per second; set on spawn, persists
-    float     _pad0;
-    float     _pad1;
+    float     pad0;
+    float     pad1;
 };
 static_assert(sizeof(GPUParticle) == 64, "GPUParticle size mismatch");
 

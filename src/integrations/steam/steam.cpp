@@ -16,7 +16,7 @@ void Steam::_init(int newAppId) {
     if (SteamAPI_InitEx(&errMsg) != k_ESteamAPIInitResult_OK)
         LOG_CRITICAL("failed to init Steam: {}", errMsg);
 
-    isInit = true;
+    _isInit = true;
 #else
     LUMI_UNUSED(newAppId);
 #endif
@@ -24,14 +24,14 @@ void Steam::_init(int newAppId) {
 
 void Steam::_close() {
 #ifdef LUMINOVEAU_WITH_STEAM
-    if (isInit)
+    if (_isInit)
         SteamAPI_Shutdown();
 #endif
-    isInit = false;
+    _isInit = false;
 }
 
 bool Steam::_isReady() const {
-    return isInit;
+    return _isInit;
 }
 
 float Steam::_getStat(const std::string &pchName) {

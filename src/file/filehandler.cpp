@@ -16,7 +16,7 @@
 #endif
 
 namespace {
-constexpr const char *kPersistentMountPoint = "/lumi_persist/";
+constexpr const char *PERSISTENT_MOUNT_POINT = "/lumi_persist/";
 }
 
 #ifdef _WIN32
@@ -468,7 +468,7 @@ bool FileHandler::_initPersistentStorage() {
                 });
         });
     },
-        kPersistentMountPoint);
+        PERSISTENT_MOUNT_POINT);
 #endif
     // Native filesystems are already persistent — nothing to mount or create.
     _persistentStorageMounted = true;
@@ -477,7 +477,7 @@ bool FileHandler::_initPersistentStorage() {
 
 std::string FileHandler::_getPersistentStorageDirectory() {
 #ifdef __EMSCRIPTEN__
-    return kPersistentMountPoint; // trailing slash included
+    return PERSISTENT_MOUNT_POINT; // trailing slash included
 #else
     // Empty prefix → caller writes to cwd, matching pre-refactor relative paths.
     return "";

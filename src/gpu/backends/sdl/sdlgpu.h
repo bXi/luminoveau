@@ -33,7 +33,7 @@ SDL_GPUColorTargetBlendState    toSDL(const GpuColorTargetBlendState &blend);
 
 // Default rasterizer: fill, no culling, CCW front face.
 // Used internally by SDL-level render pass code.
-inline constexpr SDL_GPURasterizerState SDL_DefaultRasterizerState = {
+inline constexpr SDL_GPURasterizerState DEFAULT_RASTERIZER_STATE = {
     .fill_mode                  = SDL_GPU_FILLMODE_FILL,
     .cull_mode                  = SDL_GPU_CULLMODE_NONE,
     .front_face                 = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,

@@ -25,6 +25,10 @@ using GpuFenceHandle            = uintptr_t;
 // Texture formats
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Format names mirror the graphics APIs they map to (SDL_GPU / WGPU / DXGI). The channel
+// layout notation (R8G8B8A8, BC7, ASTC_4x4) is not PascalCase-able without destroying the
+// correspondence, so the naming rule is deliberately waived here.
+// NOLINTBEGIN(readability-identifier-naming)
 enum class GpuTextureFormat : uint32_t {
     Invalid,
     R8_Unorm,
@@ -54,16 +58,17 @@ enum class GpuTextureFormat : uint32_t {
     BC7_Unorm,
     ASTC_4x4_Unorm, // native on Apple/mobile GPUs; same 16 B / 4x4 block size as BC7
 };
+// NOLINTEND(readability-identifier-naming)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MSAA sample counts
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum class GpuSampleCount : uint32_t {
-    x1 = 1,
-    x2 = 2,
-    x4 = 4,
-    x8 = 8,
+    X1 = 1,
+    X2 = 2,
+    X4 = 4,
+    X8 = 8,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -264,7 +269,7 @@ struct GpuTextureCreateInfo {
     uint32_t         depthOrLayers = 1;
     uint32_t         numLevels     = 1;
     GpuTextureFormat format        = GpuTextureFormat::R8G8B8A8_Unorm;
-    GpuSampleCount   sampleCount   = GpuSampleCount::x1;
+    GpuSampleCount   sampleCount   = GpuSampleCount::X1;
     GpuTextureUsage  usage         = GpuTextureUsage::Sampler;
     GpuTextureType   type          = GpuTextureType::Tex2D;
 };
@@ -355,7 +360,7 @@ struct GpuGraphicsPipelineCreateInfo {
     GpuColorTargetBlendState  colorTargetBlends[MAX_COLOR_TARGETS]  = {};
     bool                      hasDepthTarget                        = false;
     GpuTextureFormat          depthTargetFormat                     = GpuTextureFormat::D32_Float;
-    GpuSampleCount            sampleCount                           = GpuSampleCount::x1;
+    GpuSampleCount            sampleCount                           = GpuSampleCount::X1;
     uint32_t                  vertexStorageBufferCount              = 0; // read-only storage buffers bound at group 3, vertex stage
 };
 
@@ -440,8 +445,8 @@ struct GpuTextureRegion {
 struct GpuTransferBufferRegion {
     GpuTransferBufferHandle transferBuffer = 0;
     uint32_t                offset         = 0;
-    uint32_t                pixels_per_row = 0;
-    uint32_t                rows_per_layer = 0;
+    uint32_t                pixelsPerRow   = 0;
+    uint32_t                rowsPerLayer   = 0;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

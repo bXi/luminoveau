@@ -1,29 +1,29 @@
 #include "settings.h"
 
 void Settings::_setRes(int width, int height) {
-    resWidth  = width;
-    resHeight = height;
+    _resWidth  = width;
+    _resHeight = height;
 
-    saveSettings();
+    SaveSettings();
 
     Window::SetSize(width, height);
 }
 
 void Settings::_toggleFullscreen() {
-    fullscreen = !fullscreen;
-    saveSettings();
+    _fullscreen = !_fullscreen;
+    SaveSettings();
     Window::ToggleFullscreen();
     // TODO: fix vsync
 }
 
 void Settings::_toggleVsync() {
-    vsync = !vsync;
-    saveSettings();
+    _vsync = !_vsync;
+    SaveSettings();
     // TODO: fix vsync
 }
 
 bool Settings::_getVsync() const {
-    return vsync;
+    return _vsync;
 }
 
 int Settings::_getMonitorRefreshRate() const {
@@ -71,21 +71,21 @@ void Settings::_init() {
     //	}
     //	else {
     //
-    //		const std::string& _vsync = ini["Video"]["Vsync"];
-    //		const std::string& _fullscreen = ini["Video"]["Fullscreen"];
-    //		const std::string& _resWidth = ini["Video"]["Width"];
-    //		const std::string& _resHeight = ini["Video"]["Height"];
+    //		const std::string& vsync = ini["Video"]["Vsync"];
+    //		const std::string& fullscreen = ini["Video"]["Fullscreen"];
+    //		const std::string& resWidth = ini["Video"]["Width"];
+    //		const std::string& resHeight = ini["Video"]["Height"];
     //
     //		const std::string& _mastervolume = ini["Audio"]["Mastervolume"];
     //		const std::string& _effectsvolume = ini["Audio"]["Effectsvolume"];
     //		const std::string& _musicvolume = ini["Audio"]["Musicvolume"];
     //
     //
-    //		vsync = (_vsync == "true");
-    //		fullscreen = (_fullscreen == "true");
+    //		vsync = (vsync == "true");
+    //		fullscreen = (fullscreen == "true");
     //
-    //		resWidth = std::stoi(_resWidth);
-    //		resHeight = std::stoi(_resHeight);
+    //		resWidth = std::stoi(resWidth);
+    //		resHeight = std::stoi(resHeight);
     //
     //		masterVolume = std::stof(_mastervolume) / 100.f;
     //		effectsVolume = std::stof(_effectsvolume) / 100.f;
@@ -100,7 +100,7 @@ void Settings::_init() {
 
     //	file.write(ini);
 
-    if (fullscreen) {
+    if (_fullscreen) {
         //		ToggleFullscreen();
         // BeginDrawing();
         // ClearBackground(BLACK);
@@ -121,36 +121,36 @@ std::vector<std::pair<int, int>> Settings::_resolutions() {
 
 void Settings::_setMusicVolume(float volume) {
 
-    musicVolume = volume;
-    musicVolume = std::clamp(musicVolume, 0.0f, 1.0f);
+    _musicVolume = volume;
+    _musicVolume = std::clamp(_musicVolume, 0.0f, 1.0f);
 
-    saveSettings();
+    SaveSettings();
 }
 
 void Settings::_setSoundVolume(float volume) {
 
-    effectsVolume = volume;
-    effectsVolume = std::clamp(effectsVolume, 0.0f, 1.0f);
+    _effectsVolume = volume;
+    _effectsVolume = std::clamp(_effectsVolume, 0.0f, 1.0f);
 
-    saveSettings();
+    SaveSettings();
 }
 
 void Settings::_setMasterVolume(float volume) {
 
-    masterVolume = volume;
-    masterVolume = std::clamp(masterVolume, 0.0f, 1.0f);
+    _masterVolume = volume;
+    _masterVolume = std::clamp(_masterVolume, 0.0f, 1.0f);
 
-    saveSettings();
+    SaveSettings();
 }
 
 float Settings::_getMusicVolume() const {
-    return musicVolume;
+    return _musicVolume;
 }
 
 float Settings::_getSoundVolume() const {
-    return effectsVolume;
+    return _effectsVolume;
 }
 
 float Settings::_getMasterVolume() const {
-    return masterVolume;
+    return _masterVolume;
 }

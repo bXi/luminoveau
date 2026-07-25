@@ -17,36 +17,36 @@
 class ShaderRenderPass : public RenderPass {
     // SDL-only members carried unconditionally so the header stays backend-neutral.
     // WebGPU stub never touches them.
-    glm::vec2 lastMousePos = { 0, 0 };
+    glm::vec2 _lastMousePos = { 0, 0 };
 
-    GpuGraphicsPipelineHandle m_pipeline = 0;
-    TextureAsset              m_depth_texture;
+    GpuGraphicsPipelineHandle _pipeline = 0;
+    TextureAsset              _depthTexture;
 
-    GpuTextureHandle          resultTexture        = 0;
-    GpuTextureHandle          inputTexture         = 0;
-    GpuGraphicsPipelineHandle finalrender_pipeline = 0;
+    GpuTextureHandle          _resultTexture       = 0;
+    GpuTextureHandle          _inputTexture        = 0;
+    GpuGraphicsPipelineHandle _finalRenderPipeline = 0;
 
-    Renderable   fs;
-    TextureAsset transparentPixel;
+    Renderable   _fs;
+    TextureAsset _transparentPixel;
 
-    UniformBuffer uniformBuffer;
+    UniformBuffer _uniformBuffer;
 
-    GpuShaderHandle vertex_shader   = 0;
-    GpuShaderHandle fragment_shader = 0;
+    GpuShaderHandle _vertexShader   = 0;
+    GpuShaderHandle _fragmentShader = 0;
 
-    GpuShaderHandle finalrender_fragment_shader = 0;
-    GpuShaderHandle finalrender_vertex_shader   = 0;
+    GpuShaderHandle _finalRenderFragmentShader = 0;
+    GpuShaderHandle _finalRenderVertexShader   = 0;
 
-    uint32_t m_desktop_width  = 0;
-    uint32_t m_desktop_height = 0;
+    uint32_t _desktopWidth  = 0;
+    uint32_t _desktopHeight = 0;
 
-    std::vector<std::string> foundSamplers;
+    std::vector<std::string> _foundSamplers;
 
     void _loadSamplerNamesFromShader(const std::vector<uint8_t> &spirvBinary);
     void _loadUniformsFromShader(const std::vector<uint8_t> &spirvBinary);
-    void _renderShaderOutputToFramebuffer(GpuCmdBufferHandle cmd_buffer, GpuTextureHandle target_texture, GpuTextureHandle result_texture, const glm::mat4 &camera);
+    void _renderShaderOutputToFramebuffer(GpuCmdBufferHandle cmdBuffer, GpuTextureHandle targetTexture, GpuTextureHandle resultTexture, const glm::mat4 &camera);
 
-    std::vector<Renderable> renderQueue;
+    std::vector<Renderable> _renderQueue;
 
 public:
     ShaderAsset vertShader;
@@ -60,26 +60,26 @@ public:
     ShaderRenderPass()
         : RenderPass() { }
 
-    [[nodiscard]] bool init(
-        GpuTextureFormat swapchain_texture_format, uint32_t surface_width,
-        uint32_t surface_height, std::string name, bool logInit = true,
+    [[nodiscard]] bool Init(
+        GpuTextureFormat swapchainTextureFormat, uint32_t surfaceWidth,
+        uint32_t surfaceHeight, std::string name, bool logInit = true,
         size_t capacity = 0, bool forceNoMSAA = false) override;
 
-    void release(bool logRelease = true) override;
+    void Release(bool logRelease = true) override;
 
-    UniformBuffer &getUniformBuffer() override;
+    UniformBuffer &GetUniformBuffer() override;
 
-    void render(
+    void Render(
         GpuCmdBufferHandle cmdBuffer, GpuTextureHandle targetTexture, const glm::mat4 &camera) override;
 
-    void addToRenderQueue(const Renderable &renderable) override {
-        renderQueue.push_back(renderable);
+    void AddToRenderQueue(const Renderable &renderable) override {
+        _renderQueue.push_back(renderable);
     }
 
-    void resetRenderQueue() override {
-        renderQueue.clear();
+    void ResetRenderQueue() override {
+        _renderQueue.clear();
     }
 
     // ShaderRenderPass reads from fbContent; require the previous pass to resolve MSAA first.
-    bool needsResolvedInput() const override { return true; }
+    bool NeedsResolvedInput() const override { return true; }
 };

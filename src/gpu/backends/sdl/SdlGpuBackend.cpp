@@ -11,8 +11,8 @@
 
 // ── VRAM accounting (tracked allocations -> Perf HUD) ─────────────────────────
 namespace {
-std::unordered_map<void *, size_t> s_allocSizes;
-int64_t                            s_vramTotal = 0;
+std::unordered_map<void *, size_t> allocSizes;
+int64_t                            vramTotal = 0;
 
 // Bits per pixel for the formats we allocate (BC7 is 8bpp; uncompressed by channel size).
 int bppOf(GpuTextureFormat f) {
@@ -57,23 +57,23 @@ size_t texBytes(const GpuTextureCreateInfo &i) {
 void vramAdd(void *h, size_t bytes) {
     if (!h || !bytes)
         return;
-    s_allocSizes[h] = bytes;
-    s_vramTotal += (int64_t)bytes;
-    Perf::ReportVRAM(s_vramTotal);
+    allocSizes[h] = bytes;
+    vramTotal += (int64_t)bytes;
+    Perf::ReportVRAM(vramTotal);
 }
 void vramRemove(void *h) {
-    auto it = s_allocSizes.find(h);
-    if (it == s_allocSizes.end())
+    auto it = allocSizes.find(h);
+    if (it == allocSizes.end())
         return;
-    s_vramTotal -= (int64_t)it->second;
-    s_allocSizes.erase(it);
-    if (s_vramTotal < 0)
-        s_vramTotal = 0;
-    Perf::ReportVRAM(s_vramTotal);
+    vramTotal -= (int64_t)it->second;
+    allocSizes.erase(it);
+    if (vramTotal < 0)
+        vramTotal = 0;
+    Perf::ReportVRAM(vramTotal);
 }
 
-uint32_t s_drawCalls = 0;
-uint64_t s_drawVerts = 0;
+uint32_t drawCalls = 0;
+uint64_t drawVerts = 0;
 } // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -81,82 +81,82 @@ uint64_t s_drawVerts = 0;
 // ─────────────────────────────────────────────────────────────────────────────
 
 SdlGpuBackend::SdlGpuBackend(SDL_GPUDevice *device)
-    : m_device(device) { }
+    : _device(device) { }
 
 SdlGpuBackend::~SdlGpuBackend() {
-    // Phase 1: Renderer owns m_device lifecycle — do not release here.
+    // Phase 1: Renderer owns _device lifecycle — do not release here.
 }
 
-bool SdlGpuBackend::init(void *windowHandle) {
-    m_window = static_cast<SDL_Window *>(windowHandle);
-    return m_device != nullptr;
+bool SdlGpuBackend::Init(void *windowHandle) {
+    _window = static_cast<SDL_Window *>(windowHandle);
+    return _device != nullptr;
 }
 
-void SdlGpuBackend::shutdown() {
-    if (m_device) {
-        SDL_DestroyGPUDevice(m_device);
-        m_device = nullptr;
+void SdlGpuBackend::Shutdown() {
+    if (_device) {
+        SDL_DestroyGPUDevice(_device);
+        _device = nullptr;
     }
 }
 
-void SdlGpuBackend::waitIdle() {
-    SDL_WaitForGPUIdle(m_device);
+void SdlGpuBackend::WaitIdle() {
+    SDL_WaitForGPUIdle(_device);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Command buffers
 // ─────────────────────────────────────────────────────────────────────────────
 
-GpuCmdBufferHandle SdlGpuBackend::acquireCommandBuffer() {
-    return reinterpret_cast<GpuCmdBufferHandle>(SDL_AcquireGPUCommandBuffer(m_device));
+GpuCmdBufferHandle SdlGpuBackend::AcquireCommandBuffer() {
+    return reinterpret_cast<GpuCmdBufferHandle>(SDL_AcquireGPUCommandBuffer(_device));
 }
 
-void SdlGpuBackend::submitCommandBuffer(GpuCmdBufferHandle cmd) {
+void SdlGpuBackend::SubmitCommandBuffer(GpuCmdBufferHandle cmd) {
     SDL_SubmitGPUCommandBuffer(reinterpret_cast<SDL_GPUCommandBuffer *>(cmd));
 }
 
-GpuFenceHandle SdlGpuBackend::submitCommandBufferAndAcquireFence(GpuCmdBufferHandle cmd) {
+GpuFenceHandle SdlGpuBackend::SubmitCommandBufferAndAcquireFence(GpuCmdBufferHandle cmd) {
     SDL_GPUFence *f = SDL_SubmitGPUCommandBufferAndAcquireFence(reinterpret_cast<SDL_GPUCommandBuffer *>(cmd));
     return reinterpret_cast<GpuFenceHandle>(f);
 }
 
-void SdlGpuBackend::waitFence(GpuFenceHandle fence) {
+void SdlGpuBackend::WaitFence(GpuFenceHandle fence) {
     if (!fence)
         return;
     SDL_GPUFence *f = reinterpret_cast<SDL_GPUFence *>(fence);
-    SDL_WaitForGPUFences(m_device, true, &f, 1); // block until the GPU finishes this submission
+    SDL_WaitForGPUFences(_device, true, &f, 1); // block until the GPU finishes this submission
 }
 
-void SdlGpuBackend::releaseFence(GpuFenceHandle fence) {
+void SdlGpuBackend::ReleaseFence(GpuFenceHandle fence) {
     if (fence)
-        SDL_ReleaseGPUFence(m_device, reinterpret_cast<SDL_GPUFence *>(fence));
+        SDL_ReleaseGPUFence(_device, reinterpret_cast<SDL_GPUFence *>(fence));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Swapchain
 // ─────────────────────────────────────────────────────────────────────────────
 
-GpuTextureHandle SdlGpuBackend::acquireSwapchainTexture(GpuCmdBufferHandle cmd,
+GpuTextureHandle SdlGpuBackend::AcquireSwapchainTexture(GpuCmdBufferHandle cmd,
     uint32_t                                                              &outWidth,
     uint32_t                                                              &outHeight) {
     SDL_GPUTexture *tex = nullptr;
     SDL_AcquireGPUSwapchainTexture(
         reinterpret_cast<SDL_GPUCommandBuffer *>(cmd),
-        m_window, &tex, &outWidth, &outHeight);
+        _window, &tex, &outWidth, &outHeight);
     return reinterpret_cast<GpuTextureHandle>(tex);
 }
 
-GpuTextureFormat SdlGpuBackend::getSwapchainFormat() const {
-    if (!m_device || !m_window)
+GpuTextureFormat SdlGpuBackend::GetSwapchainFormat() const {
+    if (!_device || !_window)
         return GpuTextureFormat::Invalid;
-    return fromSDL(SDL_GetGPUSwapchainTextureFormat(m_device, m_window));
+    return fromSDL(SDL_GetGPUSwapchainTextureFormat(_device, _window));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Render pass
 // ─────────────────────────────────────────────────────────────────────────────
 
-GpuRenderPassHandle SdlGpuBackend::beginRenderPass(GpuCmdBufferHandle cmd,
+GpuRenderPassHandle SdlGpuBackend::BeginRenderPass(GpuCmdBufferHandle cmd,
     const GpuColorTargetInfo                                         *colorTargets,
     uint32_t                                                          colorTargetCount,
     const GpuDepthStencilTargetInfo                                  *depthTarget) {
@@ -199,7 +199,7 @@ GpuRenderPassHandle SdlGpuBackend::beginRenderPass(GpuCmdBufferHandle cmd,
             sdlDepth));
 }
 
-void SdlGpuBackend::endRenderPass(GpuRenderPassHandle pass) {
+void SdlGpuBackend::EndRenderPass(GpuRenderPassHandle pass) {
     SDL_EndGPURenderPass(reinterpret_cast<SDL_GPURenderPass *>(pass));
 }
 
@@ -207,7 +207,7 @@ void SdlGpuBackend::endRenderPass(GpuRenderPassHandle pass) {
 // Compute pass
 // ─────────────────────────────────────────────────────────────────────────────
 
-GpuComputePassHandle SdlGpuBackend::beginComputePass(GpuCmdBufferHandle cmd,
+GpuComputePassHandle SdlGpuBackend::BeginComputePass(GpuCmdBufferHandle cmd,
     const GpuStorageTextureBinding *rwTextures, uint32_t rwTexCount,
     const GpuStorageBufferBinding *rwBuffers, uint32_t rwBufCount) {
     std::vector<SDL_GPUStorageTextureReadWriteBinding> sdlTex(rwTexCount);
@@ -233,7 +233,7 @@ GpuComputePassHandle SdlGpuBackend::beginComputePass(GpuCmdBufferHandle cmd,
             sdlBuf.data(), rwBufCount));
 }
 
-void SdlGpuBackend::endComputePass(GpuComputePassHandle pass) {
+void SdlGpuBackend::EndComputePass(GpuComputePassHandle pass) {
     SDL_EndGPUComputePass(reinterpret_cast<SDL_GPUComputePass *>(pass));
 }
 
@@ -241,13 +241,13 @@ void SdlGpuBackend::endComputePass(GpuComputePassHandle pass) {
 // Pipeline binding
 // ─────────────────────────────────────────────────────────────────────────────
 
-void SdlGpuBackend::bindGraphicsPipeline(GpuRenderPassHandle pass, GpuGraphicsPipelineHandle pipeline) {
+void SdlGpuBackend::BindGraphicsPipeline(GpuRenderPassHandle pass, GpuGraphicsPipelineHandle pipeline) {
     SDL_BindGPUGraphicsPipeline(
         reinterpret_cast<SDL_GPURenderPass *>(pass),
         reinterpret_cast<SDL_GPUGraphicsPipeline *>(pipeline));
 }
 
-void SdlGpuBackend::bindComputePipeline(GpuComputePassHandle pass, GpuComputePipelineHandle pipeline) {
+void SdlGpuBackend::BindComputePipeline(GpuComputePassHandle pass, GpuComputePipelineHandle pipeline) {
     SDL_BindGPUComputePipeline(
         reinterpret_cast<SDL_GPUComputePass *>(pass),
         reinterpret_cast<SDL_GPUComputePipeline *>(pipeline));
@@ -257,7 +257,7 @@ void SdlGpuBackend::bindComputePipeline(GpuComputePassHandle pass, GpuComputePip
 // Vertex / index binding
 // ─────────────────────────────────────────────────────────────────────────────
 
-void SdlGpuBackend::bindVertexBuffers(GpuRenderPassHandle pass, uint32_t firstBinding,
+void SdlGpuBackend::BindVertexBuffers(GpuRenderPassHandle pass, uint32_t firstBinding,
     const GpuBufferBinding *bindings, uint32_t count) {
     std::vector<SDL_GPUBufferBinding> sdlBindings(count);
     for (uint32_t i = 0; i < count; ++i) {
@@ -271,7 +271,7 @@ void SdlGpuBackend::bindVertexBuffers(GpuRenderPassHandle pass, uint32_t firstBi
         firstBinding, sdlBindings.data(), count);
 }
 
-void SdlGpuBackend::bindIndexBuffer(GpuRenderPassHandle pass, GpuBufferBinding binding,
+void SdlGpuBackend::BindIndexBuffer(GpuRenderPassHandle pass, GpuBufferBinding binding,
     bool use16BitIndices) {
     SDL_GPUBufferBinding sdlBinding {
         .buffer = reinterpret_cast<SDL_GPUBuffer *>(binding.buffer),
@@ -298,19 +298,19 @@ static std::vector<SDL_GPUTextureSamplerBinding> toSDLBindings(const GpuTextureS
     return out;
 }
 
-void SdlGpuBackend::bindVertexSamplers(GpuRenderPassHandle pass, uint32_t firstBinding,
+void SdlGpuBackend::BindVertexSamplers(GpuRenderPassHandle pass, uint32_t firstBinding,
     const GpuTextureSamplerBinding *bindings, uint32_t count) {
     auto sdl = toSDLBindings(bindings, count);
     SDL_BindGPUVertexSamplers(reinterpret_cast<SDL_GPURenderPass *>(pass), firstBinding, sdl.data(), count);
 }
 
-void SdlGpuBackend::bindFragmentSamplers(GpuRenderPassHandle pass, uint32_t firstBinding,
+void SdlGpuBackend::BindFragmentSamplers(GpuRenderPassHandle pass, uint32_t firstBinding,
     const GpuTextureSamplerBinding *bindings, uint32_t count) {
     auto sdl = toSDLBindings(bindings, count);
     SDL_BindGPUFragmentSamplers(reinterpret_cast<SDL_GPURenderPass *>(pass), firstBinding, sdl.data(), count);
 }
 
-void SdlGpuBackend::bindFragmentStorageTextures(GpuRenderPassHandle pass, uint32_t firstBinding,
+void SdlGpuBackend::BindFragmentStorageTextures(GpuRenderPassHandle pass, uint32_t firstBinding,
     const GpuTextureHandle *textures, uint32_t count) {
     std::vector<SDL_GPUTexture *> sdlTex(count);
     for (uint32_t i = 0; i < count; ++i)
@@ -318,7 +318,7 @@ void SdlGpuBackend::bindFragmentStorageTextures(GpuRenderPassHandle pass, uint32
     SDL_BindGPUFragmentStorageTextures(reinterpret_cast<SDL_GPURenderPass *>(pass), firstBinding, sdlTex.data(), count);
 }
 
-void SdlGpuBackend::bindVertexStorageBuffers(GpuRenderPassHandle pass, uint32_t first,
+void SdlGpuBackend::BindVertexStorageBuffers(GpuRenderPassHandle pass, uint32_t first,
     const GpuBufferHandle *buffers, uint32_t count) {
     auto                        *rp = reinterpret_cast<SDL_GPURenderPass *>(pass);
     std::vector<SDL_GPUBuffer *> sdlBufs(count);
@@ -327,13 +327,13 @@ void SdlGpuBackend::bindVertexStorageBuffers(GpuRenderPassHandle pass, uint32_t 
     SDL_BindGPUVertexStorageBuffers(rp, first, sdlBufs.data(), count);
 }
 
-void SdlGpuBackend::bindComputeSamplers(GpuComputePassHandle pass, uint32_t firstBinding,
+void SdlGpuBackend::BindComputeSamplers(GpuComputePassHandle pass, uint32_t firstBinding,
     const GpuTextureSamplerBinding *bindings, uint32_t count) {
     auto sdl = toSDLBindings(bindings, count);
     SDL_BindGPUComputeSamplers(reinterpret_cast<SDL_GPUComputePass *>(pass), firstBinding, sdl.data(), count);
 }
 
-void SdlGpuBackend::bindComputeStorageTextures(GpuComputePassHandle pass, uint32_t firstBinding,
+void SdlGpuBackend::BindComputeStorageTextures(GpuComputePassHandle pass, uint32_t firstBinding,
     const GpuTextureHandle *textures, uint32_t count) {
     std::vector<SDL_GPUTexture *> sdlTex(count);
     for (uint32_t i = 0; i < count; ++i)
@@ -341,7 +341,7 @@ void SdlGpuBackend::bindComputeStorageTextures(GpuComputePassHandle pass, uint32
     SDL_BindGPUComputeStorageTextures(reinterpret_cast<SDL_GPUComputePass *>(pass), firstBinding, sdlTex.data(), count);
 }
 
-void SdlGpuBackend::bindComputeStorageBuffers(GpuComputePassHandle pass, uint32_t firstBinding,
+void SdlGpuBackend::BindComputeStorageBuffers(GpuComputePassHandle pass, uint32_t firstBinding,
     const GpuBufferHandle *buffers, uint32_t count) {
     std::vector<SDL_GPUBuffer *> sdlBuf(count);
     for (uint32_t i = 0; i < count; ++i)
@@ -353,15 +353,15 @@ void SdlGpuBackend::bindComputeStorageBuffers(GpuComputePassHandle pass, uint32_
 // Uniform push
 // ─────────────────────────────────────────────────────────────────────────────
 
-void SdlGpuBackend::pushVertexUniformData(GpuCmdBufferHandle cmd, uint32_t slot, const void *data, uint32_t size) {
+void SdlGpuBackend::PushVertexUniformData(GpuCmdBufferHandle cmd, uint32_t slot, const void *data, uint32_t size) {
     SDL_PushGPUVertexUniformData(reinterpret_cast<SDL_GPUCommandBuffer *>(cmd), slot, data, size);
 }
 
-void SdlGpuBackend::pushFragmentUniformData(GpuCmdBufferHandle cmd, uint32_t slot, const void *data, uint32_t size) {
+void SdlGpuBackend::PushFragmentUniformData(GpuCmdBufferHandle cmd, uint32_t slot, const void *data, uint32_t size) {
     SDL_PushGPUFragmentUniformData(reinterpret_cast<SDL_GPUCommandBuffer *>(cmd), slot, data, size);
 }
 
-void SdlGpuBackend::pushComputeUniformData(GpuCmdBufferHandle cmd, uint32_t slot, const void *data, uint32_t size) {
+void SdlGpuBackend::PushComputeUniformData(GpuCmdBufferHandle cmd, uint32_t slot, const void *data, uint32_t size) {
     SDL_PushGPUComputeUniformData(reinterpret_cast<SDL_GPUCommandBuffer *>(cmd), slot, data, size);
 }
 
@@ -369,34 +369,34 @@ void SdlGpuBackend::pushComputeUniformData(GpuCmdBufferHandle cmd, uint32_t slot
 // Draw calls
 // ─────────────────────────────────────────────────────────────────────────────
 
-void SdlGpuBackend::drawPrimitives(GpuRenderPassHandle pass,
+void SdlGpuBackend::DrawPrimitives(GpuRenderPassHandle pass,
     uint32_t vertexCount, uint32_t instanceCount,
     uint32_t firstVertex, uint32_t firstInstance) {
     SDL_DrawGPUPrimitives(reinterpret_cast<SDL_GPURenderPass *>(pass),
         vertexCount, instanceCount, firstVertex, firstInstance);
-    s_drawCalls++;
-    s_drawVerts += (uint64_t)vertexCount * (instanceCount ? instanceCount : 1);
+    drawCalls++;
+    drawVerts += (uint64_t)vertexCount * (instanceCount ? instanceCount : 1);
 }
 
-void SdlGpuBackend::drawIndexedPrimitives(GpuRenderPassHandle pass,
+void SdlGpuBackend::DrawIndexedPrimitives(GpuRenderPassHandle pass,
     uint32_t indexCount, uint32_t instanceCount,
     uint32_t firstIndex, int32_t vertexOffset,
     uint32_t firstInstance) {
     SDL_DrawGPUIndexedPrimitives(reinterpret_cast<SDL_GPURenderPass *>(pass),
         indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
-    s_drawCalls++;
-    s_drawVerts += (uint64_t)indexCount * (instanceCount ? instanceCount : 1);
+    drawCalls++;
+    drawVerts += (uint64_t)indexCount * (instanceCount ? instanceCount : 1);
 }
 
-uint32_t SdlGpuBackend::frameDrawCalls() const { return s_drawCalls; }
-uint64_t SdlGpuBackend::frameDrawVerts() const { return s_drawVerts; }
-void     SdlGpuBackend::resetFrameDrawStats() {
-    s_drawCalls = 0;
-    s_drawVerts = 0;
+uint32_t SdlGpuBackend::FrameDrawCalls() const { return drawCalls; }
+uint64_t SdlGpuBackend::FrameDrawVerts() const { return drawVerts; }
+void     SdlGpuBackend::ResetFrameDrawStats() {
+    drawCalls = 0;
+    drawVerts = 0;
 }
-const char *SdlGpuBackend::backendName() const { return SDL_GetGPUDeviceDriver(m_device); }
+const char *SdlGpuBackend::BackendName() const { return SDL_GetGPUDeviceDriver(_device); }
 
-void SdlGpuBackend::dispatchCompute(GpuComputePassHandle pass,
+void SdlGpuBackend::DispatchCompute(GpuComputePassHandle pass,
     uint32_t groupsX, uint32_t groupsY, uint32_t groupsZ) {
     SDL_DispatchGPUCompute(reinterpret_cast<SDL_GPUComputePass *>(pass), groupsX, groupsY, groupsZ);
 }
@@ -405,13 +405,13 @@ void SdlGpuBackend::dispatchCompute(GpuComputePassHandle pass,
 // Scissor / viewport
 // ─────────────────────────────────────────────────────────────────────────────
 
-void SdlGpuBackend::setScissor(GpuRenderPassHandle pass,
+void SdlGpuBackend::SetScissor(GpuRenderPassHandle pass,
     int32_t x, int32_t y, uint32_t w, uint32_t h) {
     SDL_Rect rect { x, y, (int)w, (int)h };
     SDL_SetGPUScissor(reinterpret_cast<SDL_GPURenderPass *>(pass), &rect);
 }
 
-void SdlGpuBackend::setViewport(GpuRenderPassHandle pass,
+void SdlGpuBackend::SetViewport(GpuRenderPassHandle pass,
     float x, float y, float w, float h,
     float minDepth, float maxDepth) {
     SDL_GPUViewport vp { x, y, w, h, minDepth, maxDepth };
@@ -422,31 +422,31 @@ void SdlGpuBackend::setViewport(GpuRenderPassHandle pass,
 // Resource creation
 // ─────────────────────────────────────────────────────────────────────────────
 
-GpuTextureHandle SdlGpuBackend::createTexture(const GpuTextureCreateInfo &info) {
+GpuTextureHandle SdlGpuBackend::CreateTexture(const GpuTextureCreateInfo &info) {
     SDL_GPUTextureCreateInfo ci  = toSDL(info);
-    auto                     tex = reinterpret_cast<GpuTextureHandle>(SDL_CreateGPUTexture(m_device, &ci));
+    auto                     tex = reinterpret_cast<GpuTextureHandle>(SDL_CreateGPUTexture(_device, &ci));
     vramAdd((void *)tex, texBytes(info));
     return tex;
 }
 
-GpuBufferHandle SdlGpuBackend::createBuffer(const GpuBufferCreateInfo &info) {
+GpuBufferHandle SdlGpuBackend::CreateBuffer(const GpuBufferCreateInfo &info) {
     SDL_GPUBufferCreateInfo ci  = toSDL(info);
-    auto                    buf = reinterpret_cast<GpuBufferHandle>(SDL_CreateGPUBuffer(m_device, &ci));
+    auto                    buf = reinterpret_cast<GpuBufferHandle>(SDL_CreateGPUBuffer(_device, &ci));
     vramAdd((void *)buf, info.size);
     return buf;
 }
 
-GpuTransferBufferHandle SdlGpuBackend::createTransferBuffer(const GpuTransferBufferCreateInfo &info) {
+GpuTransferBufferHandle SdlGpuBackend::CreateTransferBuffer(const GpuTransferBufferCreateInfo &info) {
     SDL_GPUTransferBufferCreateInfo ci = toSDL(info);
-    return reinterpret_cast<GpuTransferBufferHandle>(SDL_CreateGPUTransferBuffer(m_device, &ci));
+    return reinterpret_cast<GpuTransferBufferHandle>(SDL_CreateGPUTransferBuffer(_device, &ci));
 }
 
-GpuSamplerHandle SdlGpuBackend::createSampler(const GpuSamplerCreateInfo &info) {
+GpuSamplerHandle SdlGpuBackend::CreateSampler(const GpuSamplerCreateInfo &info) {
     SDL_GPUSamplerCreateInfo ci = toSDL(info);
-    return reinterpret_cast<GpuSamplerHandle>(SDL_CreateGPUSampler(m_device, &ci));
+    return reinterpret_cast<GpuSamplerHandle>(SDL_CreateGPUSampler(_device, &ci));
 }
 
-GpuShaderHandle SdlGpuBackend::createShader(const GpuShaderCreateInfo &info) {
+GpuShaderHandle SdlGpuBackend::CreateShader(const GpuShaderCreateInfo &info) {
     // Shader format is compiled in based on the active shader backend.
 #if defined(__ANDROID__) || !defined(LUMINOVEAU_SHADER_BACKEND_DXIL) && !defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
     SDL_GPUShaderFormat fmt = SDL_GPU_SHADERFORMAT_SPIRV;
@@ -480,10 +480,10 @@ GpuShaderHandle SdlGpuBackend::createShader(const GpuShaderCreateInfo &info) {
         .num_storage_buffers  = info.storageBufferCount,
         .num_uniform_buffers  = info.uniformBufferCount,
     };
-    return reinterpret_cast<GpuShaderHandle>(SDL_CreateGPUShader(m_device, &ci));
+    return reinterpret_cast<GpuShaderHandle>(SDL_CreateGPUShader(_device, &ci));
 }
 
-GpuGraphicsPipelineHandle SdlGpuBackend::createGraphicsPipeline(const GpuGraphicsPipelineCreateInfo &info) {
+GpuGraphicsPipelineHandle SdlGpuBackend::CreateGraphicsPipeline(const GpuGraphicsPipelineCreateInfo &info) {
     std::vector<SDL_GPUVertexAttribute> attrs(info.attributeCount);
     for (uint32_t i = 0; i < info.attributeCount; ++i) {
         attrs[i] = {
@@ -545,10 +545,10 @@ GpuGraphicsPipelineHandle SdlGpuBackend::createGraphicsPipeline(const GpuGraphic
             .has_depth_stencil_target  = info.hasDepthTarget,
         },
     };
-    return reinterpret_cast<GpuGraphicsPipelineHandle>(SDL_CreateGPUGraphicsPipeline(m_device, &ci));
+    return reinterpret_cast<GpuGraphicsPipelineHandle>(SDL_CreateGPUGraphicsPipeline(_device, &ci));
 }
 
-GpuComputePipelineHandle SdlGpuBackend::createComputePipeline(const GpuComputePipelineCreateInfo &info) {
+GpuComputePipelineHandle SdlGpuBackend::CreateComputePipeline(const GpuComputePipelineCreateInfo &info) {
     // Shader cross-compilation is handled by SDL_ShaderCross; raw SPIRV bytes expected.
     SDL_GPUComputePipelineCreateInfo ci {
         .code_size                      = info.codeSize,
@@ -565,16 +565,16 @@ GpuComputePipelineHandle SdlGpuBackend::createComputePipeline(const GpuComputePi
         .threadcount_y                  = info.threadCountY,
         .threadcount_z                  = info.threadCountZ,
     };
-    return reinterpret_cast<GpuComputePipelineHandle>(SDL_CreateGPUComputePipeline(m_device, &ci));
+    return reinterpret_cast<GpuComputePipelineHandle>(SDL_CreateGPUComputePipeline(_device, &ci));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SPIRV entry points — asset shaders arrive as SPIRV and are translated here for
 // the running device (SDL_shadercross). The built-in blobs bypass this: they are
-// already compiled to the build's native format and use createShader() above.
+// already compiled to the build's native format and use CreateShader() above.
 // ─────────────────────────────────────────────────────────────────────────────
 
-GpuShaderHandle SdlGpuBackend::createShaderFromSPIRV(const GpuShaderCreateInfo &info) {
+GpuShaderHandle SdlGpuBackend::CreateShaderFromSPIRV(const GpuShaderCreateInfo &info) {
     SDL_ShaderCross_ShaderStage crossStage;
     switch (info.stage) {
     case GpuShaderStage::Vertex:
@@ -602,14 +602,14 @@ GpuShaderHandle SdlGpuBackend::createShaderFromSPIRV(const GpuShaderCreateInfo &
         .num_uniform_buffers  = info.uniformBufferCount
     };
 
-    SDL_GPUShader *shader = SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(m_device, &spirvInfo, &resourceInfo, 0);
+    SDL_GPUShader *shader = SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(_device, &spirvInfo, &resourceInfo, 0);
     if (!shader)
         LOG_ERROR("SdlGpuBackend::createShaderFromSPIRV: {}", SDL_GetError());
 
     return reinterpret_cast<GpuShaderHandle>(shader);
 }
 
-GpuComputePipelineHandle SdlGpuBackend::createComputePipelineFromSPIRV(const uint8_t *code, size_t codeSize,
+GpuComputePipelineHandle SdlGpuBackend::CreateComputePipelineFromSPIRV(const uint8_t *code, size_t codeSize,
     const char *entrypoint, GpuComputeReflection *outReflection) {
     if (!code || codeSize == 0) {
         LOG_ERROR("SdlGpuBackend::createComputePipelineFromSPIRV: empty bytecode");
@@ -642,7 +642,7 @@ GpuComputePipelineHandle SdlGpuBackend::createComputePipelineFromSPIRV(const uin
         .props         = 0
     };
 
-    SDL_GPUComputePipeline *pipeline = SDL_ShaderCross_CompileComputePipelineFromSPIRV(m_device, &spirvInfo, meta, 0);
+    SDL_GPUComputePipeline *pipeline = SDL_ShaderCross_CompileComputePipelineFromSPIRV(_device, &spirvInfo, meta, 0);
     SDL_free(meta);
 
     if (!pipeline)
@@ -655,62 +655,62 @@ GpuComputePipelineHandle SdlGpuBackend::createComputePipelineFromSPIRV(const uin
 // Resource release
 // ─────────────────────────────────────────────────────────────────────────────
 
-void SdlGpuBackend::releaseTexture(GpuTextureHandle handle) {
+void SdlGpuBackend::ReleaseTexture(GpuTextureHandle handle) {
     if (handle) {
         vramRemove((void *)handle);
-        SDL_ReleaseGPUTexture(m_device, reinterpret_cast<SDL_GPUTexture *>(handle));
+        SDL_ReleaseGPUTexture(_device, reinterpret_cast<SDL_GPUTexture *>(handle));
     }
 }
 
-void SdlGpuBackend::releaseBuffer(GpuBufferHandle handle) {
+void SdlGpuBackend::ReleaseBuffer(GpuBufferHandle handle) {
     if (handle) {
         vramRemove((void *)handle);
-        SDL_ReleaseGPUBuffer(m_device, reinterpret_cast<SDL_GPUBuffer *>(handle));
+        SDL_ReleaseGPUBuffer(_device, reinterpret_cast<SDL_GPUBuffer *>(handle));
     }
 }
 
-void SdlGpuBackend::releaseTransferBuffer(GpuTransferBufferHandle handle) {
+void SdlGpuBackend::ReleaseTransferBuffer(GpuTransferBufferHandle handle) {
     if (handle)
-        SDL_ReleaseGPUTransferBuffer(m_device, reinterpret_cast<SDL_GPUTransferBuffer *>(handle));
+        SDL_ReleaseGPUTransferBuffer(_device, reinterpret_cast<SDL_GPUTransferBuffer *>(handle));
 }
 
-void SdlGpuBackend::releaseSampler(GpuSamplerHandle handle) {
+void SdlGpuBackend::ReleaseSampler(GpuSamplerHandle handle) {
     if (handle)
-        SDL_ReleaseGPUSampler(m_device, reinterpret_cast<SDL_GPUSampler *>(handle));
+        SDL_ReleaseGPUSampler(_device, reinterpret_cast<SDL_GPUSampler *>(handle));
 }
 
-void SdlGpuBackend::releaseShader(GpuShaderHandle handle) {
+void SdlGpuBackend::ReleaseShader(GpuShaderHandle handle) {
     if (handle)
-        SDL_ReleaseGPUShader(m_device, reinterpret_cast<SDL_GPUShader *>(handle));
+        SDL_ReleaseGPUShader(_device, reinterpret_cast<SDL_GPUShader *>(handle));
 }
 
-void SdlGpuBackend::releaseGraphicsPipeline(GpuGraphicsPipelineHandle handle) {
+void SdlGpuBackend::ReleaseGraphicsPipeline(GpuGraphicsPipelineHandle handle) {
     if (handle)
-        SDL_ReleaseGPUGraphicsPipeline(m_device, reinterpret_cast<SDL_GPUGraphicsPipeline *>(handle));
+        SDL_ReleaseGPUGraphicsPipeline(_device, reinterpret_cast<SDL_GPUGraphicsPipeline *>(handle));
 }
 
-void SdlGpuBackend::releaseComputePipeline(GpuComputePipelineHandle handle) {
+void SdlGpuBackend::ReleaseComputePipeline(GpuComputePipelineHandle handle) {
     if (handle)
-        SDL_ReleaseGPUComputePipeline(m_device, reinterpret_cast<SDL_GPUComputePipeline *>(handle));
+        SDL_ReleaseGPUComputePipeline(_device, reinterpret_cast<SDL_GPUComputePipeline *>(handle));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Transfer buffer mapping
 // ─────────────────────────────────────────────────────────────────────────────
 
-void *SdlGpuBackend::mapTransferBuffer(GpuTransferBufferHandle handle, bool cycle) {
-    return SDL_MapGPUTransferBuffer(m_device, reinterpret_cast<SDL_GPUTransferBuffer *>(handle), cycle);
+void *SdlGpuBackend::MapTransferBuffer(GpuTransferBufferHandle handle, bool cycle) {
+    return SDL_MapGPUTransferBuffer(_device, reinterpret_cast<SDL_GPUTransferBuffer *>(handle), cycle);
 }
 
-void SdlGpuBackend::unmapTransferBuffer(GpuTransferBufferHandle handle) {
-    SDL_UnmapGPUTransferBuffer(m_device, reinterpret_cast<SDL_GPUTransferBuffer *>(handle));
+void SdlGpuBackend::UnmapTransferBuffer(GpuTransferBufferHandle handle) {
+    SDL_UnmapGPUTransferBuffer(_device, reinterpret_cast<SDL_GPUTransferBuffer *>(handle));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Upload / download
 // ─────────────────────────────────────────────────────────────────────────────
 
-void SdlGpuBackend::uploadToTexture(GpuCmdBufferHandle cmd,
+void SdlGpuBackend::UploadToTexture(GpuCmdBufferHandle cmd,
     const GpuTransferBufferRegion                     &src,
     const GpuTextureRegion                            &dst,
     bool                                               cycle) {
@@ -720,8 +720,8 @@ void SdlGpuBackend::uploadToTexture(GpuCmdBufferHandle cmd,
     SDL_GPUTextureTransferInfo transferInfo {
         .transfer_buffer = reinterpret_cast<SDL_GPUTransferBuffer *>(src.transferBuffer),
         .offset          = src.offset,
-        .pixels_per_row  = src.pixels_per_row,
-        .rows_per_layer  = src.rows_per_layer,
+        .pixels_per_row  = src.pixelsPerRow,
+        .rows_per_layer  = src.rowsPerLayer,
     };
     SDL_GPUTextureRegion region {
         .texture   = reinterpret_cast<SDL_GPUTexture *>(dst.texture),
@@ -738,7 +738,7 @@ void SdlGpuBackend::uploadToTexture(GpuCmdBufferHandle cmd,
     SDL_EndGPUCopyPass(copyPass);
 }
 
-void SdlGpuBackend::uploadToBuffer(GpuCmdBufferHandle cmd,
+void SdlGpuBackend::UploadToBuffer(GpuCmdBufferHandle cmd,
     GpuTransferBufferHandle src, uint32_t srcOffset,
     GpuBufferHandle dst, uint32_t dstOffset,
     uint32_t size, bool cycle) {
@@ -758,7 +758,7 @@ void SdlGpuBackend::uploadToBuffer(GpuCmdBufferHandle cmd,
     SDL_EndGPUCopyPass(copyPass);
 }
 
-void SdlGpuBackend::downloadFromTexture(GpuCmdBufferHandle cmd,
+void SdlGpuBackend::DownloadFromTexture(GpuCmdBufferHandle cmd,
     const GpuTextureRegion                                &src,
     const GpuTransferBufferRegion                         &dst) {
     auto *cmdBuf   = reinterpret_cast<SDL_GPUCommandBuffer *>(cmd);
@@ -778,14 +778,14 @@ void SdlGpuBackend::downloadFromTexture(GpuCmdBufferHandle cmd,
     SDL_GPUTextureTransferInfo dstInfo {
         .transfer_buffer = reinterpret_cast<SDL_GPUTransferBuffer *>(dst.transferBuffer),
         .offset          = dst.offset,
-        .pixels_per_row  = dst.pixels_per_row,
-        .rows_per_layer  = dst.rows_per_layer,
+        .pixels_per_row  = dst.pixelsPerRow,
+        .rows_per_layer  = dst.rowsPerLayer,
     };
     SDL_DownloadFromGPUTexture(copyPass, &srcRegion, &dstInfo);
     SDL_EndGPUCopyPass(copyPass);
 }
 
-void SdlGpuBackend::blitTexture(GpuCmdBufferHandle cmd,
+void SdlGpuBackend::BlitTexture(GpuCmdBufferHandle cmd,
     GpuTextureHandle src, GpuTextureHandle dst,
     uint32_t srcX, uint32_t srcY, uint32_t srcW, uint32_t srcH,
     uint32_t dstX, uint32_t dstY, uint32_t dstW, uint32_t dstH,
@@ -822,10 +822,10 @@ void SdlGpuBackend::blitTexture(GpuCmdBufferHandle cmd,
 // IBackendAccess
 // ─────────────────────────────────────────────────────────────────────────────
 
-void *SdlGpuBackend::getRawDevice() const {
-    return m_device;
+void *SdlGpuBackend::GetRawDevice() const {
+    return _device;
 }
 
-void *SdlGpuBackend::getRawSampler(int /*scaleModeInt*/) const {
+void *SdlGpuBackend::GetRawSampler(int /*scaleModeInt*/) const {
     return nullptr; // Samplers are owned by Renderer in Phase 1.
 }

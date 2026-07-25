@@ -1,5 +1,5 @@
 /*
- * RmlUI Backend - SDL3 GPU Integration for Luminoveau
+ * RmlUI Backend - SDL3 GPU Integration for Lumi
  * Wraps RmlUi's platform and renderer for seamless integration
  */
 

@@ -100,6 +100,11 @@
 extern "C" { // Prevents name mangling of functions
 #endif
 
+// Public easing API, kept PascalCase deliberately: these are the user-facing math
+// functions (EaseSineInOut etc.), not internal helpers, and the names match the
+// well-known Robert Penner easing set. The free-function camelBack rule is waived.
+// NOLINTBEGIN(readability-identifier-naming)
+
 // Linear Easing functions
 EASEDEF float EaseLinearNone(float t, float b, float c, float d) { return (c * t / d + b); }
 EASEDEF float EaseLinearIn(float t, float b, float c, float d) { return (c * t / d + b); }
@@ -268,6 +273,8 @@ EASEDEF float EaseElasticInOut(float t, float b, float c, float d) {
 
     return (postFix * sinf((t * d - s) * (2.0f * PI) / p) * 0.5f + c + b);
 }
+
+// NOLINTEND(readability-identifier-naming)
 
 #ifdef __cplusplus
 }

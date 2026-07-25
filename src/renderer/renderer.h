@@ -89,7 +89,7 @@ public:
      * Sets up the SDL GPU device, creates samplers, initializes shaders,
      * and creates the primary framebuffer with default render passes.
      */
-    static void InitRendering() { get()._initRendering(); }
+    static void InitRendering() { Get()._initRendering(); }
 
     /**
      * @brief Closes the rendering system and releases all GPU resources.
@@ -97,7 +97,7 @@ public:
      * Waits for GPU to complete all work, releases all render passes,
      * framebuffers, samplers, shaders, and the GPU device.
      */
-    static void Close() { get()._close(); }
+    static void Close() { Get()._close(); }
 
     /**
      * @brief Retrieves the SDL GPU device.
@@ -106,16 +106,16 @@ public:
      */
     // Returns the underlying SDL_GPUDevice on the SDL backend; nullptr on WebGPU.
     // Forward-declared SDL_GPUDevice* keeps this signature backend-neutral.
-    static SDL_GPUDevice *GetDevice() { return get()._getDevice(); }
+    static SDL_GPUDevice *GetDevice() { return Get()._getDevice(); }
     /// @brief Returns true once the GPU backend is initialized and ready to render.
-    static bool IsReady() { return get().m_gpu != nullptr; }
+    static bool IsReady() { return Get()._gpu != nullptr; }
 
     /**
      * @brief Starts a new rendering frame.
      *
      * Initializes ImGui frame if enabled. Call this before any rendering commands.
      */
-    static void StartFrame() { get()._startFrame(); }
+    static void StartFrame() { Get()._startFrame(); }
 
     /**
      * @brief Ends the current rendering frame and submits GPU commands.
@@ -123,7 +123,7 @@ public:
      * Acquires the swapchain texture, executes all render passes,
      * renders ImGui if enabled, and submits the command buffer.
      */
-    static void EndFrame() { get()._endFrame(); }
+    static void EndFrame() { Get()._endFrame(); }
 
     /**
      * @brief Resets all render passes and recreates GPU resources.
@@ -131,14 +131,14 @@ public:
      * Releases existing render pass resources and reinitializes them.
      * Typically called after window resize or graphics settings change.
      */
-    static void Reset() { get()._reset(); }
+    static void Reset() { Get()._reset(); }
 
     /**
      * @brief Clears the background with the specified color.
      *
      * @param color The color to clear the background with.
      */
-    static void ClearBackground(Color color) { get()._clearBackground(color); }
+    static void ClearBackground(Color color) { Get()._clearBackground(color); }
 
     /**
      * @brief Adds a renderable object to the specified render pass queue.
@@ -147,7 +147,7 @@ public:
      * @param renderable The renderable object to queue for rendering.
      */
     static void AddToRenderQueue(const std::string &passname, const Renderable &renderable) {
-        get()._addToRenderQueue(passname, renderable);
+        Get()._addToRenderQueue(passname, renderable);
     }
 
     /**
@@ -160,7 +160,7 @@ public:
      */
     static void AddShaderPass(const std::string &passname, const ShaderAsset &vertShader, const ShaderAsset &fragShader,
         std::vector<std::string> targetBuffers = std::vector<std::string>()) {
-        get()._addShaderPass(passname, vertShader, fragShader, std::move(targetBuffers));
+        Get()._addShaderPass(passname, vertShader, fragShader, std::move(targetBuffers));
     }
 
     /**
@@ -171,7 +171,7 @@ public:
      * @param passname Name of the render pass to remove.
      */
     static void RemoveShaderPass(const std::string &passname) {
-        get()._removeShaderPass(passname);
+        Get()._removeShaderPass(passname);
     }
 
     /**
@@ -182,7 +182,7 @@ public:
      * @param fbName Name of the framebuffer to attach to.
      */
     static void AttachRenderPassToFrameBuffer(RenderPass *renderPass, const std::string &passname, const std::string &fbName) {
-        get()._attachRenderPassToFrameBuffer(renderPass, passname, fbName);
+        Get()._attachRenderPassToFrameBuffer(renderPass, passname, fbName);
     }
 
     /**
@@ -192,7 +192,7 @@ public:
      * @return Reference to the render pass's uniform buffer.
      */
     static UniformBuffer &GetUniformBuffer(const std::string &passname) {
-        return get()._getUniformBuffer(passname);
+        return Get()._getUniformBuffer(passname);
     }
 
     /**
@@ -201,7 +201,7 @@ public:
      * @param fbname Name of the framebuffer to create.
      */
     static void CreateFrameBuffer(const std::string &fbname) {
-        return get()._createFrameBuffer(fbname);
+        return Get()._createFrameBuffer(fbname);
     }
 
     /**
@@ -211,7 +211,7 @@ public:
      * @param render True to render to screen, false otherwise.
      */
     static void SetFramebufferRenderToScreen(const std::string &fbName, bool render) {
-        get()._setFramebufferRenderToScreen(fbName, render);
+        Get()._setFramebufferRenderToScreen(fbName, render);
     }
 
     /**
@@ -221,7 +221,7 @@ public:
      *
      * @return The next available Z-index value.
      */
-    static uint32_t GetZIndex() { return get()._zIndex++; }
+    static uint32_t GetZIndex() { return Get()._zIndex++; }
 
     /**
      * @brief Retrieves a framebuffer by name.
@@ -230,7 +230,7 @@ public:
      * @return Pointer to the framebuffer, or nullptr if not found.
      */
     static FrameBuffer *GetFramebuffer(std::string fbname) {
-        return get()._getFramebuffer(std::move(fbname));
+        return Get()._getFramebuffer(std::move(fbname));
     }
 
     /**
@@ -240,7 +240,7 @@ public:
      * @return Pointer to the GPU sampler.
      */
     static GpuSamplerHandle GetSampler(ScaleMode scalemode) {
-        return get()._getSampler(scalemode);
+        return Get()._getSampler(scalemode);
     }
 
     /**
@@ -251,9 +251,9 @@ public:
      * On non-WebGPU builds this is a 1:1 pass-through.
      */
     static vf2d CanvasToLogical(float cx, float cy) {
-        auto &r = get();
-        return { r.m_blitLogicalOffsetX + cx * r.m_blitInvScaleX,
-            r.m_blitLogicalOffsetY + cy * r.m_blitInvScaleY };
+        auto &r = Get();
+        return { r._blitLogicalOffsetX + cx * r._blitInvScaleX,
+            r._blitLogicalOffsetY + cy * r._blitInvScaleY };
     }
 
     /**
@@ -263,7 +263,7 @@ public:
      * @return Pointer to the SDL GPU render pass, or nullptr if not found.
      */
     static GpuRenderPassHandle GetRenderPass(const std::string &passname) {
-        return get()._getRenderPass(passname);
+        return Get()._getRenderPass(passname);
     }
 
     /**
@@ -273,7 +273,7 @@ public:
      * @return Pointer to the RenderPass, or nullptr if not found.
      */
     static RenderPass *FindRenderPass(const std::string &passname) {
-        return get()._findRenderPass(passname);
+        return Get()._findRenderPass(passname);
     }
 
     /**
@@ -283,7 +283,7 @@ public:
      * @param cliprect Rectangle defining the scissor region.
      */
     static void SetScissorMode(std::string passname, rectf cliprect) {
-        get()._setScissorMode(passname, cliprect);
+        Get()._setScissorMode(passname, cliprect);
     }
 
     /**
@@ -292,17 +292,17 @@ public:
      * Waits for GPU idle, updates camera projection, and recreates all framebuffer
      * textures at the new window size.
      */
-    static void OnResize() { get()._onResize(); }
+    static void OnResize() { Get()._onResize(); }
 
     /// @cond INTERNAL
     // Returns true and clears the flag if a deferred reset is pending.
     // Call from Window::_startFrame(), before ImGui::NewFrame(), so _reset()
     // runs before the frame begins (not mid-frame where waitIdle() would abort).
     static bool ConsumePendingReset() {
-        auto &r = get();
-        if (!r.m_pendingReset)
+        auto &r = Get();
+        if (!r._pendingReset)
             return false;
-        r.m_pendingReset = false;
+        r._pendingReset = false;
         return true;
     }
     /// @endcond
@@ -313,21 +313,21 @@ public:
      * This is called immediately during window resize to prevent visual artifacts.
      * Does not recreate GPU resources - that happens later in OnResize().
      */
-    static void UpdateCameraProjection() { get()._updateCameraProjection(); }
+    static void UpdateCameraProjection() { Get()._updateCameraProjection(); }
 
     /**
      * @brief Retrieves a 1x1 white pixel texture for rendering solid colors.
      *
      * @return The white pixel texture.
      */
-    static Texture WhitePixel() { return get()._whitePixel(); }
+    static Texture WhitePixel() { return Get()._whitePixel(); }
 
     /**
      * @brief Retrieves the default quad geometry (unit quad from 0,0 to 1,1).
      *
      * @return Pointer to the quad geometry.
      */
-    static Geometry2D *GetQuadGeometry() { return get()._getQuadGeometry(); }
+    static Geometry2D *GetQuadGeometry() { return Get()._getQuadGeometry(); }
 
     /**
      * @brief Retrieves a circle geometry with the specified number of segments.
@@ -335,7 +335,7 @@ public:
      * @param segments Number of triangle segments (default 32).
      * @return Pointer to the circle geometry.
      */
-    static Geometry2D *GetCircleGeometry(int segments = 32) { return get()._getCircleGeometry(segments); }
+    static Geometry2D *GetCircleGeometry(int segments = 32) { return Get()._getCircleGeometry(segments); }
 
     /**
      * @brief Retrieves a rounded rectangle geometry with the specified corner radii and segments.
@@ -346,7 +346,7 @@ public:
      * @return Pointer to the rounded rectangle geometry.
      */
     static Geometry2D *GetRoundedRectGeometry(float cornerRadiusX, float cornerRadiusY, int cornerSegments = 8) {
-        return get()._getRoundedRectGeometry(cornerRadiusX, cornerRadiusY, cornerSegments);
+        return Get()._getRoundedRectGeometry(cornerRadiusX, cornerRadiusY, cornerSegments);
     }
 
     /**
@@ -357,13 +357,13 @@ public:
     /**
      * @brief Retrieves the active GPU backend interface.
      */
-    static IGpu &GetGpu() { return *get().m_gpu; }
+    static IGpu &GetGpu() { return *Get()._gpu; }
 
     /**
      * @brief True while the GPU backend is alive. False after Renderer::Close()
      * resets it, so late teardown (e.g. static singleton dtors) can skip GPU calls.
      */
-    static bool HasGpu() { return (bool)get().m_gpu; }
+    static bool HasGpu() { return (bool)Get()._gpu; }
 
     /// @brief Compiles a compute pipeline from a shader file.
     /// @param shaderPath Path to the compute shader source.
@@ -371,12 +371,12 @@ public:
     static ComputePipelineAsset CreateComputePipelineAsset(const std::string &shaderPath);
 
     /// @brief Returns the current MSAA sample count of the main render target.
-    static GpuSampleCount GetSampleCount() { return get().currentSampleCount; }
+    static GpuSampleCount GetSampleCount() { return Get()._currentSampleCount; }
 
     /// @brief Returns the canvas/swapchain width in pixels.
-    static uint32_t GetCanvasWidth() { return get().m_canvasWidth; }
+    static uint32_t GetCanvasWidth() { return Get()._canvasWidth; }
     /// @brief Returns the canvas/swapchain height in pixels.
-    static uint32_t GetCanvasHeight() { return get().m_canvasHeight; }
+    static uint32_t GetCanvasHeight() { return Get()._canvasHeight; }
 
     /**
      * @brief Publishes the canvas/swapchain dimensions before the first frame is acquired.
@@ -388,9 +388,9 @@ public:
      * @param h Canvas height in pixels.
      */
     static void SetCanvasSize(uint32_t w, uint32_t h) {
-        get().m_canvasWidth  = w;
-        get().m_canvasHeight = h;
-        get()._updateCameraProjection();
+        Get()._canvasWidth  = w;
+        Get()._canvasHeight = h;
+        Get()._updateCameraProjection();
     }
 
     /**
@@ -402,7 +402,7 @@ public:
      * @param sampleCount The new sample count to use.
      */
     static void SetSampleCount(GpuSampleCount sampleCount) {
-        get()._setSampleCount(sampleCount);
+        Get()._setSampleCount(sampleCount);
     }
 
     /**
@@ -415,7 +415,7 @@ public:
      * @param config Configuration options for the render target.
      */
     static void CreateSpriteRenderTarget(const std::string &name, const SpriteRenderTargetConfig &config = {}) {
-        get()._createSpriteRenderTarget(name, config);
+        Get()._createSpriteRenderTarget(name, config);
     }
 
     /**
@@ -427,7 +427,7 @@ public:
      * @param removeFramebuffer If true, also removes the framebuffer (default: true).
      */
     static void RemoveSpriteRenderTarget(const std::string &name, bool removeFramebuffer = true) {
-        get()._removeSpriteRenderTarget(name, removeFramebuffer);
+        Get()._removeSpriteRenderTarget(name, removeFramebuffer);
     }
 
     /**
@@ -436,19 +436,19 @@ public:
      * swapchain screenshot path. Lets callers persist offscreen render targets.
      */
     static void CaptureFramebuffer(const std::string &fbName, const std::string &filename) {
-        get().m_pendingFbCaptures.push_back({ fbName, filename });
+        Get()._pendingFbCaptures.push_back({ fbName, filename });
     }
 
 private:
-    SDL_GPUDevice                                   *m_device = nullptr; // null under WebGPU backend
-    GpuCmdBufferHandle                               m_cmdbuf = 0;
-    std::vector<std::pair<std::string, std::string>> m_pendingFbCaptures; // (fbName, file)
+    SDL_GPUDevice                                   *_device = nullptr; // null under WebGPU backend
+    GpuCmdBufferHandle                               _cmdbuf = 0;
+    std::vector<std::pair<std::string, std::string>> _pendingFbCaptures; // (fbName, file)
 
-    std::unique_ptr<IGpu> m_gpu;
+    std::unique_ptr<IGpu> _gpu;
 
     uint32_t _zIndex = 0;
 
-    std::vector<std::pair<std::string, FrameBuffer *>> frameBuffers;
+    std::vector<std::pair<std::string, FrameBuffer *>> _frameBuffers;
 
     void
     _addShaderPass(const std::string &passname, const ShaderAsset &vertShader, const ShaderAsset &fragShader, std::vector<std::string> targetBuffers);
@@ -463,7 +463,7 @@ private:
 
     void _close();
 
-    SDL_GPUDevice *_getDevice() { return m_device; }
+    SDL_GPUDevice *_getDevice() { return _device; }
 
     void _startFrame() const;
 
@@ -499,11 +499,11 @@ private:
     UniformBuffer &_getUniformBuffer(const std::string &passname);
 
     TextureAsset    _screenBuffer;
-    TextureAsset    fs;
-    GpuShaderHandle rtt_vertex_shader   = 0;
-    GpuShaderHandle rtt_fragment_shader = 0;
+    TextureAsset    _fs;
+    GpuShaderHandle _rttVertexShader   = 0;
+    GpuShaderHandle _rttFragmentShader = 0;
 
-    void renderFrameBuffer(GpuCmdBufferHandle cmdBuf);
+    void _renderFrameBuffer(GpuCmdBufferHandle cmdBuf);
 
     FrameBuffer *_getFramebuffer(std::string fbname);
 
@@ -537,28 +537,28 @@ private:
 
     std::unordered_map<ScaleMode, GpuSamplerHandle> _samplers;
 
-    GpuSampleCount currentSampleCount = GpuSampleCount::x1;
+    GpuSampleCount _currentSampleCount = GpuSampleCount::X1;
 
-    GpuGraphicsPipelineHandle m_rendertotexturepipeline          = 0;
-    GpuGraphicsPipelineHandle m_rendertotexturepipeline_additive = 0;
+    GpuGraphicsPipelineHandle _renderToTexturePipeline         = 0;
+    GpuGraphicsPipelineHandle _renderToTexturePipelineAdditive = 0;
 
-    GpuTextureHandle swapchain_texture = 0;
-    glm::mat4x4      m_camera          = {};
-    uint32_t         m_canvasWidth     = 0;
-    uint32_t         m_canvasHeight    = 0;
-    bool             m_pendingReset    = false;
+    GpuTextureHandle _swapchainTexture = 0;
+    glm::mat4x4      _camera           = {};
+    uint32_t         _canvasWidth      = 0;
+    uint32_t         _canvasHeight     = 0;
+    bool             _pendingReset     = false;
 
     // Inverse blit transform: logical = offset + canvas * invScale
-    float m_blitInvScaleX      = 1.0f;
-    float m_blitInvScaleY      = 1.0f;
-    float m_blitLogicalOffsetX = 0.0f;
-    float m_blitLogicalOffsetY = 0.0f;
+    float _blitInvScaleX      = 1.0f;
+    float _blitInvScaleY      = 1.0f;
+    float _blitLogicalOffsetX = 0.0f;
+    float _blitLogicalOffsetY = 0.0f;
 
 public:
     /// @cond INTERNAL
     Renderer(const Renderer &) = delete;
 
-    static Renderer &get() {
+    static Renderer &Get() {
         static Renderer instance;
         return instance;
     }

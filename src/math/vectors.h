@@ -55,6 +55,12 @@
     David Barr, aka javidx9, ©OneLoneCoder 2019
 */
 
+// Derived from javidx9's olcPixelGameEngine vector types (OLC-3 license above).
+// The naming (v2d_generic, .mag()/.norm()/.dot(), lowercase like the glm we sit next to)
+// is upstream's public API and a cross-library math convention — kept as-is so this file
+// stays mergeable with upstream. The house naming rule is deliberately waived.
+// NOLINTBEGIN(readability-identifier-naming)
+
 #include <cstdint>
 #include <cmath>
 #include <string>
@@ -121,9 +127,9 @@ struct v2d_generic {
         , y(0) { }
 
     /// @brief Constructs a vector from x and y components.
-    v2d_generic(T _x, T _y)
-        : x(_x)
-        , y(_y) { }
+    v2d_generic(T x, T y)
+        : x(x)
+        , y(y) { }
 
     /// @brief Copy constructor.
     v2d_generic(const v2d_generic &v)
@@ -390,10 +396,10 @@ struct v3d_generic {
         , y(0)
         , z(0) { }
     /// @brief Constructs a vector from x, y and z components.
-    v3d_generic(T _x, T _y, T _z)
-        : x(_x)
-        , y(_y)
-        , z(_z) { }
+    v3d_generic(T x, T y, T z)
+        : x(x)
+        , y(y)
+        , z(z) { }
     /// @brief Copy constructor.
     v3d_generic(const v3d_generic &v)
         : x(v.x)
@@ -496,3 +502,4 @@ typedef v3d_generic<int32_t>  vi3d;
 typedef v3d_generic<uint32_t> vu3d;
 typedef v3d_generic<float>    vf3d;
 typedef v3d_generic<double>   vd3d;
+// NOLINTEND(readability-identifier-naming)

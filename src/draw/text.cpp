@@ -55,10 +55,10 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
     }
 
     // Use proper ascender from font metrics
-    double ascender_px = font.ascender * font.generatedSize;
+    double ascenderPx = font.ascender * font.generatedSize;
 
     // Convert top-left -> baseline
-    newPos.y += static_cast<float>(ascender_px * scale);
+    newPos.y += static_cast<float>(ascenderPx * scale);
 
     // MSDF rendering - iterate through UTF-8 string
     float cursorX = 0.0f;
@@ -105,10 +105,10 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
 
             .rotation = 0.f,
 
-            .tex_u = static_cast<float>(al / font.atlasWidth),
-            .tex_v = static_cast<float>(1.0f - (at / font.atlasHeight)),
-            .tex_w = static_cast<float>((ar - al) / font.atlasWidth),
-            .tex_h = static_cast<float>((at - ab) / font.atlasHeight),
+            .texU = static_cast<float>(al / font.atlasWidth),
+            .texV = static_cast<float>(1.0f - (at / font.atlasHeight)),
+            .texW = static_cast<float>((ar - al) / font.atlasWidth),
+            .texH = static_cast<float>((at - ab) / font.atlasHeight),
 
             .r = color.r / 255.f,
             .g = color.g / 255.f,
@@ -118,9 +118,9 @@ void Text::_drawText(Font font, const vf2d &pos, const std::string &textToDraw, 
             .w = static_cast<float>((pr - pl) * scale),
             .h = static_cast<float>((pt - pb) * scale),
 
-            .pivot_x = 0.5f,
-            .pivot_y = 0.5f,
-            .isSDF   = true,
+            .pivotX = 0.5f,
+            .pivotY = 0.5f,
+            .isSDF  = true,
         };
 
         Renderer::AddToRenderQueue(Draw::GetTargetRenderPass(), ren);
@@ -146,7 +146,7 @@ vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw, float 
         scale = renderSize / static_cast<float>(font.generatedSize);
     }
 
-    double ascender_px = font.ascender * font.generatedSize;
+    double ascenderPx = font.ascender * font.generatedSize;
 
     float cursorX  = 0.0f;
     float maxRight = 0.0f;
@@ -174,7 +174,7 @@ vf2d Text::_getRenderedTextSize(Font font, const std::string &textToDraw, float 
 
     float finalWidth = std::max(maxRight, cursorX * scale);
 
-    return { finalWidth, static_cast<float>(ascender_px * scale) };
+    return { finalWidth, static_cast<float>(ascenderPx * scale) };
 }
 
 TextureAsset Text::_drawTextToTexture(Font font, std::string textToDraw, Color color) {

@@ -11,7 +11,7 @@
 #include <SDL3/SDL.h>
 #endif
 
-void WindowBackend::GetDisplayBounds(uint32_t &outW, uint32_t &outH) {
+void WindowBackend::_getDisplayBounds(uint32_t &outW, uint32_t &outH) {
 #ifdef __EMSCRIPTEN__
     // Browser physical-pixel resolution (CSS screen size × devicePixelRatio).
     outW = (uint32_t)EM_ASM_INT(return Math.floor(window.screen.width * (window.devicePixelRatio || 1)));
@@ -31,14 +31,14 @@ void WindowBackend::GetDisplayBounds(uint32_t &outW, uint32_t &outH) {
 #endif
 }
 
-void WindowBackend::PostInit(SDL_Window * /*window*/) {
-    // Update the camera to match the canvas size that WebGpuGpuBackend::init() set.
+void WindowBackend::_postInit(SDL_Window * /*window*/) {
+    // Update the camera to match the canvas size that WebGpuGpuBackend::Init() set.
     // Do NOT route through Window::_setSize() — that would set _sizeDirty and force
     // a frame-0 _reset(), destroying pipelines that were just compiled and waited on.
     Renderer::UpdateCameraProjection();
 }
 
-bool WindowBackend::HandleResize(int /*newWidth*/, int /*newHeight*/, WebGpuScaleMode scaleMode) {
+bool WindowBackend::_handleResize(int /*newWidth*/, int /*newHeight*/, WebGpuScaleMode scaleMode) {
 #ifdef __EMSCRIPTEN__
     // The browser already resized the canvas. Calling SDL_SetWindowSize here would DPI-scale
     // the logical dimensions onto canvas.style.*, inflating window.innerWidth and the
@@ -55,7 +55,7 @@ bool WindowBackend::HandleResize(int /*newWidth*/, int /*newHeight*/, WebGpuScal
 #endif
 }
 
-bool WindowBackend::GetPhysicalSizeOverride(SDL_Window * /*window*/, WebGpuScaleMode scaleMode, vf2d &outSize) {
+bool WindowBackend::_getPhysicalSizeOverride(SDL_Window * /*window*/, WebGpuScaleMode scaleMode, vf2d &outSize) {
     if (scaleMode != WebGpuScaleMode::Native)
         return false;
     uint32_t cw = Renderer::GetCanvasWidth();
@@ -66,7 +66,7 @@ bool WindowBackend::GetPhysicalSizeOverride(SDL_Window * /*window*/, WebGpuScale
     return true;
 }
 
-bool WindowBackend::GetSizeOverride(SDL_Window *window, WebGpuScaleMode scaleMode,
+bool WindowBackend::_getSizeOverride(SDL_Window *window, WebGpuScaleMode scaleMode,
     int webGpuRenderWidth, int webGpuRenderHeight,
     vf2d &outSize) {
     if (scaleMode == WebGpuScaleMode::Native) {

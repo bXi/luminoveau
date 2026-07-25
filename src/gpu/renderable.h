@@ -13,10 +13,10 @@ struct Renderable {
 
     float   x, y, z;
     float   rotation;
-    float   tex_u, tex_v, tex_w, tex_h;
+    float   texU, texV, texW, texH;
     float   r, g, b, a;
     float   w, h;
-    float   pivot_x, pivot_y;
+    float   pivotX, pivotY;
     bool    isSDF       = false;
     int32_t effectIndex = -1;
 };

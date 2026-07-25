@@ -16,7 +16,7 @@ public:
     /**
      * @brief Updates the timings of the input device.
      */
-    void updateTimings();
+    void UpdateTimings();
 
     /**
      * @brief Checks if a specific button is in a particular action state.
@@ -25,7 +25,7 @@ public:
      * @param action The action state to check.
      * @return True if the button is in the specified action state, false otherwise.
      */
-    bool is(Buttons button, Action action);
+    bool Is(Buttons button, Action action);
 
     /**
      * @brief Analog left stick as a vector, unified across device types.
@@ -35,7 +35,7 @@ public:
      * +x is right, +y is down (screen space). Magnitude may exceed 1 on keyboard diagonals —
      * callers that care should clamp/normalise.
      */
-    [[nodiscard]] vf2d getLeftStick();
+    [[nodiscard]] vf2d GetLeftStick();
 
     /**
      * @brief Analog right stick as a vector, unified across device types.
@@ -45,14 +45,14 @@ public:
      * Lets a twin-stick control scheme work identically on a pad (two sticks) and a keyboard
      * (WASD to move, arrows to aim/fire).
      */
-    [[nodiscard]] vf2d getRightStick();
+    [[nodiscard]] vf2d GetRightStick();
 
     /**
      * @brief Retrieves the ID of the gamepad associated with the input device.
      *
      * @return The ID of the gamepad.
      */
-    [[nodiscard]] int getGamepadID() const;
+    [[nodiscard]] int GetGamepadID() const;
 
     /**
      * @brief Sets the gamepad index this device maps to.
@@ -60,35 +60,35 @@ public:
      * Used when the gamepads list is compacted after a disconnect so device
      * indices stay aligned with the gamepads vector.
      */
-    void setGamepadID(int id);
+    void SetGamepadID(int id);
 
     /**
      * @brief Constructs an input device with the specified type.
      *
-     * @param _type The type of the input device.
+     * @param type The type of the input device.
      */
-    explicit InputDevice(InputType _type);
+    explicit InputDevice(InputType type);
 
     /**
      * @brief Constructs an input device with the specified type and gamepad ID.
      *
-     * @param _type The type of the input device.
-     * @param _gamepadID The ID of the associated gamepad.
+     * @param type The type of the input device.
+     * @param gamepadId The ID of the associated gamepad.
      */
-    InputDevice(InputType _type, int _gamepadID);
+    InputDevice(InputType type, int gamepadId);
 
     /**
      * @brief Retrieves the type of the input device.
      *
      * @return The type of the input device.
      */
-    InputType getType();
+    InputType GetType();
 
 private:
-    InputType type;
-    int       gamepadID;
+    InputType _type;
+    int       _gamepadID;
 
-    std::map<Buttons, std::list<int>> mappingKB = {
+    std::map<Buttons, std::list<int>> _mappingKB = {
         { Buttons::LEFT, { SDLK_A, SDLK_LEFT } },
         { Buttons::RIGHT, { SDLK_D, SDLK_RIGHT } },
         { Buttons::UP, { SDLK_W, SDLK_UP } },
@@ -106,7 +106,7 @@ private:
 
     };
 
-    std::map<Buttons, std::list<int>> mappingGP = {
+    std::map<Buttons, std::list<int>> _mappingGP = {
         { Buttons::ACCEPT, { SDL_GAMEPAD_BUTTON_SOUTH } },
         { Buttons::BACK, { SDL_GAMEPAD_BUTTON_EAST } },
 
@@ -121,16 +121,16 @@ private:
         { Buttons::RUN, { SDL_GAMEPAD_AXIS_RIGHT_TRIGGER } },
     };
 
-    bool isButtonPressed(Buttons button);
+    bool _isButtonPressed(Buttons button);
 
-    bool isButtonHeld(Buttons button);
+    bool _isButtonHeld(Buttons button);
 
-    std::map<Buttons, float> pressedTimings = {
+    std::map<Buttons, float> _pressedTimings = {
         { Buttons::LEFT, 0.0f },
         { Buttons::RIGHT, 0.0f },
         { Buttons::UP, 0.0f },
         { Buttons::DOWN, 0.0f },
     };
 
-    float joystickCooldown = 0.10f;
+    float _joystickCooldown = 0.10f;
 };

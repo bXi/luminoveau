@@ -192,8 +192,8 @@ const std::string &gpuName() {
 
 } // namespace
 
-static std::chrono::high_resolution_clock::time_point s_lastEnd {};
-static bool                                           s_haveLast = false;
+static std::chrono::high_resolution_clock::time_point lastEnd {};
+static bool                                           haveLast = false;
 
 // Snap a ceiling UP to a "nice" step (~1/20th of the decade) so the axis quantizes into stable
 // bands instead of wobbling every frame. e.g. 120-125 -> 125, 126-150 -> 150 (25-fps steps);
@@ -221,8 +221,8 @@ void Perf::_frameEnd() {
         return std::chrono::duration_cast<std::chrono::nanoseconds>(d).count() / 1.0e6;
     };
     _cpuMs = ms(now - _cpuStart);
-    (void)s_lastEnd;
-    (void)s_haveLast;
+    (void)lastEnd;
+    (void)haveLast;
     // Frame-time samples come from the renderer (per present) via ReportFrameMs, so the graph
     // matches the present-based FPS. CPU ms + RAM are sampled here.
     if (--_ramThrottle <= 0) {
@@ -235,8 +235,8 @@ void Perf::_pushFrame(float ms) {
     _frameMs[_head] = ms;
     _cpuHist[_head] = (float)_cpuMs;
     _gpuHist[_head] = (float)_gpuMs;
-    _head           = (_head + 1) % kHist;
-    if (_count < kHist)
+    _head           = (_head + 1) % HIST;
+    if (_count < HIST)
         _count++;
 }
 
@@ -266,9 +266,9 @@ void Perf::_initOverlay() {
     Renderer::SetFramebufferRenderToScreen(kPerfFB, true);
     auto *pass = new SpriteRenderPass();
     pass->UpdateRenderPassBlendState(GpuPresets::AlphaBlendPreserveAlpha);
-    pass->init(Renderer::GetGpu().getSwapchainFormat(), Window::GetWidth(), Window::GetHeight(), kPerfPass);
-    pass->color_target_info_loadop = GpuLoadOp::Clear; // transparent each frame
-    pass->color_target_clear_r = pass->color_target_clear_g = pass->color_target_clear_b = pass->color_target_clear_a = 0.0f;
+    pass->Init(Renderer::GetGpu().GetSwapchainFormat(), Window::GetWidth(), Window::GetHeight(), kPerfPass);
+    pass->colorTargetInfoLoadOp = GpuLoadOp::Clear; // transparent each frame
+    pass->colorTargetClearR = pass->colorTargetClearG = pass->colorTargetClearB = pass->colorTargetClearA = 0.0f;
     Renderer::AttachRenderPassToFrameBuffer(pass, kPerfPass, kPerfFB);
     _fbReady = true;
 }
@@ -282,7 +282,7 @@ void Perf::_render() {
 
     // Stats over the history window.
     double sum = 0.0, mn = 1e9, mx = 0.0, maxCpu = 0.0, maxGpu = 0.0;
-    float  sorted[kHist];
+    float  sorted[HIST];
     for (int i = 0; i < _count; i++) {
         float v = _frameMs[i];
         sum += v;
@@ -320,7 +320,7 @@ void Perf::_render() {
     const float panelH  = headerH + (graphH + pad) * 3.0f + namesH + pad * 2.0f; // fps + cpu + gpu graphs
     const vf2d  org { 8.0f, 8.0f };
 
-    auto        F = AssetHandler::GetDefaultFont();
+    auto        font = AssetHandler::GetDefaultFont();
     const Color bg { 1, 17, 28, 210 };
     const Color frameC { 90, 200, 255, 255 }; // frame-time / fps (cyan)
     const Color cpuC { 120, 230, 140, 255 };  // cpu              (green)
@@ -336,26 +336,26 @@ void Perf::_render() {
     float tx = org.x + pad, ty = org.y + pad;
 
     std::snprintf(buf, sizeof(buf), "FPS %.0f   %.2f ms", fps, avg);
-    Text::DrawText(F, { tx, ty }, buf, frameC, ts);
+    Text::DrawText(font, { tx, ty }, buf, frameC, ts);
     ty += line;
     std::snprintf(buf, sizeof(buf), "1%% low %.0f   0.1%% low %.0f", low1Fps, low01Fps);
-    Text::DrawText(F, { tx, ty }, buf, labelC, ts);
+    Text::DrawText(font, { tx, ty }, buf, labelC, ts);
     ty += line;
     std::snprintf(buf, sizeof(buf), "CPU %.2f ms", _cpuMs);
-    Text::DrawText(F, { tx, ty }, buf, cpuC, ts);
+    Text::DrawText(font, { tx, ty }, buf, cpuC, ts);
     std::snprintf(buf, sizeof(buf), "GPU %.2f ms", _gpuMs);
-    Text::DrawText(F, { tx + 165.0f, ty }, buf, gpuC, ts);
+    Text::DrawText(font, { tx + 165.0f, ty }, buf, gpuC, ts);
     ty += line;
     std::snprintf(buf, sizeof(buf), "RAM %.0f MB   VRAM %.0f MB", _ramMB, _vramBytes / (1024.0 * 1024.0));
-    Text::DrawText(F, { tx, ty }, buf, memC, ts);
+    Text::DrawText(font, { tx, ty }, buf, memC, ts);
     ty += line;
     std::snprintf(buf, sizeof(buf), "draws %u   tris %.0fk", _drawCalls, (_drawVerts / 3) / 1000.0);
-    Text::DrawText(F, { tx, ty }, buf, drawC, ts);
+    Text::DrawText(font, { tx, ty }, buf, drawC, ts);
     ty += line;
 
     const float gx = org.x + pad;
     const float gw = panelW - pad * 2.0f - 40.0f; // room for scale labels on the right
-    float       dx = gw / (float)(kHist - 1);
+    float       dx = gw / (float)(HIST - 1);
 
     // One labelled graph per metric. fpsMode plots 1000/ms (else the value directly). top is a
     // stepped ceiling so the axis is stable. Right-side labels: top, mid, and the unit.
@@ -365,16 +365,16 @@ void Perf::_render() {
         auto mapv = [&](float ms) { return fpsMode ? (ms > 0.01f ? 1000.0f / ms : 0.0f) : ms; };
         auto yOf  = [&](float ms) { return gy + graphH * (1.0f - std::min(mapv(ms), top) / top); };
         for (int i = 1; i < _count; i++) {
-            int i0 = (_head + (kHist - _count) + (i - 1)) % kHist;
-            int i1 = (_head + (kHist - _count) + i) % kHist;
+            int i0 = (_head + (HIST - _count) + (i - 1)) % HIST;
+            int i1 = (_head + (HIST - _count) + i) % HIST;
             Draw::Line({ gx + dx * (i - 1), yOf(hist[i0]) }, { gx + dx * i, yOf(hist[i1]) }, c);
         }
         const char *fmt = (top >= 10.0f) ? "%.0f" : "%.1f";
         std::snprintf(lbl, sizeof(lbl), fmt, top);
-        Text::DrawText(F, { gx + gw + 4.0f, gy - 7.0f }, lbl, c, 12.0f);
+        Text::DrawText(font, { gx + gw + 4.0f, gy - 7.0f }, lbl, c, 12.0f);
         std::snprintf(lbl, sizeof(lbl), fmt, top * 0.5f);
-        Text::DrawText(F, { gx + gw + 4.0f, gy + graphH * 0.5f - 7.0f }, lbl, labelC, 12.0f);
-        Text::DrawText(F, { gx + gw + 4.0f, gy + graphH - 11.0f }, unit, c, 10.0f);
+        Text::DrawText(font, { gx + gw + 4.0f, gy + graphH * 0.5f - 7.0f }, lbl, labelC, 12.0f);
+        Text::DrawText(font, { gx + gw + 4.0f, gy + graphH - 11.0f }, unit, c, 10.0f);
     };
 
     float gy      = ty + pad;
@@ -388,10 +388,10 @@ void Perf::_render() {
 
     // Hardware names (bottom); GPU line shows the graphics API too.
     float ny = gy;
-    Text::DrawText(F, { org.x + pad, ny }, ("CPU: " + cpuName()).c_str(), labelC, 14.0f);
+    Text::DrawText(font, { org.x + pad, ny }, ("CPU: " + cpuName()).c_str(), labelC, 14.0f);
     ny += line;
-    std::snprintf(buf, sizeof(buf), "GPU: %s [%s]", gpuName().c_str(), Renderer::GetGpu().backendName());
-    Text::DrawText(F, { org.x + pad, ny }, buf, labelC, 14.0f);
+    std::snprintf(buf, sizeof(buf), "GPU: %s [%s]", gpuName().c_str(), Renderer::GetGpu().BackendName());
+    Text::DrawText(font, { org.x + pad, ny }, buf, labelC, 14.0f);
 
     Draw::ResetTargetRenderPass(); // back to the app default
 }

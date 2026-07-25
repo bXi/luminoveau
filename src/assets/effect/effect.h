@@ -35,18 +35,18 @@ struct EffectAsset {
     class UniformProxy {
     public:
         UniformProxy(std::shared_ptr<UniformBuffer> buffer, const std::string &name)
-            : buffer(buffer)
-            , name(name) { }
+            : _buffer(buffer)
+            , _name(name) { }
 
         template <typename T>
         UniformProxy &operator=(const T &value) {
-            buffer->setVariable(name, value);
+            _buffer->SetVariable(_name, value);
             return *this;
         }
 
     private:
-        std::shared_ptr<UniformBuffer> buffer;
-        std::string                    name;
+        std::shared_ptr<UniformBuffer> _buffer;
+        std::string                    _name;
     };
 
     /// @brief Accesses a named uniform for assignment, e.g. `effect["strength"] = 0.5f`.

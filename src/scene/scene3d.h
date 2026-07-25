@@ -94,7 +94,7 @@ struct SceneData {
 /// @endcond
 
 /**
- * @brief Singleton manager for 3D scenes
+ * @brief Singleton manager for 3D _scenes
  */
 class Scene {
 public:
@@ -102,18 +102,18 @@ public:
      * @brief Creates a new named scene
      * @param name Name of the scene
      */
-    static void New(const std::string &name) { get()._new(name); }
+    static void New(const std::string &name) { Get()._new(name); }
 
     /**
      * @brief Switches to a different scene
      * @param name Name of the scene to switch to
      */
-    static void Switch(const std::string &name) { get()._switch(name); }
+    static void Switch(const std::string &name) { Get()._switch(name); }
 
     /**
      * @brief Gets the name of the current scene
      */
-    static std::string GetCurrentSceneName() { return get()._getCurrentSceneName(); }
+    static std::string GetCurrentSceneName() { return Get()._getCurrentSceneName(); }
 
     // Camera methods
 
@@ -122,25 +122,25 @@ public:
      * @param position Camera position
      * @param target Camera target (what it's looking at)
      */
-    static void SetCamera(vf3d position, vf3d target) { get()._setCamera(position, target); }
+    static void SetCamera(vf3d position, vf3d target) { Get()._setCamera(position, target); }
 
     /**
      * @brief Sets the camera field of view
      * @param fov Field of view in degrees
      */
-    static void SetCameraFOV(float fov) { get()._setCameraFOV(fov); }
+    static void SetCameraFOV(float fov) { Get()._setCameraFOV(fov); }
 
     /**
      * @brief Sets the camera near and far planes
      * @param nearPlane Near clipping plane
      * @param farPlane Far clipping plane
      */
-    static void SetCameraClipPlanes(float nearPlane, float farPlane) { get()._setCameraClipPlanes(nearPlane, farPlane); }
+    static void SetCameraClipPlanes(float nearPlane, float farPlane) { Get()._setCameraClipPlanes(nearPlane, farPlane); }
 
     /**
      * @brief Gets the current camera
      */
-    static Camera3D &GetCamera() { return get()._getCamera(); }
+    static Camera3D &GetCamera() { return Get()._getCamera(); }
 
     // Model methods
 
@@ -154,13 +154,13 @@ public:
      */
     static ModelInstance &AddModel(ModelAsset *model, vf3d position = { 0, 0, 0 },
         vf3d rotation = { 0, 0, 0 }, vf3d scale = { 1, 1, 1 }) {
-        return get()._addModel(model, position, rotation, scale);
+        return Get()._addModel(model, position, rotation, scale);
     }
 
     /**
      * @brief Gets all models in the current scene
      */
-    static std::vector<ModelInstance> &GetModels() { return get()._getModels(); }
+    static std::vector<ModelInstance> &GetModels() { return Get()._getModels(); }
 
     // Light methods
 
@@ -169,7 +169,7 @@ public:
      * @param light Light configuration
      * @return Reference to the created Light
      */
-    static Light &AddPointLight(const Light &light) { return get()._addPointLight(light); }
+    static Light &AddPointLight(const Light &light) { return Get()._addPointLight(light); }
 
     /**
      * @brief Adds a point light to the current scene
@@ -179,7 +179,7 @@ public:
      * @return Reference to the created Light
      */
     static Light &AddPointLight(vf3d position, Color color = WHITE, float intensity = 1.0f) {
-        return get()._addPointLight(position, color, intensity);
+        return Get()._addPointLight(position, color, intensity);
     }
 
     /**
@@ -187,7 +187,7 @@ public:
      * @param light Light configuration
      * @return Reference to the created Light
      */
-    static Light &AddDirectionalLight(const Light &light) { return get()._addDirectionalLight(light); }
+    static Light &AddDirectionalLight(const Light &light) { return Get()._addDirectionalLight(light); }
 
     /**
      * @brief Adds a directional light to the current scene
@@ -197,7 +197,7 @@ public:
      * @return Reference to the created Light
      */
     static Light &AddDirectionalLight(vf3d direction, Color color = WHITE, float intensity = 1.0f) {
-        return get()._addDirectionalLight(direction, color, intensity);
+        return Get()._addDirectionalLight(direction, color, intensity);
     }
 
     /**
@@ -205,57 +205,57 @@ public:
      * @param light Light configuration
      * @return Reference to the created Light
      */
-    static Light &AddSpotLight(const Light &light) { return get()._addSpotLight(light); }
+    static Light &AddSpotLight(const Light &light) { return Get()._addSpotLight(light); }
 
     /**
      * @brief Gets all lights in the current scene
      */
-    static std::vector<Light> &GetLights() { return get()._getLights(); }
+    static std::vector<Light> &GetLights() { return Get()._getLights(); }
 
     /**
      * @brief Sets the ambient light color for the current scene
      * @param color Ambient light color
      */
-    static void SetAmbientLight(Color color) { get()._setAmbientLight(color); }
+    static void SetAmbientLight(Color color) { Get()._setAmbientLight(color); }
 
     /**
      * @brief Gets the ambient light color for the current scene
      */
-    static Color GetAmbientLight() { return get()._getAmbientLight(); }
+    static Color GetAmbientLight() { return Get()._getAmbientLight(); }
 
     // Clear methods
 
     /**
      * @brief Clears all models from the current scene
      */
-    static void ClearModels() { get()._clearModels(); }
+    static void ClearModels() { Get()._clearModels(); }
 
     /**
      * @brief Clears all lights from the current scene
      */
-    static void ClearLights() { get()._clearLights(); }
+    static void ClearLights() { Get()._clearLights(); }
 
     /**
      * @brief Clears everything from the current scene
      */
-    static void Clear() { get()._clear(); }
+    static void Clear() { Get()._clear(); }
 
     /**
      * @brief Deletes a named scene
      * @param name Name of the scene to delete (cannot delete default scene)
      */
-    static void Delete(const std::string &name) { get()._delete(name); }
+    static void Delete(const std::string &name) { Get()._delete(name); }
 
 private:
-    std::unordered_map<std::string, SceneData> scenes;
-    std::string                                currentSceneName = "defaultScene";
+    std::unordered_map<std::string, SceneData> _scenes;
+    std::string                                _currentSceneName = "defaultScene";
 
     void        _new(const std::string &name);
     void        _switch(const std::string &name);
-    std::string _getCurrentSceneName() { return currentSceneName; }
+    std::string _getCurrentSceneName() { return _currentSceneName; }
 
-    SceneData &getCurrentScene() {
-        return scenes[currentSceneName];
+    SceneData &_getCurrentScene() {
+        return _scenes[_currentSceneName];
     }
 
     // Camera
@@ -289,7 +289,7 @@ public:
     Scene(const Scene &)            = delete;
     Scene &operator=(const Scene &) = delete;
 
-    static Scene &get() {
+    static Scene &Get() {
         static Scene instance;
         return instance;
     }
@@ -298,6 +298,6 @@ public:
 private:
     Scene() {
         // Create default scene
-        scenes["defaultScene"] = SceneData();
+        _scenes["defaultScene"] = SceneData();
     }
 };

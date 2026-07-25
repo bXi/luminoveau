@@ -6,7 +6,7 @@
 
 #include <SDL3/SDL.h>
 
-void WindowBackend::GetDisplayBounds(uint32_t &outW, uint32_t &outH) {
+void WindowBackend::_getDisplayBounds(uint32_t &outW, uint32_t &outH) {
     SDL_DisplayID primary = SDL_GetPrimaryDisplay();
     if (const SDL_DisplayMode *mode = SDL_GetDesktopDisplayMode(primary)) {
         // mode->pixel_density can be 0 on platforms without HiDPI info; fall back to 1.0.
@@ -16,21 +16,21 @@ void WindowBackend::GetDisplayBounds(uint32_t &outW, uint32_t &outH) {
     }
 }
 
-void WindowBackend::PostInit(SDL_Window *) {
+void WindowBackend::_postInit(SDL_Window *) {
     // SDL backend's swapchain dimensions already match SDL_GetWindowSizeInPixels;
     // no extra projection refresh needed before the first frame.
 }
 
-bool WindowBackend::HandleResize(int /*newWidth*/, int /*newHeight*/, WebGpuScaleMode /*scaleMode*/) {
+bool WindowBackend::_handleResize(int /*newWidth*/, int /*newHeight*/, WebGpuScaleMode /*scaleMode*/) {
     return false; // Defer to the caller's standard _setSize() path.
 }
 
-bool WindowBackend::GetSizeOverride(SDL_Window * /*window*/, WebGpuScaleMode /*scaleMode*/,
+bool WindowBackend::_getSizeOverride(SDL_Window * /*window*/, WebGpuScaleMode /*scaleMode*/,
     int /*webGpuRenderWidth*/, int /*webGpuRenderHeight*/,
     vf2d & /*outSize*/) {
     return false;
 }
 
-bool WindowBackend::GetPhysicalSizeOverride(SDL_Window * /*window*/, WebGpuScaleMode /*scaleMode*/, vf2d & /*outSize*/) {
+bool WindowBackend::_getPhysicalSizeOverride(SDL_Window * /*window*/, WebGpuScaleMode /*scaleMode*/, vf2d & /*outSize*/) {
     return false;
 }

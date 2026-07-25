@@ -16,7 +16,7 @@ public:
      * @return The position in screen space.
      */
     static vf2d ToScreenSpace(const vf2d &worldSpace) {
-        return vf2d((worldSpace.x - get().Target.x) * get().Scale, (worldSpace.y - get().Target.y) * get().Scale) + (Window::GetSize() / 2.f);
+        return vf2d((worldSpace.x - Get()._target.x) * Get()._scale, (worldSpace.y - Get()._target.y) * Get()._scale) + (Window::GetSize() / 2.f);
     }
 
     /**
@@ -27,24 +27,24 @@ public:
      */
     static vf2d ToWorldSpace(const vf2d &screenSpace) {
         vf2d translatedScreenSpace = screenSpace - (Window::GetSize() / 2.f);
-        return { translatedScreenSpace.x / get().Scale + get().Target.x, translatedScreenSpace.y / get().Scale + get().Target.y };
+        return { translatedScreenSpace.x / Get()._scale + Get()._target.x, translatedScreenSpace.y / Get()._scale + Get()._target.y };
     }
 
     /**
      * @brief Locks the camera's position and scale.
      */
     static void Lock() {
-        get().Locked     = true;
-        get().LockTarget = get().Target;
-        get().LockScale  = get().Scale;
+        Get()._locked     = true;
+        Get()._lockTarget = Get()._target;
+        Get()._lockScale  = Get()._scale;
     }
 
     /**
      * @brief Unlocks the camera, allowing it to move freely.
      */
     static void Unlock() {
-        get().Locked = false;
-        get().Moved  = false;
+        Get()._locked = false;
+        Get()._moved  = false;
     }
 
     /**
@@ -52,52 +52,52 @@ public:
      *
      * @return True if the camera is locked, false otherwise.
      */
-    static bool IsLocked() { return get().Locked; }
+    static bool IsLocked() { return Get()._locked; }
 
     /**
      * @brief Checks if the camera has moved.
      *
      * @return True if the camera has moved, false otherwise.
      */
-    static bool HasMoved() { return get().Moved; }
+    static bool HasMoved() { return Get()._moved; }
 
     /**
      * @brief Activates the camera.
      */
-    static void Activate() { get().Active = true; }
+    static void Activate() { Get()._active = true; }
 
     /**
      * @brief Deactivates the camera.
      */
-    static void Deactivate() { get().Active = false; }
+    static void Deactivate() { Get()._active = false; }
 
     /**
      * @brief Checks if the camera is active.
      *
      * @return True if the camera is active, false otherwise.
      */
-    static bool IsActive() { return get().Active; }
+    static bool IsActive() { return Get()._active; }
 
     /**
      * @brief Gets the current scale of the camera.
      *
      * @return The current scale of the camera.
      */
-    static float GetScale() { return get().Scale; }
+    static float GetScale() { return Get()._scale; }
 
     /**
      * @brief Sets the scale of the camera.
      *
      * @param newScale The new scale value.
      */
-    static void SetScale(float newScale) { get().Scale = newScale; }
+    static void SetScale(float newScale) { Get()._scale = newScale; }
 
     /**
      * @brief Gets the target position of the camera.
      *
      * @return The target position of the camera.
      */
-    static vf2d GetTarget() { return get().Target; }
+    static vf2d GetTarget() { return Get()._target; }
 
     /**
      * @brief Sets the target position of the camera.
@@ -106,28 +106,28 @@ public:
      * @throw std::logic_error if the camera is locked.
      */
     static void SetTarget(const vf2d &newTarget) {
-        if (get().Locked) {
+        if (Get()._locked) {
             throw std::logic_error("Attempt to update camera target while locked.");
         } else {
-            get().Target = newTarget;
-            get().Moved  = true;
+            Get()._target = newTarget;
+            Get()._moved  = true;
         }
     }
 
 private:
-    vf2d  Target     = { 0.f, 0.f };
-    float Scale      = 1.0f;
-    bool  Locked     = false;
-    vf2d  LockTarget = Target;
-    float LockScale  = Scale;
-    bool  Moved      = false;
-    bool  Active     = false;
+    vf2d  _target     = { 0.f, 0.f };
+    float _scale      = 1.0f;
+    bool  _locked     = false;
+    vf2d  _lockTarget = _target;
+    float _lockScale  = _scale;
+    bool  _moved      = false;
+    bool  _active     = false;
 
 public:
     /// @cond INTERNAL
     Camera(const Camera &) = delete;
 
-    static Camera &get() {
+    static Camera &Get() {
         static Camera instance;
         return instance;
     }

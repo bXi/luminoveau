@@ -84,8 +84,8 @@ fn fs_main(in : VertOut) -> @location(0) vec4<f32> {
 
 void Renderer::_initRendering() {
     auto *webgpuBackend = new WebGpuGpuBackend();
-    m_gpu.reset(webgpuBackend);
-    if (!m_gpu->init(Window::GetWindow())) {
+    _gpu.reset(webgpuBackend);
+    if (!_gpu->Init(Window::GetWindow())) {
         LOG_CRITICAL("WebGpuGpuBackend::init() failed");
         return;
     }
@@ -111,12 +111,12 @@ void Renderer::_initRendering() {
         .addressV  = GpuSamplerAddressMode::ClampToEdge,
         .addressW  = GpuSamplerAddressMode::ClampToEdge,
     };
-    _samplers[ScaleMode::Nearest] = m_gpu->createSampler(nearestInfo);
-    _samplers[ScaleMode::Linear]  = m_gpu->createSampler(linearInfo);
+    _samplers[ScaleMode::Nearest] = _gpu->CreateSampler(nearestInfo);
+    _samplers[ScaleMode::Linear]  = _gpu->CreateSampler(linearInfo);
 
-    m_camera = glm::ortho(0.0f, (float)Window::GetWidth(), (float)Window::GetHeight(), 0.0f);
+    _camera = glm::ortho(0.0f, (float)Window::GetWidth(), (float)Window::GetHeight(), 0.0f);
 
-    fs = AssetHandler::CreateEmptyTexture({ 1, 1 });
+    _fs = AssetHandler::CreateEmptyTexture({ 1, 1 });
 
     GpuShaderCreateInfo rttVertInfo {};
     rttVertInfo.code               = reinterpret_cast<const uint8_t *>(kRttVertWGSL);
@@ -124,7 +124,7 @@ void Renderer::_initRendering() {
     rttVertInfo.entrypoint         = "vs_main";
     rttVertInfo.stage              = GpuShaderStage::Vertex;
     rttVertInfo.uniformBufferCount = 1;
-    rtt_vertex_shader              = m_gpu->createShader(rttVertInfo);
+    _rttVertexShader               = _gpu->CreateShader(rttVertInfo);
 
     GpuShaderCreateInfo rttFragInfo {};
     rttFragInfo.code         = reinterpret_cast<const uint8_t *>(kRttFragWGSL);
@@ -132,20 +132,20 @@ void Renderer::_initRendering() {
     rttFragInfo.entrypoint   = "fs_main";
     rttFragInfo.stage        = GpuShaderStage::Fragment;
     rttFragInfo.samplerCount = 1;
-    rtt_fragment_shader      = m_gpu->createShader(rttFragInfo);
+    _rttFragmentShader       = _gpu->CreateShader(rttFragInfo);
 
-    if (!rtt_vertex_shader || !rtt_fragment_shader) {
+    if (!_rttVertexShader || !_rttFragmentShader) {
         LOG_CRITICAL("Failed to create WGSL RTT shaders");
         return;
     }
 
     GpuGraphicsPipelineCreateInfo rttPipeInfo {};
-    rttPipeInfo.vertexShader      = rtt_vertex_shader;
-    rttPipeInfo.fragmentShader    = rtt_fragment_shader;
-    rttPipeInfo.colorTargetFormat = m_gpu->getSwapchainFormat();
+    rttPipeInfo.vertexShader      = _rttVertexShader;
+    rttPipeInfo.fragmentShader    = _rttFragmentShader;
+    rttPipeInfo.colorTargetFormat = _gpu->GetSwapchainFormat();
     rttPipeInfo.blend             = GpuPresets::AlphaBlendKeepDstAlpha;
     rttPipeInfo.hasDepthTarget    = false;
-    m_rendertotexturepipeline     = m_gpu->createGraphicsPipeline(rttPipeInfo);
+    _renderToTexturePipeline      = _gpu->CreateGraphicsPipeline(rttPipeInfo);
 
     GpuGraphicsPipelineCreateInfo rttAddPipeInfo = rttPipeInfo;
     rttAddPipeInfo.blend                         = {
@@ -157,7 +157,7 @@ void Renderer::_initRendering() {
                                 .dstAlphaFactor = GpuBlendFactor::One,
                                 .alphaOp        = GpuBlendOp::Add,
     };
-    m_rendertotexturepipeline_additive = m_gpu->createGraphicsPipeline(rttAddPipeInfo);
+    _renderToTexturePipelineAdditive = _gpu->CreateGraphicsPipeline(rttAddPipeInfo);
 
     // Primary framebuffer is sized to the display so the canvas can grow without ever
     // recreating the texture (matches SDL behavior). Render passes draw into the top-left
@@ -177,23 +177,23 @@ void Renderer::_initRendering() {
     framebuffer->height    = fbHeight;
 
     framebuffer->renderpasses.emplace_back("3dmodels", new Model3DRenderPass());
-    framebuffer->renderpasses.back().second->color_target_info_loadop = GpuLoadOp::Clear;
-    framebuffer->renderpasses.back().second->color_target_clear_r     = 0.f;
-    framebuffer->renderpasses.back().second->color_target_clear_g     = 0.f;
-    framebuffer->renderpasses.back().second->color_target_clear_b     = 0.f;
-    framebuffer->renderpasses.back().second->color_target_clear_a     = 1.f;
+    framebuffer->renderpasses.back().second->colorTargetInfoLoadOp = GpuLoadOp::Clear;
+    framebuffer->renderpasses.back().second->colorTargetClearR     = 0.f;
+    framebuffer->renderpasses.back().second->colorTargetClearG     = 0.f;
+    framebuffer->renderpasses.back().second->colorTargetClearB     = 0.f;
+    framebuffer->renderpasses.back().second->colorTargetClearA     = 1.f;
     framebuffer->renderpasses.emplace_back("2dsprites", new SpriteRenderPass());
-    framebuffer->renderpasses.back().second->color_target_info_loadop = GpuLoadOp::Load;
+    framebuffer->renderpasses.back().second->colorTargetInfoLoadOp = GpuLoadOp::Load;
 
-    frameBuffers.emplace_back("primaryFramebuffer", framebuffer);
+    _frameBuffers.emplace_back("primaryFramebuffer", framebuffer);
 
-    for (auto &[fbName, fb] : frameBuffers) {
+    for (auto &[fbName, fb] : _frameBuffers) {
         for (auto &[rpName, rp] : fb->renderpasses) {
-            rp->init(m_gpu->getSwapchainFormat(), fbWidth, fbHeight, rpName, true, 0, false);
+            rp->Init(_gpu->GetSwapchainFormat(), fbWidth, fbHeight, rpName, true, 0, false);
         }
     }
     // Wait for pipeline compilation before first frame.
-    m_gpu->waitIdle();
+    _gpu->WaitIdle();
 
     _whitePixelTexture = AssetHandler::CreateWhitePixel();
 
@@ -306,16 +306,16 @@ ComputePipelineAsset Renderer::CreateComputePipelineAsset(const std::string &sha
 
         auto entry = spvComp.get_entry_points_and_stages();
         if (!entry.empty()) {
-            auto wg             = spvComp.get_execution_mode_argument(spv::ExecutionModeLocalSize, 0);
-            auto wgY            = spvComp.get_execution_mode_argument(spv::ExecutionModeLocalSize, 1);
-            auto wgZ            = spvComp.get_execution_mode_argument(spv::ExecutionModeLocalSize, 2);
-            asset.threadcount_x = wg ? wg : 1;
-            asset.threadcount_y = wgY ? wgY : 1;
-            asset.threadcount_z = wgZ ? wgZ : 1;
+            auto wg            = spvComp.get_execution_mode_argument(spv::ExecutionModeLocalSize, 0);
+            auto wgY           = spvComp.get_execution_mode_argument(spv::ExecutionModeLocalSize, 1);
+            auto wgZ           = spvComp.get_execution_mode_argument(spv::ExecutionModeLocalSize, 2);
+            asset.threadCountX = wg ? wg : 1;
+            asset.threadCountY = wgY ? wgY : 1;
+            asset.threadCountZ = wgZ ? wgZ : 1;
         }
 
-        asset.num_samplers        = static_cast<uint32_t>(spvRes.sampled_images.size());
-        asset.num_uniform_buffers = static_cast<uint32_t>(spvRes.uniform_buffers.size());
+        asset.numSamplers       = static_cast<uint32_t>(spvRes.sampled_images.size());
+        asset.numUniformBuffers = static_cast<uint32_t>(spvRes.uniform_buffers.size());
 
         uint32_t roSSBO = 0, rwSSBO = 0;
         for (const auto &sb : spvRes.storage_buffers) {
@@ -325,8 +325,8 @@ ComputePipelineAsset Renderer::CreateComputePipelineAsset(const std::string &sha
             else
                 ++rwSSBO;
         }
-        asset.num_readonly_storage_buffers  = roSSBO;
-        asset.num_readwrite_storage_buffers = rwSSBO;
+        asset.numReadonlyStorageBuffers  = roSSBO;
+        asset.numReadwriteStorageBuffers = rwSSBO;
 
         uint32_t roTex = 0, rwTex = 0;
         for (const auto &si : spvRes.storage_images) {
@@ -336,8 +336,8 @@ ComputePipelineAsset Renderer::CreateComputePipelineAsset(const std::string &sha
             else
                 ++rwTex;
         }
-        asset.num_readonly_storage_textures  = roTex;
-        asset.num_readwrite_storage_textures = rwTex;
+        asset.numReadonlyStorageTextures  = roTex;
+        asset.numReadwriteStorageTextures = rwTex;
     } catch (const std::exception &e) {
         LOG_ERROR("Compute SPIRV reflection failed ({}): {}", shaderPath.c_str(), e.what());
         return {};
@@ -356,10 +356,10 @@ ComputePipelineAsset Renderer::CreateComputePipelineAsset(const std::string &sha
             return GpuTextureFormat::B8G8R8A8_Unorm;
         return GpuTextureFormat::R8G8B8A8_Unorm;
     };
-    std::vector<GpuTextureFormat> roTexFormats(asset.num_readonly_storage_textures, GpuTextureFormat::R8G8B8A8_Unorm);
-    std::vector<GpuTextureFormat> rwTexFormats(asset.num_readwrite_storage_textures, GpuTextureFormat::R8G8B8A8_Unorm);
-    std::unique_ptr<bool[]>       rwTexWriteOnly(asset.num_readwrite_storage_textures > 0
-                  ? new bool[asset.num_readwrite_storage_textures]()
+    std::vector<GpuTextureFormat> roTexFormats(asset.numReadonlyStorageTextures, GpuTextureFormat::R8G8B8A8_Unorm);
+    std::vector<GpuTextureFormat> rwTexFormats(asset.numReadwriteStorageTextures, GpuTextureFormat::R8G8B8A8_Unorm);
+    std::unique_ptr<bool[]>       rwTexWriteOnly(asset.numReadwriteStorageTextures > 0
+                  ? new bool[asset.numReadwriteStorageTextures]()
                   : nullptr);
     {
         std::regex re(R"(@group\((\d+)u?\)\s*@binding\((\d+)u?\)\s*var\s*(?:<[^>]*>\s*)?\w+\s*:\s*texture_storage_2d<(\w+)\s*,\s*(read|read_write|write)>)");
@@ -384,27 +384,27 @@ ComputePipelineAsset Renderer::CreateComputePipelineAsset(const std::string &sha
     ci.code                             = reinterpret_cast<const uint8_t *>(wgsl.c_str());
     ci.codeSize                         = wgsl.size();
     ci.entrypoint                       = "main";
-    ci.threadCountX                     = asset.threadcount_x;
-    ci.threadCountY                     = asset.threadcount_y;
-    ci.threadCountZ                     = asset.threadcount_z;
-    ci.samplerCount                     = asset.num_samplers;
-    ci.readonlyStorageTextureCount      = asset.num_readonly_storage_textures;
-    ci.readwriteStorageTextureCount     = asset.num_readwrite_storage_textures;
-    ci.readonlyStorageBufferCount       = asset.num_readonly_storage_buffers;
-    ci.readwriteStorageBufferCount      = asset.num_readwrite_storage_buffers;
-    ci.uniformBufferCount               = asset.num_uniform_buffers;
+    ci.threadCountX                     = asset.threadCountX;
+    ci.threadCountY                     = asset.threadCountY;
+    ci.threadCountZ                     = asset.threadCountZ;
+    ci.samplerCount                     = asset.numSamplers;
+    ci.readonlyStorageTextureCount      = asset.numReadonlyStorageTextures;
+    ci.readwriteStorageTextureCount     = asset.numReadwriteStorageTextures;
+    ci.readonlyStorageBufferCount       = asset.numReadonlyStorageBuffers;
+    ci.readwriteStorageBufferCount      = asset.numReadwriteStorageBuffers;
+    ci.uniformBufferCount               = asset.numUniformBuffers;
     ci.readonlyStorageTextureFormats    = roTexFormats.empty() ? nullptr : roTexFormats.data();
     ci.readwriteStorageTextureFormats   = rwTexFormats.empty() ? nullptr : rwTexFormats.data();
     ci.readwriteStorageTextureWriteOnly = rwTexWriteOnly.get();
 
-    asset.pipeline = GetGpu().createComputePipeline(ci);
+    asset.pipeline = GetGpu().CreateComputePipeline(ci);
     if (!asset.pipeline) {
         LOG_ERROR("Compute pipeline creation failed for '{}'", shaderPath.c_str());
         return {};
     }
 
     LOG_INFO("Created compute pipeline: {} ({}x{}x{}, {} storage bufs, {} uniforms)",
-        shaderPath.c_str(), asset.threadcount_x, asset.threadcount_y, asset.threadcount_z,
-        asset.num_readwrite_storage_buffers, asset.num_uniform_buffers);
+        shaderPath.c_str(), asset.threadCountX, asset.threadCountY, asset.threadCountZ,
+        asset.numReadwriteStorageBuffers, asset.numUniformBuffers);
     return asset;
 }

@@ -163,7 +163,7 @@ void Audio::_playSound(Sound sound, float volume, float panning, AudioChannel ch
     }
 
     _soundPool[index] = new ma_sound;
-    ma_sound_init_from_file(&engine, sound.fileName.c_str(),
+    ma_sound_init_from_file(&_engine, sound.fileName.c_str(),
         MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC,
         group, nullptr, _soundPool[index]);
     ma_sound_set_volume(_soundPool[index], volume);
@@ -188,7 +188,7 @@ SoundInstance Audio::_playSoundInstance(Sound sound, float volume, float panning
     }
 
     inst.impl = new SoundInstanceAsset::Internal {};
-    if (ma_sound_init_from_file(&engine, sound.fileName.c_str(),
+    if (ma_sound_init_from_file(&_engine, sound.fileName.c_str(),
             MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC,
             group, nullptr, &inst.impl->sound)
         != MA_SUCCESS) {
@@ -239,7 +239,7 @@ void Audio::_stopSoundInstance(SoundInstance &instance) {
 
 void Audio::_updateMusicStreams() {
 #ifdef __EMSCRIPTEN__
-    ma_resource_manager_process_next_job(&resourceManager);
+    ma_resource_manager_process_next_job(&_resourceManager);
 #endif
     for (auto &music : AssetHandler::GetLoadedMusics()) {
         if (music.second.shouldPlay) {
@@ -312,7 +312,7 @@ void Audio::_setChannelVolume(AudioChannel channel, float volume) {
     if (channel == AudioChannel::Master) {
         _masterVolume = volume;
         if (!_masterMuted) {
-            ma_engine_set_volume(&engine, volume);
+            ma_engine_set_volume(&_engine, volume);
         }
         return;
     }
@@ -364,7 +364,7 @@ float Audio::_getChannelPanning(AudioChannel channel) {
 void Audio::_muteChannel(AudioChannel channel, bool muted) {
     if (channel == AudioChannel::Master) {
         _masterMuted = muted;
-        ma_engine_set_volume(&engine, muted ? 0.0f : _masterVolume);
+        ma_engine_set_volume(&_engine, muted ? 0.0f : _masterVolume);
         return;
     }
 
@@ -422,7 +422,7 @@ PCMSound Audio::_createPCMGenerator(const PCMFormat &format, PCMGenerateCallback
     }
 
     // Create a ma_sound from the data source (don't start yet)
-    result = ma_sound_init_from_data_source(&engine, &pcm.impl->dataSource.base,
+    result = ma_sound_init_from_data_source(&_engine, &pcm.impl->dataSource.base,
         MA_SOUND_FLAG_NO_SPATIALIZATION,
         nullptr, &pcm.impl->sound);
     if (result != MA_SUCCESS) {
@@ -512,7 +512,7 @@ void Audio::_setChannelEffect(AudioChannel channel, PCMEffectCallback callback, 
     nodeConfig.pInputChannels  = &channelCount;
     nodeConfig.pOutputChannels = &channelCount;
 
-    ma_result result = ma_node_init(ma_engine_get_node_graph(&engine),
+    ma_result result = ma_node_init(ma_engine_get_node_graph(&_engine),
         &nodeConfig, nullptr, &ch.effectNode.base);
     if (result != MA_SUCCESS) {
         LOG_WARNING("Failed to init effect node for channel {}", idx);
@@ -522,7 +522,7 @@ void Audio::_setChannelEffect(AudioChannel channel, PCMEffectCallback callback, 
     ch.effectNode.initialized = true;
 
     // Re-route: group → effect node → engine endpoint
-    ma_node *endpoint = ma_engine_get_endpoint(&engine);
+    ma_node *endpoint = ma_engine_get_endpoint(&_engine);
     ma_node_detach_output_bus(&ch.group, 0);
     ma_node_attach_output_bus(&ch.group, 0, &ch.effectNode.base, 0);
     ma_node_attach_output_bus(&ch.effectNode.base, 0, endpoint, 0);
@@ -544,7 +544,7 @@ void Audio::_removeChannelEffect(AudioChannel channel) {
         return;
 
     // Re-route: group → engine endpoint (bypass effect)
-    ma_node *endpoint = ma_engine_get_endpoint(&engine);
+    ma_node *endpoint = ma_engine_get_endpoint(&_engine);
     ma_node_detach_output_bus(&ch.group, 0);
     ma_node_detach_output_bus(&ch.effectNode.base, 0);
     ma_node_attach_output_bus(&ch.group, 0, endpoint, 0);
@@ -562,8 +562,8 @@ void Audio::_removeChannelEffect(AudioChannel channel) {
 void Audio::ma_data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount) {
     LUMI_UNUSED(pInput);
 
-    auto &audio = Audio::get();
-    ma_engine_read_pcm_frames(&audio.engine, pOutput, frameCount, nullptr);
+    auto &audio = Audio::Get();
+    ma_engine_read_pcm_frames(&audio._engine, pOutput, frameCount, nullptr);
 
     // Apply master effect if one is set
     if (audio._masterEffectCallback) {
@@ -581,9 +581,9 @@ void Audio::_init() {
     deviceConfig.playback.channels = _numberChannels;
     deviceConfig.sampleRate        = sampleRate;
     deviceConfig.dataCallback      = Audio::ma_data_callback;
-    deviceConfig.pUserData         = &engine;
+    deviceConfig.pUserData         = &_engine;
 
-    ma_device_init(nullptr, &deviceConfig, &device);
+    ma_device_init(nullptr, &deviceConfig, &_device);
 
     ma_resource_manager_config resourceManagerConfig = ma_resource_manager_config_init();
     resourceManagerConfig.decodedFormat              = ma_format_f32;
@@ -596,20 +596,20 @@ void Audio::_init() {
     resourceManagerConfig.flags |= MA_RESOURCE_MANAGER_FLAG_NO_THREADING;
 #endif
 
-    ma_resource_manager_init(&resourceManagerConfig, &resourceManager);
+    ma_resource_manager_init(&resourceManagerConfig, &_resourceManager);
 
     ma_engine_config engineConfig = ma_engine_config_init();
-    engineConfig.pDevice          = &device;
-    engineConfig.pResourceManager = &resourceManager;
+    engineConfig.pDevice          = &_device;
+    engineConfig.pResourceManager = &_resourceManager;
 
-    ma_result result = ma_engine_init(&engineConfig, &engine);
+    ma_result result = ma_engine_init(&engineConfig, &_engine);
     if (result == MA_SUCCESS) {
-        get().audioInit = true;
+        Get()._audioInit = true;
     }
 
     // Initialize mix channel groups (SFX, Voice, Music)
     for (int i = 0; i < NUM_GROUPS; i++) {
-        ma_result groupResult = ma_sound_group_init(&engine, 0, nullptr, &_channels[i].group);
+        ma_result groupResult = ma_sound_group_init(&_engine, 0, nullptr, &_channels[i].group);
         if (groupResult == MA_SUCCESS) {
             _channels[i].initialized = true;
         } else {
@@ -624,7 +624,7 @@ void Audio::_init() {
 }
 
 void Audio::_close() {
-    if (!audioInit) {
+    if (!_audioInit) {
         return;
     }
 
@@ -660,16 +660,16 @@ void Audio::_close() {
         }
     }
 
-    ma_resource_manager_uninit(&resourceManager);
-    ma_engine_uninit(&engine);
+    ma_resource_manager_uninit(&_resourceManager);
+    ma_engine_uninit(&_engine);
 
-    audioInit = false;
+    _audioInit = false;
 }
 
 void Audio::_setNumberOfChannels(int newNumberOfChannels) {
-    if (get().audioInit)
+    if (Get()._audioInit)
         LOG_CRITICAL("can't run SetNumberOfChannels() after audio has been initialized");
 
-    get()._numberChannels = std::clamp(newNumberOfChannels, 1, 8);
+    Get()._numberChannels = std::clamp(newNumberOfChannels, 1, 8);
 }
 //*/

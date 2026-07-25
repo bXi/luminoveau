@@ -23,7 +23,7 @@
 // Preset import helpers (file-scope, not part of public API)
 // ─────────────────────────────────────────────────────────────────────────────
 
-static std::string B64Dec(const char *src) {
+static std::string b64Dec(const char *src) {
     static constexpr signed char kLut[256] = {
         -1,
         -1,
@@ -301,8 +301,8 @@ static std::string B64Dec(const char *src) {
 // Deserialises a preset string produced by the particle editor into cfg.
 // maxParticles and spawnPosition are not stored in the preset — set them
 // before or after calling this. Returns false on malformed input.
-static bool ImportPreset(const char *encoded, ParticleSystemConfig &cfg) {
-    std::string raw = B64Dec(encoded);
+static bool importPreset(const char *encoded, ParticleSystemConfig &cfg) {
+    std::string raw = b64Dec(encoded);
     if (raw.size() < 3 || raw.substr(0, 3) != "v1:")
         return false;
 
@@ -362,104 +362,104 @@ static bool ImportPreset(const char *encoded, ParticleSystemConfig &cfg) {
 
 // Particle system state and implementation methods are members of the Particles
 // singleton (declared in particles.h); the bodies below reference that instance
-// state (s_*) directly. Free helpers B64Dec/ImportPreset above stay file-local.
+// state (s_*) directly. Free helpers b64Dec/importPreset above stay file-local.
 
 void Particles::_init() {
     IGpu &gpu = Renderer::GetGpu();
 
     // Particle buffer: compute RW + vertex read
-    s_particleBuf = gpu.createBuffer({ static_cast<uint32_t>(MAX_PARTICLES * sizeof(GPUParticle)),
+    _particleBuf = gpu.CreateBuffer({ static_cast<uint32_t>(MAX_PARTICLES * sizeof(GPUParticle)),
         GpuBufferUsage::StorageRead | GpuBufferUsage::StorageWrite });
-    if (!s_particleBuf)
+    if (!_particleBuf)
         LOG_CRITICAL("Particles: failed to create particle buffer");
 
     // System data buffer: compute RO + vertex read
-    s_systemBuf = gpu.createBuffer({ static_cast<uint32_t>(MAX_SYSTEMS * sizeof(GPUParticleSystem)),
+    _systemBuf = gpu.CreateBuffer({ static_cast<uint32_t>(MAX_SYSTEMS * sizeof(GPUParticleSystem)),
         GpuBufferUsage::StorageRead });
-    if (!s_systemBuf)
+    if (!_systemBuf)
         LOG_CRITICAL("Particles: failed to create system buffer");
 
     // Transfer buffer for system data uploads
-    s_systemUploadBuf = gpu.createTransferBuffer({ static_cast<uint32_t>(MAX_SYSTEMS * sizeof(GPUParticleSystem)),
+    _systemUploadBuf = gpu.CreateTransferBuffer({ static_cast<uint32_t>(MAX_SYSTEMS * sizeof(GPUParticleSystem)),
         GpuTransferUsage::Upload });
-    if (!s_systemUploadBuf)
+    if (!_systemUploadBuf)
         LOG_CRITICAL("Particles: failed to create system upload buffer");
 
     // Collider buffer: compute RO
-    s_colliderBuf = gpu.createBuffer({ static_cast<uint32_t>(MAX_COLLIDERS * sizeof(GPUCollider)),
+    _colliderBuf = gpu.CreateBuffer({ static_cast<uint32_t>(MAX_COLLIDERS * sizeof(GPUCollider)),
         GpuBufferUsage::StorageRead });
-    if (!s_colliderBuf)
+    if (!_colliderBuf)
         LOG_CRITICAL("Particles: failed to create collider buffer");
 
-    s_colliderUploadBuf = gpu.createTransferBuffer({ static_cast<uint32_t>(MAX_COLLIDERS * sizeof(GPUCollider)),
+    _colliderUploadBuf = gpu.CreateTransferBuffer({ static_cast<uint32_t>(MAX_COLLIDERS * sizeof(GPUCollider)),
         GpuTransferUsage::Upload });
-    if (!s_colliderUploadBuf)
+    if (!_colliderUploadBuf)
         LOG_CRITICAL("Particles: failed to create collider upload buffer");
 
     // Zero-init collider and particle buffers so all slots start disabled/dead.
     // (WebGPU spec already zero-inits new buffers; redundant there but cheap.)
     {
         uint32_t                sz     = static_cast<uint32_t>(MAX_COLLIDERS * sizeof(GPUCollider));
-        GpuTransferBufferHandle zeroTB = gpu.createTransferBuffer({ sz, GpuTransferUsage::Upload });
-        void                   *zm     = gpu.mapTransferBuffer(zeroTB, false);
+        GpuTransferBufferHandle zeroTB = gpu.CreateTransferBuffer({ sz, GpuTransferUsage::Upload });
+        void                   *zm     = gpu.MapTransferBuffer(zeroTB, false);
         std::memset(zm, 0, sz);
-        gpu.unmapTransferBuffer(zeroTB);
-        GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
-        gpu.uploadToBuffer(cmd, zeroTB, 0, s_colliderBuf, 0, sz);
-        gpu.submitCommandBuffer(cmd);
-        gpu.waitIdle();
-        gpu.releaseTransferBuffer(zeroTB);
+        gpu.UnmapTransferBuffer(zeroTB);
+        GpuCmdBufferHandle cmd = gpu.AcquireCommandBuffer();
+        gpu.UploadToBuffer(cmd, zeroTB, 0, _colliderBuf, 0, sz);
+        gpu.SubmitCommandBuffer(cmd);
+        gpu.WaitIdle();
+        gpu.ReleaseTransferBuffer(zeroTB);
     }
 
     {
         uint32_t                sz     = static_cast<uint32_t>(MAX_PARTICLES * sizeof(GPUParticle));
-        GpuTransferBufferHandle zeroTB = gpu.createTransferBuffer({ sz, GpuTransferUsage::Upload });
-        void                   *mapped = gpu.mapTransferBuffer(zeroTB, false);
+        GpuTransferBufferHandle zeroTB = gpu.CreateTransferBuffer({ sz, GpuTransferUsage::Upload });
+        void                   *mapped = gpu.MapTransferBuffer(zeroTB, false);
         std::memset(mapped, 0, sz);
-        gpu.unmapTransferBuffer(zeroTB);
+        gpu.UnmapTransferBuffer(zeroTB);
 
-        GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
-        gpu.uploadToBuffer(cmd, zeroTB, 0, s_particleBuf, 0, sz);
-        gpu.submitCommandBuffer(cmd);
-        gpu.waitIdle();
-        gpu.releaseTransferBuffer(zeroTB);
+        GpuCmdBufferHandle cmd = gpu.AcquireCommandBuffer();
+        gpu.UploadToBuffer(cmd, zeroTB, 0, _particleBuf, 0, sz);
+        gpu.SubmitCommandBuffer(cmd);
+        gpu.WaitIdle();
+        gpu.ReleaseTransferBuffer(zeroTB);
     }
 
     // Create 1×1 white fallback texture for non-textured draws
     {
-        s_whiteTexture                     = gpu.createTexture({ 1, 1, 1, 1, GpuTextureFormat::R8G8B8A8_Unorm,
-                                GpuSampleCount::x1, GpuTextureUsage::Sampler | GpuTextureUsage::Transfer });
+        _whiteTexture                      = gpu.CreateTexture({ 1, 1, 1, 1, GpuTextureFormat::R8G8B8A8_Unorm,
+                                 GpuSampleCount::X1, GpuTextureUsage::Sampler | GpuTextureUsage::Transfer });
         uint32_t                whitePixel = 0xFFFFFFFFu;
-        GpuTransferBufferHandle wtb        = gpu.createTransferBuffer({ sizeof(whitePixel), GpuTransferUsage::Upload });
-        void                   *wm         = gpu.mapTransferBuffer(wtb, false);
+        GpuTransferBufferHandle wtb        = gpu.CreateTransferBuffer({ sizeof(whitePixel), GpuTransferUsage::Upload });
+        void                   *wm         = gpu.MapTransferBuffer(wtb, false);
         std::memcpy(wm, &whitePixel, sizeof(whitePixel));
-        gpu.unmapTransferBuffer(wtb);
-        GpuCmdBufferHandle      wcmd = gpu.acquireCommandBuffer();
+        gpu.UnmapTransferBuffer(wtb);
+        GpuCmdBufferHandle      wcmd = gpu.AcquireCommandBuffer();
         GpuTransferBufferRegion wsrc { wtb, 0, sizeof(whitePixel) };
-        GpuTextureRegion        wdst { s_whiteTexture, 0, 0, 0, 0, 0, 1, 1, 1 };
-        gpu.uploadToTexture(wcmd, wsrc, wdst, false);
-        gpu.submitCommandBuffer(wcmd);
-        gpu.waitIdle();
-        gpu.releaseTransferBuffer(wtb);
+        GpuTextureRegion        wdst { _whiteTexture, 0, 0, 0, 0, 0, 1, 1, 1 };
+        gpu.UploadToTexture(wcmd, wsrc, wdst, false);
+        gpu.SubmitCommandBuffer(wcmd);
+        gpu.WaitIdle();
+        gpu.ReleaseTransferBuffer(wtb);
     }
 
     // Linear sampler for textured particles
-    s_linearSampler = gpu.createSampler(GpuPresets::LinearClamp);
+    _linearSampler = gpu.CreateSampler(GpuPresets::LinearClamp);
 
     // Built-in physics compute pipeline — per-backend builder (SDL: precompiled SPIRV,
     // WebGPU: embedded WGSL string).
-    s_computePipeline.pipeline      = ParticlesBuiltin::CreateComputePipeline();
-    s_computePipeline.threadcount_x = 64;
-    s_computePipeline.threadcount_y = 1;
-    s_computePipeline.threadcount_z = 1;
+    _computePipeline.pipeline     = ParticlesBuiltin::CreateComputePipeline();
+    _computePipeline.threadCountX = 64;
+    _computePipeline.threadCountY = 1;
+    _computePipeline.threadCountZ = 1;
 
     // Create and attach the render pass to the primary framebuffer
-    s_renderPass = new ParticleRenderPass();
+    _renderPass = new ParticleRenderPass();
     _attachToFramebuffer("primaryFramebuffer");
 
-    std::fill(std::begin(s_systemCustomCompute), std::end(s_systemCustomCompute), INVALID_CUSTOM_COMPUTE);
-    std::fill(std::begin(s_systemPhysicsCompute), std::end(s_systemPhysicsCompute), INVALID_CUSTOM_COMPUTE);
-    std::fill(std::begin(s_systemSpringCompute), std::end(s_systemSpringCompute), INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(_systemCustomCompute), std::end(_systemCustomCompute), INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(_systemPhysicsCompute), std::end(_systemPhysicsCompute), INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(_systemSpringCompute), std::end(_systemSpringCompute), INVALID_CUSTOM_COMPUTE);
 
     LOG_INFO("Particles: initialized (max particles: {}, max systems: {})",
         MAX_PARTICLES, MAX_SYSTEMS);
@@ -471,79 +471,79 @@ void Particles::_quit() {
     // Discard any compute dispatches queued this frame before releasing GPU resources.
     Compute::Reset();
 
-    gpu.waitIdle();
+    gpu.WaitIdle();
 
-    if (s_renderPass) {
+    if (_renderPass) {
         Renderer::RemoveShaderPass("particles");
-        s_renderPass = nullptr;
+        _renderPass = nullptr;
     }
 
-    if (s_computePipeline.pipeline) {
-        gpu.releaseComputePipeline(s_computePipeline.pipeline);
-        s_computePipeline = {};
+    if (_computePipeline.pipeline) {
+        gpu.ReleaseComputePipeline(_computePipeline.pipeline);
+        _computePipeline = {};
     }
 
     for (uint32_t i = 0; i < MAX_CUSTOM_COMPUTES; ++i) {
-        if (s_customComputeUsed[i] && s_customComputePool[i].pipeline) {
-            gpu.releaseComputePipeline(s_customComputePool[i].pipeline);
-            s_customComputePool[i] = {};
-            s_customComputeUsed[i] = false;
+        if (_customComputeUsed[i] && _customComputePool[i].pipeline) {
+            gpu.ReleaseComputePipeline(_customComputePool[i].pipeline);
+            _customComputePool[i] = {};
+            _customComputeUsed[i] = false;
         }
     }
 
-    if (s_particleBuf) {
-        gpu.releaseBuffer(s_particleBuf);
-        s_particleBuf = 0;
+    if (_particleBuf) {
+        gpu.ReleaseBuffer(_particleBuf);
+        _particleBuf = 0;
     }
-    if (s_systemBuf) {
-        gpu.releaseBuffer(s_systemBuf);
-        s_systemBuf = 0;
+    if (_systemBuf) {
+        gpu.ReleaseBuffer(_systemBuf);
+        _systemBuf = 0;
     }
-    if (s_systemUploadBuf) {
-        gpu.releaseTransferBuffer(s_systemUploadBuf);
-        s_systemUploadBuf = 0;
+    if (_systemUploadBuf) {
+        gpu.ReleaseTransferBuffer(_systemUploadBuf);
+        _systemUploadBuf = 0;
     }
-    if (s_colliderBuf) {
-        gpu.releaseBuffer(s_colliderBuf);
-        s_colliderBuf = 0;
+    if (_colliderBuf) {
+        gpu.ReleaseBuffer(_colliderBuf);
+        _colliderBuf = 0;
     }
-    if (s_colliderUploadBuf) {
-        gpu.releaseTransferBuffer(s_colliderUploadBuf);
-        s_colliderUploadBuf = 0;
+    if (_colliderUploadBuf) {
+        gpu.ReleaseTransferBuffer(_colliderUploadBuf);
+        _colliderUploadBuf = 0;
     }
-    s_colliderHighWater = 0;
-    std::memset(s_colliderData, 0, sizeof(s_colliderData));
-    std::memset(s_colliderUsed, 0, sizeof(s_colliderUsed));
-    if (s_whiteTexture) {
-        gpu.releaseTexture(s_whiteTexture);
-        s_whiteTexture = 0;
+    _colliderHighWater = 0;
+    std::memset(_colliderData, 0, sizeof(_colliderData));
+    std::memset(_colliderUsed, 0, sizeof(_colliderUsed));
+    if (_whiteTexture) {
+        gpu.ReleaseTexture(_whiteTexture);
+        _whiteTexture = 0;
     }
-    if (s_linearSampler) {
-        gpu.releaseSampler(s_linearSampler);
-        s_linearSampler = 0;
+    if (_linearSampler) {
+        gpu.ReleaseSampler(_linearSampler);
+        _linearSampler = 0;
     }
 
     // Reset CPU-side state so Init() can be called again cleanly.
-    s_nextParticleSlot = 0;
-    s_systemDirty      = false;
-    s_accumTime        = 0.0f;
-    s_pendingDt        = 0.0f;
-    s_updateQueued     = false;
-    std::fill(std::begin(s_systemUsed), std::end(s_systemUsed), false);
-    std::fill(std::begin(s_systemData), std::end(s_systemData), GPUParticleSystem {});
-    std::fill(std::begin(s_systemTextures), std::end(s_systemTextures), GpuTextureHandle { 0 });
-    std::fill(std::begin(s_systemSamplers), std::end(s_systemSamplers), GpuSamplerHandle { 0 });
-    std::fill(std::begin(s_systemPixelMode), std::end(s_systemPixelMode), false);
-    std::fill(std::begin(s_slotParticleOffset), std::end(s_slotParticleOffset), 0u);
-    std::fill(std::begin(s_slotParticleCount), std::end(s_slotParticleCount), 0u);
-    std::fill(std::begin(s_systemCustomCompute), std::end(s_systemCustomCompute), INVALID_CUSTOM_COMPUTE);
-    std::fill(std::begin(s_systemPhysicsCompute), std::end(s_systemPhysicsCompute), INVALID_CUSTOM_COMPUTE);
-    std::fill(std::begin(s_customComputeUsed), std::end(s_customComputeUsed), false);
-    std::fill(std::begin(s_customComputePool), std::end(s_customComputePool), ComputePipelineAsset {});
-    std::fill(std::begin(s_systemSpringCompute), std::end(s_systemSpringCompute), INVALID_CUSTOM_COMPUTE);
-    std::fill(std::begin(s_systemSpringK), std::end(s_systemSpringK), 0.f);
-    std::fill(std::begin(s_systemSpringDamp), std::end(s_systemSpringDamp), 0.f);
-    std::fill(std::begin(s_systemSpringInteract), std::end(s_systemSpringInteract), glm::vec4 {});
+    _nextParticleSlot = 0;
+    _systemDirty      = false;
+    _accumTime        = 0.0f;
+    _pendingDt        = 0.0f;
+    _updateQueued     = false;
+    std::fill(std::begin(_systemUsed), std::end(_systemUsed), false);
+    std::fill(std::begin(_systemData), std::end(_systemData), GPUParticleSystem {});
+    std::fill(std::begin(_systemTextures), std::end(_systemTextures), GpuTextureHandle { 0 });
+    std::fill(std::begin(_systemSamplers), std::end(_systemSamplers), GpuSamplerHandle { 0 });
+    std::fill(std::begin(_systemPixelMode), std::end(_systemPixelMode), false);
+    std::fill(std::begin(_slotParticleOffset), std::end(_slotParticleOffset), 0u);
+    std::fill(std::begin(_slotParticleCount), std::end(_slotParticleCount), 0u);
+    std::fill(std::begin(_systemCustomCompute), std::end(_systemCustomCompute), INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(_systemPhysicsCompute), std::end(_systemPhysicsCompute), INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(_customComputeUsed), std::end(_customComputeUsed), false);
+    std::fill(std::begin(_customComputePool), std::end(_customComputePool), ComputePipelineAsset {});
+    std::fill(std::begin(_systemSpringCompute), std::end(_systemSpringCompute), INVALID_CUSTOM_COMPUTE);
+    std::fill(std::begin(_systemSpringK), std::end(_systemSpringK), 0.f);
+    std::fill(std::begin(_systemSpringDamp), std::end(_systemSpringDamp), 0.f);
+    std::fill(std::begin(_systemSpringInteract), std::end(_systemSpringInteract), glm::vec4 {});
 
     LOG_INFO("Particles: shut down");
 }
@@ -552,8 +552,8 @@ void Particles::_quit() {
 
 uint32_t Particles::_allocateSystemSlot() {
     for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
-        if (!s_systemUsed[i]) {
-            s_systemUsed[i] = true;
+        if (!_systemUsed[i]) {
+            _systemUsed[i] = true;
             return i;
         }
     }
@@ -562,24 +562,24 @@ uint32_t Particles::_allocateSystemSlot() {
 }
 
 ParticleSystemHandle Particles::_createSystem(const ParticleSystemConfig &cfg) {
-    if (s_nextParticleSlot + cfg.maxParticles > MAX_PARTICLES) {
+    if (_nextParticleSlot + cfg.maxParticles > MAX_PARTICLES) {
         LOG_ERROR("Particles: not enough particle slots for new system (wanted {}, have {})",
-            cfg.maxParticles, MAX_PARTICLES - s_nextParticleSlot);
+            cfg.maxParticles, MAX_PARTICLES - _nextParticleSlot);
         return {};
     }
 
     ParticleSystemHandle handle;
     handle.systemIndex    = _allocateSystemSlot();
-    handle.particleOffset = s_nextParticleSlot;
+    handle.particleOffset = _nextParticleSlot;
     handle.maxParticles   = cfg.maxParticles;
     handle.valid          = true;
 
-    s_slotParticleOffset[handle.systemIndex] = handle.particleOffset;
-    s_slotParticleCount[handle.systemIndex]  = handle.maxParticles;
-    s_nextParticleSlot += cfg.maxParticles;
+    _slotParticleOffset[handle.systemIndex] = handle.particleOffset;
+    _slotParticleCount[handle.systemIndex]  = handle.maxParticles;
+    _nextParticleSlot += cfg.maxParticles;
 
     // Fill GPU system struct
-    GPUParticleSystem &sys = s_systemData[handle.systemIndex];
+    GPUParticleSystem &sys = _systemData[handle.systemIndex];
     sys.spawnPos           = glm::vec4(cfg.spawnPosition, cfg.spawnRadius);
     sys.spawnVel           = glm::vec4(cfg.spawnVelocity, cfg.velocitySpread);
     sys.gravityAndDrag     = glm::vec4(cfg.gravity, cfg.drag);
@@ -599,21 +599,21 @@ ParticleSystemHandle Particles::_createSystem(const ParticleSystemConfig &cfg) {
     sys.lifetimeBias       = cfg.lifetimeBias;
     // Store emitRate scaled by particle count so the per-particle timer
     // interval (1/storedRate = N/emitRate) gives emitRate spawns/second system-wide.
-    sys.emitRate                          = (cfg.maxParticles > 0)
-                                 ? (cfg.emitRate / static_cast<float>(cfg.maxParticles))
-                                 : cfg.emitRate;
-    sys.flags                             = 0; // not emitting yet
-    sys.shapeType                         = cfg.texture
-                                ? static_cast<uint32_t>(ParticleShape::Textured)
-                                : static_cast<uint32_t>(cfg.shape);
-    sys.angVelMin                         = cfg.angVelMin;
-    sys.angVelMax                         = cfg.angVelMax;
-    sys.angVelBias                        = cfg.angVelBias;
-    sys.trailStretch                      = cfg.trailStretch;
-    s_systemTextures[handle.systemIndex]  = cfg.texture;
-    s_systemSamplers[handle.systemIndex]  = cfg.sampler;
-    s_systemPixelMode[handle.systemIndex] = cfg.pixelMode;
-    s_systemDirty                         = true;
+    sys.emitRate                         = (cfg.maxParticles > 0)
+                                ? (cfg.emitRate / static_cast<float>(cfg.maxParticles))
+                                : cfg.emitRate;
+    sys.flags                            = 0; // not emitting yet
+    sys.shapeType                        = cfg.texture
+                               ? static_cast<uint32_t>(ParticleShape::Textured)
+                               : static_cast<uint32_t>(cfg.shape);
+    sys.angVelMin                        = cfg.angVelMin;
+    sys.angVelMax                        = cfg.angVelMax;
+    sys.angVelBias                       = cfg.angVelBias;
+    sys.trailStretch                     = cfg.trailStretch;
+    _systemTextures[handle.systemIndex]  = cfg.texture;
+    _systemSamplers[handle.systemIndex]  = cfg.sampler;
+    _systemPixelMode[handle.systemIndex] = cfg.pixelMode;
+    _systemDirty                         = true;
 
     // Initialise particle slots: staggered respawn timers so emission is smooth
     // from frame 1. All particles start dead with a timer = index / emitRate.
@@ -631,23 +631,23 @@ ParticleSystemHandle Particles::_createSystem(const ParticleSystemConfig &cfg) {
             init[i].endSize         = cfg.sizeEndMin;
             init[i].angle           = 0.0f;
             init[i].angularVelocity = 0.0f;
-            init[i]._pad0           = 0.0f;
-            init[i]._pad1           = 0.0f;
+            init[i].pad0            = 0.0f;
+            init[i].pad1            = 0.0f;
         }
 
         IGpu                   &gpu      = Renderer::GetGpu();
         uint32_t                uploadSz = static_cast<uint32_t>(n * sizeof(GPUParticle));
-        GpuTransferBufferHandle ptb      = gpu.createTransferBuffer({ uploadSz, GpuTransferUsage::Upload });
-        void                   *pmapped  = gpu.mapTransferBuffer(ptb, false);
+        GpuTransferBufferHandle ptb      = gpu.CreateTransferBuffer({ uploadSz, GpuTransferUsage::Upload });
+        void                   *pmapped  = gpu.MapTransferBuffer(ptb, false);
         std::memcpy(pmapped, init.data(), uploadSz);
-        gpu.unmapTransferBuffer(ptb);
-        GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
-        gpu.uploadToBuffer(cmd, ptb, 0, s_particleBuf,
+        gpu.UnmapTransferBuffer(ptb);
+        GpuCmdBufferHandle cmd = gpu.AcquireCommandBuffer();
+        gpu.UploadToBuffer(cmd, ptb, 0, _particleBuf,
             static_cast<uint32_t>(handle.particleOffset * sizeof(GPUParticle)),
             uploadSz);
-        gpu.submitCommandBuffer(cmd);
-        gpu.waitIdle();
-        gpu.releaseTransferBuffer(ptb);
+        gpu.SubmitCommandBuffer(cmd);
+        gpu.WaitIdle();
+        gpu.ReleaseTransferBuffer(ptb);
     }
 
     LOG_INFO("Particles: created system {} ({} particles, offset {})",
@@ -660,7 +660,7 @@ ParticleSystemHandle Particles::_createSystemFromPreset(const char *encoded, uin
     ParticleSystemConfig cfg;
     cfg.maxParticles  = maxParticles;
     cfg.spawnPosition = spawnPosition;
-    if (!ImportPreset(encoded, cfg)) {
+    if (!importPreset(encoded, cfg)) {
         LOG_ERROR("Particles: CreateSystemFromPreset: malformed preset string");
         return {};
     }
@@ -671,30 +671,30 @@ void Particles::_destroySystem(ParticleSystemHandle &handle) {
     if (!handle.valid)
         return;
 
-    uint32_t idx               = handle.systemIndex;
-    s_systemUsed[idx]          = false;
-    s_systemData[idx]          = {};
-    s_systemTextures[idx]      = 0;
-    s_systemSamplers[idx]      = 0;
-    s_systemPixelMode[idx]     = false;
-    s_systemCustomCompute[idx] = INVALID_CUSTOM_COMPUTE;
-    s_systemDirty              = true;
+    uint32_t idx              = handle.systemIndex;
+    _systemUsed[idx]          = false;
+    _systemData[idx]          = {};
+    _systemTextures[idx]      = 0;
+    _systemSamplers[idx]      = 0;
+    _systemPixelMode[idx]     = false;
+    _systemCustomCompute[idx] = INVALID_CUSTOM_COMPUTE;
+    _systemDirty              = true;
 
     // Reclaim particle slots: walk the bump pointer back as far as possible.
     // This fully handles the common cases (destroy last, destroy all).
     // For out-of-order destruction the freed slots remain unused until
     // all systems above them are also destroyed.
-    if (s_slotParticleOffset[idx] + s_slotParticleCount[idx] == s_nextParticleSlot) {
-        s_nextParticleSlot = s_slotParticleOffset[idx];
+    if (_slotParticleOffset[idx] + _slotParticleCount[idx] == _nextParticleSlot) {
+        _nextParticleSlot = _slotParticleOffset[idx];
         // Continue walking back over any other freed slots that are now at the top
         for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
-            if (!s_systemUsed[i] && s_slotParticleOffset[i] + s_slotParticleCount[i] == s_nextParticleSlot) {
-                s_nextParticleSlot = s_slotParticleOffset[i];
+            if (!_systemUsed[i] && _slotParticleOffset[i] + _slotParticleCount[i] == _nextParticleSlot) {
+                _nextParticleSlot = _slotParticleOffset[i];
             }
         }
     }
-    s_slotParticleOffset[idx] = 0;
-    s_slotParticleCount[idx]  = 0;
+    _slotParticleOffset[idx] = 0;
+    _slotParticleCount[idx]  = 0;
 
     handle = {};
 }
@@ -702,67 +702,67 @@ void Particles::_destroySystem(ParticleSystemHandle &handle) {
 void Particles::_start(const ParticleSystemHandle &handle) {
     if (!handle.valid)
         return;
-    s_systemData[handle.systemIndex].flags |= 1u;
-    s_systemDirty = true;
+    _systemData[handle.systemIndex].flags |= 1u;
+    _systemDirty = true;
 }
 
 void Particles::_stop(const ParticleSystemHandle &handle) {
     if (!handle.valid)
         return;
-    s_systemData[handle.systemIndex].flags &= ~1u;
-    s_systemDirty = true;
+    _systemData[handle.systemIndex].flags &= ~1u;
+    _systemDirty = true;
 }
 
 void Particles::_setPosition(const ParticleSystemHandle &handle, glm::vec3 worldPos) {
     if (!handle.valid)
         return;
-    s_systemData[handle.systemIndex].spawnPos.x = worldPos.x;
-    s_systemData[handle.systemIndex].spawnPos.y = worldPos.y;
-    s_systemData[handle.systemIndex].spawnPos.z = worldPos.z;
-    s_systemDirty                               = true;
+    _systemData[handle.systemIndex].spawnPos.x = worldPos.x;
+    _systemData[handle.systemIndex].spawnPos.y = worldPos.y;
+    _systemData[handle.systemIndex].spawnPos.z = worldPos.z;
+    _systemDirty                               = true;
 }
 
 void Particles::_updateConfig(const ParticleSystemHandle &handle, const ParticleSystemConfig &cfg) {
     if (!handle.valid)
         return;
 
-    GPUParticleSystem &sys            = s_systemData[handle.systemIndex];
+    GPUParticleSystem &sys            = _systemData[handle.systemIndex];
     uint32_t           preservedFlags = sys.flags;               // keep Start/Stop state
     glm::vec3          preservedPos   = glm::vec3(sys.spawnPos); // keep SetPosition value
 
-    sys.spawnPos                          = glm::vec4(preservedPos, cfg.spawnRadius);
-    sys.spawnVel                          = glm::vec4(cfg.spawnVelocity, cfg.velocitySpread);
-    sys.gravityAndDrag                    = glm::vec4(cfg.gravity, cfg.drag);
-    sys.colors[0]                         = cfg.colors[0];
-    sys.colors[1]                         = cfg.colors[1];
-    sys.colors[2]                         = cfg.colors[2];
-    sys.colors[3]                         = cfg.colors[3];
-    sys.colorPositions                    = cfg.colorPositions;
-    sys.sizeStartMin                      = cfg.sizeStartMin;
-    sys.sizeStartMax                      = cfg.sizeStartMax;
-    sys.sizeEndMin                        = cfg.sizeEndMin;
-    sys.sizeEndMax                        = cfg.sizeEndMax;
-    sys.sizeStartBias                     = cfg.sizeStartBias;
-    sys.sizeEndBias                       = cfg.sizeEndBias;
-    sys.lifetimeMin                       = cfg.lifetimeMin;
-    sys.lifetimeMax                       = cfg.lifetimeMax;
-    sys.lifetimeBias                      = cfg.lifetimeBias;
-    sys.emitRate                          = (handle.maxParticles > 0)
-                                 ? (cfg.emitRate / static_cast<float>(handle.maxParticles))
-                                 : cfg.emitRate;
-    sys.flags                             = preservedFlags;
-    sys.shapeType                         = cfg.texture
-                                ? static_cast<uint32_t>(ParticleShape::Textured)
-                                : static_cast<uint32_t>(cfg.shape);
-    sys.angVelMin                         = cfg.angVelMin;
-    sys.angVelMax                         = cfg.angVelMax;
-    sys.angVelBias                        = cfg.angVelBias;
-    sys.trailStretch                      = cfg.trailStretch;
-    s_systemTextures[handle.systemIndex]  = cfg.texture;
-    s_systemSamplers[handle.systemIndex]  = cfg.sampler;
-    s_systemPixelMode[handle.systemIndex] = cfg.pixelMode;
+    sys.spawnPos                         = glm::vec4(preservedPos, cfg.spawnRadius);
+    sys.spawnVel                         = glm::vec4(cfg.spawnVelocity, cfg.velocitySpread);
+    sys.gravityAndDrag                   = glm::vec4(cfg.gravity, cfg.drag);
+    sys.colors[0]                        = cfg.colors[0];
+    sys.colors[1]                        = cfg.colors[1];
+    sys.colors[2]                        = cfg.colors[2];
+    sys.colors[3]                        = cfg.colors[3];
+    sys.colorPositions                   = cfg.colorPositions;
+    sys.sizeStartMin                     = cfg.sizeStartMin;
+    sys.sizeStartMax                     = cfg.sizeStartMax;
+    sys.sizeEndMin                       = cfg.sizeEndMin;
+    sys.sizeEndMax                       = cfg.sizeEndMax;
+    sys.sizeStartBias                    = cfg.sizeStartBias;
+    sys.sizeEndBias                      = cfg.sizeEndBias;
+    sys.lifetimeMin                      = cfg.lifetimeMin;
+    sys.lifetimeMax                      = cfg.lifetimeMax;
+    sys.lifetimeBias                     = cfg.lifetimeBias;
+    sys.emitRate                         = (handle.maxParticles > 0)
+                                ? (cfg.emitRate / static_cast<float>(handle.maxParticles))
+                                : cfg.emitRate;
+    sys.flags                            = preservedFlags;
+    sys.shapeType                        = cfg.texture
+                               ? static_cast<uint32_t>(ParticleShape::Textured)
+                               : static_cast<uint32_t>(cfg.shape);
+    sys.angVelMin                        = cfg.angVelMin;
+    sys.angVelMax                        = cfg.angVelMax;
+    sys.angVelBias                       = cfg.angVelBias;
+    sys.trailStretch                     = cfg.trailStretch;
+    _systemTextures[handle.systemIndex]  = cfg.texture;
+    _systemSamplers[handle.systemIndex]  = cfg.sampler;
+    _systemPixelMode[handle.systemIndex] = cfg.pixelMode;
 
-    s_systemDirty = true;
+    _systemDirty = true;
 }
 
 ParticleSystemConfig Particles::_getConfig(const ParticleSystemHandle &handle) {
@@ -770,7 +770,7 @@ ParticleSystemConfig Particles::_getConfig(const ParticleSystemHandle &handle) {
     if (!handle.valid)
         return cfg;
 
-    const GPUParticleSystem &sys = s_systemData[handle.systemIndex];
+    const GPUParticleSystem &sys = _systemData[handle.systemIndex];
 
     cfg.maxParticles   = handle.maxParticles;
     cfg.spawnPosition  = glm::vec3(sys.spawnPos);
@@ -801,9 +801,9 @@ ParticleSystemConfig Particles::_getConfig(const ParticleSystemHandle &handle) {
     cfg.angVelMax      = sys.angVelMax;
     cfg.angVelBias     = sys.angVelBias;
     cfg.trailStretch   = sys.trailStretch;
-    cfg.pixelMode      = s_systemPixelMode[handle.systemIndex];
-    cfg.texture        = s_systemTextures[handle.systemIndex];
-    cfg.sampler        = s_systemSamplers[handle.systemIndex];
+    cfg.pixelMode      = _systemPixelMode[handle.systemIndex];
+    cfg.texture        = _systemTextures[handle.systemIndex];
+    cfg.sampler        = _systemSamplers[handle.systemIndex];
 
     return cfg;
 }
@@ -812,12 +812,12 @@ void Particles::_setTexture(const ParticleSystemHandle &handle,
     GpuTextureHandle texture, GpuSamplerHandle sampler) {
     if (!handle.valid)
         return;
-    s_systemTextures[handle.systemIndex]       = texture;
-    s_systemSamplers[handle.systemIndex]       = sampler;
-    s_systemData[handle.systemIndex].shapeType = texture
+    _systemTextures[handle.systemIndex]       = texture;
+    _systemSamplers[handle.systemIndex]       = sampler;
+    _systemData[handle.systemIndex].shapeType = texture
         ? static_cast<uint32_t>(ParticleShape::Textured)
         : static_cast<uint32_t>(ParticleShape::SoftCircle); // revert to default shape
-    s_systemDirty                              = true;
+    _systemDirty                              = true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -827,7 +827,7 @@ void Particles::_setTexture(const ParticleSystemHandle &handle,
 ParticleComputeHandle Particles::_createCustomCompute(const std::string &shaderPath) {
     // Find a free pool slot
     for (uint32_t i = 0; i < MAX_CUSTOM_COMPUTES; ++i) {
-        if (s_customComputeUsed[i])
+        if (_customComputeUsed[i])
             continue;
 
         ComputePipelineAsset pipeline = Renderer::CreateComputePipelineAsset(shaderPath);
@@ -836,8 +836,8 @@ ParticleComputeHandle Particles::_createCustomCompute(const std::string &shaderP
             return {};
         }
 
-        s_customComputePool[i] = pipeline;
-        s_customComputeUsed[i] = true;
+        _customComputePool[i] = pipeline;
+        _customComputeUsed[i] = true;
         LOG_INFO("Particles: created custom compute [{}] from '{}'", i, shaderPath);
         return { i, true };
     }
@@ -853,38 +853,38 @@ void Particles::_destroyCustomCompute(ParticleComputeHandle &handle) {
 
     // Clear from any system currently using it (primary or spring slot)
     for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
-        if (s_systemCustomCompute[i] == handle.index) {
-            s_systemCustomCompute[i] = INVALID_CUSTOM_COMPUTE;
-            s_systemData[i].flags &= ~2u;
-            s_systemDirty = true;
+        if (_systemCustomCompute[i] == handle.index) {
+            _systemCustomCompute[i] = INVALID_CUSTOM_COMPUTE;
+            _systemData[i].flags &= ~2u;
+            _systemDirty = true;
         }
-        if (s_systemPhysicsCompute[i] == handle.index)
-            s_systemPhysicsCompute[i] = INVALID_CUSTOM_COMPUTE;
-        if (s_systemSpringCompute[i] == handle.index)
-            s_systemSpringCompute[i] = INVALID_CUSTOM_COMPUTE;
+        if (_systemPhysicsCompute[i] == handle.index)
+            _systemPhysicsCompute[i] = INVALID_CUSTOM_COMPUTE;
+        if (_systemSpringCompute[i] == handle.index)
+            _systemSpringCompute[i] = INVALID_CUSTOM_COMPUTE;
     }
 
-    Renderer::GetGpu().releaseComputePipeline(s_customComputePool[handle.index].pipeline);
-    s_customComputePool[handle.index] = {};
-    s_customComputeUsed[handle.index] = false;
-    handle                            = {};
+    Renderer::GetGpu().ReleaseComputePipeline(_customComputePool[handle.index].pipeline);
+    _customComputePool[handle.index] = {};
+    _customComputeUsed[handle.index] = false;
+    handle                           = {};
 }
 
 void Particles::_setCustomCompute(const ParticleSystemHandle &system,
     const ParticleComputeHandle                              &compute) {
     if (!system.valid || !compute.valid)
         return;
-    s_systemCustomCompute[system.systemIndex] = compute.index;
-    s_systemData[system.systemIndex].flags |= 2u; // skip built-in update
-    s_systemDirty = true;
+    _systemCustomCompute[system.systemIndex] = compute.index;
+    _systemData[system.systemIndex].flags |= 2u; // skip built-in update
+    _systemDirty = true;
 }
 
 void Particles::_clearCustomCompute(const ParticleSystemHandle &system) {
     if (!system.valid)
         return;
-    s_systemCustomCompute[system.systemIndex] = INVALID_CUSTOM_COMPUTE;
-    s_systemData[system.systemIndex].flags &= ~2u;
-    s_systemDirty = true;
+    _systemCustomCompute[system.systemIndex] = INVALID_CUSTOM_COMPUTE;
+    _systemData[system.systemIndex].flags &= ~2u;
+    _systemDirty = true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -894,24 +894,24 @@ void Particles::_clearCustomCompute(const ParticleSystemHandle &system) {
 // the swapchain). Enqueueing compute work here would have it discarded by
 // Renderer::Render's no-swapchain path, dropping most of the simulation. So
 // we only accumulate dt + time here; the real dispatch happens in
-// _PrepareFrame, which the renderer calls once per actual frame.
+// _prepareFrame, which the renderer calls once per actual frame.
 void Particles::_update(float deltaTime) {
-    if (!s_computePipeline.pipeline)
+    if (!_computePipeline.pipeline)
         return;
-    s_pendingDt += deltaTime;
-    s_accumTime += deltaTime;
-    s_updateQueued = true;
+    _pendingDt += deltaTime;
+    _accumTime += deltaTime;
+    _updateQueued = true;
 }
 
 void Particles::_buildDispatches() {
-    if (!s_computePipeline.pipeline)
+    if (!_computePipeline.pipeline)
         return;
 
-    float deltaTime = s_pendingDt;
-    s_pendingDt     = 0.0f;
+    float deltaTime = _pendingDt;
+    _pendingDt      = 0.0f;
 
     // Count the total live particle range
-    uint32_t total = s_nextParticleSlot;
+    uint32_t total = _nextParticleSlot;
     if (total == 0)
         return;
 
@@ -921,12 +921,12 @@ void Particles::_buildDispatches() {
         float    deltaTime;
         float    time;
         uint32_t numColliders;
-    } uniforms = { total, deltaTime, s_accumTime, s_colliderHighWater };
+    } uniforms = { total, deltaTime, _accumTime, _colliderHighWater };
 
-    Compute::SetPipeline(s_computePipeline);
-    Compute::BindReadBuffer(0, s_systemBuf);
-    Compute::BindReadBuffer(1, s_colliderBuf);
-    Compute::BindReadWriteBuffer(0, s_particleBuf);
+    Compute::SetPipeline(_computePipeline);
+    Compute::BindReadBuffer(0, _systemBuf);
+    Compute::BindReadBuffer(1, _colliderBuf);
+    Compute::BindReadWriteBuffer(0, _particleBuf);
     Compute::PushUniform(0, uniforms);
     Compute::DispatchAuto(total); // built-in: skips systems with custom compute flag
 
@@ -938,23 +938,23 @@ void Particles::_buildDispatches() {
         float    time;
     };
     for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
-        if (!s_systemUsed[i])
+        if (!_systemUsed[i])
             continue;
-        uint32_t ci = s_systemCustomCompute[i];
+        uint32_t ci = _systemCustomCompute[i];
         if (ci == INVALID_CUSTOM_COMPUTE)
             continue;
 
         CustomUniforms cu = {
-            s_slotParticleOffset[i],
-            s_slotParticleCount[i],
+            _slotParticleOffset[i],
+            _slotParticleCount[i],
             deltaTime,
-            s_accumTime
+            _accumTime
         };
-        Compute::SetPipeline(s_customComputePool[ci]);
-        Compute::BindReadBuffer(0, s_systemBuf);
-        Compute::BindReadWriteBuffer(0, s_particleBuf);
+        Compute::SetPipeline(_customComputePool[ci]);
+        Compute::BindReadBuffer(0, _systemBuf);
+        Compute::BindReadWriteBuffer(0, _particleBuf);
         Compute::PushUniform(0, cu);
-        Compute::DispatchAuto(s_slotParticleCount[i]);
+        Compute::DispatchAuto(_slotParticleCount[i]);
     }
 
     // Physics pass — user-provided pipeline, runs after custom computes
@@ -967,23 +967,23 @@ void Particles::_buildDispatches() {
             float    gravityX;
             float    gravityY;
             float    drag;
-            float    _pad;
+            float    pad;
         };
         for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
-            uint32_t pc = s_systemPhysicsCompute[i];
-            if (!s_systemUsed[i] || pc == INVALID_CUSTOM_COMPUTE)
+            uint32_t pc = _systemPhysicsCompute[i];
+            if (!_systemUsed[i] || pc == INVALID_CUSTOM_COMPUTE)
                 continue;
             PhysicsUniforms pu = {
-                s_slotParticleOffset[i], s_slotParticleCount[i],
-                deltaTime, s_colliderHighWater,
-                s_systemPhysicsGravity[i].x, s_systemPhysicsGravity[i].y,
-                s_systemPhysicsDrag[i], 0.f
+                _slotParticleOffset[i], _slotParticleCount[i],
+                deltaTime, _colliderHighWater,
+                _systemPhysicsGravity[i].x, _systemPhysicsGravity[i].y,
+                _systemPhysicsDrag[i], 0.f
             };
-            Compute::SetPipeline(s_customComputePool[pc]);
-            Compute::BindReadBuffer(0, s_colliderBuf);
-            Compute::BindReadWriteBuffer(0, s_particleBuf);
+            Compute::SetPipeline(_customComputePool[pc]);
+            Compute::BindReadBuffer(0, _colliderBuf);
+            Compute::BindReadWriteBuffer(0, _particleBuf);
             Compute::PushUniform(0, pu);
-            Compute::DispatchAuto(s_slotParticleCount[i]);
+            Compute::DispatchAuto(_slotParticleCount[i]);
         }
     }
 
@@ -1000,47 +1000,47 @@ void Particles::_buildDispatches() {
             float    interactY;
             float    interactR;
             float    interactF;
-            float    _pad0;
-            float    _pad1;
-            float    _pad2;
+            float    pad0;
+            float    pad1;
+            float    pad2;
         };
         for (uint32_t i = 0; i < MAX_SYSTEMS; ++i) {
-            uint32_t sc = s_systemSpringCompute[i];
-            if (!s_systemUsed[i] || sc == INVALID_CUSTOM_COMPUTE)
+            uint32_t sc = _systemSpringCompute[i];
+            if (!_systemUsed[i] || sc == INVALID_CUSTOM_COMPUTE)
                 continue;
-            const glm::vec4 &ia = s_systemSpringInteract[i];
+            const glm::vec4 &ia = _systemSpringInteract[i];
             SpringUniforms   su = {
-                s_slotParticleOffset[i], s_slotParticleCount[i],
-                deltaTime, s_systemSpringK[i],
-                s_systemSpringDamp[i],
+                _slotParticleOffset[i], _slotParticleCount[i],
+                deltaTime, _systemSpringK[i],
+                _systemSpringDamp[i],
                 ia.x, ia.y, ia.z, ia.w,
                 0.f, 0.f, 0.f
             };
-            Compute::SetPipeline(s_customComputePool[sc]);
-            Compute::BindReadWriteBuffer(0, s_particleBuf);
+            Compute::SetPipeline(_customComputePool[sc]);
+            Compute::BindReadWriteBuffer(0, _particleBuf);
             Compute::PushUniform(0, su);
-            Compute::DispatchAuto(s_slotParticleCount[i]);
+            Compute::DispatchAuto(_slotParticleCount[i]);
         }
     }
 }
 
 void Particles::_queueDraw(const ParticleSystemHandle &handle) {
-    if (!handle.valid || !s_renderPass)
+    if (!handle.valid || !_renderPass)
         return;
-    s_renderPass->addDraw({
+    _renderPass->AddDraw({
         handle.particleOffset,
         handle.maxParticles,
-        s_systemTextures[handle.systemIndex],
-        s_systemSamplers[handle.systemIndex],
-        s_systemPixelMode[handle.systemIndex],
+        _systemTextures[handle.systemIndex],
+        _systemSamplers[handle.systemIndex],
+        _systemPixelMode[handle.systemIndex],
     });
 }
 
-GpuBufferHandle     Particles::_getParticleBuffer() { return s_particleBuf; }
-GpuBufferHandle     Particles::_getSystemBuffer() { return s_systemBuf; }
-ParticleRenderPass *Particles::_getRenderPass() { return s_renderPass; }
-GpuTextureHandle    Particles::_getWhiteTexture() { return s_whiteTexture; }
-GpuSamplerHandle    Particles::_getLinearSampler() { return s_linearSampler; }
+GpuBufferHandle     Particles::_getParticleBuffer() { return _particleBuf; }
+GpuBufferHandle     Particles::_getSystemBuffer() { return _systemBuf; }
+ParticleRenderPass *Particles::_getRenderPass() { return _renderPass; }
+GpuTextureHandle    Particles::_getWhiteTexture() { return _whiteTexture; }
+GpuSamplerHandle    Particles::_getLinearSampler() { return _linearSampler; }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Physics pass
@@ -1051,23 +1051,23 @@ void Particles::_enablePhysicsPass(const ParticleSystemHandle &handle,
     glm::vec2 gravity, float drag) {
     if (!handle.valid || !physicsCompute.valid)
         return;
-    s_systemPhysicsCompute[handle.systemIndex] = physicsCompute.index;
-    s_systemPhysicsGravity[handle.systemIndex] = gravity;
-    s_systemPhysicsDrag[handle.systemIndex]    = drag;
+    _systemPhysicsCompute[handle.systemIndex] = physicsCompute.index;
+    _systemPhysicsGravity[handle.systemIndex] = gravity;
+    _systemPhysicsDrag[handle.systemIndex]    = drag;
 }
 
 void Particles::_disablePhysicsPass(const ParticleSystemHandle &handle) {
     if (!handle.valid)
         return;
-    s_systemPhysicsCompute[handle.systemIndex] = INVALID_CUSTOM_COMPUTE;
+    _systemPhysicsCompute[handle.systemIndex] = INVALID_CUSTOM_COMPUTE;
 }
 
 void Particles::_setPhysicsPassParams(const ParticleSystemHandle &handle,
     glm::vec2 gravity, float drag) {
     if (!handle.valid)
         return;
-    s_systemPhysicsGravity[handle.systemIndex] = gravity;
-    s_systemPhysicsDrag[handle.systemIndex]    = drag;
+    _systemPhysicsGravity[handle.systemIndex] = gravity;
+    _systemPhysicsDrag[handle.systemIndex]    = drag;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1079,32 +1079,32 @@ void Particles::_enableSpringPass(const ParticleSystemHandle &handle,
     float springK, float damping) {
     if (!handle.valid || !springCompute.valid)
         return;
-    s_systemSpringCompute[handle.systemIndex]  = springCompute.index;
-    s_systemSpringK[handle.systemIndex]        = springK;
-    s_systemSpringDamp[handle.systemIndex]     = damping;
-    s_systemSpringInteract[handle.systemIndex] = {};
+    _systemSpringCompute[handle.systemIndex]  = springCompute.index;
+    _systemSpringK[handle.systemIndex]        = springK;
+    _systemSpringDamp[handle.systemIndex]     = damping;
+    _systemSpringInteract[handle.systemIndex] = {};
 }
 
 void Particles::_disableSpringPass(const ParticleSystemHandle &handle) {
     if (!handle.valid)
         return;
-    s_systemSpringCompute[handle.systemIndex]  = INVALID_CUSTOM_COMPUTE;
-    s_systemSpringInteract[handle.systemIndex] = {};
+    _systemSpringCompute[handle.systemIndex]  = INVALID_CUSTOM_COMPUTE;
+    _systemSpringInteract[handle.systemIndex] = {};
 }
 
 void Particles::_setSpringParams(const ParticleSystemHandle &handle,
     float springK, float damping) {
     if (!handle.valid)
         return;
-    s_systemSpringK[handle.systemIndex]    = springK;
-    s_systemSpringDamp[handle.systemIndex] = damping;
+    _systemSpringK[handle.systemIndex]    = springK;
+    _systemSpringDamp[handle.systemIndex] = damping;
 }
 
 void Particles::_setSpringInteraction(const ParticleSystemHandle &handle,
     float x, float y, float r, float f) {
     if (!handle.valid)
         return;
-    s_systemSpringInteract[handle.systemIndex] = { x, y, r, f };
+    _systemSpringInteract[handle.systemIndex] = { x, y, r, f };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1114,18 +1114,18 @@ void Particles::_setSpringInteraction(const ParticleSystemHandle &handle,
 ColliderHandle Particles::_addCollider(ColliderType type, glm::vec4 params,
     float restitution, float friction) {
     for (uint32_t i = 0; i < MAX_COLLIDERS; ++i) {
-        if (s_colliderUsed[i])
+        if (_colliderUsed[i])
             continue;
-        s_colliderData[i] = {
+        _colliderData[i] = {
             .params      = params,
             .restitution = restitution,
             .friction    = friction,
             .type        = static_cast<uint32_t>(type),
             .enabled     = 1u,
         };
-        s_colliderUsed[i]   = true;
-        s_colliderHighWater = std::max(s_colliderHighWater, i + 1u);
-        s_colliderDirty     = true;
+        _colliderUsed[i]   = true;
+        _colliderHighWater = std::max(_colliderHighWater, i + 1u);
+        _colliderDirty     = true;
         return { i, true };
     }
     LOG_ERROR("Particles: no free collider slots (MAX_COLLIDERS = {})", MAX_COLLIDERS);
@@ -1135,42 +1135,42 @@ ColliderHandle Particles::_addCollider(ColliderType type, glm::vec4 params,
 void Particles::_removeCollider(ColliderHandle &handle) {
     if (!handle.valid)
         return;
-    s_colliderData[handle.index].enabled = 0u;
-    s_colliderUsed[handle.index]         = false;
+    _colliderData[handle.index].enabled = 0u;
+    _colliderUsed[handle.index]         = false;
     // Recompute high-water mark
-    s_colliderHighWater = 0;
+    _colliderHighWater = 0;
     for (uint32_t i = 0; i < MAX_COLLIDERS; ++i)
-        if (s_colliderUsed[i])
-            s_colliderHighWater = i + 1u;
-    s_colliderDirty = true;
-    handle          = {};
+        if (_colliderUsed[i])
+            _colliderHighWater = i + 1u;
+    _colliderDirty = true;
+    handle         = {};
 }
 
 void Particles::_clearColliders() {
     for (uint32_t i = 0; i < MAX_COLLIDERS; ++i) {
-        s_colliderData[i].enabled = 0u;
-        s_colliderUsed[i]         = false;
+        _colliderData[i].enabled = 0u;
+        _colliderUsed[i]         = false;
     }
-    s_colliderHighWater = 0;
-    s_colliderDirty     = true;
+    _colliderHighWater = 0;
+    _colliderDirty     = true;
 }
 
 void Particles::_updateCollider(const ColliderHandle &handle, glm::vec4 params,
     float restitution, float friction) {
     if (!handle.valid)
         return;
-    s_colliderData[handle.index].params      = params;
-    s_colliderData[handle.index].restitution = restitution;
-    s_colliderData[handle.index].friction    = friction;
-    s_colliderDirty                          = true;
+    _colliderData[handle.index].params      = params;
+    _colliderData[handle.index].restitution = restitution;
+    _colliderData[handle.index].friction    = friction;
+    _colliderDirty                          = true;
 }
 
 void Particles::_setPOV(bool enabled, float decay) {
-    if (s_renderPass)
-        s_renderPass->SetPOV(enabled, decay);
+    if (_renderPass)
+        _renderPass->SetPOV(enabled, decay);
 }
-bool  Particles::_getPOVEnabled() { return s_renderPass ? s_renderPass->getPOVEnabled() : false; }
-float Particles::_getPOVDecay() { return s_renderPass ? s_renderPass->getPOVDecay() : 0.92f; }
+bool  Particles::_getPOVEnabled() { return _renderPass ? _renderPass->GetPOVEnabled() : false; }
+float Particles::_getPOVDecay() { return _renderPass ? _renderPass->GetPOVDecay() : 0.92f; }
 
 void Particles::_attachToFramebuffer(const std::string &fbName) {
     FrameBuffer *fb = Renderer::GetFramebuffer(fbName);
@@ -1178,9 +1178,9 @@ void Particles::_attachToFramebuffer(const std::string &fbName) {
         LOG_ERROR("Particles::_attachToFramebuffer: framebuffer '{}' not found", fbName);
         return;
     }
-    GpuTextureFormat fmt = Renderer::GetGpu().getSwapchainFormat();
-    s_renderPass->init(fmt, fb->width, fb->height, "particles");
-    Renderer::AttachRenderPassToFrameBuffer(s_renderPass, "particles", fbName);
+    GpuTextureFormat fmt = Renderer::GetGpu().GetSwapchainFormat();
+    _renderPass->Init(fmt, fb->width, fb->height, "particles");
+    Renderer::AttachRenderPassToFrameBuffer(_renderPass, "particles", fbName);
 }
 
 // Called by Renderer::_endFrame() BEFORE Compute::ExecuteQueued()
@@ -1188,32 +1188,32 @@ void Particles::_prepareFrame(GpuCmdBufferHandle cmdBuf) {
     // Build particle compute dispatches for this frame using accumulated dt.
     // Update() only accumulates; the actual enqueue happens here so it survives
     // even when Update() is called multiple times per rendered frame.
-    if (s_updateQueued) {
-        s_updateQueued = false;
+    if (_updateQueued) {
+        _updateQueued = false;
         _buildDispatches();
     }
 
-    if (!s_systemDirty && !s_colliderDirty)
+    if (!_systemDirty && !_colliderDirty)
         return;
 
     IGpu &gpu = Renderer::GetGpu();
 
-    if (s_systemDirty) {
-        s_systemDirty   = false;
+    if (_systemDirty) {
+        _systemDirty    = false;
         uint32_t sz     = static_cast<uint32_t>(MAX_SYSTEMS * sizeof(GPUParticleSystem));
-        void    *mapped = gpu.mapTransferBuffer(s_systemUploadBuf, false);
-        std::memcpy(mapped, s_systemData, sz);
-        gpu.unmapTransferBuffer(s_systemUploadBuf);
-        gpu.uploadToBuffer(cmdBuf, s_systemUploadBuf, 0, s_systemBuf, 0, sz);
+        void    *mapped = gpu.MapTransferBuffer(_systemUploadBuf, false);
+        std::memcpy(mapped, _systemData, sz);
+        gpu.UnmapTransferBuffer(_systemUploadBuf);
+        gpu.UploadToBuffer(cmdBuf, _systemUploadBuf, 0, _systemBuf, 0, sz);
     }
 
-    if (s_colliderDirty) {
-        s_colliderDirty = false;
+    if (_colliderDirty) {
+        _colliderDirty  = false;
         uint32_t sz     = static_cast<uint32_t>(MAX_COLLIDERS * sizeof(GPUCollider));
-        void    *mapped = gpu.mapTransferBuffer(s_colliderUploadBuf, false);
-        std::memcpy(mapped, s_colliderData, sz);
-        gpu.unmapTransferBuffer(s_colliderUploadBuf);
-        gpu.uploadToBuffer(cmdBuf, s_colliderUploadBuf, 0, s_colliderBuf, 0, sz);
+        void    *mapped = gpu.MapTransferBuffer(_colliderUploadBuf, false);
+        std::memcpy(mapped, _colliderData, sz);
+        gpu.UnmapTransferBuffer(_colliderUploadBuf);
+        gpu.UploadToBuffer(cmdBuf, _colliderUploadBuf, 0, _colliderBuf, 0, sz);
     }
 }
 
@@ -1225,34 +1225,34 @@ ParticleRenderPass::ParticleRenderPass()
     : RenderPass() {
 }
 
-bool ParticleRenderPass::init(GpuTextureFormat swapchainFormat,
+bool ParticleRenderPass::Init(GpuTextureFormat swapchainFormat,
     uint32_t width, uint32_t height,
     std::string name, bool logInit,
     size_t /*capacity*/, bool /*forceNoMSAA*/) {
-    passname        = std::move(name);
-    m_format        = swapchainFormat;
-    m_surfaceWidth  = width;
-    m_surfaceHeight = height;
+    _passname      = std::move(name);
+    _format        = swapchainFormat;
+    _surfaceWidth  = width;
+    _surfaceHeight = height;
 
     IGpu &gpu = Renderer::GetGpu();
 
     const char *vertEntry = Shaders::GetVertexEntryPoint();
     const char *fragEntry = Shaders::GetFragmentEntryPoint();
 
-    m_vertShader = gpu.createShader({
-        Luminoveau::Shaders::Particles_Vert,
-        Luminoveau::Shaders::Particles_Vert_Size,
+    _vertShader = gpu.CreateShader({
+        Lumi::Shaders::PARTICLES_VERT,
+        Lumi::Shaders::PARTICLES_VERT_SIZE,
         vertEntry, GpuShaderStage::Vertex,
         0, 1, 2, 0 // samplers=0, uniforms=1, storageBufs=2, storageTex=0
     });
-    m_fragShader = gpu.createShader({
-        Luminoveau::Shaders::Particles_Frag,
-        Luminoveau::Shaders::Particles_Frag_Size,
+    _fragShader = gpu.CreateShader({
+        Lumi::Shaders::PARTICLES_FRAG,
+        Lumi::Shaders::PARTICLES_FRAG_SIZE,
         fragEntry, GpuShaderStage::Fragment,
         1, 0, 0, 0 // samplers=1
     });
 
-    if (!m_vertShader || !m_fragShader) {
+    if (!_vertShader || !_fragShader) {
         LOG_ERROR("ParticleRenderPass: shader creation failed");
         return false;
     }
@@ -1280,8 +1280,8 @@ bool ParticleRenderPass::init(GpuTextureFormat swapchainFormat,
     };
 
     GpuGraphicsPipelineCreateInfo pipelineInfo {};
-    pipelineInfo.vertexShader             = m_vertShader;
-    pipelineInfo.fragmentShader           = m_fragShader;
+    pipelineInfo.vertexShader             = _vertShader;
+    pipelineInfo.fragmentShader           = _fragShader;
     pipelineInfo.colorTargetFormat        = swapchainFormat;
     pipelineInfo.hasDepthTarget           = false;
     pipelineInfo.vertexStorageBufferCount = 2;
@@ -1292,30 +1292,30 @@ bool ParticleRenderPass::init(GpuTextureFormat swapchainFormat,
     // not supported (would need MSAA POV textures + a resolve before compositing).
     pipelineInfo.sampleCount = Renderer::GetSampleCount();
 
-    m_pipeline = gpu.createGraphicsPipeline(pipelineInfo);
-    if (!m_pipeline) {
+    _pipeline = gpu.CreateGraphicsPipeline(pipelineInfo);
+    if (!_pipeline) {
         LOG_ERROR("ParticleRenderPass: failed to create pipeline");
         return false;
     }
 
     pipelineInfo.blend = standardBlend;
-    m_pixelPipeline    = gpu.createGraphicsPipeline(pipelineInfo);
-    if (!m_pixelPipeline) {
+    _pixelPipeline     = gpu.CreateGraphicsPipeline(pipelineInfo);
+    if (!_pixelPipeline) {
         LOG_ERROR("ParticleRenderPass: failed to create pixel pipeline");
         return false;
     }
 
     // ── POV shaders ───────────────────────────────────────────────────────────
-    m_povVertShader = gpu.createShader({ Luminoveau::Shaders::ParticlesPov_Vert,
-        Luminoveau::Shaders::ParticlesPov_Vert_Size,
+    _povVertShader = gpu.CreateShader({ Lumi::Shaders::PARTICLES_POV_VERT,
+        Lumi::Shaders::PARTICLES_POV_VERT_SIZE,
         vertEntry, GpuShaderStage::Vertex,
         0, 1, 0, 0 });
-    m_povFragShader = gpu.createShader({ Luminoveau::Shaders::ParticlesPov_Frag,
-        Luminoveau::Shaders::ParticlesPov_Frag_Size,
+    _povFragShader = gpu.CreateShader({ Lumi::Shaders::PARTICLES_POV_FRAG,
+        Lumi::Shaders::PARTICLES_POV_FRAG_SIZE,
         fragEntry, GpuShaderStage::Fragment,
         1, 0, 0, 0 });
 
-    if (!m_povVertShader || !m_povFragShader) {
+    if (!_povVertShader || !_povFragShader) {
         LOG_ERROR("ParticleRenderPass: POV shader creation failed");
         return false;
     }
@@ -1326,27 +1326,27 @@ bool ParticleRenderPass::init(GpuTextureFormat swapchainFormat,
     povTexInfo.height = height;
     povTexInfo.format = swapchainFormat;
     povTexInfo.usage  = GpuTextureUsage::Sampler | GpuTextureUsage::ColorTarget;
-    m_povTex[0]       = gpu.createTexture(povTexInfo);
-    m_povTex[1]       = gpu.createTexture(povTexInfo);
+    _povTex[0]        = gpu.CreateTexture(povTexInfo);
+    _povTex[1]        = gpu.CreateTexture(povTexInfo);
 
-    if (!m_povTex[0] || !m_povTex[1]) {
+    if (!_povTex[0] || !_povTex[1]) {
         LOG_ERROR("ParticleRenderPass: POV texture creation failed");
         return false;
     }
 
     // Zero-initialize POV textures via clear passes
     {
-        GpuCmdBufferHandle initCmd = gpu.acquireCommandBuffer();
+        GpuCmdBufferHandle initCmd = gpu.AcquireCommandBuffer();
         for (int ti = 0; ti < 2; ti++) {
             GpuColorTargetInfo ci {};
-            ci.texture = m_povTex[ti];
+            ci.texture = _povTex[ti];
             ci.loadOp  = GpuLoadOp::Clear;
             ci.storeOp = GpuStoreOp::Store;
             ci.clearR = ci.clearG = ci.clearB = ci.clearA = 0.f;
-            GpuRenderPassHandle rp                        = gpu.beginRenderPass(initCmd, &ci, 1, nullptr);
-            gpu.endRenderPass(rp);
+            GpuRenderPassHandle rp                        = gpu.BeginRenderPass(initCmd, &ci, 1, nullptr);
+            gpu.EndRenderPass(rp);
         }
-        gpu.submitCommandBuffer(initCmd);
+        gpu.SubmitCommandBuffer(initCmd);
     }
 
     // Nearest sampler
@@ -1357,18 +1357,18 @@ bool ParticleRenderPass::init(GpuTextureFormat swapchainFormat,
     povSampInfo.addressU  = GpuSamplerAddressMode::ClampToEdge;
     povSampInfo.addressV  = GpuSamplerAddressMode::ClampToEdge;
     povSampInfo.addressW  = GpuSamplerAddressMode::ClampToEdge;
-    m_povSampler          = gpu.createSampler(povSampInfo);
+    _povSampler           = gpu.CreateSampler(povSampInfo);
 
     // ── POV pipelines ─────────────────────────────────────────────────────────
     GpuGraphicsPipelineCreateInfo povBase {};
-    povBase.vertexShader      = m_povVertShader;
-    povBase.fragmentShader    = m_povFragShader;
+    povBase.vertexShader      = _povVertShader;
+    povBase.fragmentShader    = _povFragShader;
     povBase.colorTargetFormat = swapchainFormat;
     povBase.hasDepthTarget    = false;
 
     // Decay: no blend
-    povBase.blend      = {};
-    m_povDecayPipeline = gpu.createGraphicsPipeline(povBase);
+    povBase.blend     = {};
+    _povDecayPipeline = gpu.CreateGraphicsPipeline(povBase);
 
     // Composite: ONE+ONE additive
     GpuColorTargetBlendState povBlend = {
@@ -1380,78 +1380,78 @@ bool ParticleRenderPass::init(GpuTextureFormat swapchainFormat,
         .dstAlphaFactor = GpuBlendFactor::One,
         .alphaOp        = GpuBlendOp::Add,
     };
-    povBase.blend          = povBlend;
-    m_povCompositePipeline = gpu.createGraphicsPipeline(povBase);
+    povBase.blend         = povBlend;
+    _povCompositePipeline = gpu.CreateGraphicsPipeline(povBase);
 
-    if (!m_povDecayPipeline || !m_povCompositePipeline) {
+    if (!_povDecayPipeline || !_povCompositePipeline) {
         LOG_ERROR("ParticleRenderPass: POV pipeline creation failed");
         return false;
     }
 
-    m_povNeedsClear = true;
-    m_povIndex      = 0;
+    _povNeedsClear = true;
+    _povIndex      = 0;
 
     if (logInit)
-        LOG_INFO("ParticleRenderPass '{}' initialized", passname);
+        LOG_INFO("ParticleRenderPass '{}' initialized", _passname);
     return true;
 }
 
-void ParticleRenderPass::release(bool logRelease) {
+void ParticleRenderPass::Release(bool logRelease) {
     IGpu &gpu = Renderer::GetGpu();
-    if (m_pipeline) {
-        gpu.releaseGraphicsPipeline(m_pipeline);
-        m_pipeline = 0;
+    if (_pipeline) {
+        gpu.ReleaseGraphicsPipeline(_pipeline);
+        _pipeline = 0;
     }
-    if (m_pixelPipeline) {
-        gpu.releaseGraphicsPipeline(m_pixelPipeline);
-        m_pixelPipeline = 0;
+    if (_pixelPipeline) {
+        gpu.ReleaseGraphicsPipeline(_pixelPipeline);
+        _pixelPipeline = 0;
     }
-    if (m_vertShader) {
-        gpu.releaseShader(m_vertShader);
-        m_vertShader = 0;
+    if (_vertShader) {
+        gpu.ReleaseShader(_vertShader);
+        _vertShader = 0;
     }
-    if (m_fragShader) {
-        gpu.releaseShader(m_fragShader);
-        m_fragShader = 0;
+    if (_fragShader) {
+        gpu.ReleaseShader(_fragShader);
+        _fragShader = 0;
     }
-    if (m_povDecayPipeline) {
-        gpu.releaseGraphicsPipeline(m_povDecayPipeline);
-        m_povDecayPipeline = 0;
+    if (_povDecayPipeline) {
+        gpu.ReleaseGraphicsPipeline(_povDecayPipeline);
+        _povDecayPipeline = 0;
     }
-    if (m_povCompositePipeline) {
-        gpu.releaseGraphicsPipeline(m_povCompositePipeline);
-        m_povCompositePipeline = 0;
+    if (_povCompositePipeline) {
+        gpu.ReleaseGraphicsPipeline(_povCompositePipeline);
+        _povCompositePipeline = 0;
     }
-    if (m_povVertShader) {
-        gpu.releaseShader(m_povVertShader);
-        m_povVertShader = 0;
+    if (_povVertShader) {
+        gpu.ReleaseShader(_povVertShader);
+        _povVertShader = 0;
     }
-    if (m_povFragShader) {
-        gpu.releaseShader(m_povFragShader);
-        m_povFragShader = 0;
+    if (_povFragShader) {
+        gpu.ReleaseShader(_povFragShader);
+        _povFragShader = 0;
     }
-    if (m_povTex[0]) {
-        gpu.releaseTexture(m_povTex[0]);
-        m_povTex[0] = 0;
+    if (_povTex[0]) {
+        gpu.ReleaseTexture(_povTex[0]);
+        _povTex[0] = 0;
     }
-    if (m_povTex[1]) {
-        gpu.releaseTexture(m_povTex[1]);
-        m_povTex[1] = 0;
+    if (_povTex[1]) {
+        gpu.ReleaseTexture(_povTex[1]);
+        _povTex[1] = 0;
     }
-    if (m_povSampler) {
-        gpu.releaseSampler(m_povSampler);
-        m_povSampler = 0;
+    if (_povSampler) {
+        gpu.ReleaseSampler(_povSampler);
+        _povSampler = 0;
     }
     if (logRelease)
-        LOG_INFO("ParticleRenderPass '{}' released", passname);
+        LOG_INFO("ParticleRenderPass '{}' released", _passname);
 }
 
-void ParticleRenderPass::render(GpuCmdBufferHandle cmdBuf,
+void ParticleRenderPass::Render(GpuCmdBufferHandle cmdBuf,
     GpuTextureHandle                               target,
     const glm::mat4                               &camera) {
     IGpu &gpu = Renderer::GetGpu();
 
-    if (m_drawQueue.empty()) {
+    if (_drawQueue.empty()) {
         // No particles to draw — but if we're the MSAA resolve owner (typically the last pass on
         // the framebuffer), we must still resolve the multisampled target down to fbContent, or the
         // whole frame stays black under MSAA. A draw-less Load+Resolve pass does exactly that.
@@ -1461,8 +1461,8 @@ void ParticleRenderPass::render(GpuCmdBufferHandle cmdBuf,
             resolveInfo.resolveTexture = renderTargetResolve;
             resolveInfo.loadOp         = GpuLoadOp::Load;
             resolveInfo.storeOp        = GpuStoreOp::Resolve;
-            GpuRenderPassHandle rp     = gpu.beginRenderPass(cmdBuf, &resolveInfo, 1, nullptr);
-            gpu.endRenderPass(rp);
+            GpuRenderPassHandle rp     = gpu.BeginRenderPass(cmdBuf, &resolveInfo, 1, nullptr);
+            gpu.EndRenderPass(rp);
         }
         return;
     }
@@ -1471,8 +1471,8 @@ void ParticleRenderPass::render(GpuCmdBufferHandle cmdBuf,
     // at logical (x, y). Works for both backends: on SDL the surface is desktop-sized (so camW
     // = desktop-logical); on WebGPU the surface == window-physical (so the ratio collapses to 1
     // and camW = window-logical, matching Renderer::_updateCameraProjection's CSS-pixel contract).
-    float camW = (float)m_surfaceWidth * (float)Window::GetWidth() / (float)Window::GetPhysicalWidth();
-    float camH = (float)m_surfaceHeight * (float)Window::GetHeight() / (float)Window::GetPhysicalHeight();
+    float camW = (float)_surfaceWidth * (float)Window::GetWidth() / (float)Window::GetPhysicalWidth();
+    float camH = (float)_surfaceHeight * (float)Window::GetHeight() / (float)Window::GetPhysicalHeight();
 
     float     camScale        = Camera::GetScale();
     vf2d      camTarget       = Camera::GetTarget();
@@ -1488,7 +1488,7 @@ void ParticleRenderPass::render(GpuCmdBufferHandle cmdBuf,
 
     struct POVUniforms {
         float gScale;
-        float _pad[3];
+        float pad[3];
     };
 
     GpuBufferHandle storageBufs[2] = {
@@ -1497,56 +1497,56 @@ void ParticleRenderPass::render(GpuCmdBufferHandle cmdBuf,
     };
 
     auto drawParticles = [&](GpuRenderPassHandle rp) {
-        gpu.pushVertexUniformData(cmdBuf, 0, &vu, sizeof(vu));
+        gpu.PushVertexUniformData(cmdBuf, 0, &vu, sizeof(vu));
         GpuGraphicsPipelineHandle activePipeline = 0;
-        for (const auto &cmd : m_drawQueue) {
-            GpuGraphicsPipelineHandle needed = cmd.pixelMode ? m_pixelPipeline : m_pipeline;
+        for (const auto &cmd : _drawQueue) {
+            GpuGraphicsPipelineHandle needed = cmd.pixelMode ? _pixelPipeline : _pipeline;
             if (needed != activePipeline) {
-                gpu.bindGraphicsPipeline(rp, needed);
-                gpu.bindVertexStorageBuffers(rp, 0, storageBufs, 2);
+                gpu.BindGraphicsPipeline(rp, needed);
+                gpu.BindVertexStorageBuffers(rp, 0, storageBufs, 2);
                 activePipeline = needed;
             }
             GpuTextureSamplerBinding sb = {
                 cmd.texture ? cmd.texture : Particles::GetWhiteTexture(),
                 cmd.sampler ? cmd.sampler : Particles::GetLinearSampler(),
             };
-            gpu.bindFragmentSamplers(rp, 0, &sb, 1);
-            gpu.drawPrimitives(rp, 6, cmd.maxParticles, 0, cmd.particleOffset);
+            gpu.BindFragmentSamplers(rp, 0, &sb, 1);
+            gpu.DrawPrimitives(rp, 6, cmd.maxParticles, 0, cmd.particleOffset);
         }
     };
 
-    if (m_povEnabled && m_povDecayPipeline && m_povCompositePipeline) {
-        uint32_t         curr    = m_povIndex;
+    if (_povEnabled && _povDecayPipeline && _povCompositePipeline) {
+        uint32_t         curr    = _povIndex;
         uint32_t         prev    = 1u - curr;
-        GpuTextureHandle povCurr = m_povTex[curr];
-        GpuTextureHandle povPrev = m_povTex[prev];
+        GpuTextureHandle povCurr = _povTex[curr];
+        GpuTextureHandle povPrev = _povTex[prev];
 
         // ── 1. Decay pass: fade previous accumulation into current ────────────
-        if (!m_povNeedsClear) {
+        if (!_povNeedsClear) {
             GpuColorTargetInfo decayInfo {};
             decayInfo.texture      = povCurr;
             decayInfo.loadOp       = GpuLoadOp::DontCare;
             decayInfo.storeOp      = GpuStoreOp::Store;
-            GpuRenderPassHandle rp = gpu.beginRenderPass(cmdBuf, &decayInfo, 1, nullptr);
-            gpu.bindGraphicsPipeline(rp, m_povDecayPipeline);
-            GpuTextureSamplerBinding sb = { povPrev, m_povSampler };
-            gpu.bindFragmentSamplers(rp, 0, &sb, 1);
-            POVUniforms pu = { m_povDecay, {} };
-            gpu.pushVertexUniformData(cmdBuf, 0, &pu, sizeof(pu));
-            gpu.drawPrimitives(rp, 3, 1, 0, 0);
-            gpu.endRenderPass(rp);
+            GpuRenderPassHandle rp = gpu.BeginRenderPass(cmdBuf, &decayInfo, 1, nullptr);
+            gpu.BindGraphicsPipeline(rp, _povDecayPipeline);
+            GpuTextureSamplerBinding sb = { povPrev, _povSampler };
+            gpu.BindFragmentSamplers(rp, 0, &sb, 1);
+            POVUniforms pu = { _povDecay, {} };
+            gpu.PushVertexUniformData(cmdBuf, 0, &pu, sizeof(pu));
+            gpu.DrawPrimitives(rp, 3, 1, 0, 0);
+            gpu.EndRenderPass(rp);
         }
 
         // ── 2. Particle render into POV texture ───────────────────────────────
         {
             GpuColorTargetInfo particleInfo {};
             particleInfo.texture   = povCurr;
-            particleInfo.loadOp    = m_povNeedsClear ? GpuLoadOp::Clear : GpuLoadOp::Load;
+            particleInfo.loadOp    = _povNeedsClear ? GpuLoadOp::Clear : GpuLoadOp::Load;
             particleInfo.storeOp   = GpuStoreOp::Store;
-            GpuRenderPassHandle rp = gpu.beginRenderPass(cmdBuf, &particleInfo, 1, nullptr);
+            GpuRenderPassHandle rp = gpu.BeginRenderPass(cmdBuf, &particleInfo, 1, nullptr);
             drawParticles(rp);
-            gpu.endRenderPass(rp);
-            m_povNeedsClear = false;
+            gpu.EndRenderPass(rp);
+            _povNeedsClear = false;
         }
 
         // ── 3. Composite POV texture onto swapchain ───────────────────────────
@@ -1555,17 +1555,17 @@ void ParticleRenderPass::render(GpuCmdBufferHandle cmdBuf,
             compositeInfo.texture  = target;
             compositeInfo.loadOp   = GpuLoadOp::Load;
             compositeInfo.storeOp  = GpuStoreOp::Store;
-            GpuRenderPassHandle rp = gpu.beginRenderPass(cmdBuf, &compositeInfo, 1, nullptr);
-            gpu.bindGraphicsPipeline(rp, m_povCompositePipeline);
-            GpuTextureSamplerBinding sb = { povCurr, m_povSampler };
-            gpu.bindFragmentSamplers(rp, 0, &sb, 1);
+            GpuRenderPassHandle rp = gpu.BeginRenderPass(cmdBuf, &compositeInfo, 1, nullptr);
+            gpu.BindGraphicsPipeline(rp, _povCompositePipeline);
+            GpuTextureSamplerBinding sb = { povCurr, _povSampler };
+            gpu.BindFragmentSamplers(rp, 0, &sb, 1);
             POVUniforms pu = { 1.0f, {} };
-            gpu.pushVertexUniformData(cmdBuf, 0, &pu, sizeof(pu));
-            gpu.drawPrimitives(rp, 3, 1, 0, 0);
-            gpu.endRenderPass(rp);
+            gpu.PushVertexUniformData(cmdBuf, 0, &pu, sizeof(pu));
+            gpu.DrawPrimitives(rp, 3, 1, 0, 0);
+            gpu.EndRenderPass(rp);
         }
 
-        m_povIndex ^= 1u;
+        _povIndex ^= 1u;
 
     } else {
         // Standard path — render into the framebuffer. Under MSAA this pass is typically last, so
@@ -1576,15 +1576,15 @@ void ParticleRenderPass::render(GpuCmdBufferHandle cmdBuf,
         colorInfo.resolveTexture = renderTargetResolve;
         colorInfo.loadOp         = GpuLoadOp::Load;
         colorInfo.storeOp        = (renderTargetResolve != 0) ? GpuStoreOp::Resolve : GpuStoreOp::Store;
-        GpuRenderPassHandle rp   = gpu.beginRenderPass(cmdBuf, &colorInfo, 1, nullptr);
+        GpuRenderPassHandle rp   = gpu.BeginRenderPass(cmdBuf, &colorInfo, 1, nullptr);
         drawParticles(rp);
-        gpu.endRenderPass(rp);
+        gpu.EndRenderPass(rp);
     }
 }
 
 void ParticleRenderPass::SetPOV(bool enabled, float decay) {
-    if (enabled && !m_povEnabled)
-        m_povNeedsClear = true; // flush stale accumulation on re-enable
-    m_povEnabled = enabled;
-    m_povDecay   = decay;
+    if (enabled && !_povEnabled)
+        _povNeedsClear = true; // flush stale accumulation on re-enable
+    _povEnabled = enabled;
+    _povDecay   = decay;
 }

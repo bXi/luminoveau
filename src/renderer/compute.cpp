@@ -25,9 +25,9 @@ void Compute::_clearBuilderState() {
 
 void Compute::_setPipeline(const ComputePipelineAsset &pipeline) {
     _pipeline = pipeline.pipeline;
-    _tcX      = pipeline.threadcount_x;
-    _tcY      = pipeline.threadcount_y;
-    _tcZ      = pipeline.threadcount_z;
+    _tcX      = pipeline.threadCountX;
+    _tcY      = pipeline.threadCountY;
+    _tcZ      = pipeline.threadCountZ;
 }
 
 void Compute::_bindReadTexture(uint32_t slot, GpuTextureHandle tex) {
@@ -79,9 +79,9 @@ void Compute::_enqueueDispatch(uint32_t gx, uint32_t gy, uint32_t gz) {
     }
     DispatchRecord rec;
     rec.pipeline          = _pipeline;
-    rec.threadcount_x     = _tcX;
-    rec.threadcount_y     = _tcY;
-    rec.threadcount_z     = _tcZ;
+    rec.threadCountX      = _tcX;
+    rec.threadCountY      = _tcY;
+    rec.threadCountZ      = _tcZ;
     rec.readTextures      = _readTextures;
     rec.readWriteTextures = _readWriteTextures;
     rec.readBuffers       = _readBuffers;
@@ -116,7 +116,7 @@ void Compute::_dispatchAuto(uint32_t totalX, uint32_t totalY, uint32_t totalZ) {
 
 GpuBufferHandle Compute::_createBuffer(uint32_t size, GpuBufferUsage usage) {
     GpuBufferCreateInfo info { size, usage };
-    GpuBufferHandle     buf = Renderer::GetGpu().createBuffer(info);
+    GpuBufferHandle     buf = Renderer::GetGpu().CreateBuffer(info);
     if (!buf)
         LOG_ERROR("Compute::CreateBuffer failed ({} bytes)", size);
     return buf;
@@ -124,32 +124,32 @@ GpuBufferHandle Compute::_createBuffer(uint32_t size, GpuBufferUsage usage) {
 
 void Compute::_uploadBufferData(GpuBufferHandle buffer, const void *data, uint32_t size) {
     IGpu                   &gpu = Renderer::GetGpu();
-    GpuTransferBufferHandle tb  = gpu.createTransferBuffer({ size, GpuTransferUsage::Upload });
+    GpuTransferBufferHandle tb  = gpu.CreateTransferBuffer({ size, GpuTransferUsage::Upload });
     if (!tb) {
         LOG_ERROR("Compute::UploadBufferData: failed to create transfer buffer");
         return;
     }
 
-    void *mapped = gpu.mapTransferBuffer(tb, false);
+    void *mapped = gpu.MapTransferBuffer(tb, false);
     if (!mapped) {
         LOG_ERROR("Compute::UploadBufferData: failed to map transfer buffer");
-        gpu.releaseTransferBuffer(tb);
+        gpu.ReleaseTransferBuffer(tb);
         return;
     }
     std::memcpy(mapped, data, size);
-    gpu.unmapTransferBuffer(tb);
+    gpu.UnmapTransferBuffer(tb);
 
-    GpuCmdBufferHandle cmd = gpu.acquireCommandBuffer();
-    gpu.uploadToBuffer(cmd, tb, 0, buffer, 0, size);
-    gpu.submitCommandBuffer(cmd);
+    GpuCmdBufferHandle cmd = gpu.AcquireCommandBuffer();
+    gpu.UploadToBuffer(cmd, tb, 0, buffer, 0, size);
+    gpu.SubmitCommandBuffer(cmd);
     // No waitIdle: queue ordering guarantees the upload completes before any later dispatch
     // that reads the buffer, and releasing the transfer buffer after submit is deferred-safe.
-    gpu.releaseTransferBuffer(tb);
+    gpu.ReleaseTransferBuffer(tb);
 }
 
 void Compute::_destroyBuffer(GpuBufferHandle buffer) {
     if (buffer)
-        Renderer::GetGpu().releaseBuffer(buffer);
+        Renderer::GetGpu().ReleaseBuffer(buffer);
 }
 
 /// @cond INTERNAL
@@ -183,7 +183,7 @@ void Compute::_executeQueued(GpuCmdBufferHandle cmdBuf) {
             rwBufBindings.push_back({ buf, false });
         }
 
-        GpuComputePassHandle computePass = gpu.beginComputePass(
+        GpuComputePassHandle computePass = gpu.BeginComputePass(
             cmdBuf,
             rwTexBindings.empty() ? nullptr : rwTexBindings.data(),
             static_cast<uint32_t>(rwTexBindings.size()),
@@ -195,27 +195,27 @@ void Compute::_executeQueued(GpuCmdBufferHandle cmdBuf) {
             continue;
         }
 
-        gpu.bindComputePipeline(computePass, rec.pipeline);
+        gpu.BindComputePipeline(computePass, rec.pipeline);
 
         for (const auto &[slot, bytes] : rec.uniforms) {
-            gpu.pushComputeUniformData(cmdBuf, slot, bytes.data(),
+            gpu.PushComputeUniformData(cmdBuf, slot, bytes.data(),
                 static_cast<uint32_t>(bytes.size()));
         }
 
         if (!rec.readTextures.empty()) {
-            gpu.bindComputeStorageTextures(computePass, 0,
+            gpu.BindComputeStorageTextures(computePass, 0,
                 rec.readTextures.data(),
                 static_cast<uint32_t>(rec.readTextures.size()));
         }
 
         if (!rec.readBuffers.empty()) {
-            gpu.bindComputeStorageBuffers(computePass, 0,
+            gpu.BindComputeStorageBuffers(computePass, 0,
                 rec.readBuffers.data(),
                 static_cast<uint32_t>(rec.readBuffers.size()));
         }
 
-        gpu.dispatchCompute(computePass, rec.groupX, rec.groupY, rec.groupZ);
-        gpu.endComputePass(computePass);
+        gpu.DispatchCompute(computePass, rec.groupX, rec.groupY, rec.groupZ);
+        gpu.EndComputePass(computePass);
     }
 }
 
@@ -224,4 +224,3 @@ void Compute::_reset() {
     _clearBuilderState();
 }
 /// @endcond
-

@@ -7,49 +7,49 @@
 #include <cstring>
 
 ResourceBuffer::ResourceBuffer(std::ifstream &ifs, uint32_t offset, uint32_t size) {
-    vMemory.resize(size);
+    memory.resize(size);
     ifs.seekg(offset);
-    ifs.read(reinterpret_cast<char *>(vMemory.data()), vMemory.size());
-    setg(reinterpret_cast<char *>(vMemory.data()), reinterpret_cast<char *>(vMemory.data()), reinterpret_cast<char *>(vMemory.data() + size));
+    ifs.read(reinterpret_cast<char *>(memory.data()), memory.size());
+    setg(reinterpret_cast<char *>(memory.data()), reinterpret_cast<char *>(memory.data()), reinterpret_cast<char *>(memory.data() + size));
 }
 
-ResourcePack::ResourcePack(std::string sFile, std::string sKey)
-    : _fileName(std::move(sFile))
-    , _key(std::move(sKey)) {
+ResourcePack::ResourcePack(std::string fileName, std::string key)
+    : _fileName(std::move(fileName))
+    , _key(std::move(key)) {
     LoadPack();
 }
 
-ResourcePack::~ResourcePack() { baseFile.close(); }
+ResourcePack::~ResourcePack() { _baseFile.close(); }
 
-bool ResourcePack::AddFile(const std::string &sFile) {
-    const std::string file = makeposix(sFile);
+bool ResourcePack::AddFile(const std::string &fileName) {
+    const std::string file = _makePosix(fileName);
 
     if (std::filesystem::exists(file)) {
-        sResourceFile e {};
-        e.nSize        = (uint32_t)std::filesystem::file_size(file);
-        e.nOffset      = 0;
-        mapFiles[file] = e;
+        ResourceFile e {};
+        e.size          = (uint32_t)std::filesystem::file_size(file);
+        e.offset        = 0;
+        _mapFiles[file] = e;
         return true;
     }
     return false;
 }
 
-bool ResourcePack::AddFile(const std::string &sFile, std::vector<unsigned char> bytes) {
-    const std::string file = makeposix(sFile);
+bool ResourcePack::AddFile(const std::string &fileName, std::vector<unsigned char> bytes) {
+    const std::string file = _makePosix(fileName);
 
-    sResourceFile e {};
-    e.eType   = eResourceType::ByteArray;
-    e.nSize   = (uint32_t)bytes.size();
-    e.nOffset = 0;
-    e.aBytes  = std::move(bytes);
+    ResourceFile e {};
+    e.type   = ResourceType::ByteArray;
+    e.size   = (uint32_t)bytes.size();
+    e.offset = 0;
+    e.bytes  = std::move(bytes);
 
-    mapFiles[file] = e;
+    _mapFiles[file] = e;
     return true;
 }
 
-bool ResourcePack::HasFile(const std::string &sFile) {
-    const std::string file = makeposix(sFile);
-    return (mapFiles.find(file) != mapFiles.end());
+bool ResourcePack::HasFile(const std::string &fileName) {
+    const std::string file = _makePosix(fileName);
+    return (_mapFiles.find(file) != _mapFiles.end());
 }
 
 bool ResourcePack::LoadPack() {
@@ -73,18 +73,18 @@ bool ResourcePack::LoadPack() {
         return true;
     };
 
-    uint32_t nIndexSize = 0;
-    if (!readFromBuffer(&nIndexSize, sizeof(uint32_t)))
+    uint32_t indexSize = 0;
+    if (!readFromBuffer(&indexSize, sizeof(uint32_t)))
         return false;
 
-    std::vector<char> buffer(nIndexSize);
-    for (uint32_t j = 0; j < nIndexSize; j++) {
+    std::vector<char> buffer(indexSize);
+    for (uint32_t j = 0; j < indexSize; j++) {
         if (bufferPos >= fileData.size())
             return false;
         buffer[j] = fileData[bufferPos++];
     }
 
-    std::vector<char> decoded = scramble(buffer, _key);
+    std::vector<char> decoded = _scramble(buffer, _key);
     size_t            pos     = 0;
     auto              read    = [&decoded, &pos](char *dst, size_t size) {
         memcpy((void *)dst, (const void *)(decoded.data() + pos), size);
@@ -97,24 +97,24 @@ bool ResourcePack::LoadPack() {
         return c;
     };
 
-    uint32_t nMapEntries = 0;
-    read((char *)&nMapEntries, sizeof(uint32_t));
-    for (uint32_t i = 0; i < nMapEntries; i++) {
-        uint32_t nFilePathSize = 0;
-        read((char *)&nFilePathSize, sizeof(uint32_t));
+    uint32_t mapEntries = 0;
+    read((char *)&mapEntries, sizeof(uint32_t));
+    for (uint32_t i = 0; i < mapEntries; i++) {
+        uint32_t filePathSize = 0;
+        read((char *)&filePathSize, sizeof(uint32_t));
 
-        std::string sFileName(nFilePathSize, ' ');
-        for (uint32_t j = 0; j < nFilePathSize; j++)
-            sFileName[j] = get();
+        std::string entryName(filePathSize, ' ');
+        for (uint32_t j = 0; j < filePathSize; j++)
+            entryName[j] = get();
 
-        sResourceFile e {};
-        read((char *)&e.nSize, sizeof(uint32_t));
-        read((char *)&e.nOffset, sizeof(uint32_t));
-        mapFiles[sFileName] = e;
+        ResourceFile e {};
+        read((char *)&e.size, sizeof(uint32_t));
+        read((char *)&e.offset, sizeof(uint32_t));
+        _mapFiles[entryName] = e;
     }
 
-    baseFile.open(_fileName, std::ifstream::binary);
-    if (!baseFile.is_open()) {
+    _baseFile.open(_fileName, std::ifstream::binary);
+    if (!_baseFile.is_open()) {
         LOG_ERROR("ResourcePack: failed to open base file for reading: {}", _fileName);
         return false;
     }
@@ -123,50 +123,50 @@ bool ResourcePack::LoadPack() {
 }
 
 bool ResourcePack::SavePack() {
-    for (auto &[name, entry] : mapFiles) {
-        if (entry.eType == eResourceType::File && baseFile.is_open() && entry.nOffset > 0) {
-            entry.aBytes.resize(entry.nSize);
-            baseFile.seekg(entry.nOffset);
-            baseFile.read(reinterpret_cast<char *>(entry.aBytes.data()), entry.nSize);
-            entry.eType = eResourceType::ByteArray;
+    for (auto &[name, entry] : _mapFiles) {
+        if (entry.type == ResourceType::File && _baseFile.is_open() && entry.offset > 0) {
+            entry.bytes.resize(entry.size);
+            _baseFile.seekg(entry.offset);
+            _baseFile.read(reinterpret_cast<char *>(entry.bytes.data()), entry.size);
+            entry.type = ResourceType::ByteArray;
         }
     }
 
-    if (baseFile.is_open())
-        baseFile.close();
+    if (_baseFile.is_open())
+        _baseFile.close();
 
     std::ofstream ofs(_fileName, std::ofstream::binary);
     if (!ofs.is_open())
         return false;
 
-    uint32_t nIndexSize = 0;
-    ofs.write((char *)&nIndexSize, sizeof(uint32_t));
-    auto nMapSize = uint32_t(mapFiles.size());
-    ofs.write((char *)&nMapSize, sizeof(uint32_t));
-    for (auto &e : mapFiles) {
-        size_t nPathSize = e.first.size();
-        ofs.write((char *)&nPathSize, sizeof(uint32_t));
-        ofs.write(e.first.c_str(), (std::streamsize)nPathSize);
-        ofs.write((char *)&e.second.nSize, sizeof(uint32_t));
-        ofs.write((char *)&e.second.nOffset, sizeof(uint32_t));
+    uint32_t indexSize = 0;
+    ofs.write((char *)&indexSize, sizeof(uint32_t));
+    auto mapSize = uint32_t(_mapFiles.size());
+    ofs.write((char *)&mapSize, sizeof(uint32_t));
+    for (auto &e : _mapFiles) {
+        size_t pathSize = e.first.size();
+        ofs.write((char *)&pathSize, sizeof(uint32_t));
+        ofs.write(e.first.c_str(), (std::streamsize)pathSize);
+        ofs.write((char *)&e.second.size, sizeof(uint32_t));
+        ofs.write((char *)&e.second.offset, sizeof(uint32_t));
     }
 
     std::streampos offset = ofs.tellp();
-    nIndexSize            = (uint32_t)offset;
-    for (auto &e : mapFiles) {
-        e.second.nOffset = (uint32_t)offset;
-        std::vector<uint8_t> vBuffer(e.second.nSize);
+    indexSize             = (uint32_t)offset;
+    for (auto &e : _mapFiles) {
+        e.second.offset = (uint32_t)offset;
+        std::vector<uint8_t> fileBuffer(e.second.size);
 
-        if (e.second.eType == eResourceType::ByteArray) {
-            vBuffer = e.second.aBytes;
+        if (e.second.type == ResourceType::ByteArray) {
+            fileBuffer = e.second.bytes;
         } else {
             std::ifstream i(e.first, std::ifstream::binary);
-            i.read(reinterpret_cast<char *>(vBuffer.data()), e.second.nSize);
+            i.read(reinterpret_cast<char *>(fileBuffer.data()), e.second.size);
             i.close();
         }
 
-        ofs.write((char *)vBuffer.data(), e.second.nSize);
-        offset += e.second.nSize;
+        ofs.write((char *)fileBuffer.data(), e.second.size);
+        offset += e.second.size;
     }
 
     std::vector<char> stream;
@@ -176,44 +176,44 @@ bool ResourcePack::SavePack() {
         memcpy(stream.data() + sizeNow, data, size);
     };
 
-    write((char *)&nMapSize, sizeof(uint32_t));
-    for (auto &e : mapFiles) {
-        size_t nPathSize = e.first.size();
-        write((char *)&nPathSize, sizeof(uint32_t));
-        write(e.first.c_str(), nPathSize);
-        write((char *)&e.second.nSize, sizeof(uint32_t));
-        write((char *)&e.second.nOffset, sizeof(uint32_t));
+    write((char *)&mapSize, sizeof(uint32_t));
+    for (auto &e : _mapFiles) {
+        size_t pathSize = e.first.size();
+        write((char *)&pathSize, sizeof(uint32_t));
+        write(e.first.c_str(), pathSize);
+        write((char *)&e.second.size, sizeof(uint32_t));
+        write((char *)&e.second.offset, sizeof(uint32_t));
     }
-    std::vector<char> sIndexString    = scramble(stream, _key);
-    auto              nIndexStringLen = uint32_t(sIndexString.size());
+    std::vector<char> indexString    = _scramble(stream, _key);
+    auto              indexStringLen = uint32_t(indexString.size());
     ofs.seekp(0, std::ios::beg);
-    ofs.write((char *)&nIndexStringLen, sizeof(uint32_t));
-    ofs.write(sIndexString.data(), nIndexStringLen);
+    ofs.write((char *)&indexStringLen, sizeof(uint32_t));
+    ofs.write(indexString.data(), indexStringLen);
     ofs.close();
 
-    if (baseFile.is_open())
-        baseFile.close();
-    baseFile.open(_fileName, std::ifstream::binary);
+    if (_baseFile.is_open())
+        _baseFile.close();
+    _baseFile.open(_fileName, std::ifstream::binary);
 
     return true;
 }
 
-ResourceBuffer ResourcePack::GetFileBuffer(const std::string &sFile) {
-    auto &entry = mapFiles[sFile];
+ResourceBuffer ResourcePack::GetFileBuffer(const std::string &fileName) {
+    auto &entry = _mapFiles[fileName];
 
-    if (entry.eType == eResourceType::ByteArray && !entry.aBytes.empty()) {
+    if (entry.type == ResourceType::ByteArray && !entry.bytes.empty()) {
         ResourceBuffer buffer;
-        buffer.vMemory = entry.aBytes;
+        buffer.memory = entry.bytes;
         buffer.SetupMemoryBuffer();
         return buffer;
     }
 
-    return { baseFile, entry.nOffset, entry.nSize };
+    return { _baseFile, entry.offset, entry.size };
 }
 
-bool ResourcePack::Loaded() { return baseFile.is_open(); }
+bool ResourcePack::Loaded() { return _baseFile.is_open(); }
 
-std::vector<char> ResourcePack::scramble(const std::vector<char> &data, const std::string &key) {
+std::vector<char> ResourcePack::_scramble(const std::vector<char> &data, const std::string &key) {
     if (key.empty())
         return data;
     std::vector<char> o;
@@ -223,7 +223,7 @@ std::vector<char> ResourcePack::scramble(const std::vector<char> &data, const st
     return o;
 }
 
-std::string ResourcePack::makeposix(const std::string &path) {
+std::string ResourcePack::_makePosix(const std::string &path) {
     std::string o;
     for (auto s : path)
         o += std::string(1, s == '\\' ? '/' : s);

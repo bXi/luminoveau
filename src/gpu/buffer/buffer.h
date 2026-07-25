@@ -33,24 +33,24 @@ template <typename T>
 class Buffer : public BufferBase {
 public:
     Buffer(const std::string &name, size_t capacity, BufferType type)
-        : m_name(name)
-        , m_capacity(capacity)
-        , m_type(type) {
+        : _name(name)
+        , _capacity(capacity)
+        , _type(type) {
 
         size_t allocSize = capacity * sizeof(T);
 
 #ifdef _WIN32
-        m_data = static_cast<T *>(_aligned_malloc(allocSize, 16));
+        _data = static_cast<T *>(_aligned_malloc(allocSize, 16));
 #else
-        m_data = static_cast<T *>(std::aligned_alloc(16, allocSize));
+        _data = static_cast<T *>(std::aligned_alloc(16, allocSize));
 #endif
 
-        if (!m_data) {
-            LOG_CRITICAL("Buffer '{}': failed to allocate {} bytes", m_name, allocSize);
+        if (!_data) {
+            LOG_CRITICAL("Buffer '{}': failed to allocate {} bytes", _name, allocSize);
         }
 
         LOG_DEBUG("Buffer '{}': allocated {} entries ({:.1f} MB)",
-            m_name, capacity, static_cast<float>(allocSize) / (1024.0f * 1024.0f));
+            _name, capacity, static_cast<float>(allocSize) / (1024.0f * 1024.0f));
     }
 
     ~Buffer() override {
@@ -67,16 +67,16 @@ public:
 
     // Add an item - placement new, returns pointer to the new slot
     T *Add() {
-        if (m_count >= m_capacity) {
-            grow();
+        if (_count >= _capacity) {
+            _grow();
         }
 
-        T *slot = m_data + m_count;
+        T *slot = _data + _count;
         new (slot) T();
-        m_count++;
+        _count++;
 
-        if (m_count > m_highWatermark) {
-            m_highWatermark = m_count;
+        if (_count > _highWatermark) {
+            _highWatermark = _count;
         }
 
         return slot;
@@ -84,72 +84,72 @@ public:
 
     // Add by copying an existing item
     T *Add(const T &item) {
-        if (m_count >= m_capacity) {
-            grow();
+        if (_count >= _capacity) {
+            _grow();
         }
 
-        T *slot = m_data + m_count;
+        T *slot = _data + _count;
         new (slot) T(item);
-        m_count++;
+        _count++;
 
-        if (m_count > m_highWatermark) {
-            m_highWatermark = m_count;
+        if (_count > _highWatermark) {
+            _highWatermark = _count;
         }
 
         return slot;
     }
 
     // Indexed access - no bounds checking for performance
-    T       &operator[](size_t i) { return m_data[i]; }
-    const T &operator[](size_t i) const { return m_data[i]; }
+    T       &operator[](size_t i) { return _data[i]; }
+    const T &operator[](size_t i) const { return _data[i]; }
 
     // Raw pointer + count for iteration and GPU upload
-    T       *Data() { return m_data; }
-    const T *Data() const { return m_data; }
+    T       *Data() { return _data; }
+    const T *Data() const { return _data; }
 
     void Reset() override {
         if constexpr (!std::is_trivially_destructible_v<T>) {
-            for (size_t i = 0; i < m_count; i++) {
-                m_data[i].~T();
+            for (size_t i = 0; i < _count; i++) {
+                _data[i].~T();
             }
         }
-        m_count = 0;
+        _count = 0;
     }
 
     void Release() override {
-        if (!m_data)
+        if (!_data)
             return;
 
         // Destroy active items if needed
         if constexpr (!std::is_trivially_destructible_v<T>) {
-            for (size_t i = 0; i < m_count; i++) {
-                m_data[i].~T();
+            for (size_t i = 0; i < _count; i++) {
+                _data[i].~T();
             }
         }
 
 #ifdef _WIN32
-        _aligned_free(m_data);
+        _aligned_free(_data);
 #else
-        std::free(m_data);
+        std::free(_data);
 #endif
 
-        m_data  = nullptr;
-        m_count = 0;
+        _data  = nullptr;
+        _count = 0;
     }
 
-    size_t             Count() const override { return m_count; }
-    size_t             Capacity() const override { return m_capacity; }
-    size_t             BytesUsed() const override { return m_count * sizeof(T); }
-    size_t             BytesAllocated() const override { return m_capacity * sizeof(T); }
-    size_t             HighWatermark() const override { return m_highWatermark; }
-    const std::string &Name() const override { return m_name; }
-    BufferType         Type() const override { return m_type; }
+    size_t             Count() const override { return _count; }
+    size_t             Capacity() const override { return _capacity; }
+    size_t             BytesUsed() const override { return _count * sizeof(T); }
+    size_t             BytesAllocated() const override { return _capacity * sizeof(T); }
+    size_t             HighWatermark() const override { return _highWatermark; }
+    const std::string &Name() const override { return _name; }
+    BufferType         Type() const override { return _type; }
 
 private:
-    void grow() {
-        size_t newCapacity = m_capacity * 2;
+    void _grow() {
+        size_t newCapacity = _capacity * 2;
         LOG_WARNING("Buffer '{}': capacity exceeded ({} items), growing to {} — increase initial capacity to avoid this",
-            m_name, m_capacity, newCapacity);
+            _name, _capacity, newCapacity);
 
 #ifdef _WIN32
         T *newData = static_cast<T *>(_aligned_malloc(newCapacity * sizeof(T), 16));
@@ -157,32 +157,32 @@ private:
         T *newData = static_cast<T *>(std::aligned_alloc(16, newCapacity * sizeof(T)));
 #endif
         if (!newData) {
-            LOG_CRITICAL("Buffer '{}': failed to allocate {} bytes during grow", m_name, newCapacity * sizeof(T));
+            LOG_CRITICAL("Buffer '{}': failed to allocate {} bytes during _grow", _name, newCapacity * sizeof(T));
         }
 
         // Relocate existing items
         if constexpr (std::is_trivially_copyable_v<T>) {
-            std::memcpy(newData, m_data, m_count * sizeof(T));
+            std::memcpy(newData, _data, _count * sizeof(T));
         } else {
-            for (size_t i = 0; i < m_count; i++) {
-                new (newData + i) T(std::move(m_data[i]));
-                m_data[i].~T();
+            for (size_t i = 0; i < _count; i++) {
+                new (newData + i) T(std::move(_data[i]));
+                _data[i].~T();
             }
         }
 
 #ifdef _WIN32
-        _aligned_free(m_data);
+        _aligned_free(_data);
 #else
-        std::free(m_data);
+        std::free(_data);
 #endif
-        m_data     = newData;
-        m_capacity = newCapacity;
+        _data     = newData;
+        _capacity = newCapacity;
     }
 
-    T          *m_data          = nullptr;
-    size_t      m_count         = 0;
-    size_t      m_capacity      = 0;
-    size_t      m_highWatermark = 0;
-    std::string m_name;
-    BufferType  m_type;
+    T          *_data          = nullptr;
+    size_t      _count         = 0;
+    size_t      _capacity      = 0;
+    size_t      _highWatermark = 0;
+    std::string _name;
+    BufferType  _type;
 };

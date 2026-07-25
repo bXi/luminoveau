@@ -1,5 +1,5 @@
 /*
- * RmlUI Handler - Public API for Luminoveau Engine
+ * RmlUI Handler - Public API for Lumi Engine
  * Provides a simplified wrapper around RmlUi for easy UI integration
  */
 

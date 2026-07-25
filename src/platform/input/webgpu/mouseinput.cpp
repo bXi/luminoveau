@@ -26,6 +26,10 @@
 // One finger = left button held (pan/paint); two fingers = pinch, so we drop the button (no pan) and
 // report the midpoint as the position (zoom anchors at the pinch centre).
 static void lumiEnsurePointerHooks() {
+    // EM_ASM body is JavaScript passed as C++ tokens, so clang-format splits JS
+    // strict-equality into two operators and silently corrupts it. NOTE: the
+    // directive below must be exactly "clang-format off" — trailing text disables it.
+    // clang-format off
     EM_ASM({
         if (window._lumiPtrInit)
             return;
@@ -51,7 +55,7 @@ static void lumiEnsurePointerHooks() {
             var hasMouse  = false;
             var mouseBtns = 0;
             pressed.forEach(function(p) {
-                if (p.type == = 'mouse') {
+                if (p.type === 'mouse') {
                     hasMouse  = true;
                     mouseBtns = p.buttons;
                 } else
@@ -67,7 +71,7 @@ static void lumiEnsurePointerHooks() {
                 if (mouseBtns & 4)
                     mask |= 2;
             }
-            if (touches.length == = 1)
+            if (touches.length === 1)
                 mask |= 1; // single finger acts as the left button
             if (touches.length >= 2)
                 window._lumiPos = ({ x : (touches[0].x + touches[1].x) / 2,
@@ -109,18 +113,21 @@ static void lumiEnsurePointerHooks() {
         window.addEventListener('pointerup', up, true);
         window.addEventListener('pointercancel', up, true);
     });
+    // clang-format on
 }
 #endif
 
-vf2d PlatformInputBackend::GetMousePosition() {
+vf2d PlatformInputBackend::_getMousePosition() {
 #ifdef __EMSCRIPTEN__
     lumiEnsurePointerHooks();
     static float cx = 0.0f, cy = 0.0f;
+    // clang-format off
     EM_ASM({
         setValue($0, window._lumiPos ? window._lumiPos.x : 0, 'float');
         setValue($1, window._lumiPos ? window._lumiPos.y : 0, 'float');
     },
         &cx, &cy);
+    // clang-format on
     return Renderer::CanvasToLogical(cx, cy);
 #else
     float cx = 0.0f, cy = 0.0f;
@@ -137,10 +144,12 @@ vf2d PlatformInputBackend::GetMousePosition() {
 #endif
 }
 
-uint32_t PlatformInputBackend::GetMouseButtons() {
+uint32_t PlatformInputBackend::_getMouseButtons() {
 #ifdef __EMSCRIPTEN__
     lumiEnsurePointerHooks();
-    return (uint32_t)EM_ASM_INT({ return window._lumiBtns || 0; });
+    // clang-format off
+        return (uint32_t)EM_ASM_INT({ return window._lumiBtns || 0; });
+    // clang-format on
 #else
     return (uint32_t)SDL_GetMouseState(nullptr, nullptr);
 #endif

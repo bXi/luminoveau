@@ -30,20 +30,20 @@ public:
      * @brief Sets the compute pipeline (shader) used by the next dispatch.
      * @param pipeline The compiled compute pipeline to run.
      */
-    static void SetPipeline(const ComputePipelineAsset &pipeline) { get()._setPipeline(pipeline); }
+    static void SetPipeline(const ComputePipelineAsset &pipeline) { Get()._setPipeline(pipeline); }
 
     /**
      * @brief Binds a read-only texture to a shader slot for the next dispatch.
      * @param slot The binding slot index the shader samples from.
      * @param tex The texture handle to bind.
      */
-    static void BindReadTexture(uint32_t slot, GpuTextureHandle tex) { get()._bindReadTexture(slot, tex); }
+    static void BindReadTexture(uint32_t slot, GpuTextureHandle tex) { Get()._bindReadTexture(slot, tex); }
     /**
      * @brief Binds a read-only texture asset to a shader slot for the next dispatch.
      * @param slot The binding slot index the shader samples from.
      * @param tex The texture asset to bind.
      */
-    static void BindReadTexture(uint32_t slot, const TextureAsset &tex) { get()._bindReadTexture(slot, tex); }
+    static void BindReadTexture(uint32_t slot, const TextureAsset &tex) { Get()._bindReadTexture(slot, tex); }
 
     /**
      * @brief Binds a read-write (storage) texture to a shader slot for the next dispatch.
@@ -52,7 +52,7 @@ public:
      * @param mipLevel The mip level to bind. Defaults to 0.
      * @param layer The array layer to bind. Defaults to 0.
      */
-    static void BindReadWriteTexture(uint32_t slot, GpuTextureHandle tex, uint32_t mipLevel = 0, uint32_t layer = 0) { get()._bindReadWriteTexture(slot, tex, mipLevel, layer); }
+    static void BindReadWriteTexture(uint32_t slot, GpuTextureHandle tex, uint32_t mipLevel = 0, uint32_t layer = 0) { Get()._bindReadWriteTexture(slot, tex, mipLevel, layer); }
     /**
      * @brief Binds a read-write (storage) texture asset to a shader slot for the next dispatch.
      * @param slot The binding slot index the shader writes to.
@@ -60,20 +60,20 @@ public:
      * @param mipLevel The mip level to bind. Defaults to 0.
      * @param layer The array layer to bind. Defaults to 0.
      */
-    static void BindReadWriteTexture(uint32_t slot, const TextureAsset &tex, uint32_t mipLevel = 0, uint32_t layer = 0) { get()._bindReadWriteTexture(slot, tex, mipLevel, layer); }
+    static void BindReadWriteTexture(uint32_t slot, const TextureAsset &tex, uint32_t mipLevel = 0, uint32_t layer = 0) { Get()._bindReadWriteTexture(slot, tex, mipLevel, layer); }
 
     /**
      * @brief Binds a read-only storage buffer to a shader slot for the next dispatch.
      * @param slot The binding slot index the shader reads from.
      * @param buf The buffer handle to bind.
      */
-    static void BindReadBuffer(uint32_t slot, GpuBufferHandle buf) { get()._bindReadBuffer(slot, buf); }
+    static void BindReadBuffer(uint32_t slot, GpuBufferHandle buf) { Get()._bindReadBuffer(slot, buf); }
     /**
      * @brief Binds a read-write storage buffer to a shader slot for the next dispatch.
      * @param slot The binding slot index the shader reads and writes.
      * @param buf The buffer handle to bind.
      */
-    static void BindReadWriteBuffer(uint32_t slot, GpuBufferHandle buf) { get()._bindReadWriteBuffer(slot, buf); }
+    static void BindReadWriteBuffer(uint32_t slot, GpuBufferHandle buf) { Get()._bindReadWriteBuffer(slot, buf); }
 
     /**
      * @brief Pushes raw uniform data to a shader slot for the next dispatch.
@@ -81,7 +81,7 @@ public:
      * @param data Pointer to the uniform data to upload.
      * @param size Size of the data in bytes.
      */
-    static void PushUniform(uint32_t slot, const void *data, uint32_t size) { get()._pushUniform(slot, data, size); }
+    static void PushUniform(uint32_t slot, const void *data, uint32_t size) { Get()._pushUniform(slot, data, size); }
 
     /**
      * @brief Pushes a typed uniform value to a shader slot for the next dispatch.
@@ -108,7 +108,7 @@ public:
      * @param groupY Number of workgroups in Y. Defaults to 1.
      * @param groupZ Number of workgroups in Z. Defaults to 1.
      */
-    static void Dispatch(uint32_t groupX, uint32_t groupY = 1, uint32_t groupZ = 1) { get()._dispatch(groupX, groupY, groupZ); }
+    static void Dispatch(uint32_t groupX, uint32_t groupY = 1, uint32_t groupZ = 1) { Get()._dispatch(groupX, groupY, groupZ); }
     /**
      * @brief Queues a dispatch sized by total thread count, rounding up to whole workgroups.
      *
@@ -119,7 +119,7 @@ public:
      * @param totalY Total threads needed in Y. Defaults to 1.
      * @param totalZ Total threads needed in Z. Defaults to 1.
      */
-    static void DispatchAuto(uint32_t totalX, uint32_t totalY = 1, uint32_t totalZ = 1) { get()._dispatchAuto(totalX, totalY, totalZ); }
+    static void DispatchAuto(uint32_t totalX, uint32_t totalY = 1, uint32_t totalZ = 1) { Get()._dispatchAuto(totalX, totalY, totalZ); }
 
     // -----------------------------------------------------------------
     // Buffer helpers
@@ -131,24 +131,24 @@ public:
      * @param usage Usage flags describing how the buffer will be bound.
      * @return A handle to the newly created buffer.
      */
-    static GpuBufferHandle CreateBuffer(uint32_t size, GpuBufferUsage usage) { return get()._createBuffer(size, usage); }
+    static GpuBufferHandle CreateBuffer(uint32_t size, GpuBufferUsage usage) { return Get()._createBuffer(size, usage); }
     /**
      * @brief Uploads data into an existing GPU buffer.
      * @param buffer The destination buffer handle.
      * @param data Pointer to the source data.
      * @param size Number of bytes to upload.
      */
-    static void UploadBufferData(GpuBufferHandle buffer, const void *data, uint32_t size) { get()._uploadBufferData(buffer, data, size); }
+    static void UploadBufferData(GpuBufferHandle buffer, const void *data, uint32_t size) { Get()._uploadBufferData(buffer, data, size); }
     /**
      * @brief Destroys a GPU buffer and frees its memory.
      * @param buffer The buffer handle to destroy.
      */
-    static void DestroyBuffer(GpuBufferHandle buffer) { get()._destroyBuffer(buffer); }
+    static void DestroyBuffer(GpuBufferHandle buffer) { Get()._destroyBuffer(buffer); }
 
     /// @cond INTERNAL
     // Internal — called by Renderer::_endFrame()
-    static void ExecuteQueued(GpuCmdBufferHandle cmdBuf) { get()._executeQueued(cmdBuf); }
-    static void Reset() { get()._reset(); }
+    static void ExecuteQueued(GpuCmdBufferHandle cmdBuf) { Get()._executeQueued(cmdBuf); }
+    static void Reset() { Get()._reset(); }
     /// @endcond
 
 private:
@@ -160,8 +160,8 @@ private:
     };
 
     struct DispatchRecord {
-        GpuComputePipelineHandle pipeline      = 0;
-        uint32_t                 threadcount_x = 1, threadcount_y = 1, threadcount_z = 1;
+        GpuComputePipelineHandle pipeline     = 0;
+        uint32_t                 threadCountX = 1, threadCountY = 1, threadCountZ = 1;
 
         std::vector<GpuTextureHandle>                          readTextures;
         std::vector<std::pair<uint32_t, RWTextureBind>>        readWriteTextures;
@@ -214,7 +214,7 @@ public:
     /// @cond INTERNAL
     Compute(const Compute &) = delete;
 
-    static Compute &get() {
+    static Compute &Get() {
         static Compute instance;
         return instance;
     }

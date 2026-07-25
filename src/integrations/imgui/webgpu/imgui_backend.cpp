@@ -23,12 +23,12 @@ void InitRenderer(SDL_Window *window) {
 
     // Map engine swapchain format to WGPUTextureFormat for imgui pipeline creation
     WGPUTextureFormat wgpuFmt   = WGPUTextureFormat_BGRA8Unorm;
-    GpuTextureFormat  engineFmt = Renderer::GetGpu().getSwapchainFormat();
+    GpuTextureFormat  engineFmt = Renderer::GetGpu().GetSwapchainFormat();
     if (engineFmt == GpuTextureFormat::R8G8B8A8_Unorm)
         wgpuFmt = WGPUTextureFormat_RGBA8Unorm;
 
     ImGui_ImplWGPU_InitInfo init_info = {};
-    init_info.Device                  = static_cast<WGPUDevice>(wgpuBackend->getRawDevice());
+    init_info.Device                  = static_cast<WGPUDevice>(wgpuBackend->GetRawDevice());
     init_info.NumFramesInFlight       = 1;
     init_info.RenderTargetFormat      = wgpuFmt;
     init_info.DepthStencilFormat      = WGPUTextureFormat_Undefined;

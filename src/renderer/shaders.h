@@ -24,24 +24,24 @@
  *        decide whether an on-disk compile is still valid.
  */
 struct ShaderMetadata {
-    std::string                             source_hash;     ///< Hash of the source the blob was built from.
-    std::vector<std::string>                sampler_names;   ///< Reflected sampler binding names.
-    std::unordered_map<std::string, size_t> uniform_offsets; ///< Reflected uniform byte offsets.
-    std::unordered_map<std::string, size_t> uniform_sizes;   ///< Reflected uniform byte sizes.
+    std::string                             sourceHash;     ///< Hash of the source the blob was built from.
+    std::vector<std::string>                samplerNames;   ///< Reflected sampler binding names.
+    std::unordered_map<std::string, size_t> uniformOffsets; ///< Reflected uniform byte offsets.
+    std::unordered_map<std::string, size_t> uniformSizes;   ///< Reflected uniform byte sizes.
 
-    uint32_t num_samplers         = 0; ///< Number of sampler bindings.
-    uint32_t num_uniform_buffers  = 0; ///< Number of uniform buffer bindings.
-    uint32_t num_storage_buffers  = 0; ///< Number of storage buffer bindings.
-    uint32_t num_storage_textures = 0; ///< Number of storage texture bindings.
+    uint32_t numSamplers        = 0; ///< Number of sampler bindings.
+    uint32_t numUniformBuffers  = 0; ///< Number of uniform buffer bindings.
+    uint32_t numStorageBuffers  = 0; ///< Number of storage buffer bindings.
+    uint32_t numStorageTextures = 0; ///< Number of storage texture bindings.
 
     /// Backend-native bytecode format tag the blob was compiled for. Opaque here; on the
     /// SDL backend it holds an SDL_GPUShaderFormat value.
-    uint32_t shader_format = 0;
+    uint32_t shaderFormat = 0;
 
     /// @brief Serializes the metadata to the on-disk cache format.
-    std::string serialize() const;
+    std::string Serialize() const;
     /// @brief Parses metadata back out of the on-disk cache format.
-    static ShaderMetadata deserialize(const std::string &data);
+    static ShaderMetadata Deserialize(const std::string &data);
 };
 
 /// @brief Shader subsystem: lifecycle, entry-point queries and asset-shader creation.
@@ -49,17 +49,17 @@ class Shaders {
 public:
     /// @brief Engine startup hook. SDL wires up SDL_shadercross + the on-disk shader cache;
     ///        WebGPU is a no-op (WGSL is compiled by the browser at module-create time).
-    static void Init() { get()._init(); }
+    static void Init() { Get()._init(); }
 
     /// @brief Engine shutdown hook. SDL persists the shader cache and tears down SDL_shadercross.
-    static void Quit() { get()._quit(); }
+    static void Quit() { Get()._quit(); }
 
     /// @brief Returns the entry-point name for the built-in vertex shaders on the active backend.
-    static const char *GetVertexEntryPoint() { return get()._getVertexEntryPoint(); }
+    static const char *GetVertexEntryPoint() { return Get()._getVertexEntryPoint(); }
     /// @brief Returns the entry-point name for the built-in fragment shaders on the active backend.
-    static const char *GetFragmentEntryPoint() { return get()._getFragmentEntryPoint(); }
+    static const char *GetFragmentEntryPoint() { return Get()._getFragmentEntryPoint(); }
     /// @brief Returns the entry-point name for the built-in compute shaders on the active backend.
-    static const char *GetComputeEntryPoint() { return get()._getComputeEntryPoint(); }
+    static const char *GetComputeEntryPoint() { return Get()._getComputeEntryPoint(); }
 
     /**
      * @brief Loads an asset shader and creates its GPU shader via the active backend.
@@ -67,14 +67,14 @@ public:
      * @param stage Which pipeline stage the shader is for.
      * @return The shader asset, with an opaque backend handle.
      */
-    static ShaderAsset CreateShaderAsset(const std::string &filename, GpuShaderStage stage) { return get()._createShaderAsset(filename, stage); }
+    static ShaderAsset CreateShaderAsset(const std::string &filename, GpuShaderStage stage) { return Get()._createShaderAsset(filename, stage); }
 
     /**
      * @brief Loads a compute shader and creates its pipeline via the active backend.
      * @param filename Compute shader path inside the resource pack.
      * @return The compute pipeline asset, with its reflected thread counts filled in.
      */
-    static ComputePipelineAsset CreateComputePipeline(const std::string &filename) { return get()._createComputePipeline(filename); }
+    static ComputePipelineAsset CreateComputePipeline(const std::string &filename) { return Get()._createComputePipeline(filename); }
 
     /**
      * @brief Creates a compute pipeline from SPIRV already held in memory.
@@ -82,13 +82,13 @@ public:
      * @param spirvSize Size of the bytecode in bytes.
      * @return The compute pipeline asset, with its reflected thread counts filled in.
      */
-    static ComputePipelineAsset CreateComputePipelineFromBytes(const uint8_t *spirvBytes, size_t spirvSize) { return get()._createComputePipelineFromBytes(spirvBytes, spirvSize); }
+    static ComputePipelineAsset CreateComputePipelineFromBytes(const uint8_t *spirvBytes, size_t spirvSize) { return Get()._createComputePipelineFromBytes(spirvBytes, spirvSize); }
 
     /**
      * @brief Returns the reflected metadata for a shader, compiling/caching as needed.
      * @param filename Shader path inside the resource pack.
      */
-    static ShaderMetadata GetShaderMetadata(const std::string &filename) { return get()._getShaderMetadata(filename); }
+    static ShaderMetadata GetShaderMetadata(const std::string &filename) { return Get()._getShaderMetadata(filename); }
 
 private:
     void        _init();
@@ -120,7 +120,7 @@ public:
     /// @cond INTERNAL
     Shaders(const Shaders &) = delete;
 
-    static Shaders &get() {
+    static Shaders &Get() {
         static Shaders instance;
         return instance;
     }

@@ -21,6 +21,8 @@ union rect_generic {
     };
 
     struct {
+        // Union-aliasing trick: names differ from the x,y struct above so both can coexist.
+        // NOLINTNEXTLINE(readability-identifier-naming)
         T _x, _y;
         T w, h;
     };
@@ -31,19 +33,19 @@ union rect_generic {
         : pos(other.pos)
         , size(other.size) { }
 
-    rect_generic(v2d_generic<T> _pos, v2d_generic<T> _size)
-        : pos(_pos)
-        , size(_size) { }
+    rect_generic(v2d_generic<T> pos, v2d_generic<T> size)
+        : pos(pos)
+        , size(size) { }
 
-    rect_generic(T _x, T _y, T _width, T _height)
-        : x(_x)
-        , y(_y)
-        , width(_width)
-        , height(_height) { }
+    rect_generic(T x, T y, T width, T height)
+        : x(x)
+        , y(y)
+        , width(width)
+        , height(height) { }
 
-    bool contains(const v2d_generic<T> &_point) const {
-        T px = _point.x;
-        T py = _point.y;
+    bool Contains(const v2d_generic<T> &point) const {
+        T px = point.x;
+        T py = point.y;
         T rx = pos.x;
         T ry = pos.y;
         T rw = size.x;
@@ -52,7 +54,7 @@ union rect_generic {
         return !(px < rx || py < ry || px > (rx + rw) || py > (ry + rh));
     }
 
-    bool intersects(const rect_generic<T> &other) const {
+    bool Intersects(const rect_generic<T> &other) const {
         return !(this->pos.x + this->size.x < other.pos.x || other.pos.x + other.size.x < this->pos.x || this->pos.y + this->size.y < other.pos.y || other.pos.y + other.size.y < this->pos.y);
     }
 
