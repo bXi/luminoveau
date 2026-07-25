@@ -31,6 +31,13 @@
 #include <gpu/buffer/buffer.h>
 #include <gpu/buffer/buffermanager.h>
 
+// SDL-backend type converters (toSDL / fromSDL). SDL-only — the WebGPU build has no
+// SDL_GPU types, so it's excluded there. Projects doing SDL interop (e.g. swapchain
+// format queries) get these via the umbrella instead of reaching into the backend dir.
+#ifndef LUMINOVEAU_WEBGPU_BACKEND
+#include <gpu/backends/sdl/sdlgpu.h>
+#endif
+
 // ── Engine systems ───────────────────────────────────────────────────────────
 #include <assets/assethandler.h>
 #include <platform/audio/audio.h>
