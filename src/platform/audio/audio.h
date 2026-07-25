@@ -455,8 +455,12 @@ private:
 
     int _numberChannels = 2;
 
-    bool                _audioInit = false;
-    ma_device           _device;
+    bool _audioInit = false;
+#ifndef __3DS__
+    // 3DS builds compile miniaudio with MA_NO_DEVICE_IO (no playback backend);
+    // the engine runs null-device and ma_device doesn't exist there.
+    ma_device _device;
+#endif
     ma_engine           _engine;
     ma_resource_manager _resourceManager;
 
@@ -468,7 +472,9 @@ private:
     static ma_data_source_vtable pcmDataSourceVtable;
     static ma_node_vtable        effectNodeVtable;
 
+#ifndef __3DS__
     static void ma_data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount); // NOLINT(readability-identifier-naming) — miniaudio callback signature
+#endif
 
 public:
     /// @cond INTERNAL

@@ -48,12 +48,22 @@ if(glm_ADDED)
         message(FATAL_ERROR "GLM source directory '${glm_SOURCE_DIR}' does not exist")
     endif()
     target_include_directories(luminoveau SYSTEM PUBLIC "${glm_SOURCE_DIR}")
-    target_compile_definitions(luminoveau PUBLIC
-        GLM_FORCE_INTRINSICS
-        GLM_FORCE_INLINE
-        GLM_FORCE_EXPLICIT_CTOR
-        GLM_FORCE_SIZE_T_LENGTH
-    )
+    if(NINTENDO_3DS)
+        # ARM11 (ARMv6k) has no NEON — force the pure scalar paths.
+        target_compile_definitions(luminoveau PUBLIC
+            GLM_FORCE_PURE
+            GLM_FORCE_INLINE
+            GLM_FORCE_EXPLICIT_CTOR
+            GLM_FORCE_SIZE_T_LENGTH
+        )
+    else()
+        target_compile_definitions(luminoveau PUBLIC
+            GLM_FORCE_INTRINSICS
+            GLM_FORCE_INLINE
+            GLM_FORCE_EXPLICIT_CTOR
+            GLM_FORCE_SIZE_T_LENGTH
+        )
+    endif()
     lumi_done("GLM")
 else()
     lumi_warn("GLM - fetch failed")
@@ -95,7 +105,11 @@ set(SDL_INSTALL_TESTS OFF CACHE BOOL "Disable SDL test installation" FORCE)
 set(SDL_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL installation" FORCE)
 set(SDL3_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL3 installation" FORCE)
 set(SDL_AUDIO OFF CACHE BOOL "Disable SDL audio (Luminoveau uses miniaudio)" FORCE)
-set(SDL_VULKAN ON CACHE BOOL "Force SDL Vulkan video backend" FORCE)
+if(NINTENDO_3DS)
+    set(SDL_VULKAN OFF CACHE BOOL "No Vulkan on 3DS" FORCE)
+else()
+    set(SDL_VULKAN ON CACHE BOOL "Force SDL Vulkan video backend" FORCE)
+endif()
 if(WIN32)
     set(SDL_DIRECTX ON CACHE BOOL "Force SDL DirectX video backend" FORCE)
 endif()
@@ -126,7 +140,17 @@ endif()
 # Fetching SDL3_image
 set(SDL3IMAGE_INSTALL OFF CACHE BOOL "Disable SDL3_image installation" FORCE)
 set(SDL3IMAGE_DEPS_SHARED OFF CACHE BOOL "Use static dependencies" FORCE)
-set(SDL3IMAGE_VENDORED ON CACHE BOOL "Use vendored dependencies" FORCE)
+if(NINTENDO_3DS)
+    # Vendored codec sub-builds don't cross-compile under devkitARM; the stb-based
+    # PNG/JPG loaders built into SDL3_image cover the engine's asset formats.
+    set(SDL3IMAGE_VENDORED OFF CACHE BOOL "No vendored dependencies on 3DS" FORCE)
+    set(SDL3IMAGE_AVIF OFF CACHE BOOL "" FORCE)
+    set(SDL3IMAGE_JXL  OFF CACHE BOOL "" FORCE)
+    set(SDL3IMAGE_WEBP OFF CACHE BOOL "" FORCE)
+    set(SDL3IMAGE_TIF  OFF CACHE BOOL "" FORCE)
+else()
+    set(SDL3IMAGE_VENDORED ON CACHE BOOL "Use vendored dependencies" FORCE)
+endif()
 set(SDL3IMAGE_BUILD_SHARED_LIBS OFF CACHE BOOL "Build static SDL3_image" FORCE)
 set(SDL3IMAGE_SAMPLES OFF CACHE BOOL "Disable SDL3_image samples" FORCE)
 set(SDL3IMAGE_TESTS OFF CACHE BOOL "Disable SDL3_image tests" FORCE)
@@ -150,8 +174,9 @@ else()
     lumi_warn("SDL3_image - fetch failed")
 endif()
 
-# Fetching SDL3_net (networking — native only; browsers can't do raw TCP/UDP).
-if(NOT EMSCRIPTEN)
+# Fetching SDL3_net (networking — native only; browsers can't do raw TCP/UDP,
+# and the 3DS port uses a null transport).
+if(NOT EMSCRIPTEN AND NOT NINTENDO_3DS)
     set(SDL3NET_INSTALL    OFF CACHE BOOL "Disable SDL3_net installation"   FORCE)
     set(SDL3NET_SAMPLES    OFF CACHE BOOL "Disable SDL3_net samples"        FORCE)
     set(SDL3NET_TESTS      OFF CACHE BOOL "Disable SDL3_net tests"          FORCE)
@@ -212,7 +237,28 @@ if(LUMINOVEAU_KTX2)
     endif()
 else()
     lumi_msg("KTX2 disabled (LUMINOVEAU_KTX2=OFF)")
+    if(NINTENDO_3DS)
+        # KTX2 is off on 3DS, but the baked default-font atlas blob still needs
+        # ZSTD_decompress (assethandler.cpp) — compile basis's decode-only zstd alone.
+        lumi_msg("Fetching basis_universal (zstd decoder only)")
+        lumi_fetch("basis_universal" "https://github.com/BinomialLLC/basis_universal.git" "1.16.4" BASIS_ROOT)
+        if(BASIS_ROOT AND EXISTS "${BASIS_ROOT}/zstd/zstddeclib.c")
+            target_sources(luminoveau PRIVATE "${BASIS_ROOT}/zstd/zstddeclib.c")
+            set_source_files_properties("${BASIS_ROOT}/zstd/zstddeclib.c" PROPERTIES COMPILE_OPTIONS "-O2")
+            lumi_done("basis_universal zstd decoder")
+        else()
+            message(FATAL_ERROR "basis_universal fetch failed; the 3DS build needs its zstd decoder for the font atlas blob.")
+        endif()
+    endif()
 endif()
+
+# Runtime MSDF generation (freetype + msdf-atlas-gen + tinyxml2) is skipped on 3DS:
+# the default font loads from the baked atlas blob instead, and the toolchain can't
+# build these deps. LUMINOVEAU_NO_RUNTIME_MSDF gates the generation code paths.
+if(NINTENDO_3DS)
+    target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_NO_RUNTIME_MSDF)
+    lumi_msg("Runtime MSDF generation disabled (3DS: baked font atlas only)")
+else()
 
 # Fetching freetype (required by MSDF-atlas-gen's msdfgen)
 if (NOT ANDROID)
@@ -300,6 +346,14 @@ else()
     lumi_warn("MSDF-atlas-gen - fetch failed")
 endif()
 
+endif() # NOT NINTENDO_3DS (runtime MSDF deps)
+
+# PhysFS has no 3DS platform layer; the 3DS build reads assets with stdio/std::filesystem
+# straight off romfs (LUMINOVEAU_NO_PHYSFS gates the FileHandler code paths).
+if(NINTENDO_3DS)
+    target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_NO_PHYSFS)
+    lumi_msg("PhysFS disabled (3DS: stdio over romfs)")
+else()
 
 # Fetching physfs
 set(PHYSFS_BUILD_SHARED OFF CACHE BOOL "Disable physfs shared library" FORCE)
@@ -383,3 +437,5 @@ if(physfs_ADDED)
 else()
     lumi_warn("physfs - fetch failed")
 endif()
+
+endif() # NOT NINTENDO_3DS (physfs)

@@ -12,6 +12,8 @@
 
 class RenderPass {
 protected:
+    // LAYOUT PINNED: mirrors Renderer::Uniforms (renderer.h) — the 3DS backend
+    // decodes this layout CPU-side (CompositeUniforms in Citro3dGpuBackend.cpp).
     struct Uniforms {
         glm::mat4 camera;
         glm::mat4 model;

@@ -559,6 +559,7 @@ void Audio::_removeChannelEffect(AudioChannel channel) {
 // Engine lifecycle
 // ═══════════════════════════════════════════════════════════════════
 
+#ifndef __3DS__
 void Audio::ma_data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount) {
     LUMI_UNUSED(pInput);
 
@@ -572,10 +573,12 @@ void Audio::ma_data_callback(ma_device *pDevice, void *pOutput, const void *pInp
             audio._masterEffectUserData);
     }
 }
+#endif // __3DS__
 
 void Audio::_init() {
     int sampleRate = 48000;
 
+#ifndef __3DS__
     ma_device_config deviceConfig  = ma_device_config_init(ma_device_type_playback);
     deviceConfig.playback.format   = ma_format_f32;
     deviceConfig.playback.channels = _numberChannels;
@@ -584,13 +587,14 @@ void Audio::_init() {
     deviceConfig.pUserData         = &_engine;
 
     ma_device_init(nullptr, &deviceConfig, &_device);
+#endif
 
     ma_resource_manager_config resourceManagerConfig = ma_resource_manager_config_init();
     resourceManagerConfig.decodedFormat              = ma_format_f32;
     resourceManagerConfig.decodedChannels            = 0;
     resourceManagerConfig.decodedSampleRate          = sampleRate;
 
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__) || defined(__3DS__)
     resourceManagerConfig.jobThreadCount = 0;
     resourceManagerConfig.flags |= MA_RESOURCE_MANAGER_FLAG_NON_BLOCKING;
     resourceManagerConfig.flags |= MA_RESOURCE_MANAGER_FLAG_NO_THREADING;
@@ -599,7 +603,16 @@ void Audio::_init() {
     ma_resource_manager_init(&resourceManagerConfig, &_resourceManager);
 
     ma_engine_config engineConfig = ma_engine_config_init();
-    engineConfig.pDevice          = &_device;
+#ifdef __3DS__
+    // No miniaudio playback backend on 3DS. A null-device engine keeps the whole
+    // decode/mix API surface (GetSound/GetMusic/volume/groups) working silently;
+    // M2 will pump ma_engine_read_pcm_frames into ndsp for real output.
+    engineConfig.noDevice   = MA_TRUE;
+    engineConfig.channels   = (ma_uint32)_numberChannels;
+    engineConfig.sampleRate = (ma_uint32)sampleRate;
+#else
+    engineConfig.pDevice = &_device;
+#endif
     engineConfig.pResourceManager = &_resourceManager;
 
     ma_result result = ma_engine_init(&engineConfig, &_engine);

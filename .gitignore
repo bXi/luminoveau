@@ -409,6 +409,9 @@ FodyWeavers.xsd
 *.sln.iml
 
 cmake-build*
+build-3ds/
+build-host/
+tools/n3ds_probe/build/
 .idea
 
 build/

@@ -26,6 +26,27 @@ struct TaskImpl : TaskBase {
 };
 /// @endcond
 
+#ifdef LUMINOVEAU_NO_THREADS
+
+// Toolchains without gthreads (no std::thread/mutex types at all) get an inline-only
+// pool with the same interface. Fallback for devkitARM builds if the toolchain probe
+// shows std::thread is missing — not enabled by default anywhere.
+class ThreadPool {
+public:
+    ThreadPool(size_t /*numThreads*/) { }
+
+    template <typename F>
+    void Enqueue(F &&task) {
+        task();
+    }
+
+    void WaitAll() { }
+
+    int GetThreadCount() { return 0; }
+};
+
+#else
+
 /// @brief Fixed-size thread pool. Construct with worker count; 0 runs everything inline.
 class ThreadPool {
 public:
@@ -102,3 +123,5 @@ private:
     size_t                   _tasksRunning;  // guarded by _queueMutex
     bool                     _stop = false;
 };
+
+#endif // LUMINOVEAU_NO_THREADS

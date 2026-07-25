@@ -513,6 +513,9 @@ private:
 
     void _removeSpriteRenderTarget(const std::string &name, bool removeFramebuffer);
 
+    // LAYOUT PINNED: the 3DS backend decodes this blob CPU-side to synthesize the
+    // composite quad (CompositeUniforms in Citro3dGpuBackend.cpp, static_assert'd
+    // at 200 bytes). Any change here must be mirrored there.
     struct Uniforms {
         glm::mat4 camera;
         glm::mat4 model;

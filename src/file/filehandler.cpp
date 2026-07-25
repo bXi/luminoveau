@@ -1,6 +1,10 @@
 #include "filehandler.h"
 #include "core/log/log.h"
+// 3DS has no PhysFS platform layer; assets are read with plain stdio straight off
+// romfs:/ (lumi_main.cpp chdir's to SDL_GetBasePath, which is the romfs root).
+#ifndef LUMINOVEAU_NO_PHYSFS
 #include "physfs.h"
+#endif
 
 #include <iostream>
 #include <cstring>
@@ -39,6 +43,15 @@ void FileHandler::_ensurePhysFS() {
         _initPhysFS();
     }
 }
+
+#ifdef LUMINOVEAU_NO_PHYSFS
+
+bool FileHandler::_initPhysFS() {
+    _physfsInitialized = true; // nothing to mount; reads go through stdio
+    return true;
+}
+
+#else
 
 bool FileHandler::_initPhysFS() {
     // Guard against double initialization
@@ -80,11 +93,20 @@ bool FileHandler::_initPhysFS() {
     return true;
 }
 
+#endif // LUMINOVEAU_NO_PHYSFS
+
 // ============================================================================
 // PATH MANAGEMENT
 // ============================================================================
 
 std::string FileHandler::_getWritableDirectory() {
+#ifdef __3DS__
+    // The base directory is romfs:/ (read-only); writables live on the SD card.
+    // SDL's 3DS SDL_GetPrefPath also lands under sdmc:/, but this keeps a sane
+    // default when org/app names are unset.
+    std::string app = _appName.empty() ? "luminoveau" : _appName;
+    return "sdmc:/3ds/" + app + "/";
+#endif
     // If org and app names are set, use SDL_GetPrefPath
     if (!_orgName.empty() && !_appName.empty()) {
         char *prefPath = SDL_GetPrefPath(_orgName.c_str(), _appName.c_str());
@@ -125,8 +147,13 @@ std::string FileHandler::_getBaseDirectory() {
 }
 
 std::string FileHandler::_getCacheDirectory() {
+#ifdef __3DS__
+    // Base dir is romfs:/ (read-only) — caches must go to the SD card.
+    return _cacheDirectory.empty() ? _getWritableDirectory() : _cacheDirectory;
+#else
     // Default: next to the executable (portable). Overridable via SetCacheDirectory.
     return _cacheDirectory.empty() ? _getBaseDirectory() : _cacheDirectory;
+#endif
 }
 
 void FileHandler::_setCacheDirectory(const std::string &dir) {
@@ -188,6 +215,35 @@ PhysFSFileData FileHandler::_readFile(const std::string &filename) {
 
     SDL_CloseIO(file);
 
+    result.data     = buffer;
+    result.fileSize = static_cast<int>(fileSize);
+    return result;
+#elif defined(LUMINOVEAU_NO_PHYSFS)
+    // stdio path (3DS): relative paths resolve against the CWD, which lumi_main.cpp
+    // anchored to romfs:/ at startup. Same malloc'd-buffer contract as the PhysFS path.
+    std::ifstream file(filename, std::ios::in | std::ios::binary);
+    if (!file) {
+        std::cerr << "File does not exist: " << filename << std::endl;
+        return result;
+    }
+    file.seekg(0, std::ios::end);
+    std::streamoff fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+    if (fileSize <= 0) {
+        std::cerr << "Invalid file size: " << fileSize << std::endl;
+        return result;
+    }
+    void *buffer = malloc((size_t)fileSize);
+    if (!buffer) {
+        std::cerr << "Failed to allocate memory for file: " << filename << std::endl;
+        return result;
+    }
+    file.read(static_cast<char *>(buffer), fileSize);
+    if (file.fail()) {
+        std::cerr << "Failed to read file: " << filename << std::endl;
+        free(buffer);
+        return result;
+    }
     result.data     = buffer;
     result.fileSize = static_cast<int>(fileSize);
     return result;
@@ -355,12 +411,14 @@ bool FileHandler::_writeFile(const std::string &filepath, const void *data, size
 // ============================================================================
 
 bool FileHandler::_fileExists(const std::string &filepath) {
+#ifndef LUMINOVEAU_NO_PHYSFS
     // Check PhysFS first (for bundled assets) - auto-initialize if needed
     _ensurePhysFS();
 
     if (PHYSFS_isInit() && PHYSFS_exists(filepath.c_str())) {
         return true;
     }
+#endif
 
     // Check filesystem (for writable files)
     return std::filesystem::exists(filepath);

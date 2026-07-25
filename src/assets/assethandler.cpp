@@ -4,6 +4,7 @@
 #include "file/filehandler.h"
 #include "util/helpers.h"
 
+#include <algorithm>
 #include <iostream>
 #include <vector>
 #include <regex>
@@ -18,8 +19,12 @@
 
 #include <cstring>
 
+// 3DS builds have no freetype/msdfgen toolchain; fonts come exclusively from the
+// baked atlas blob (and the on-disk cache format, which needs no msdf code to read).
+#ifndef LUMINOVEAU_NO_RUNTIME_MSDF
 #include <msdf-atlas-gen/msdf-atlas-gen.h>
 #include <msdfgen/msdfgen.h>
+#endif
 
 #include "picosha2.h"
 
@@ -48,6 +53,9 @@ AssetHandler::AssetHandler() {
 #endif
     // Otherwise the on-disk font cache; generate from scratch only as a last resort.
     if (!loaded && !_loadFontFromCache("__default_font__", 16, _defaultFont, embeddedHash)) {
+#ifdef LUMINOVEAU_NO_RUNTIME_MSDF
+        LOG_WARNING("Default font unavailable: no baked atlas blob and runtime MSDF generation is compiled out");
+#else
         // Cache miss — generate from scratch
         LOG_INFO("Default font not in cache, generating MSDF atlas");
 
@@ -154,6 +162,7 @@ AssetHandler::AssetHandler() {
 
         // Save to cache for next startup
         _saveFontToCache("__default_font__", _defaultFont, rgbaData, embeddedHash);
+#endif // LUMINOVEAU_NO_RUNTIME_MSDF
     }
 };
 
@@ -191,10 +200,12 @@ void AssetHandler::_cleanup() {
 
     // Cleanup fonts
     for (auto &[name, font] : _fonts) {
+#ifndef LUMINOVEAU_NO_RUNTIME_MSDF
         if (font.fontHandle) {
             msdfgen::destroyFont(font.fontHandle);
             font.fontHandle = nullptr;
         }
+#endif
         if (font.glyphs) {
             delete font.glyphs;
             font.glyphs = nullptr;
@@ -243,10 +254,12 @@ void AssetHandler::_cleanup() {
     _musics.clear();
 
     // Cleanup default font
+#ifndef LUMINOVEAU_NO_RUNTIME_MSDF
     if (_defaultFont.fontHandle) {
         msdfgen::destroyFont(_defaultFont.fontHandle);
         _defaultFont.fontHandle = nullptr;
     }
+#endif
     if (_defaultFont.glyphs) {
         delete _defaultFont.glyphs;
         _defaultFont.glyphs = nullptr;
@@ -689,6 +702,12 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
         return _fonts[fileName];
     }
 
+#ifdef LUMINOVEAU_NO_RUNTIME_MSDF
+    // No runtime generation on this platform — fall back to the default font so
+    // text keeps rendering (with a warning) instead of crashing.
+    LOG_WARNING("Cannot generate MSDF font '{}' (runtime MSDF compiled out); using default font", fileName.c_str());
+    return _defaultFont;
+#else
     // Cache miss - generate MSDF atlas from scratch
     LOG_INFO("Generating MSDF font {} (atlas size: 64, default render: {})", fileName.c_str(), fontSize);
 
@@ -805,6 +824,7 @@ Font AssetHandler::_getFont(const std::string &fileName, const int fontSize) {
 
     _fonts[fileName] = fontAsset;
     return _fonts[fileName];
+#endif // LUMINOVEAU_NO_RUNTIME_MSDF
 }
 
 void AssetHandler::_setDefaultTextureScaleMode(ScaleMode mode) {
@@ -1202,6 +1222,24 @@ bool AssetHandler::_loadDefaultFontFromBlob(FontAsset &font) {
         LOG_WARNING("Font atlas blob: zstd inflate failed");
         return false;
     }
+
+#ifdef __3DS__
+    // The PICA200 has no fragment shaders, so the MSDF decode (median of rgb vs 0.5)
+    // can't run on the GPU. Bake it into the atlas instead: alpha = smoothstepped
+    // median distance, rgb = white, so glyphs render through the plain modulate TEV
+    // (texture × vertex color) like any other sprite. Slightly softer edges than
+    // true per-pixel MSDF; acceptable at 400×240.
+    for (size_t i = 0; i < rgba.size(); i += 4) {
+        const unsigned char r = rgba[i], g = rgba[i + 1], b = rgba[i + 2];
+        unsigned char       med = std::max(std::min(r, g), std::min(std::max(r, g), b));
+        // smoothstep around the 0.5 (=127) iso-line over a ~±16 band
+        float t = ((float)med - 111.0f) / 32.0f;
+        t       = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+        t       = t * t * (3.0f - 2.0f * t);
+        rgba[i] = rgba[i + 1] = rgba[i + 2] = 255;
+        rgba[i + 3]                         = (unsigned char)(t * 255.0f + 0.5f);
+    }
+#endif
 
     GpuTextureCreateInfo textureInfo {
         .width         = atlasW,

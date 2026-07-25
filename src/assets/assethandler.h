@@ -371,10 +371,12 @@ private:
                     Renderer::GetGpu().ReleaseTexture(asset.atlasTexture);
                     asset.atlasTexture = 0;
                 }
+#ifndef LUMINOVEAU_NO_RUNTIME_MSDF
                 if (asset.fontHandle) {
                     msdfgen::destroyFont(asset.fontHandle);
                     asset.fontHandle = nullptr;
                 }
+#endif
                 if (asset.fontData) {
                     free(asset.fontData);
                     asset.fontData = nullptr;

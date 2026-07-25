@@ -30,9 +30,10 @@
 
 class SpriteRenderPass : public RenderPass {
 
-    // Emscripten without -pthread can't spawn std::thread; default to single-threaded
-    // sprite packing on that platform. All other targets use one worker per core.
-#ifdef __EMSCRIPTEN__
+    // Emscripten without -pthread can't spawn std::thread; the 3DS's appcore is a
+    // single ARM11 where worker threads only add overhead. Default to single-threaded
+    // sprite packing on those platforms. All other targets use one worker per core.
+#if defined(__EMSCRIPTEN__) || defined(__3DS__)
     ThreadPool _threadPool = ThreadPool(0);
 #else
     ThreadPool _threadPool = ThreadPool(std::max(1u, std::thread::hardware_concurrency()));

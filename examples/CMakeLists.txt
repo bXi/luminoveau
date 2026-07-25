@@ -13,7 +13,7 @@
 # single `examples_assets` target rather than N. It's an ALL target, so it always runs and
 # copy_if_different (in copy_assets.cmake) makes re-copying edited/new assets cheap — no reconfigure
 # needed when an assets/ folder gains files. Not used on web (assets are preloaded at link time).
-if(NOT EMSCRIPTEN)
+if(NOT EMSCRIPTEN AND NOT NINTENDO_3DS)
     add_custom_target(examples_assets ALL COMMENT "Copying demo assets")
 endif()
 
@@ -37,6 +37,21 @@ function(add_lumi_example name)
         # start gate — the demos run without audio, so no user gesture is needed to unlock it).
         luminoveau_configure_web_target(${name} SOURCE_DIR ${demo_dir} OUTPUT_DIR ${demo_out}
             SHELL_FILE ${LUMINOVEAU_ROOT_DIR}/assets/shell_sample.html)
+    elseif(NINTENDO_3DS)
+        # Package as .3dsx; the demo's assets/ folder (if any) becomes the romfs, which
+        # lumi_main.cpp chdir's into via SDL_GetBasePath -> "romfs:/".
+        ctr_generate_smdh(${demo_out}/${name}.smdh
+            NAME "${name}"
+            DESCRIPTION "Luminoveau demo"
+            AUTHOR "Luminoveau")
+        if(EXISTS ${demo_dir}/assets)
+            ctr_create_3dsx(${name}
+                SMDH  ${demo_out}/${name}.smdh
+                ROMFS ${demo_dir}/assets)
+        else()
+            ctr_create_3dsx(${name}
+                SMDH ${demo_out}/${name}.smdh)
+        endif()
     else()
         if(APPLE)
             target_link_libraries(${name} PRIVATE)
@@ -65,14 +80,20 @@ add_lumi_example(05_sprite_animator)
 add_lumi_example(06_asteroids)
 add_lumi_example(07_top_down_shooter)
 add_lumi_example(08_platformer)
-add_lumi_example(09_3d_walker)
-add_lumi_example(10_particles_fountain)
-add_lumi_example(11_shadertoy)
-add_lumi_example(12_post_fx)
+# Demos needing 3D, GPU particles, or runtime shaders/compute — none of which the
+# PICA200 backend supports — are skipped on 3DS.
+if(NOT NINTENDO_3DS)
+    add_lumi_example(09_3d_walker)
+    add_lumi_example(10_particles_fountain)
+    add_lumi_example(11_shadertoy)
+    add_lumi_example(12_post_fx)
+endif()
 add_lumi_example(13_slime_mold)
 add_lumi_example(14_doom_fire)
-add_lumi_example(15_mandelbrot)
-add_lumi_example(16_tunnel)
+if(NOT NINTENDO_3DS)
+    add_lumi_example(15_mandelbrot)
+    add_lumi_example(16_tunnel)
+endif()
 add_lumi_example(17_fourier_epicycles)
 add_lumi_example(18_raycast_2d)
 add_lumi_example(19_sorting_viz)

@@ -30,11 +30,21 @@ option(LUMINOVEAU_BUILD_TESTS    "Build test suite"                             
 option(LUMINOVEAU_BUILD_EXAMPLES "Build the example demos in examples/"         OFF)
 option(LUMINOVEAU_USE_CALLBACKS  "Use SDL3 callback-based main loop"            OFF)
 option(LUMINOVEAU_WEBGPU_BACKEND "Use WebGPU renderer (required for Emscripten)" OFF)
+option(LUMINOVEAU_N3DS_BACKEND   "Use citro3d renderer (required for Nintendo 3DS)" OFF)
 
 # Emscripten always uses WebGPU
 if(EMSCRIPTEN)
     set(LUMINOVEAU_WEBGPU_BACKEND ON CACHE BOOL "" FORCE)
     set(LUMINOVEAU_USE_CALLBACKS  ON CACHE BOOL "" FORCE)
+endif()
+
+# Nintendo 3DS (NINTENDO_3DS set by devkitPro's 3DS.cmake toolchain) always uses citro3d.
+if(NINTENDO_3DS)
+    set(LUMINOVEAU_N3DS_BACKEND ON CACHE BOOL "" FORCE)
+endif()
+if(LUMINOVEAU_N3DS_BACKEND)
+    set(LUMINOVEAU_USE_CALLBACKS ON  CACHE BOOL "" FORCE)
+    set(LUMINOVEAU_KTX2          OFF CACHE BOOL "" FORCE)
 endif()
 
 # The example demos use the AppInit/Iterate callback pattern, which lumi_main.cpp bridges
@@ -74,7 +84,11 @@ if(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG /OPT:REF /OPT:ICF")
     set(CMAKE_CXX_FLAGS_DEBUG          "${CMAKE_CXX_FLAGS_DEBUG}          /Od /Zi /RTC1")
 else()
-    if(ANDROID OR EMSCRIPTEN)
+    if(NINTENDO_3DS)
+        # Arch flags come from the devkitARM toolchain; -O3/-funroll-loops bloat the
+        # 3dsx for little gain on the ARM11.
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -ffast-math")
+    elseif(ANDROID OR EMSCRIPTEN)
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math -funroll-loops")
     elseif(APPLE)
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -mcpu=native -ffast-math -funroll-loops")
@@ -82,12 +96,14 @@ else()
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -mtune=native -ffast-math -funroll-loops")
     endif()
 
-    include(CheckIPOSupported)
-    check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT LTO_ERROR)
-    if(LTO_SUPPORTED)
-        set(CMAKE_CXX_FLAGS_RELEASE         "${CMAKE_CXX_FLAGS_RELEASE}         -flto")
-        set(CMAKE_EXE_LINKER_FLAGS_RELEASE  "${CMAKE_EXE_LINKER_FLAGS_RELEASE}  -flto")
-        set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -flto")
+    if(NOT NINTENDO_3DS) # IPO probe fails under devkitARM; skip it
+        include(CheckIPOSupported)
+        check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT LTO_ERROR)
+        if(LTO_SUPPORTED)
+            set(CMAKE_CXX_FLAGS_RELEASE         "${CMAKE_CXX_FLAGS_RELEASE}         -flto")
+            set(CMAKE_EXE_LINKER_FLAGS_RELEASE  "${CMAKE_EXE_LINKER_FLAGS_RELEASE}  -flto")
+            set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -flto")
+        endif()
     endif()
 
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O1 -g")
@@ -103,7 +119,9 @@ add_library(luminoveau STATIC ${LUMINOVEAU_SOURCES})
 include(cmake/LuminoveauWeb.cmake)
 
 # ── Perf HUD: platform hardware-name queries ──────────────────────────────────
-if(WIN32)
+if(NINTENDO_3DS)
+    # No GPU-name query on 3DS (perf.cpp falls through to "Unknown GPU").
+elseif(WIN32)
     target_link_libraries(luminoveau PRIVATE dxgi)           # GPU name via DXGI
 elseif(APPLE)
     target_sources(luminoveau PRIVATE src/profiler/perf_metal.mm)  # GPU name via Metal
@@ -118,6 +136,17 @@ if(LUMINOVEAU_WEBGPU_BACKEND)
 endif()
 if(LUMINOVEAU_GPU_BACKEND STREQUAL "WGSL")
     target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_SHADER_BACKEND_WGSL)
+endif()
+if(LUMINOVEAU_N3DS_BACKEND)
+    # MAX_SPRITES/MAX_PARTICLES: the desktop defaults (4M sprites / 50M particles)
+    # would allocate gigabytes of queue+buffer space; right-size for 3DS RAM.
+    target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_N3DS_BACKEND
+        MAX_SPRITES=4096 LUMINOVEAU_MAX_PARTICLES=4096u
+        # miniaudio: no playback backend exists for the 3DS — compile it decode/mix-only.
+        # These must be PUBLIC so every TU that includes audio.h sees the same miniaudio ABI.
+        MA_NO_DEVICE_IO MA_NO_THREADING)
+    target_link_libraries(luminoveau PUBLIC citro3d ctru m)
+    include(cmake/N3dsShaders.cmake)
 endif()
 
 # ── Include dirs ──────────────────────────────────────────────────────────────
@@ -155,7 +184,9 @@ else()
 endif()
 
 # ── Platform linking ──────────────────────────────────────────────────────────
-if(ANDROID)
+if(NINTENDO_3DS)
+    # devkitARM handles the runtime libs; no -static-libstdc++ juggling needed.
+elseif(ANDROID)
     target_compile_definitions(luminoveau PUBLIC __ANDROID__)
     target_link_libraries(luminoveau PUBLIC log android)
 elseif(APPLE)
@@ -187,7 +218,9 @@ file(DOWNLOAD
 include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
-find_package(Threads REQUIRED)
+if(NOT LUMINOVEAU_N3DS_BACKEND) # no Threads package under devkitARM
+    find_package(Threads REQUIRED)
+endif()
 
 include(cmake/AssetPreparation.cmake)
 include(cmake/SteamDetection.cmake)
@@ -197,11 +230,13 @@ include(cmake/DependencySetup.cmake)
 if(LUMINOVEAU_WEBGPU_BACKEND)
     include(cmake/WebGpuDependency.cmake)
 endif()
-include(cmake/SpirvCross.cmake)
-include(cmake/Glslang.cmake)
-if(NOT LUMINOVEAU_WEBGPU_BACKEND)
-    include(cmake/ShaderCross.cmake)
-    include(cmake/DownloadDXC.cmake)
+if(NOT LUMINOVEAU_N3DS_BACKEND) # 3DS has no runtime shader toolchain (picasso is offline)
+    include(cmake/SpirvCross.cmake)
+    include(cmake/Glslang.cmake)
+    if(NOT LUMINOVEAU_WEBGPU_BACKEND)
+        include(cmake/ShaderCross.cmake)
+        include(cmake/DownloadDXC.cmake)
+    endif()
 endif()
 include(cmake/ImGuiIntegration.cmake)
 include(cmake/RmlUiIntegration.cmake)

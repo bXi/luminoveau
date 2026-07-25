@@ -1,6 +1,10 @@
 # ── GPU backend selection ─────────────────────────────────────────────────────
 # Emscripten/WebGPU uses WGSL shaders, not the SDL_GPU shader backends.
-if(LUMINOVEAU_WEBGPU_BACKEND OR EMSCRIPTEN)
+# 3DS uses hand-written picasso shaders embedded via cmake/N3dsShaders.cmake, so it
+# must skip Sources.Shaders.cmake entirely (that file fatals on non-desktop backends).
+if(LUMINOVEAU_N3DS_BACKEND)
+    set(LUMINOVEAU_GPU_BACKEND "PICA" CACHE STRING "GPU shader backend" FORCE)
+elseif(LUMINOVEAU_WEBGPU_BACKEND OR EMSCRIPTEN)
     set(LUMINOVEAU_GPU_BACKEND "WGSL" CACHE STRING "GPU shader backend (SPIRV, DXIL, METALLIB, WGSL)" FORCE)
 elseif(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
     if(APPLE)
@@ -25,7 +29,9 @@ endif()
 if(LUMINOVEAU_GPU_BACKEND STREQUAL "DXIL" AND NOT WIN32)
     message(FATAL_ERROR "DXIL backend is only supported on Windows")
 endif()
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Sources.Shaders.cmake")
+if(LUMINOVEAU_N3DS_BACKEND)
+    set(LUMINOVEAU_SHADER_SOURCES "") # no SPIRV/DXIL/WGSL blob .cpps on 3DS
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Sources.Shaders.cmake")
     include(cmake/Sources.Shaders.cmake)
 else()
     message(FATAL_ERROR "Shader sources not found. Run shaders/compile_shaders.ps1 first.")
@@ -95,7 +101,22 @@ set(LUMINOVEAU_SOURCES
     src/extern/stb_image_write.cpp
 )
 
-if(LUMINOVEAU_WEBGPU_BACKEND)
+if(LUMINOVEAU_N3DS_BACKEND)
+    list(APPEND LUMINOVEAU_SOURCES
+        src/gpu/backends/n3ds/Citro3dGpuBackend.cpp
+        src/renderer/n3ds/init.cpp
+        src/renderer/n3ds/shaders.cpp
+        src/assets/n3ds/assethandler.cpp
+        src/assets/n3ds/shader_blobs.cpp
+        src/renderer/passes/n3ds/spriterenderpass.cpp
+        src/renderer/passes/n3ds/model3drenderpass.cpp
+        src/renderer/passes/n3ds/shaderrenderpass.cpp
+        src/draw/n3ds/particles_builtin.cpp
+        src/platform/input/sdl/mouseinput.cpp
+        src/platform/window/sdl/window_backend.cpp
+        src/platform/net/n3ds/transport_null.cpp
+    )
+elseif(LUMINOVEAU_WEBGPU_BACKEND)
     list(APPEND LUMINOVEAU_SOURCES
         src/gpu/backends/webgpu/WebGpuGpuBackend.cpp
         src/renderer/webgpu/init.cpp

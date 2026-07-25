@@ -11,7 +11,17 @@
 #define LUMI_CHDIR chdir
 #endif
 
+#ifdef __3DS__
+#include <3ds.h>
+#endif
+
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
+#ifdef __3DS__
+    // Mount romfs before the chdir below: SDL_GetBasePath returns "romfs:/" on 3DS,
+    // which only resolves once the archive is mounted (refcounted — SDL's own later
+    // romfsInit is a no-op on top of this).
+    romfsInit();
+#endif
     // Anchor the working directory to the executable's folder before anything touches the
     // filesystem. Double-clicking from Finder (or Explorer) launches with CWD = "/" or the
     // user's home, which breaks relative asset/pak mounts. SDL_GetBasePath resolves the

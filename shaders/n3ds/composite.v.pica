@@ -1,0 +1,49 @@
+; Luminoveau composite (framebuffer -> screen blit) vertex shader (picasso / PICA200).
+;
+; The shared Renderer::_renderFrameBuffer() draws a vertex-buffer-less 6-vertex quad;
+; the n3ds backend synthesizes those vertices on the CPU (positions from the stashed
+; Uniforms blob's model matrix, UVs from uv0..uv5) and submits them via immediate mode
+; with this passthrough shader. UVs arrive already scaled into the POT texture, so no
+; uvscale uniform here.
+;
+; Attributes:
+;   v0 = position.xyz (float3, canvas coordinates)
+;   v1 = uv           (float2, POT texture coordinates)
+;   v2 = color        (float4 tint)
+;
+; Uniforms:
+;   projection — canvas ortho pre-multiplied with the PICA tilt fix-up.
+
+; Uniforms
+.fvec projection[4]
+
+; Constants
+.constf consts(0.0, 1.0, 0.0, 0.0)
+.alias  ones consts.yyyy
+
+; Outputs
+.out outpos position
+.out outtex texcoord0
+.out outclr color
+
+; Inputs
+.alias inpos v0
+.alias inuv  v1
+.alias inclr v2
+
+.proc main
+	; r0 = (inpos.xyz, 1.0)
+	mov r0.xyz, inpos
+	mov r0.w,   ones
+
+	; outpos = projection * r0
+	dp4 outpos.x, projection[0], r0
+	dp4 outpos.y, projection[1], r0
+	dp4 outpos.z, projection[2], r0
+	dp4 outpos.w, projection[3], r0
+
+	mov outtex.xy, inuv.xy
+	mov outclr, inclr
+
+	end
+.end
