@@ -41,9 +41,13 @@ Log::~Log() {
 }
 
 void Log::_addSink(std::unique_ptr<LogSink> sink) {
-    std::lock_guard<std::mutex> lock(_sinkMutex);
-    _sinks.push_back(std::move(sink));
-    LOG_INFO("Log sink added ({} total)", _sinks.size());
+    size_t count;
+    {
+        std::lock_guard<std::mutex> lock(_sinkMutex);
+        _sinks.push_back(std::move(sink));
+        count = _sinks.size();
+    }
+    LOG_INFO("Log sink added ({} total)", count);
 }
 
 void Log::_clearSinks() {

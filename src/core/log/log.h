@@ -95,6 +95,7 @@ private:
         _writeToSinks(entry);
     }
 
+public:
     // Sink management
     static void AddSink(std::unique_ptr<LogSink> sink) { Get()._addSink(std::move(sink)); }
     static void ClearSinks() { Get()._clearSinks(); }
@@ -112,6 +113,7 @@ private:
         return Get()._dumpToFile(filename, minLevel);
     }
 
+private:
     std::vector<std::unique_ptr<LogSink>> _sinks;
     std::mutex                            _sinkMutex;
     MemoryBufferSink                     *_memoryBufferSink; // Quick access to memory buffer
