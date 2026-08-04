@@ -995,13 +995,43 @@ TextureAsset AssetHandler::_createWhitePixel() {
 }
 
 TextureAsset AssetHandler::_loadFromPixelData(const vf2d &size, void *pixelData, std::string fileName) {
-    LUMI_UNUSED(size, pixelData, fileName);
-
     TextureAsset texture;
-#if 0
+    if (!Renderer::IsReady() || !pixelData)
+        return texture;
 
-#endif
+    uint32_t w = (uint32_t)size.x;
+    uint32_t h = (uint32_t)size.y;
+    if (w == 0 || h == 0)
+        return texture;
 
+    auto                &gpu = Renderer::GetGpu();
+    GpuTextureCreateInfo tci {
+        .width         = w,
+        .height        = h,
+        .depthOrLayers = 1,
+        .numLevels     = 1,
+        .format        = GpuTextureFormat::R8G8B8A8_Unorm,
+        .sampleCount   = GpuSampleCount::X1,
+        .usage         = GpuTextureUsage::Sampler | GpuTextureUsage::Transfer,
+    };
+    GpuTextureHandle tex = gpu.CreateTexture(tci);
+    if (!tex)
+        return texture;
+
+    if (!_copyToTexture(pixelData, w * h * 4, tex, w, h)) {
+        gpu.ReleaseTexture(tex);
+        LOG_WARNING("LoadFromPixelData: copy failed for {}", fileName.c_str());
+        return texture;
+    }
+
+    texture.gpuTexture = tex;
+    texture.gpuSampler = Renderer::GetSampler(_defaultMode);
+    texture.width      = (int)w;
+    texture.height     = (int)h;
+
+    // Cache under the given name (overwrites any prior entry of the same name).
+    _textures[fileName]          = texture;
+    _textures[fileName].filename = _textures.find(fileName)->first.c_str();
     return texture;
 }
 
