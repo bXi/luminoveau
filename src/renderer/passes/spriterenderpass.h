@@ -97,6 +97,11 @@ class SpriteRenderPass : public RenderPass {
         GpuSamplerHandle sampler      = 0;
         size_t           offset       = 0; // offset in sprite buffer (instances)
         size_t           count        = 0; // number of sprites
+        bool             scissorEnabled = false;
+        int32_t          scissorX       = 0;
+        int32_t          scissorY       = 0;
+        uint32_t         scissorW       = 0;
+        uint32_t         scissorH       = 0;
     };
 
 public:
@@ -126,11 +131,20 @@ public:
         GpuCmdBufferHandle cmdBuffer, GpuTextureHandle targetTexture, const glm::mat4 &camera) override;
 
     void AddToRenderQueue(const Renderable &renderable) override {
-        renderQueue->Add(renderable);
+        // Stamp the pass's current scissor (set via Draw::SetScissorMode) onto the renderable so
+        // the batcher can split on clip-rect changes and cut pixels off per region.
+        Renderable r      = renderable;
+        r.scissorEnabled  = scissorEnabled;
+        r.scissorX        = scissorX;
+        r.scissorY        = scissorY;
+        r.scissorW        = scissorW;
+        r.scissorH        = scissorH;
+        renderQueue->Add(r);
     }
 
     void ResetRenderQueue() override {
         renderQueue->Reset();
+        scissorEnabled = false; // clear per-window so a clip can't leak into the next window's pass
     }
 
     UniformBuffer uniformBuffer;

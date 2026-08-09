@@ -257,8 +257,14 @@ void SpriteRenderPass::Render(
         bool        geometryChanged = (i > 0 && cur.geometry != (*renderQueue)[i - 1].geometry);
         bool        textureChanged  = (i > 0 && cur.texture.gpuTexture != (*renderQueue)[i - 1].texture.gpuTexture);
         bool        effectsChanged  = (i > 0 && cur.effectIndex != (*renderQueue)[i - 1].effectIndex);
+        bool        scissorChanged  = false;
+        if (i > 0) {
+            const auto &prev = (*renderQueue)[i - 1];
+            scissorChanged   = cur.scissorEnabled != prev.scissorEnabled || cur.scissorX != prev.scissorX
+                || cur.scissorY != prev.scissorY || cur.scissorW != prev.scissorW || cur.scissorH != prev.scissorH;
+        }
 
-        if (i == 0 || geometryChanged || textureChanged || effectsChanged) {
+        if (i == 0 || geometryChanged || textureChanged || effectsChanged || scissorChanged) {
             Batch batch;
             batch.offset = currentOffset;
             batch.count  = 1;
@@ -267,8 +273,13 @@ void SpriteRenderPass::Render(
                 batch.indexBuffer  = cur.geometry->indexBuffer;
                 batch.indexCount   = static_cast<uint32_t>(cur.geometry->GetIndexCount());
             }
-            batch.texture = cur.texture.gpuTexture;
-            batch.sampler = cur.texture.gpuSampler;
+            batch.texture        = cur.texture.gpuTexture;
+            batch.sampler        = cur.texture.gpuSampler;
+            batch.scissorEnabled = cur.scissorEnabled;
+            batch.scissorX       = cur.scissorX;
+            batch.scissorY       = cur.scissorY;
+            batch.scissorW       = cur.scissorW;
+            batch.scissorH       = cur.scissorH;
             batches.push_back(batch);
             batchHasEffects.push_back(cur.effectIndex >= 0);
         } else {
@@ -305,20 +316,13 @@ void SpriteRenderPass::Render(
         GpuRenderPassHandle rp = gpu.BeginRenderPass(cmdBuffer, &ct, 1, nullptr);
         renderPass             = rp;
 
-        {
-            // Cap viewport to the surface dims so fixedSize FBs (e.g. LightToy's hrc_scene)
-            // get the FB-sized viewport their FB-sized camera projects against. Without the
-            // cap, a 1348-wide FB would receive a 1598-wide viewport and sprites projected
-            // through ortho(0,1348,…) would land outside the FB's pixel range.
-            float vpW = std::min((float)Window::GetPhysicalWidth(), (float)_surfaceWidth);
-            float vpH = std::min((float)Window::GetPhysicalHeight(), (float)_surfaceHeight);
-            gpu.SetViewport(rp, 0.0f, 0.0f, vpW, vpH, 0.0f, 1.0f);
-        }
-
-        if (scissorEnabled) {
-            gpu.SetScissor(rp, scissorX, scissorY, scissorW, scissorH);
-            scissorEnabled = false;
-        }
+        // Cap viewport to the surface dims so fixedSize FBs (e.g. LightToy's hrc_scene)
+        // get the FB-sized viewport their FB-sized camera projects against. Without the
+        // cap, a 1348-wide FB would receive a 1598-wide viewport and sprites projected
+        // through ortho(0,1348,…) would land outside the FB's pixel range.
+        float vpW = std::min((float)Window::GetPhysicalWidth(), (float)_surfaceWidth);
+        float vpH = std::min((float)Window::GetPhysicalHeight(), (float)_surfaceHeight);
+        gpu.SetViewport(rp, 0.0f, 0.0f, vpW, vpH, 0.0f, 1.0f);
 
         gpu.BindGraphicsPipeline(rp, _pipeline);
         gpu.BindVertexStorageBuffers(rp, 0, &_spriteDataBuffer, 1);
@@ -330,6 +334,13 @@ void SpriteRenderPass::Render(
             const auto &batch = batches[batchIdx];
             if (!batch.texture || !batch.sampler || !batch.vertexBuffer || !batch.indexBuffer)
                 continue;
+
+            // Per-batch scissor: batches split on any clip-rect change, so a clipped region
+            // (e.g. the scrolling chat panel) cuts pixels off cleanly. Unclipped → full viewport.
+            if (batch.scissorEnabled)
+                gpu.SetScissor(rp, batch.scissorX, batch.scissorY, batch.scissorW, batch.scissorH);
+            else
+                gpu.SetScissor(rp, 0, 0, (uint32_t)vpW, (uint32_t)vpH);
 
             GpuBufferBinding vb { batch.vertexBuffer, 0 };
             gpu.BindVertexBuffers(rp, 0, &vb, 1);
@@ -377,10 +388,6 @@ void SpriteRenderPass::Render(
                         float vpH = std::min((float)Window::GetPhysicalHeight(), (float)_surfaceHeight);
                         gpu.SetViewport(currentPass, 0.0f, 0.0f, vpW, vpH, 0.0f, 1.0f);
                     }
-                    if (scissorEnabled) {
-                        gpu.SetScissor(currentPass, scissorX, scissorY, scissorW, scissorH);
-                        scissorEnabled = false;
-                    }
                     gpu.BindGraphicsPipeline(currentPass, _pipeline);
                     gpu.BindVertexStorageBuffers(currentPass, 0, &_spriteDataBuffer, 1);
                     // Push once per pass; camera is constant across the batches drawn into it.
@@ -394,6 +401,14 @@ void SpriteRenderPass::Render(
 
                 GpuTextureSamplerBinding tsb { batch.texture, batch.sampler };
                 gpu.BindFragmentSamplers(currentPass, 0, &tsb, 1);
+
+                if (batch.scissorEnabled) {
+                    gpu.SetScissor(currentPass, batch.scissorX, batch.scissorY, batch.scissorW, batch.scissorH);
+                } else {
+                    float rvW = std::min((float)Window::GetPhysicalWidth(), (float)_surfaceWidth);
+                    float rvH = std::min((float)Window::GetPhysicalHeight(), (float)_surfaceHeight);
+                    gpu.SetScissor(currentPass, 0, 0, (uint32_t)rvW, (uint32_t)rvH);
+                }
 
                 uint32_t instOff[2] = { static_cast<uint32_t>(batch.offset), 0u };
                 float    instScale  = Window::GetScale();
