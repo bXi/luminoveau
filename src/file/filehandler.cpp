@@ -192,10 +192,39 @@ PhysFSFileData FileHandler::_readFile(const std::string &filename) {
     result.fileSize = static_cast<int>(fileSize);
     return result;
 #else
-    // Absolute paths are never PhysFS-bundled assets (writable caches/saves live in
-    // the cache/system dir). Skip the PhysFS probe so callers fall back to real-file
-    // I/O without a spurious "does not exist" log.
+    // Absolute paths are never PhysFS-bundled assets — read them straight off the real
+    // filesystem (writable caches/saves, or a file referenced in place such as an image you
+    // sent). This lets callers load by absolute path without copying into a mounted dir.
     if (std::filesystem::path(filename).is_absolute()) {
+        SDL_IOStream *file = SDL_IOFromFile(filename.c_str(), "rb");
+        if (!file)
+            return result;
+        Sint64 fileSize = SDL_GetIOSize(file);
+        if (fileSize <= 0) {
+            SDL_CloseIO(file);
+            return result;
+        }
+        void *buffer = malloc((size_t)fileSize);
+        if (!buffer) {
+            SDL_CloseIO(file);
+            return result;
+        }
+        // Read in a loop: SDL_ReadIO may return a short read on larger files, so a single call
+        // could leave a multi-MB file (e.g. an audio clip) partially loaded.
+        size_t total = 0;
+        while (total < (size_t)fileSize) {
+            size_t n = SDL_ReadIO(file, static_cast<char *>(buffer) + total, (size_t)fileSize - total);
+            if (n == 0)
+                break; // EOF or error
+            total += n;
+        }
+        SDL_CloseIO(file);
+        if (total != (size_t)fileSize) {
+            free(buffer);
+            return result;
+        }
+        result.data     = buffer;
+        result.fileSize = static_cast<int>(fileSize);
         return result;
     }
 
