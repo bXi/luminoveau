@@ -126,54 +126,17 @@ void Renderer::_onResize() {
     // pipeline (a Metal shader-compile storm) and re-upload all map geometry/textures for nothing.
     _updateCameraProjection();
 
-    int w = Window::GetPhysicalWidth(), h = Window::GetPhysicalHeight();
-    if (w <= 0 || h <= 0)
-        return;
-
-    // Let each pass refresh its surface-sized targets (e.g. the 2D sprite layer's depth +
-    // effect temps) so 2D content rescales — without recompiling pipelines or re-uploading geo.
+    // Size each pass's surface targets (depth + effect temps) to the framebuffer it renders
+    // into — NOT the active window. The primary framebuffer is desktop-sized and shared across
+    // every OS window, so sizing passes to the window would clamp any secondary window larger
+    // than the primary. The per-window viewport (min(GetPhysicalWidth, _surfaceWidth)) still
+    // clips the render to the actual window within this. fbContent and the MSAA color/depth are
+    // likewise desktop-sized (created in _setSampleCount) and shared across windows, so they
+    // survive a resize untouched — recreating the MSAA targets here to the *active* window's
+    // size is exactly what corrupted a second window while the first was being resized.
     for (auto &[fbName, framebuffer] : _frameBuffers)
         for (auto &[passname, renderpass] : framebuffer->renderpasses)
-            renderpass->OnResize((uint32_t)w, (uint32_t)h);
-
-    if (_currentSampleCount <= GpuSampleCount::X1)
-        return; // no MSAA targets -> nothing more
-    GpuTextureFormat swapchainFmt = _gpu->GetSwapchainFormat();
-
-    for (auto &[fbName, framebuffer] : _frameBuffers) {
-        if (framebuffer->noMSAA)
-            continue;
-        if (framebuffer->fbContentMSAA) {
-            _gpu->ReleaseTexture(framebuffer->fbContentMSAA);
-            framebuffer->fbContentMSAA = 0;
-        }
-        if (framebuffer->fbDepthMSAA) {
-            _gpu->ReleaseTexture(framebuffer->fbDepthMSAA);
-            framebuffer->fbDepthMSAA = 0;
-        }
-
-        GpuTextureCreateInfo colorInfo {
-            .width         = (uint32_t)w,
-            .height        = (uint32_t)h,
-            .depthOrLayers = 1,
-            .numLevels     = 1,
-            .format        = swapchainFmt,
-            .sampleCount   = _currentSampleCount,
-            .usage         = GpuTextureUsage::ColorTarget,
-        };
-        framebuffer->fbContentMSAA = _gpu->CreateTexture(colorInfo);
-        GpuTextureCreateInfo depthInfo {
-            .width         = (uint32_t)w,
-            .height        = (uint32_t)h,
-            .depthOrLayers = 1,
-            .numLevels     = 1,
-            .format        = GpuTextureFormat::D32_Float,
-            .sampleCount   = _currentSampleCount,
-            .usage         = GpuTextureUsage::DepthStencilTarget,
-        };
-        framebuffer->fbDepthMSAA = _gpu->CreateTexture(depthInfo);
-    }
-    _gpu->WaitIdle();
+            renderpass->OnResize(framebuffer->width, framebuffer->height);
 }
 
 void Renderer::_clearBackground(Color color) {
@@ -419,9 +382,15 @@ void Renderer::_reset() {
         // Create new MSAA textures if MSAA is enabled and this framebuffer supports it.
         // Custom effect render targets (noMSAA=true) always render to plain 1x textures.
         if (useMSAA && !framebuffer->noMSAA) {
+            // Size the MSAA color + its depth to the framebuffer's own (desktop) dimensions —
+            // the same size as the resolve target fbContent — NOT the active window. These
+            // textures are shared by every OS window; sizing them to whichever window happened
+            // to trigger this would leave the others rendering into a mismatched target (and the
+            // resolve dimensions must match fbContent). The per-window viewport still clips the
+            // render to the actual window within this.
             GpuTextureCreateInfo msaaColorInfo {
-                .width         = static_cast<uint32_t>(rpWidth),
-                .height        = static_cast<uint32_t>(rpHeight),
+                .width         = framebuffer->width,
+                .height        = framebuffer->height,
                 .depthOrLayers = 1,
                 .numLevels     = 1,
                 .format        = swapchainFmt,
@@ -431,8 +400,8 @@ void Renderer::_reset() {
             framebuffer->fbContentMSAA = _gpu->CreateTexture(msaaColorInfo);
 
             GpuTextureCreateInfo msaaDepthInfo {
-                .width         = static_cast<uint32_t>(rpWidth),
-                .height        = static_cast<uint32_t>(rpHeight),
+                .width         = framebuffer->width,
+                .height        = framebuffer->height,
                 .depthOrLayers = 1,
                 .numLevels     = 1,
                 .format        = GpuTextureFormat::D32_Float,
@@ -845,6 +814,12 @@ RenderPass *Renderer::_findRenderPass(const std::string &passname) {
 }
 
 void Renderer::_setScissorMode(const std::string &passname, const rectf &cliprect) {
+    // Clamp to non-negative: a negative w/h (e.g. a clip rect from a tiny/degenerate window) would
+    // wrap to a huge uint32 and crash the GPU scissor. Negative x/y snap to 0.
+    int32_t  sx = std::max(0, static_cast<int32_t>(cliprect.x));
+    int32_t  sy = std::max(0, static_cast<int32_t>(cliprect.y));
+    uint32_t sw = cliprect.w > 0 ? static_cast<uint32_t>(cliprect.w) : 0u;
+    uint32_t sh = cliprect.h > 0 ? static_cast<uint32_t>(cliprect.h) : 0u;
 
     for (auto &[fbName, framebuffer] : _frameBuffers) {
         auto it = std::find_if(framebuffer->renderpasses.begin(), framebuffer->renderpasses.end(),
@@ -854,10 +829,10 @@ void Renderer::_setScissorMode(const std::string &passname, const rectf &cliprec
 
         if (it != framebuffer->renderpasses.end()) {
             it->second->scissorEnabled = true;
-            it->second->scissorX       = static_cast<int32_t>(cliprect.x);
-            it->second->scissorY       = static_cast<int32_t>(cliprect.y);
-            it->second->scissorW       = static_cast<uint32_t>(cliprect.w);
-            it->second->scissorH       = static_cast<uint32_t>(cliprect.h);
+            it->second->scissorX       = sx;
+            it->second->scissorY       = sy;
+            it->second->scissorW       = sw;
+            it->second->scissorH       = sh;
         }
     }
 }

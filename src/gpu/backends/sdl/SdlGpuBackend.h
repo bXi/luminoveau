@@ -38,6 +38,10 @@ public:
         uint32_t                                               &outHeight) override;
     GpuTextureFormat GetSwapchainFormat() const override;
 
+    bool ClaimWindow(void *window) override;
+    void ReleaseWindow(void *window) override;
+    void SetSwapchainWindow(void *window) override;
+
     GpuRenderPassHandle BeginRenderPass(GpuCmdBufferHandle cmd,
         const GpuColorTargetInfo                          *colorTargets,
         uint32_t                                           colorTargetCount,
@@ -142,6 +146,7 @@ public:
     void *GetRawSampler(int scaleModeInt) const override;
 
 private:
-    SDL_GPUDevice *_device = nullptr;
-    SDL_Window    *_window = nullptr;
+    SDL_GPUDevice *_device       = nullptr;
+    SDL_Window    *_window       = nullptr; // primary window (set at Init)
+    SDL_Window    *_activeWindow = nullptr; // window the swapchain ops currently target
 };

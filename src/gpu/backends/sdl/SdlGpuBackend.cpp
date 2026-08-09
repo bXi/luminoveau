@@ -88,7 +88,8 @@ SdlGpuBackend::~SdlGpuBackend() {
 }
 
 bool SdlGpuBackend::Init(void *windowHandle) {
-    _window = static_cast<SDL_Window *>(windowHandle);
+    _window       = static_cast<SDL_Window *>(windowHandle);
+    _activeWindow = _window;
     return _device != nullptr;
 }
 
@@ -142,14 +143,38 @@ GpuTextureHandle SdlGpuBackend::AcquireSwapchainTexture(GpuCmdBufferHandle cmd,
     SDL_GPUTexture *tex = nullptr;
     SDL_AcquireGPUSwapchainTexture(
         reinterpret_cast<SDL_GPUCommandBuffer *>(cmd),
-        _window, &tex, &outWidth, &outHeight);
+        _activeWindow, &tex, &outWidth, &outHeight);
     return reinterpret_cast<GpuTextureHandle>(tex);
 }
 
 GpuTextureFormat SdlGpuBackend::GetSwapchainFormat() const {
-    if (!_device || !_window)
+    if (!_device || !_activeWindow)
         return GpuTextureFormat::Invalid;
-    return fromSDL(SDL_GetGPUSwapchainTextureFormat(_device, _window));
+    return fromSDL(SDL_GetGPUSwapchainTextureFormat(_device, _activeWindow));
+}
+
+bool SdlGpuBackend::ClaimWindow(void *window) {
+    auto *w = static_cast<SDL_Window *>(window);
+    if (!_device || !w)
+        return false;
+    if (!SDL_ClaimWindowForGPUDevice(_device, w))
+        return false;
+    // Match the primary's single-frame-in-flight cadence so present pacing is consistent.
+    SDL_SetGPUAllowedFramesInFlight(_device, 1);
+    return true;
+}
+
+void SdlGpuBackend::ReleaseWindow(void *window) {
+    auto *w = static_cast<SDL_Window *>(window);
+    if (!_device || !w)
+        return;
+    if (_activeWindow == w)
+        _activeWindow = _window;
+    SDL_ReleaseWindowFromGPUDevice(_device, w);
+}
+
+void SdlGpuBackend::SetSwapchainWindow(void *window) {
+    _activeWindow = window ? static_cast<SDL_Window *>(window) : _window;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

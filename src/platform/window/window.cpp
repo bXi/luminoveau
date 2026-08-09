@@ -54,7 +54,13 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 
     auto window = SDL_CreateWindow(title.c_str(), width, height, flags);
     if (window) {
-        _window = window;
+        _window     = window;
+        _mainWindow = window;
+        _mainId     = SDL_GetWindowID(window);
+        bool resizable = (flags & SDL_WINDOW_RESIZABLE) != 0;
+        _registry.push_back({ _mainId, window, 0, 0, 0, 0, resizable });
+        if (resizable)
+            SDL_SetWindowHitTest(window, &Window::_hitTest, nullptr);
     } else {
         LOG_CRITICAL("couldn't create window: {}", SDL_GetError());
     }
@@ -247,6 +253,12 @@ void Window::_processEvent(SDL_Event *event) {
         Input::RemoveGamepadDevice(event->gdevice.which);
         break;
     case SDL_EventType::SDL_EVENT_WINDOW_RESIZED: {
+        // Only the primary drives the engine's canvas/framebuffer resize. Secondary windows
+        // adapt per-frame in Window::_activateWindow (their swapchain size is re-read there),
+        // so applying their resize to the shared engine state here would corrupt the primary.
+        if (event->window.windowID != _mainId)
+            break;
+
         EventData resizeEventData;
         resizeEventData.emplace("width", event->window.data1);
         resizeEventData.emplace("height", event->window.data2);
@@ -299,7 +311,7 @@ void Window::_processEvent(SDL_Event *event) {
     }
 }
 
-#ifndef SDL_MAIN_USE_CALLBACKS
+#ifndef LUMINOVEAU_USE_CALLBACKS
 // Traditional main() loop mode - polls events in batch
 void Window::_handleInput() {
     // Snapshot previous state BEFORE applying this frame's events
@@ -340,12 +352,8 @@ void Window::_handleInput() {
     }
 #endif
 }
-
-// Public wrapper for event processing in callback mode
-void Window::ProcessEvent(SDL_Event *event) {
-    _processEvent(event);
-}
 #endif
+// ProcessEvent (callback mode) is defined inline in window.h.
 
 bool Window::_isFullscreen() {
     auto flag         = SDL_GetWindowFlags(_window);
@@ -529,6 +537,284 @@ bool Window::_hasInputFocus() {
     if (!_window)
         return true;
     return (SDL_GetWindowFlags(_window) & SDL_WINDOW_INPUT_FOCUS) != 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-window
+// ─────────────────────────────────────────────────────────────────────────────
+
+Window::WindowEntry *Window::_entry(WindowHandle w) {
+    for (auto &e : _registry)
+        if (e.id == w)
+            return &e;
+    return nullptr;
+}
+
+Window::WindowEntry *Window::_entryBySdl(SDL_Window *s) {
+    for (auto &e : _registry)
+        if (e.sdl == s)
+            return &e;
+    return nullptr;
+}
+
+SDL_Window *Window::_sdlOf(WindowHandle w) {
+    WindowEntry *e = _entry(w);
+    return e ? e->sdl : nullptr;
+}
+
+std::vector<Window::WindowHandle> Window::_allWindows() {
+    std::vector<WindowHandle> out;
+    out.reserve(_registry.size());
+    for (auto &e : _registry)
+        out.push_back(e.id);
+    return out;
+}
+
+Window::WindowHandle Window::_createWindow(const WindowDesc &desc) {
+    Uint32 flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    if (desc.borderless)
+        flags |= SDL_WINDOW_BORDERLESS;
+    if (desc.resizable)
+        flags |= SDL_WINDOW_RESIZABLE;
+    if (desc.alwaysOnTop)
+        flags |= SDL_WINDOW_ALWAYS_ON_TOP;
+
+    SDL_Window *w = SDL_CreateWindow(desc.title.c_str(), desc.width, desc.height, flags);
+    if (!w) {
+        LOG_ERROR("Window::Create failed: {}", SDL_GetError());
+        return InvalidWindow;
+    }
+    if (desc.x >= 0 && desc.y >= 0)
+        SDL_SetWindowPosition(w, desc.x, desc.y);
+    if (desc.parent != InvalidWindow) {
+        if (SDL_Window *p = _sdlOf(desc.parent))
+            SDL_SetWindowParent(w, p);
+    }
+    if (!Renderer::HasGpu() || !Renderer::GetGpu().ClaimWindow(w)) {
+        LOG_ERROR("Window::Create: GPU ClaimWindow failed: {}", SDL_GetError());
+        SDL_DestroyWindow(w);
+        return InvalidWindow;
+    }
+    WindowHandle id = SDL_GetWindowID(w);
+    _registry.push_back({ id, w, 0, 0, 0, 0, desc.resizable });
+    SDL_SetWindowHitTest(w, &Window::_hitTest, nullptr);
+    return id;
+}
+
+void Window::_destroyWindow(WindowHandle w) {
+    if (w == _mainId)
+        return; // never tear down the primary this way
+    WindowEntry *e = _entry(w);
+    if (!e)
+        return;
+    SDL_Window *sdl = e->sdl;
+    if (Renderer::HasGpu())
+        Renderer::GetGpu().ReleaseWindow(sdl);
+    if (_window == sdl)
+        _window = _mainWindow;
+    _registry.erase(std::remove_if(_registry.begin(), _registry.end(),
+                        [w](const WindowEntry &x) { return x.id == w; }),
+        _registry.end());
+    SDL_DestroyWindow(sdl);
+}
+
+void Window::_activateWindow(const WindowEntry &e) {
+    _window   = e.sdl;
+    int pw = 0, ph = 0;
+    SDL_GetWindowSizeInPixels(e.sdl, &pw, &ph);
+    if (pw <= 0)
+        pw = 1;
+    if (ph <= 0)
+        ph = 1;
+    // Publish this window's present size so the pass viewport + blit UV + GetPhysicalWidth
+    // all follow it while it renders (matches what EndFrame's swapchain acquire will report,
+    // so the resize-detect path in _endFrame stays quiet).
+    EngineState::swapchainWidth  = pw;
+    EngineState::swapchainHeight = ph;
+    Renderer::SetActiveSwapchainWindow(e.sdl);
+    Renderer::SetCanvasSize((uint32_t)pw, (uint32_t)ph); // also refreshes the camera projection
+}
+
+void Window::_renderAll(const std::function<void(WindowHandle)> &fn) {
+    if (!_window || _registry.empty())
+        return;
+
+    // ── per-tick prologue (mirrors _startFrame up to Renderer::StartFrame) ──────
+    _inFrame = true;
+    Lerp::UpdateLerps();
+    Window::HandleInput();
+
+    if (Renderer::ConsumePendingReset())
+        Renderer::Reset();
+    if (_sizeDirty) {
+        Renderer::OnResize();
+        _sizeDirty = false;
+    }
+
+    EngineState::frameCount++;
+    EngineState::previousTime = EngineState::currentTime;
+    EngineState::currentTime  = std::chrono::high_resolution_clock::now();
+    double rawFrameTime       = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              EngineState::currentTime - EngineState::previousTime)
+                              .count()
+        / 1e9;
+    constexpr double kMaxFrameTime = 0.1;
+    EngineState::lastFrameTime     = (EngineState::frameCount <= 1) ? 0.0 : std::min(rawFrameTime, kMaxFrameTime);
+
+    Perf::FrameStart();
+
+    // ── render every live window ────────────────────────────────────────────────
+    // Snapshot ids: the render callback must NOT Destroy a window mid-loop (defer that to
+    // after RenderAll), but a window may vanish between ticks, so re-resolve each id.
+    std::vector<WindowHandle> ids = _allWindows();
+    for (WindowHandle id : ids) {
+        WindowEntry *e = _entry(id);
+        if (!e)
+            continue;
+        // Skip windows hidden (e.g. minimised to a system tray) — no swapchain to present.
+        if (SDL_GetWindowFlags(e->sdl) & (SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED))
+            continue;
+        _activateWindow(*e);
+        Renderer::StartFrame();
+        fn(id);
+        if (id == _mainId) {
+#ifdef LUMINOVEAU_WITH_IMGUI
+            if (EngineState::debugMenuVisible)
+                ImGuiIntegration::DrawDebugMenu();
+#endif
+            Perf::Render();
+        }
+        Renderer::EndFrame();
+
+        // All windows composite through ONE shared framebuffer (Renderer's primary
+        // fbContent), so this window's blit-read of it must finish before the next window
+        // clears+writes it — otherwise the two per-window submits race and the primary
+        // flickers between windows. Serialize on the GPU between windows. A chat app's GPU
+        // load is trivial, so the stall is free; a per-window framebuffer would remove it.
+        if (_registry.size() > 1 && Renderer::HasGpu())
+            Renderer::GetGpu().WaitIdle();
+    }
+
+    // Restore the primary as the active window for any between-tick queries.
+    if (WindowEntry *m = _entry(_mainId))
+        _activateWindow(*m);
+
+    // ── per-tick epilogue (mirrors _endFrame after Renderer::EndFrame) ──────────
+    Audio::UpdateMusicStreams();
+    Perf::FrameEnd();
+    _inFrame = false;
+    if (_pendingClose) {
+        _pendingClose = false;
+        _close();
+    }
+}
+
+vf2d Window::_getSizeOf(WindowHandle w, bool real) {
+    SDL_Window *s = _sdlOf(w);
+    if (!s)
+        return { 0, 0 };
+    int ww = 0, hh = 0;
+    if (real)
+        SDL_GetWindowSizeInPixels(s, &ww, &hh);
+    else
+        SDL_GetWindowSize(s, &ww, &hh);
+    return { (float)ww, (float)hh };
+}
+
+void Window::_setTitleOf(WindowHandle w, const std::string &t) {
+    if (SDL_Window *s = _sdlOf(w))
+        SDL_SetWindowTitle(s, t.c_str());
+}
+
+void Window::_focusWindow(WindowHandle w) {
+    if (SDL_Window *s = _sdlOf(w))
+        SDL_RaiseWindow(s);
+}
+
+void Window::_minimize(WindowHandle w) {
+    if (SDL_Window *s = _sdlOf(w))
+        SDL_MinimizeWindow(s);
+}
+
+bool Window::_hasInputFocusOf(WindowHandle w) {
+    SDL_Window *s = _sdlOf(w);
+    return s && (SDL_GetWindowFlags(s) & SDL_WINDOW_INPUT_FOCUS) != 0;
+}
+
+void Window::_startTextInput(WindowHandle w) {
+    if (SDL_Window *s = _sdlOf(w))
+        SDL_StartTextInput(s);
+}
+
+vf2d Window::_localMouse(WindowHandle w) {
+    SDL_Window *s = _sdlOf(w);
+    if (!s)
+        return { 0, 0 };
+    float gx = 0, gy = 0;
+    SDL_GetGlobalMouseState(&gx, &gy);
+    int wx = 0, wy = 0;
+    SDL_GetWindowPosition(s, &wx, &wy);
+    return { gx - (float)wx, gy - (float)wy };
+}
+
+bool Window::_containsMouse(WindowHandle w) {
+    return SDL_GetMouseFocus() == _sdlOf(w);
+}
+
+Window::WindowHandle Window::_hoveredWindow() {
+    if (SDL_Window *s = SDL_GetMouseFocus())
+        if (WindowEntry *e = _entryBySdl(s))
+            return e->id;
+    return InvalidWindow;
+}
+
+Window::WindowHandle Window::_focusedWindow() {
+    if (SDL_Window *s = SDL_GetKeyboardFocus())
+        if (WindowEntry *e = _entryBySdl(s))
+            return e->id;
+    return InvalidWindow;
+}
+
+void Window::_setDragRegion(WindowHandle w, float x, float y, float ww, float hh) {
+    if (WindowEntry *e = _entry(w)) {
+        e->dragX = x;
+        e->dragY = y;
+        e->dragW = ww;
+        e->dragH = hh;
+        // Ensure the hit-test is installed (idempotent). The primary window doesn't get it
+        // at creation, so this lazily enables dragging when an app marks a region.
+        SDL_SetWindowHitTest(e->sdl, &Window::_hitTest, nullptr);
+    }
+}
+
+SDL_HitTestResult SDLCALL Window::_hitTest(SDL_Window *win, const SDL_Point *area, void * /*data*/) {
+    Window      &self = Window::Get();
+    WindowEntry *e    = self._entryBySdl(win);
+    if (!e)
+        return SDL_HITTEST_NORMAL;
+
+    // Resize edges/corners take priority so the title bar's drag region doesn't swallow them.
+    if (e->resizable) {
+        int W = 0, H = 0;
+        SDL_GetWindowSize(win, &W, &H);
+        const int b = 4; // grab margin (kept small so it doesn't eat title-bar buttons)
+        bool      L = area->x < b, R = area->x >= W - b, T = area->y < b, B = area->y >= H - b;
+        if (T && L) return SDL_HITTEST_RESIZE_TOPLEFT;
+        if (T && R) return SDL_HITTEST_RESIZE_TOPRIGHT;
+        if (B && L) return SDL_HITTEST_RESIZE_BOTTOMLEFT;
+        if (B && R) return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
+        if (L) return SDL_HITTEST_RESIZE_LEFT;
+        if (R) return SDL_HITTEST_RESIZE_RIGHT;
+        if (T) return SDL_HITTEST_RESIZE_TOP;
+        if (B) return SDL_HITTEST_RESIZE_BOTTOM;
+    }
+
+    if (e->dragW > 0 && e->dragH > 0 &&
+        area->x >= e->dragX && area->x < e->dragX + e->dragW &&
+        area->y >= e->dragY && area->y < e->dragY + e->dragH)
+        return SDL_HITTEST_DRAGGABLE;
+
+    return SDL_HITTEST_NORMAL;
 }
 
 void Window::_toggleDebugMenu() {

@@ -393,6 +393,13 @@ public:
         Get()._updateCameraProjection();
     }
 
+    /// @brief Selects which claimed OS window the swapchain ops target this frame (multi-window).
+    ///        Pass nullptr to restore the primary. Pair with SetCanvasSize + UpdateCameraProjection.
+    static void SetActiveSwapchainWindow(void *sdlWindow) {
+        if (Get()._gpu)
+            Get()._gpu->SetSwapchainWindow(sdlWindow);
+    }
+
     /**
      * @brief Sets the MSAA sample count and recreates render passes.
      *

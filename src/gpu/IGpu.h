@@ -74,6 +74,16 @@ public:
 
     virtual GpuTextureFormat GetSwapchainFormat() const = 0;
 
+    // ── Multi-window ──────────────────────────────────────────────────────────
+    // One device can drive several OS windows. Claim each secondary window once before
+    // rendering to it; ReleaseWindow when it closes. SetSwapchainWindow selects which
+    // claimed window AcquireSwapchainTexture / PresentSwapchain / GetSwapchainFormat act on
+    // (passing nullptr restores the primary). Defaults suit single-window backends
+    // (web/gl/sw): claim/release succeed trivially, the active window never changes.
+    virtual bool ClaimWindow(void * /*window*/) { return true; }
+    virtual void ReleaseWindow(void * /*window*/) { }
+    virtual void SetSwapchainWindow(void * /*window*/) { }
+
     // ── Render pass ───────────────────────────────────────────────────────────
 
     virtual GpuRenderPassHandle BeginRenderPass(GpuCmdBufferHandle cmd,

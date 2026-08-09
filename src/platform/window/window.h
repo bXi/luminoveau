@@ -4,6 +4,8 @@
 #include <string>
 #include <optional>
 #include <chrono>
+#include <functional>
+#include <vector>
 
 /// Scaling mode for the WebGPU canvas blit. No-op on SDL/native builds.
 enum class WebGpuScaleMode {
@@ -331,7 +333,7 @@ public:
         Get()._textInputCallback = std::move(callback);
     }
 
-#ifdef SDL_MAIN_USE_CALLBACKS
+#ifdef LUMINOVEAU_USE_CALLBACKS
     /**
      * @brief Processes a single SDL event (SDL3 callback mode only).
      *
@@ -342,6 +344,61 @@ public:
      */
     static void ProcessEvent(SDL_Event *event) { Get()._processEvent(event); }
 #endif
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Multi-window (native desktop). One GPU device drives several OS windows.
+    // The primary is the window InitWindow created; secondaries come from Create()
+    // and are rendered by RenderAll(). The no-arg size/window getters above follow
+    // whichever window is *active* (the one currently being rendered inside RenderAll,
+    // else the primary), so per-window draw code "just works" with GetWidth()/Draw::.
+    // ─────────────────────────────────────────────────────────────────────────
+    using WindowHandle                          = uint32_t; // SDL_WindowID; 0 == invalid
+    static constexpr WindowHandle InvalidWindow = 0;
+
+    struct WindowDesc {
+        std::string  title;
+        int          width = 320, height = 240;
+        int          x = -1, y = -1; // -1 => OS-chosen / centered
+        bool         borderless  = false;
+        bool         resizable   = false;
+        bool         alwaysOnTop  = false;
+        WindowHandle parent       = InvalidWindow; // owner window (stacking/focus)
+    };
+
+    static WindowHandle              Main() { return Get()._mainId; }
+    static WindowHandle              Create(const WindowDesc &desc) { return Get()._createWindow(desc); }
+    static void                      Destroy(WindowHandle w) { Get()._destroyWindow(w); }
+    static bool                      Exists(WindowHandle w) { return Get()._entry(w) != nullptr; }
+    static std::vector<WindowHandle> All() { return Get()._allWindows(); }
+
+    // Engine iterates every live window: for each -> activate, call renderFn(handle),
+    // present. Call once per tick in AppIterate INSTEAD of StartFrame/EndFrame.
+    static void RenderAll(const std::function<void(WindowHandle)> &renderFn) {
+        Get()._renderAll(renderFn);
+    }
+
+    // Handle-scoped queries (the no-arg versions act on the active/primary window).
+    static vf2d        GetSize(WindowHandle w, bool real = false) { return Get()._getSizeOf(w, real); }
+    static int         GetWidth(WindowHandle w) { return (int)Get()._getSizeOf(w, false).x; }
+    static int         GetHeight(WindowHandle w) { return (int)Get()._getSizeOf(w, false).y; }
+    static void        SetTitle(WindowHandle w, const std::string &t) { Get()._setTitleOf(w, t); }
+    static void        Focus(WindowHandle w) { Get()._focusWindow(w); }
+    static void        Minimize(WindowHandle w) { Get()._minimize(w); }
+    static bool        HasInputFocus(WindowHandle w) { return Get()._hasInputFocusOf(w); }
+    static SDL_Window *GetWindow(WindowHandle w) { return Get()._sdlOf(w); }
+    static void        StartTextInput(WindowHandle w) { Get()._startTextInput(w); }
+
+    // Per-window input. Mouse position is client-relative and valid even when w isn't
+    // focused (derived from the global cursor), so cross-window hover works.
+    static vf2d         GetLocalMousePosition(WindowHandle w) { return Get()._localMouse(w); }
+    static bool         ContainsMouse(WindowHandle w) { return Get()._containsMouse(w); }
+    static WindowHandle HoveredWindow() { return Get()._hoveredWindow(); }
+    static WindowHandle FocusedWindow() { return Get()._focusedWindow(); }
+
+    // Marks a client-area rect (title bar) OS-draggable via SDL hit-testing (w/h<=0 clears).
+    static void SetDragRegion(WindowHandle w, float x, float y, float width, float height) {
+        Get()._setDragRegion(w, x, y, width, height);
+    }
 
 private:
     double _getRunTime();
@@ -393,6 +450,41 @@ private:
     void _takeScreenshot(const std::string &filename);
 
     void _processEvent(SDL_Event *event);
+
+    // ── multi-window internals ────────────────────────────────────────────────
+    struct WindowEntry {
+        WindowHandle id  = 0;
+        SDL_Window  *sdl = nullptr;
+        // Client-relative title-bar rect marked OS-draggable (0 size = none).
+        float dragX = 0, dragY = 0, dragW = 0, dragH = 0;
+        bool  resizable = false; // borderless resize via edge hit-test zones
+    };
+
+    WindowEntry              *_entry(WindowHandle w);
+    WindowEntry              *_entryBySdl(SDL_Window *s);
+    SDL_Window               *_sdlOf(WindowHandle w);
+    std::vector<WindowHandle> _allWindows();
+    WindowHandle              _createWindow(const WindowDesc &desc);
+    void                      _destroyWindow(WindowHandle w);
+    void                      _renderAll(const std::function<void(WindowHandle)> &fn);
+    void                      _activateWindow(const WindowEntry &e);
+    vf2d                      _getSizeOf(WindowHandle w, bool real);
+    void                      _setTitleOf(WindowHandle w, const std::string &t);
+    void                      _focusWindow(WindowHandle w);
+    void                      _minimize(WindowHandle w);
+    bool                      _hasInputFocusOf(WindowHandle w);
+    void                      _startTextInput(WindowHandle w);
+    vf2d                      _localMouse(WindowHandle w);
+    bool                      _containsMouse(WindowHandle w);
+    WindowHandle              _hoveredWindow();
+    WindowHandle              _focusedWindow();
+    void                      _setDragRegion(WindowHandle w, float x, float y, float ww, float hh);
+
+    static SDL_HitTestResult SDLCALL _hitTest(SDL_Window *win, const SDL_Point *area, void *data);
+
+    std::vector<WindowEntry> _registry;
+    SDL_Window              *_mainWindow = nullptr;
+    WindowHandle             _mainId     = 0;
 
     SDL_Window *_window = nullptr;
 
