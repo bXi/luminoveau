@@ -235,6 +235,11 @@ void AssetHandler::_cleanup() {
             delete music.music;
             music.music = nullptr;
         }
+        if (music.decoder) { // uninit before freeing the bytes it reads from
+            ma_decoder_uninit(music.decoder);
+            delete music.decoder;
+            music.decoder = nullptr;
+        }
         if (music.fileData) {
             free(music.fileData);
             music.fileData = nullptr;
@@ -646,22 +651,49 @@ Music AssetHandler::_getMusic(const std::string &fileName) {
 
         auto filedata = FileHandler::ReadFile(fileName);
 
-        // Store fileData so we can free it in cleanup
+        // Keep the encoded bytes alive; both paths below reference them.
         musicAsset.fileData = filedata.data;
 
-        ma_resource_manager_register_encoded_data(Audio::GetAudioEngine()->pResourceManager, fileName.c_str(), filedata.data, filedata.fileSize);
+        bool isAbs = (fileName.size() > 1 && fileName[1] == ':')
+            || (!fileName.empty() && (fileName[0] == '/' || fileName[0] == '\\'));
 
-        ma_result result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
-            MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC,
-            Audio::GetChannelGroup(AudioChannel::Music),
-            nullptr, musicAsset.music);
+        ma_result result = MA_ERROR;
+        if (isAbs) {
+            // A file referenced by absolute path (e.g. an audio clip you sent). The resource
+            // manager's register-encoded-data + init-from-file path mishandles this and returns
+            // MA_OUT_OF_MEMORY, so decode the in-memory bytes directly as a data source — decodes
+            // on demand (no up-front full-length allocation) and needs no filename/VFS lookup.
+            ma_uint32         eng_rate = ma_engine_get_sample_rate(Audio::GetAudioEngine());
+            ma_uint32         eng_ch   = ma_engine_get_channels(Audio::GetAudioEngine());
+            // Decode straight into the engine's format so the data source has a definite,
+            // non-zero channel count / sample rate for the engine node.
+            ma_decoder_config dcfg = ma_decoder_config_init(ma_format_f32, eng_ch, eng_rate);
+            musicAsset.decoder     = new ma_decoder;
+            result                 = filedata.data
+                                ? ma_decoder_init_memory(filedata.data, (size_t)filedata.fileSize, &dcfg, musicAsset.decoder)
+                                : MA_INVALID_DATA;
+            if (result == MA_SUCCESS)
+                result = ma_sound_init_from_data_source(Audio::GetAudioEngine(), musicAsset.decoder, 0,
+                    Audio::GetChannelGroup(AudioChannel::Music), musicAsset.music);
+        } else {
+            // Bundled/relative assets: unchanged resource-manager path.
+            ma_resource_manager_register_encoded_data(Audio::GetAudioEngine()->pResourceManager, fileName.c_str(), filedata.data, filedata.fileSize);
+            result = ma_sound_init_from_file(Audio::GetAudioEngine(), fileName.c_str(),
+                MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_ASYNC,
+                Audio::GetChannelGroup(AudioChannel::Music),
+                nullptr, musicAsset.music);
+        }
 
         if (result != MA_SUCCESS) {
-            // Non-fatal (LOG_CRITICAL exits). Keep filedata (registered with the
-            // resource manager; tracked in musicAsset.fileData for cleanup).
+            if (musicAsset.decoder) {
+                ma_decoder_uninit(musicAsset.decoder);
+                delete musicAsset.decoder;
+                musicAsset.decoder = nullptr;
+            }
             delete musicAsset.music;
             musicAsset.music = nullptr;
-            LOG_WARNING("GetMusic failed (music will be silent): {}", fileName.c_str());
+            LOG_WARNING("GetMusic failed (music will be silent): {} ({})",
+                fileName.c_str(), ma_result_description(result));
         }
 
         _musics[fileName] = musicAsset;
