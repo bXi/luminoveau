@@ -65,6 +65,46 @@ public:
     }
 
     /**
+     * @brief Playback progress of a music asset in [0,1], or -1 if unknown (not loaded / zero length).
+     */
+    static float GetMusicProgress(Music &music) {
+        if (!music.music)
+            return -1.0f;
+        // The length query scans the file to count frames — far too expensive per frame (it
+        // stutters the audio). It's constant, so compute it once and cache it on the asset; only
+        // the cursor is polled each frame (cheap).
+        if (music.lengthFrames == 0)
+            ma_sound_get_length_in_pcm_frames(music.music, &music.lengthFrames);
+        if (music.lengthFrames == 0)
+            return -1.0f;
+        ma_uint64 cursor = 0;
+        ma_sound_get_cursor_in_pcm_frames(music.music, &cursor);
+        float p = (float)cursor / (float)music.lengthFrames;
+        return p < 0.0f ? 0.0f : (p > 1.0f ? 1.0f : p);
+    }
+
+    /**
+     * @brief True once the music has played through to the end.
+     */
+    static bool IsMusicAtEnd(Music &music) {
+        return music.music && ma_sound_at_end(music.music);
+    }
+
+    /**
+     * @brief Seeks music playback to a fraction [0,1] of its length.
+     */
+    static void SeekMusic(Music &music, float fraction) {
+        if (!music.music)
+            return;
+        if (music.lengthFrames == 0)
+            ma_sound_get_length_in_pcm_frames(music.music, &music.lengthFrames);
+        if (music.lengthFrames == 0)
+            return;
+        fraction = fraction < 0.0f ? 0.0f : (fraction > 1.0f ? 1.0f : fraction);
+        ma_sound_seek_to_pcm_frame(music.music, (ma_uint64)(fraction * (float)music.lengthFrames));
+    }
+
+    /**
      * @brief Sets the volume on the supplied music.
      *
      * @param music The Music asset to change the volume on.
