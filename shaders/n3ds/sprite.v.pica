@@ -46,9 +46,13 @@
 	dp4 outpos.w, projection[3], r0
 
 	; outtex = inuv * uvscale.xy + uvscale.zw
-	mul r1.xy, uvscale.xyxy, inuv.xyxy
-	add r1.xy, uvscale.zwzw, r1.xyxy
-	mov outtex.xy, r1.xy
+	; The previous version wrote only outtex.xy, leaving outtex.zw UNDEFINED — the PICA200 hardware
+	; wedges the vertex/rasteriser on an output whose components are never written (Citra/Azahar
+	; tolerate it). Compute into a full temp and write all four components. Uniforms (uvscale,
+	; consts) must be the FIRST source operand — PICA allows only src1 to read a uniform.
+	mul r1, uvscale, inuv        ; r1.xy = sx*u, sy*v
+	add r1, uvscale.zwzw, r1     ; r1.xy += ox, oy  (r1.zw defined but unused)
+	mov outtex, r1               ; full write — no undefined output components
 
 	; outclr = inclr / 255
 	mul outclr, consts.zzzz, inclr

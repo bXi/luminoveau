@@ -27,10 +27,25 @@ bool WindowBackend::_handleResize(int /*newWidth*/, int /*newHeight*/, WebGpuSca
 
 bool WindowBackend::_getSizeOverride(SDL_Window * /*window*/, WebGpuScaleMode /*scaleMode*/,
     int /*webGpuRenderWidth*/, int /*webGpuRenderHeight*/,
-    vf2d & /*outSize*/) {
+    vf2d &outSize) {
+#ifdef __3DS__
+    // The 3DS renders to the fixed 400x240 top screen (citro3d SCREEN_LOGICAL_W/H). SDL's
+    // window reports the requested InitWindow size, so override it or the game lays out for
+    // the wrong resolution and the camera ortho (renderer/n3ds/init.cpp) mismatches the fb.
+    outSize = { 400.0f, 240.0f };
+    return true;
+#else
+    (void)outSize;
     return false;
+#endif
 }
 
-bool WindowBackend::_getPhysicalSizeOverride(SDL_Window * /*window*/, WebGpuScaleMode /*scaleMode*/, vf2d & /*outSize*/) {
+bool WindowBackend::_getPhysicalSizeOverride(SDL_Window * /*window*/, WebGpuScaleMode /*scaleMode*/, vf2d &outSize) {
+#ifdef __3DS__
+    outSize = { 400.0f, 240.0f };
+    return true;
+#else
+    (void)outSize;
     return false;
+#endif
 }

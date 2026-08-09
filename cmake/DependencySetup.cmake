@@ -104,10 +104,13 @@ set(SDL_EXAMPLES OFF CACHE BOOL "Disable SDL examples" FORCE)
 set(SDL_INSTALL_TESTS OFF CACHE BOOL "Disable SDL test installation" FORCE)
 set(SDL_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL installation" FORCE)
 set(SDL3_DISABLE_INSTALL OFF CACHE BOOL "Enable SDL3 installation" FORCE)
-set(SDL_AUDIO OFF CACHE BOOL "Disable SDL audio (Luminoveau uses miniaudio)" FORCE)
 if(NINTENDO_3DS)
+    # 3DS drops miniaudio (no playback backend, and it doesn't build on newlib) and
+    # uses SDL3's native ndsp audio driver instead. Desktop/web keep miniaudio.
+    set(SDL_AUDIO ON CACHE BOOL "Enable SDL audio for the 3DS ndsp backend" FORCE)
     set(SDL_VULKAN OFF CACHE BOOL "No Vulkan on 3DS" FORCE)
 else()
+    set(SDL_AUDIO OFF CACHE BOOL "Disable SDL audio (Luminoveau uses miniaudio)" FORCE)
     set(SDL_VULKAN ON CACHE BOOL "Force SDL Vulkan video backend" FORCE)
 endif()
 if(WIN32)
@@ -244,7 +247,10 @@ else()
         lumi_fetch("basis_universal" "https://github.com/BinomialLLC/basis_universal.git" "1.16.4" BASIS_ROOT)
         if(BASIS_ROOT AND EXISTS "${BASIS_ROOT}/zstd/zstddeclib.c")
             target_sources(luminoveau PRIVATE "${BASIS_ROOT}/zstd/zstddeclib.c")
-            set_source_files_properties("${BASIS_ROOT}/zstd/zstddeclib.c" PROPERTIES COMPILE_OPTIONS "-O2")
+            # GCC 14 promotes -Wincompatible-pointer-types to an error; bundled zstd's XXH32
+            # trips it (U32* vs unsigned int*) on 32-bit ARM. Relax it for this third-party file.
+            set_source_files_properties("${BASIS_ROOT}/zstd/zstddeclib.c" PROPERTIES
+                COMPILE_OPTIONS "-O2;-Wno-incompatible-pointer-types")
             lumi_done("basis_universal zstd decoder")
         else()
             message(FATAL_ERROR "basis_universal fetch failed; the 3DS build needs its zstd decoder for the font atlas blob.")

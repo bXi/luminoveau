@@ -1,13 +1,6 @@
-// 3DS-backend implementation for SpriteRenderPass.
-//
-// The desktop/web sprite path is GPU-driven: a storage buffer of packed instances
-// plus an instance-indexed vertex shader. The PICA200 has neither storage buffers
-// nor instancing, so this pass expands every renderable's geometry on the CPU
-// (pivot/scale/rotate/translate — mirroring shaders/sprite.vert.hlsl exactly) into
-// a per-frame vertex/index ring, then draws one C3D_DrawElements per texture batch.
-//
-// Effects (per-sprite fragment shaders) don't exist on PICA; effect batches render
-// plain with a once-per-run warning.
+// 3DS SpriteRenderPass: PICA200 has no storage buffers or instancing, so this pass CPU-expands each
+// renderable into a per-frame vertex/index ring and draws one C3D_DrawElements per texture batch.
+// Per-sprite effect shaders don't exist on PICA; effect batches render plain.
 
 #include "renderer/passes/spriterenderpass.h"
 
@@ -20,11 +13,10 @@
 #include "draw/draw.h"
 #include "platform/window/window.h"
 
-// Embedded picasso shbin (cmake/N3dsShaders.cmake).
-extern "C" {
-extern const uint8_t  lumi_sprite_shbin[];
-extern const uint32_t lumi_sprite_shbin_size;
-}
+// Embedded picasso shbin (cmake/N3dsShaders.cmake). bin2s generates this header with the
+// shbin array (extern) and its size as a constexpr constant — do not hand-declare the size
+// as an extern symbol, it isn't one.
+#include "lumi_sprite_shbin.h"
 
 // TEV preset enum lives in the backend header.
 #include "gpu/backends/n3ds/Citro3dGpuBackend.h"
@@ -54,12 +46,8 @@ inline float clampf(float v, float lo, float hi) {
 
 } // namespace
 
-// The n3ds pass repurposes the shared members it needs; the WebGPU/SDL-specific
-// members in the header stay otherwise unused (zero) here.
-//   _quadVertexBuf/_quadIndexBuf . . ring device buffers (slot 0)
-//   _effectVbuf/_effectIbuf  . . . . ring device buffers (slot 1)
-//   _quadXferVert/_quadXferIdx . . . the CPU-written staging buffers
-//   _effectTexW  . . . . . . . . . . per-instance ring parity counter
+// Reuses the shared pass members: _quad*/_effect* buffers are the two ring slots, _quadXfer* the
+// CPU staging buffers, _effectTexW the ring parity counter.
 
 void SpriteRenderPass::_createShaders() {
     IGpu &gpu = Renderer::GetGpu();

@@ -15,11 +15,10 @@
 #include "renderer/passes/spriterenderpass.h"
 #include "renderer/shaders.h"
 
-// Embedded picasso shbins (cmake/N3dsShaders.cmake).
-extern "C" {
-extern const uint8_t  lumi_composite_shbin[];
-extern const uint32_t lumi_composite_shbin_size;
-}
+// Embedded picasso shbins (cmake/N3dsShaders.cmake). bin2s generates these headers with
+// the shbin array (extern) and its size as a constexpr constant — do not hand-declare the
+// size as an extern symbol, it isn't one.
+#include "lumi_composite_shbin.h"
 
 void Renderer::_initRendering() {
     auto *backend = new Citro3dGpuBackend();

@@ -1234,6 +1234,15 @@ bool ParticleRenderPass::Init(GpuTextureFormat swapchainFormat,
     _surfaceWidth  = width;
     _surfaceHeight = height;
 
+#ifdef __3DS__
+    // PICA200 has no particle shaders and no compute to drive them. Attach the pass as an
+    // inert no-op instead of hitting the fatal LOG_ERROR below (LOG_ERROR is [[noreturn]] —
+    // it throws and aborts the app). Render() is likewise a no-op on 3DS.
+    if (logInit)
+        LOG_INFO("ParticleRenderPass: disabled on 3DS (particles unsupported on PICA200)");
+    return true;
+#endif
+
     IGpu &gpu = Renderer::GetGpu();
 
     const char *vertEntry = Shaders::GetVertexEntryPoint();
@@ -1449,6 +1458,11 @@ void ParticleRenderPass::Release(bool logRelease) {
 void ParticleRenderPass::Render(GpuCmdBufferHandle cmdBuf,
     GpuTextureHandle                               target,
     const glm::mat4                               &camera) {
+#ifdef __3DS__
+    // Particles are disabled on 3DS (no shaders/compute); nothing to draw or resolve.
+    (void)cmdBuf; (void)target; (void)camera;
+    return;
+#endif
     IGpu &gpu = Renderer::GetGpu();
 
     if (_drawQueue.empty()) {

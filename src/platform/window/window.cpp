@@ -45,6 +45,20 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     _lastWindowWidth  = width;
     _lastWindowHeight = height;
 
+#ifdef __3DS__
+    // No SDL video on 3DS: the citro3d backend owns the graphics stack directly (gfxInitDefault),
+    // input comes from libctru hid, and the frame loop is driven by aptMainLoop in the entry point.
+    // SDL is only used for audio. The "window" is the fixed 400x240 top screen (see the size
+    // getters), so there is no SDL_Window.
+    (void)title;
+    (void)flags;
+    _window = nullptr;
+    Renderer::InitRendering();
+    if (!FileHandler::InitPhysFS()) {
+        LOG_CRITICAL("AssetHandler::InitPhysFS failed");
+    }
+    Input::Init();
+#else
     SDL_Init(SDL_INIT_VIDEO);
 
     // Always enable high-DPI so the GPU renders at full physical resolution
@@ -75,6 +89,7 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
     }
 
     Input::Init();
+#endif
 
 #ifdef LUMINOVEAU_WITH_RMLUI
     RmlUI::Init();
@@ -121,7 +136,15 @@ void Window::_close() {
     // SDL_QuitSubSystem is ref-counted
     Audio::Close();
 
+#ifndef __3DS__
     SDL_Quit();
+#else
+    // On 3DS, SDL is used only for audio (ndsp). SDL_Quit() would close the audio device, and
+    // SDL3's n3ds driver has a use-after-free on close (its CloseDevice frees device->hidden while
+    // the libctru ndsp thread is still inside the AudioFrameFinished callback -> data abort on
+    // exit; see Audio::_close). The process is terminating, so let the OS reclaim the ndsp device
+    // and SDL state rather than triggering that race.
+#endif
 }
 
 double Window::_getRunTime() {
@@ -348,12 +371,20 @@ void Window::ProcessEvent(SDL_Event *event) {
 #endif
 
 bool Window::_isFullscreen() {
+#ifdef __3DS__
+    return true; // the 3DS top screen is the whole display
+#else
     auto flag         = SDL_GetWindowFlags(_window);
     auto isFullscreen = flag & SDL_WINDOW_FULLSCREEN;
     return isFullscreen == SDL_WINDOW_FULLSCREEN;
+#endif
 }
 
 vf2d Window::_getSize(bool getRealSize) {
+#ifdef __3DS__
+    (void)getRealSize;
+    return { 400.0f, 240.0f }; // fixed top-screen logical size; no SDL window on 3DS
+#else
     int w, h;
 
     // WebGPU backend reports canvas-CSS-pixel swapchain dims; SDL backend defers
@@ -403,9 +434,13 @@ vf2d Window::_getSize(bool getRealSize) {
     }
 
     return { (float)w, (float)h };
+#endif
 }
 
 vf2d Window::_getPhysicalSize() {
+#ifdef __3DS__
+    return { 400.0f, 240.0f }; // fixed top-screen physical size; no SDL window on 3DS
+#else
     // WebGPU backend reports the swapchain's canvas-pixel dims here when in Native scale
     // mode (SDL_GetWindowSizeInPixels can disagree with the browser canvas attribute on
     // emscripten/SDL3 builds). SDL backend defers and we use the SDL value.
@@ -436,6 +471,7 @@ vf2d Window::_getPhysicalSize() {
         size.y = (float)std::max(1, (int)size.y / s);
     }
     return size;
+#endif
 }
 
 void Window::_updateDisplayScale() {
@@ -496,6 +532,8 @@ void Window::_startFrame() {
 }
 
 void Window::_endFrame() {
+
+    Audio::UpdateMusicStreams(); // pump streamed music (refills decode buffers; ndsp/3DS needs it)
 
     Perf::FrameEnd(); // CPU ms + sample + draw the perf HUD (before the frame is submitted)
 

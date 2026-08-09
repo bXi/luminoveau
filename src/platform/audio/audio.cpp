@@ -503,7 +503,9 @@ void Audio::_setChannelEffect(AudioChannel channel, PCMEffectCallback callback, 
     ch.effectNode.userData = userData;
     ch.effectNode.channels = static_cast<uint32_t>(_numberChannels);
 
-    uint32_t channelCount = ch.effectNode.channels;
+    // ma_uint32 (unsigned int), not uint32_t: on 32-bit ARM uint32_t is unsigned long,
+    // so &channelCount would not match ma_node_config's const ma_uint32* fields.
+    ma_uint32 channelCount = ch.effectNode.channels;
 
     ma_node_config nodeConfig  = ma_node_config_init();
     nodeConfig.vtable          = &effectNodeVtable;

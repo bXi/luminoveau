@@ -1,5 +1,6 @@
 #include "text.h"
 #include "draw/draw.h"
+#include "core/log/log.h"
 #include <algorithm>
 
 // Helper function to decode UTF-8 character
