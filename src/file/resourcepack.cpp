@@ -61,7 +61,7 @@ bool ResourcePack::LoadPack() {
 
     std::vector<uint8_t> fileData = FileHandler::ReadBinaryFile(_fileName);
     if (fileData.empty()) {
-        LOG_ERROR("ResourcePack file is empty or failed to read: {}", _fileName);
+        LOG_WARNING("ResourcePack file is empty or failed to read: {}", _fileName);
         return false;
     }
 
@@ -69,7 +69,7 @@ bool ResourcePack::LoadPack() {
     // so a corrupt/truncated pack doesn't linger and get misread again, and let the
     // caller fall back to rebuilding the cache from scratch.
     auto fail = [&](const char *reason) -> bool {
-        LOG_ERROR("ResourcePack: {} in {}, discarding corrupt pack", reason, _fileName);
+        LOG_WARNING("ResourcePack: {} in {}, discarding corrupt pack", reason, _fileName);
         _mapFiles.clear();
         std::error_code ec;
         std::filesystem::remove(_fileName, ec);
@@ -144,7 +144,7 @@ bool ResourcePack::LoadPack() {
 
     _baseFile.open(_fileName, std::ifstream::binary);
     if (!_baseFile.is_open()) {
-        LOG_ERROR("ResourcePack: failed to open base file for reading: {}", _fileName);
+        LOG_WARNING("ResourcePack: failed to open base file for reading: {}", _fileName);
         return false;
     }
 
@@ -237,7 +237,7 @@ bool ResourcePack::SavePack() {
         std::filesystem::copy_file(tmpFileName, _fileName, std::filesystem::copy_options::overwrite_existing, ec);
         std::filesystem::remove(tmpFileName, ec);
         if (ec) {
-            LOG_ERROR("ResourcePack: failed to commit pack to {}", _fileName);
+            LOG_WARNING("ResourcePack: failed to commit pack to {}", _fileName);
             return false;
         }
     }
