@@ -62,10 +62,17 @@ endif()
 # Fetching fmt
 # Using 9.1.0: 10.x uses consteval which breaks Emscripten's clang (consteval-in-lambda bug).
 lumi_msg("Fetching fmt")
+
+if(MSVC)
+    set(FMT_VERSION 10.2.1)
+else()
+    set(FMT_VERSION 9.1.0)
+endif()
+
 CPMAddPackage(
     NAME fmt
     GITHUB_REPOSITORY fmtlib/fmt
-    GIT_TAG 9.1.0
+    GIT_TAG ${FMT_VERSION}
     EXCLUDE_FROM_ALL YES
     OPTIONS
         "FMT_INSTALL OFF"
