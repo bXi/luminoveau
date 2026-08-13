@@ -53,6 +53,8 @@ bool ResourcePack::HasFile(const std::string &fileName) {
 }
 
 bool ResourcePack::LoadPack() {
+    _mapFiles.clear();
+
     if (!FileHandler::FileExists(_fileName)) {
         return false;
     }
@@ -62,6 +64,17 @@ bool ResourcePack::LoadPack() {
         LOG_ERROR("ResourcePack file is empty or failed to read: {}", _fileName);
         return false;
     }
+
+    // On any parse failure below: drop whatever we've built, discard the bad file
+    // so a corrupt/truncated pack doesn't linger and get misread again, and let the
+    // caller fall back to rebuilding the cache from scratch.
+    auto fail = [&](const char *reason) -> bool {
+        LOG_ERROR("ResourcePack: {} in {}, discarding corrupt pack", reason, _fileName);
+        _mapFiles.clear();
+        std::error_code ec;
+        std::filesystem::remove(_fileName, ec);
+        return false;
+    };
 
     size_t bufferPos = 0;
 
@@ -73,44 +86,60 @@ bool ResourcePack::LoadPack() {
         return true;
     };
 
+    uint32_t magic = 0, version = 0;
+    if (!readFromBuffer(&magic, sizeof(uint32_t)) || magic != kMagic)
+        return fail("bad or missing magic header");
+    if (!readFromBuffer(&version, sizeof(uint32_t)) || version != kVersion)
+        return fail("unsupported pack version");
+
     uint32_t indexSize = 0;
     if (!readFromBuffer(&indexSize, sizeof(uint32_t)))
-        return false;
+        return fail("truncated index size");
+
+    if (indexSize > fileData.size() - bufferPos)
+        return fail("index size exceeds file size");
 
     std::vector<char> buffer(indexSize);
     for (uint32_t j = 0; j < indexSize; j++) {
         if (bufferPos >= fileData.size())
-            return false;
+            return fail("truncated index");
         buffer[j] = fileData[bufferPos++];
     }
 
     std::vector<char> decoded = _scramble(buffer, _key);
-    size_t            pos     = 0;
-    auto              read    = [&decoded, &pos](char *dst, size_t size) {
-        memcpy((void *)dst, (const void *)(decoded.data() + pos), size);
-        pos += size;
-    };
+    size_t             pos    = 0;
 
-    auto get = [&read]() -> int {
-        char c;
-        read(&c, 1);
-        return c;
+    // Every field read out of the decoded index is bounds-checked against decoded.size();
+    // a corrupt/foreign file decodes to garbage lengths otherwise, which previously caused
+    // huge allocations / near-infinite loops / OOB reads that looked like a hang on startup.
+    auto read = [&decoded, &pos](void *dst, size_t size) -> bool {
+        if (pos + size > decoded.size())
+            return false;
+        memcpy(dst, decoded.data() + pos, size);
+        pos += size;
+        return true;
     };
 
     uint32_t mapEntries = 0;
-    read((char *)&mapEntries, sizeof(uint32_t));
+    if (!read(&mapEntries, sizeof(uint32_t)))
+        return fail("truncated map entry count");
+
+    std::map<std::string, ResourceFile> parsed;
     for (uint32_t i = 0; i < mapEntries; i++) {
         uint32_t filePathSize = 0;
-        read((char *)&filePathSize, sizeof(uint32_t));
+        if (!read(&filePathSize, sizeof(uint32_t)))
+            return fail("truncated file path size");
+        if (filePathSize > decoded.size() - pos)
+            return fail("file path size exceeds index size");
 
         std::string entryName(filePathSize, ' ');
-        for (uint32_t j = 0; j < filePathSize; j++)
-            entryName[j] = get();
+        if (filePathSize > 0 && !read(entryName.data(), filePathSize))
+            return fail("truncated file path");
 
         ResourceFile e {};
-        read((char *)&e.size, sizeof(uint32_t));
-        read((char *)&e.offset, sizeof(uint32_t));
-        _mapFiles[entryName] = e;
+        if (!read(&e.size, sizeof(uint32_t)) || !read(&e.offset, sizeof(uint32_t)))
+            return fail("truncated file entry");
+        parsed[entryName] = e;
     }
 
     _baseFile.open(_fileName, std::ifstream::binary);
@@ -119,6 +148,7 @@ bool ResourcePack::LoadPack() {
         return false;
     }
 
+    _mapFiles = std::move(parsed);
     return true;
 }
 
@@ -135,9 +165,15 @@ bool ResourcePack::SavePack() {
     if (_baseFile.is_open())
         _baseFile.close();
 
-    std::ofstream ofs(_fileName, std::ofstream::binary);
+    // Write to a temp file and rename over the real one so a crash/kill mid-write
+    // never leaves a half-written pack behind for LoadPack to choke on next launch.
+    std::string   tmpFileName = _fileName + ".tmp";
+    std::ofstream ofs(tmpFileName, std::ofstream::binary);
     if (!ofs.is_open())
         return false;
+
+    ofs.write((const char *)&kMagic, sizeof(uint32_t));
+    ofs.write((const char *)&kVersion, sizeof(uint32_t));
 
     uint32_t indexSize = 0;
     ofs.write((char *)&indexSize, sizeof(uint32_t));
@@ -186,13 +222,26 @@ bool ResourcePack::SavePack() {
     }
     std::vector<char> indexString    = _scramble(stream, _key);
     auto              indexStringLen = uint32_t(indexString.size());
-    ofs.seekp(0, std::ios::beg);
+    ofs.seekp(sizeof(uint32_t) * 2, std::ios::beg); // past magic + version, onto the indexSize slot
     ofs.write((char *)&indexStringLen, sizeof(uint32_t));
     ofs.write(indexString.data(), indexStringLen);
     ofs.close();
 
     if (_baseFile.is_open())
         _baseFile.close();
+
+    std::error_code ec;
+    std::filesystem::rename(tmpFileName, _fileName, ec);
+    if (ec) {
+        // Cross-device or locked-file rename can fail; fall back to copy+remove.
+        std::filesystem::copy_file(tmpFileName, _fileName, std::filesystem::copy_options::overwrite_existing, ec);
+        std::filesystem::remove(tmpFileName, ec);
+        if (ec) {
+            LOG_ERROR("ResourcePack: failed to commit pack to {}", _fileName);
+            return false;
+        }
+    }
+
     _baseFile.open(_fileName, std::ifstream::binary);
 
     return true;

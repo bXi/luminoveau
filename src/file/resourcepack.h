@@ -59,6 +59,9 @@ public:
     bool Loaded();
 
 private:
+    static constexpr uint32_t kMagic   = 0x314C5052; ///< "RPL1" little-endian
+    static constexpr uint32_t kVersion = 1;
+
     enum class ResourceType { File,
         ByteArray };
 
