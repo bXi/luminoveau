@@ -55,6 +55,25 @@ void ShaderRenderPass::Release(bool logRelease) {
     }
 }
 
+void ShaderRenderPass::OnResize(uint32_t surfaceWidth, uint32_t surfaceHeight) {
+    if (surfaceWidth == 0 || surfaceHeight == 0)
+        return;
+    _desktopWidth  = surfaceWidth;
+    _desktopHeight = surfaceHeight;
+
+    // _resultTexture / _inputTexture are window-sized (physical pixels); recreate them to match
+    // the new window size so STEP 2 (the user shader) and the final composite still read/write
+    // a texture that actually covers the current window instead of the size at Init() time.
+    IGpu   &gpu  = Renderer::GetGpu();
+    vf2d    size = Window::GetPhysicalSize();
+    if (_resultTexture)
+        gpu.ReleaseTexture(_resultTexture);
+    if (_inputTexture)
+        gpu.ReleaseTexture(_inputTexture);
+    _resultTexture = AssetHandler::CreateEmptyTexture(size).gpuTexture;
+    _inputTexture  = AssetHandler::CreateEmptyTexture(size).gpuTexture;
+}
+
 void ShaderRenderPass::_loadUniformsFromShader(const std::vector<uint8_t> & /*spirvBinary*/) {
     ShaderMetadata metadata = Shaders::GetShaderMetadata(vertShader.shaderFilename);
     for (const auto &[name, offset] : metadata.uniformOffsets) {

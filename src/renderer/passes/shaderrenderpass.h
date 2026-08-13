@@ -67,6 +67,12 @@ public:
 
     void Release(bool logRelease = true) override;
 
+    // _desktopWidth/_desktopHeight are the denominator for the STEP-1 crop UV in Render()
+    // (see sdl/shaderrenderpass.cpp) that pulls the live window region out of the desktop-sized
+    // fbContent. Without this override they're frozen at whatever Init() saw, so the crop drifts
+    // wrong as soon as the window is resized away from its startup size.
+    void OnResize(uint32_t surfaceWidth, uint32_t surfaceHeight) override;
+
     UniformBuffer &GetUniformBuffer() override;
 
     void Render(
