@@ -456,8 +456,14 @@ void Window::_updateDisplayScale() {
 }
 
 void Window::_setSize(int width, int height) {
-    SDL_SetWindowSize(_window, width, height);
-    SDL_SyncWindow(_window);
+    // In fullscreen the size is the display's; SDL_SetWindowSize would only rewrite the
+    // pending windowed size (clobbering what _toggleFullscreen saved to restore) and on some
+    // backends drops the window out of fullscreen. Still refresh the projection below so the
+    // fullscreen-entry call from _toggleFullscreen keeps doing its job.
+    if (!_isFullscreen()) {
+        SDL_SetWindowSize(_window, width, height);
+        SDL_SyncWindow(_window);
+    }
 
     // Update camera immediately so rendering adapts to new size
     Renderer::UpdateCameraProjection();
@@ -791,6 +797,12 @@ SDL_HitTestResult SDLCALL Window::_hitTest(SDL_Window *win, const SDL_Point *are
     Window      &self = Window::Get();
     WindowEntry *e    = self._entryBySdl(win);
     if (!e)
+        return SDL_HITTEST_NORMAL;
+
+    // A fullscreen window has no edges to grab and nowhere to be dragged to; the OS would
+    // otherwise honour a RESIZE_*/DRAGGABLE hit and yank it out of fullscreen. Checked per
+    // window (not via _isFullscreen(), which only looks at the primary).
+    if ((SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN) != 0)
         return SDL_HITTEST_NORMAL;
 
     // Resize edges/corners take priority so the title bar's drag region doesn't swallow them.
