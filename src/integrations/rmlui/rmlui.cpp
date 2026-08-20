@@ -31,6 +31,9 @@ struct State {
 
 static State g_state;
 
+/// Set before Window::InitWindow; consulted once, when the main context is created.
+static RenderInterfaceHook g_renderInterfaceHook;
+
 // ============================================================================
 // FONT LOADING HELPERS
 // ============================================================================
@@ -106,6 +109,8 @@ private:
 // LIFECYCLE
 // ============================================================================
 
+void SetRenderInterfaceHook(RenderInterfaceHook hook) { g_renderInterfaceHook = std::move(hook); }
+
 void Init() {
     if (g_state.initialized) {
         LOG_WARNING("RmlUI already initialized");
@@ -137,10 +142,22 @@ void Init() {
         return;
     }
 
-    // Create main context
+    // Create main context.
+    //
+    // The render interface is resolved here rather than left to the global default, because a
+    // context keeps whichever interface it was created with for its whole life. This is the
+    // only point at which an application can substitute one.
+    Rml::RenderInterface *renderInterface = Rml::GetRenderInterface();
+    if (g_renderInterfaceHook) {
+        if (Rml::RenderInterface *replacement = g_renderInterfaceHook(renderInterface)) {
+            renderInterface = replacement;
+        }
+    }
+
     vf2d window_size     = Window::GetSize();
     g_state.main_context = Rml::CreateContext("main",
-        Rml::Vector2i(static_cast<int>(window_size.x), static_cast<int>(window_size.y)));
+        Rml::Vector2i(static_cast<int>(window_size.x), static_cast<int>(window_size.y)),
+        renderInterface);
 
     if (!g_state.main_context) {
         LOG_ERROR("Failed to create main RmlUI context");

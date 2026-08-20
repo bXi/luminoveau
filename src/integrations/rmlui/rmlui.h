@@ -24,6 +24,21 @@ namespace RmlUI {
 // LIFECYCLE - Initialize and shutdown the UI system
 // ============================================================================
 
+/// @brief Wraps or replaces the render interface the main context is created with.
+///
+/// Receives the backend's own interface and returns the one to use — return the argument
+/// unchanged to opt out. The returned interface must outlive RmlUI.
+///
+/// This exists because a context is permanently bound to whichever render interface was
+/// current when it was created (Rml::CreateContext looks up a RenderManager keyed on it), so
+/// calling Rml::SetRenderInterface afterwards has no effect on it. An application that wants
+/// to intercept texture loading — to serve textures it rendered itself, say — has no other
+/// point at which to do so.
+///
+/// Must be set before Window::InitWindow.
+using RenderInterfaceHook = std::function<Rml::RenderInterface *(Rml::RenderInterface *backend)>;
+void SetRenderInterfaceHook(RenderInterfaceHook hook);
+
 /**
  * @brief Initialize RmlUI system (call after Window::InitWindow)
  * Creates the main context and sets up rendering backend
