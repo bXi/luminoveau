@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\shaders\shadowcube.frag.wgsl
+// Source: luminoveau/shaders/shadowcube.frag.wgsl
 // Backend: WGSL
 
 #include <cstdint>

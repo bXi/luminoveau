@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\shaders\shadow.vert.wgsl
+// Source: luminoveau/shaders/shadow.vert.wgsl
 // Backend: WGSL
 
 #include <cstdint>

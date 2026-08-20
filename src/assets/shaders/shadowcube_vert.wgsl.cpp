@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\shaders\shadowcube.vert.wgsl
+// Source: luminoveau/shaders/shadowcube.vert.wgsl
 // Backend: WGSL
 
 #include <cstdint>

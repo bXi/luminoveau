@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\shaders\model3d.frag.wgsl
+// Source: luminoveau/shaders/model3d.frag.wgsl
 // Backend: WGSL
 
 #include <cstdint>

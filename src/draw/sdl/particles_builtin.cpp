@@ -7,13 +7,16 @@
 #include "core/log/log.h"
 #include "gpu/IGpu.h"
 #include "renderer/renderer.h"
+#include "renderer/shaders.h"
 #include "assets/shaders_generated.h"
 
 GpuComputePipelineHandle ParticlesBuiltin::_createComputePipeline() {
     GpuComputePipelineCreateInfo info;
     info.code                        = Lumi::Shaders::PARTICLES_COMP;
     info.codeSize                    = Lumi::Shaders::PARTICLES_COMP_SIZE;
-    info.entrypoint                  = "main";
+    // spirv-cross renames the entry point to "main0" when emitting MSL, so the metallib backend
+    // needs that name; SPIRV/DXIL keep "main". GetComputeEntryPoint() tracks the active backend.
+    info.entrypoint                  = Shaders::GetComputeEntryPoint();
     info.threadCountX                = 64;
     info.threadCountY                = 1;
     info.threadCountZ                = 1;

@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\src\assets\shaders\particles_pov_frag.spv
+// Source: luminoveau/src/assets/shaders/particles_pov_frag.spv
 // Backend: SPIR-V
 
 #include <cstdint>

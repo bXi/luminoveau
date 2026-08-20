@@ -1,5 +1,5 @@
 # Auto-generated shader sources - DO NOT EDIT
-# Available backends: wgsl, spirv, dxil
+# Available backends: wgsl, spirv, metallib
 
 # Set default GPU backend if not specified
 if(NOT DEFINED LUMINOVEAU_GPU_BACKEND)
@@ -89,10 +89,24 @@ else()
     message(FATAL_ERROR "No shader files available for backend: ${LUMINOVEAU_GPU_BACKEND}")
 endif()
 
-# Compute shaders are always SPIR-V: SDL_ShaderCross handles cross-compilation at runtime
-set(LUMINOVEAU_COMPUTE_SHADER_SOURCES
-    src/assets/shaders/particles_comp.spirv.cpp
-)
+# Compute shaders (AOT, selected to match the active backend; SPIR-V fallback)
+if(LUMINOVEAU_GPU_BACKEND STREQUAL "SPIRV")
+    set(LUMINOVEAU_COMPUTE_SHADER_SOURCES
+        src/assets/shaders/particles_comp.spirv.cpp
+    )
+elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "DXIL")
+    set(LUMINOVEAU_COMPUTE_SHADER_SOURCES
+        src/assets/shaders/particles_comp.spirv.cpp
+    )
+elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "METALLIB")
+    set(LUMINOVEAU_COMPUTE_SHADER_SOURCES
+        src/assets/shaders/particles_comp.metallib.cpp
+    )
+elseif(LUMINOVEAU_GPU_BACKEND STREQUAL "WGSL")
+    set(LUMINOVEAU_COMPUTE_SHADER_SOURCES
+        src/assets/shaders/particles_comp.spirv.cpp
+    )
+endif()
 
 list(APPEND LUMINOVEAU_SHADER_SOURCES ${LUMINOVEAU_COMPUTE_SHADER_SOURCES})
 

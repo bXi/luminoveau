@@ -269,7 +269,8 @@ function Compile-DXIL
 function Get-SDLBindingMap
 {
     param(
-        [string]$SpvFile
+        [string]$SpvFile,
+        [switch]$Compute   # compute uses a different MSL buffer layout (set-keyed) than graphics
     )
 
     # Use spirv-cross --reflect to get resource layout from SPIRV
@@ -359,34 +360,74 @@ function Get-SDLBindingMap
     # Build binding map: resource_name -> { type, msl_index }
     $bindingMap = @{}
 
-    # Textures: msl_texture = binding, msl_sampler = binding
-    foreach ($tex in $textureResources)
+    if ($Compute)
     {
-        $bindingMap[$tex.name] = @{ type = "texture"; msl_index = $tex.binding }
-    }
+        # ── Compute-stage MSL layout (mirrors SDL_shadercross.c compute branch) ──────────────
+        # Storage resources are split across descriptor sets by access: set 0 = read-only,
+        # set 1 = read-write, uniforms in set 2. So a read-write buffer is offset past *every*
+        # read-only buffer, not just by its own binding number. The graphics formula ignores the
+        # set, which collides e.g. t0/space0 with u0/space1 (both land on buffer 1).
+        $readonlyTextureCount  = @($textureResources      | Where-Object { $_.desc_set -eq 0 }).Count
+        $readwriteTextureCount = @($textureResources      | Where-Object { $_.desc_set -eq 1 }).Count
+        $readonlyBufferCount   = @($storageBufferResources | Where-Object { $_.desc_set -eq 0 }).Count
 
-    # Also map the matching separate_images (textures paired with samplers)
-    # The first N separate_images match the N separate_samplers
-    if ($combinedTextures.Count -eq 0 -and $separateImages.Count -gt 0)
-    {
-        for ($i = 0; $i -lt [Math]::Min($numSeparateSamplers, $separateImages.Count); $i++)
+        # Storage textures: read-only keep their binding, read-write follow all read-only ones.
+        foreach ($tex in $textureResources)
         {
-            $img = $separateImages[$i]
-            $bindingMap[$img.name] = @{ type = "texture"; msl_index = [int]$img.binding }
+            $msl = if ($tex.desc_set -eq 0) { [int]$tex.binding } else { $readonlyTextureCount + [int]$tex.binding }
+            $bindingMap[$tex.name] = @{ type = "texture"; msl_index = $msl }
+        }
+        # Uniform buffers: msl_buffer = binding (alone in their set).
+        foreach ($ubo in $uniformBufferResources)
+        {
+            $bindingMap[$ubo.name] = @{ type = "buffer"; msl_index = [int]$ubo.binding }
+        }
+        # Storage buffers: read-only after the uniforms, read-write after all read-only buffers.
+        foreach ($ssbo in $storageBufferResources)
+        {
+            if ($ssbo.desc_set -eq 0)
+            {
+                $msl = $uniformBufferCount + ([int]$ssbo.binding - $readonlyTextureCount)
+            }
+            else
+            {
+                $msl = $uniformBufferCount + $readonlyBufferCount + ([int]$ssbo.binding - $readwriteTextureCount)
+            }
+            $bindingMap[$ssbo.name] = @{ type = "buffer"; msl_index = $msl }
         }
     }
-
-    # Uniform buffers: msl_buffer = binding
-    foreach ($ubo in $uniformBufferResources)
+    else
     {
-        $bindingMap[$ubo.name] = @{ type = "buffer"; msl_index = $ubo.binding }
-    }
+        # ── Graphics-stage layout (unchanged) ────────────────────────────────────────────────
+        # Textures: msl_texture = binding, msl_sampler = binding
+        foreach ($tex in $textureResources)
+        {
+            $bindingMap[$tex.name] = @{ type = "texture"; msl_index = $tex.binding }
+        }
 
-    # Storage buffers: msl_buffer = uniformBufferCount + (binding - numTextureBindings)
-    foreach ($ssbo in $storageBufferResources)
-    {
-        $mslBuffer = $uniformBufferCount + ($ssbo.binding - $numTextureBindings)
-        $bindingMap[$ssbo.name] = @{ type = "buffer"; msl_index = $mslBuffer }
+        # Also map the matching separate_images (textures paired with samplers)
+        # The first N separate_images match the N separate_samplers
+        if ($combinedTextures.Count -eq 0 -and $separateImages.Count -gt 0)
+        {
+            for ($i = 0; $i -lt [Math]::Min($numSeparateSamplers, $separateImages.Count); $i++)
+            {
+                $img = $separateImages[$i]
+                $bindingMap[$img.name] = @{ type = "texture"; msl_index = [int]$img.binding }
+            }
+        }
+
+        # Uniform buffers: msl_buffer = binding
+        foreach ($ubo in $uniformBufferResources)
+        {
+            $bindingMap[$ubo.name] = @{ type = "buffer"; msl_index = $ubo.binding }
+        }
+
+        # Storage buffers: msl_buffer = uniformBufferCount + (binding - numTextureBindings)
+        foreach ($ssbo in $storageBufferResources)
+        {
+            $mslBuffer = $uniformBufferCount + ($ssbo.binding - $numTextureBindings)
+            $bindingMap[$ssbo.name] = @{ type = "buffer"; msl_index = $mslBuffer }
+        }
     }
 
     # Clean up names: HLSL cbuffers get 'type.' prefix in SPIRV reflection
@@ -523,7 +564,9 @@ function Compile-MetalLib
 
     # Step 3: Compute SDL_shadercross-compatible bindings and fix MSL source
     Write-Info "  [3/5] Fixing MSL resource bindings ($ShaderName)..."
-    $bindingMap = Get-SDLBindingMap -SpvFile $tempSpv
+    # Compute shaders use a different MSL buffer layout than graphics; detect from the profile.
+    $isCompute = $Profile -like 'cs_*'
+    $bindingMap = Get-SDLBindingMap -SpvFile $tempSpv -Compute:$isCompute
     if ($bindingMap -and $bindingMap.Count -gt 0)
     {
         Fix-MSLBindings -MslFile $tempMsl -BindingMap $bindingMap
@@ -683,7 +726,7 @@ namespace Shaders {
     foreach ($compute in $CompiledCompute)
     {
         $headerContent += @"
-    // $($compute.Name) Compute Shader (always SPIR-V - SDL_ShaderCross handles cross-compilation)
+    // $($compute.Name) Compute Shader (AOT-compiled; the linked .cpp matches LUMINOVEAU_SHADER_BACKEND_*)
     extern const uint8_t $($compute.CompSymbol)[];
     extern const size_t $($compute.CompSymbol)_SIZE;
 
@@ -806,21 +849,37 @@ else()
     message(FATAL_ERROR "No shader files available for backend: `${LUMINOVEAU_GPU_BACKEND}")
 endif()
 
-# Compute shaders are always SPIR-V: SDL_ShaderCross handles cross-compilation at runtime
-set(LUMINOVEAU_COMPUTE_SHADER_SOURCES
 "@
 
-    foreach ($compute in $CompiledCompute)
+    # Compute shaders are AOT-compiled per backend too. The compute pipeline's declared format is
+    # chosen from LUMINOVEAU_SHADER_BACKEND_<X> (SdlGpuBackend::CreateComputePipeline), so the bytes
+    # here must match: a SPIR-V blob on Metal trips METAL_INTERNAL_CompileShader. Each backend picks
+    # its native compute .cpp, falling back to SPIR-V when one wasn't generated. WGSL stays on SPIR-V
+    # (the WebGPU backend cross-compiles it at runtime).
+    $computeBackends = @(
+        @{ Cmake = "SPIRV";    Field = "CompCppSPIRV" },
+        @{ Cmake = "DXIL";     Field = "CompCppDXIL" },
+        @{ Cmake = "METALLIB"; Field = "CompCppMETALLIB" },
+        @{ Cmake = "WGSL";     Field = "CompCppSPIRV" }
+    )
+    $cmakeContent += "`n# Compute shaders (AOT, selected to match the active backend; SPIR-V fallback)"
+    $first = $true
+    foreach ($cb in $computeBackends)
     {
-        if ($compute.CompCppSPIRV)
+        $keyword = if ($first) { "if" } else { "elseif" }
+        $first = $false
+        $cmakeContent += "`n$keyword(LUMINOVEAU_GPU_BACKEND STREQUAL `"$($cb.Cmake)`")"
+        $cmakeContent += "`n    set(LUMINOVEAU_COMPUTE_SHADER_SOURCES"
+        foreach ($compute in $CompiledCompute)
         {
-            $cmakeContent += "`n    src/assets/shaders/$($compute.CompCppSPIRV)"
+            $cpp = if ($compute[$cb.Field]) { $compute[$cb.Field] } else { $compute.CompCppSPIRV }
+            if ($cpp) { $cmakeContent += "`n        src/assets/shaders/$cpp" }
         }
+        $cmakeContent += "`n    )"
     }
+    $cmakeContent += "`nendif()`n"
 
     $cmakeContent += @"
-
-)
 
 list(APPEND LUMINOVEAU_SHADER_SOURCES `${LUMINOVEAU_COMPUTE_SHADER_SOURCES})
 
@@ -1087,34 +1146,78 @@ function Compile-AllShaders
         $compSource = Join-Path $ShaderSourceDir $computeDef.CompFile
 
         $computeInfo = @{
-            Name        = $computeDef.Name
-            BaseName    = $computeDef.BaseName
-            CompSymbol  = $computeDef.CompSymbol
-            CompCppSPIRV = ""
+            Name            = $computeDef.Name
+            BaseName        = $computeDef.BaseName
+            CompSymbol      = $computeDef.CompSymbol
+            CompCppSPIRV    = ""
+            CompCppDXIL     = ""
+            CompCppMETALLIB = ""
         }
 
-        # Compute shaders are always compiled to SPIR-V
-        $compSpv = Join-Path $OutputDir "$($computeDef.BaseName)_comp.spv"
-        $compSuccess = Compile-SPIRV -SourceFile $compSource -OutputFile $compSpv -Profile $ComputeProfile -ShaderName "$($computeDef.Name) Compute"
+        # Compute pipelines are created with a declared shader format that must match these bytes
+        # (SdlGpuBackend::CreateComputePipeline picks it from LUMINOVEAU_SHADER_BACKEND_*). Metal
+        # has no SPIR-V compiler and D3D12 has none either, so those backends need a native compute
+        # blob just like vert/frag do — SPIR-V alone crashes on Metal. Compile to every available
+        # backend; the generated CMake selects the right one (falling back to SPIR-V if absent).
+        # WGSL/WebGPU is intentionally left on the SPIR-V blob it already consumes at runtime.
 
-        if ($compSuccess)
+        # SPIR-V (always the fallback base; Vulkan-native)
+        if ("spirv" -in $backendsToCompile)
         {
-            $computeInfo.CompCppSPIRV = "$($computeDef.BaseName)_comp.spirv.cpp"
-            Generate-CppFile -BinaryFile $compSpv -OutputFile (Join-Path $OutputDir $computeInfo.CompCppSPIRV) -SymbolName $computeInfo.CompSymbol -Backend "SPIR-V"
-        }
-
-        # Keep existing .cpp if we didn't compile (e.g. -Shader filter skipped this)
-        if (-not $computeInfo.CompCppSPIRV)
-        {
-            $existingFile = Join-Path $OutputDir "$($computeDef.BaseName)_comp.spirv.cpp"
-            if (Test-Path $existingFile)
+            $compSpv = Join-Path $OutputDir "$($computeDef.BaseName)_comp.spv"
+            $compSuccess = Compile-SPIRV -SourceFile $compSource -OutputFile $compSpv -Profile $ComputeProfile -ShaderName "$($computeDef.Name) Compute"
+            if ($compSuccess)
             {
                 $computeInfo.CompCppSPIRV = "$($computeDef.BaseName)_comp.spirv.cpp"
-                Write-Skip "  Keeping existing $($computeInfo.CompCppSPIRV)"
+                Generate-CppFile -BinaryFile $compSpv -OutputFile (Join-Path $OutputDir $computeInfo.CompCppSPIRV) -SymbolName $computeInfo.CompSymbol -Backend "SPIR-V"
             }
         }
 
-        if ($computeInfo.CompCppSPIRV)
+        # DXIL (D3D12-native)
+        if ("dxil" -in $backendsToCompile)
+        {
+            $compDxil = Join-Path $OutputDir "$($computeDef.BaseName)_comp.dxil"
+            $compSuccess = Compile-DXIL -SourceFile $compSource -OutputFile $compDxil -Profile $ComputeProfile -ShaderName "$($computeDef.Name) Compute"
+            if ($compSuccess)
+            {
+                $computeInfo.CompCppDXIL = "$($computeDef.BaseName)_comp.dxil.cpp"
+                Generate-CppFile -BinaryFile $compDxil -OutputFile (Join-Path $OutputDir $computeInfo.CompCppDXIL) -SymbolName $computeInfo.CompSymbol -Backend "DXIL"
+            }
+        }
+
+        # Metal (metallib-native; spirv-cross renames the entry point to main0, matched by
+        # Shaders::GetComputeEntryPoint())
+        if ("metallib" -in $backendsToCompile)
+        {
+            $compMetallib = Join-Path $OutputDir "$($computeDef.BaseName)_comp.metallib"
+            $compSuccess = Compile-MetalLib -SourceFile $compSource -OutputFile $compMetallib -Profile $ComputeProfile -ShaderName "$($computeDef.Name) Compute"
+            if ($compSuccess)
+            {
+                $computeInfo.CompCppMETALLIB = "$($computeDef.BaseName)_comp.metallib.cpp"
+                Generate-CppFile -BinaryFile $compMetallib -OutputFile (Join-Path $OutputDir $computeInfo.CompCppMETALLIB) -SymbolName $computeInfo.CompSymbol -Backend "METALLIB"
+            }
+        }
+
+        # Preserve backends compiled on other platforms (mirrors the vert/frag pass above)
+        $computeSuffixes = @{
+            CompCppSPIRV    = "$($computeDef.BaseName)_comp.spirv.cpp"
+            CompCppDXIL     = "$($computeDef.BaseName)_comp.dxil.cpp"
+            CompCppMETALLIB = "$($computeDef.BaseName)_comp.metallib.cpp"
+        }
+        foreach ($field in $computeSuffixes.Keys)
+        {
+            if (-not $computeInfo[$field])
+            {
+                $existingFile = Join-Path $OutputDir $computeSuffixes[$field]
+                if (Test-Path $existingFile)
+                {
+                    $computeInfo[$field] = $computeSuffixes[$field]
+                    Write-Skip "  Keeping existing $($computeSuffixes[$field])"
+                }
+            }
+        }
+
+        if ($computeInfo.CompCppSPIRV -or $computeInfo.CompCppDXIL -or $computeInfo.CompCppMETALLIB)
         {
             $compiledCompute += $computeInfo
         }

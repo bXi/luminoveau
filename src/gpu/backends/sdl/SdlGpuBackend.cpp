@@ -581,12 +581,23 @@ GpuGraphicsPipelineHandle SdlGpuBackend::CreateGraphicsPipeline(const GpuGraphic
 }
 
 GpuComputePipelineHandle SdlGpuBackend::CreateComputePipeline(const GpuComputePipelineCreateInfo &info) {
-    // Shader cross-compilation is handled by SDL_ShaderCross; raw SPIRV bytes expected.
+    // These are AOT-compiled built-in compute shaders whose bytes are already in the active
+    // backend's format (SPIRV / DXIL / METALLIB), selected by compile_shaders.ps1 into
+    // Sources.Shaders.cmake. The declared format must match those bytes: handing SPIRV to the
+    // Metal backend trips METAL_INTERNAL_CompileShader ("SDL_gpu.c should have already validated
+    // this!"). Mirror CreateShader's compile-time selection so the format tracks the bytes.
+#if defined(__ANDROID__) || !defined(LUMINOVEAU_SHADER_BACKEND_DXIL) && !defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+    SDL_GPUShaderFormat fmt = SDL_GPU_SHADERFORMAT_SPIRV;
+#elif defined(LUMINOVEAU_SHADER_BACKEND_DXIL)
+    SDL_GPUShaderFormat fmt = SDL_GPU_SHADERFORMAT_DXIL;
+#elif defined(LUMINOVEAU_SHADER_BACKEND_METALLIB)
+    SDL_GPUShaderFormat fmt = SDL_GPU_SHADERFORMAT_METALLIB;
+#endif
     SDL_GPUComputePipelineCreateInfo ci {
         .code_size                      = info.codeSize,
         .code                           = info.code,
         .entrypoint                     = info.entrypoint,
-        .format                         = SDL_GPU_SHADERFORMAT_SPIRV,
+        .format                         = fmt,
         .num_samplers                   = info.samplerCount,
         .num_readonly_storage_textures  = info.readonlyStorageTextureCount,
         .num_readonly_storage_buffers   = info.readonlyStorageBufferCount,

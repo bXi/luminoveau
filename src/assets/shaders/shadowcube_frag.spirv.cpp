@@ -1,5 +1,5 @@
 // Auto-generated shader binary - DO NOT EDIT
-// Source: luminoveau\src\assets\shaders\shadowcube_frag.spv
+// Source: luminoveau/src/assets/shaders/shadowcube_frag.spv
 // Backend: SPIR-V
 
 #include <cstdint>
