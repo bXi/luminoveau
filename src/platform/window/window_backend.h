@@ -41,6 +41,12 @@ public:
     // SDL-based size logic).
     static bool GetSizeOverride(SDL_Window *window, WebGpuScaleMode scaleMode, int webGpuRenderWidth, int webGpuRenderHeight, vf2d &outSize) { return Get()._getSizeOverride(window, scaleMode, webGpuRenderWidth, webGpuRenderHeight, outSize); }
 
+    // Sets the OS-level window background color. During a live resize the OS paints the
+    // newly-exposed client strip with this color before our swapchain present lands (one
+    // vblank later), so matching it to the app's window background hides the black flash.
+    // SDL/Win32: sets the window-class background brush. WebGPU/other: no-op.
+    static void SetWindowBackgroundColor(SDL_Window *window, uint8_t r, uint8_t g, uint8_t b) { Get()._setWindowBackgroundColor(window, r, g, b); }
+
     // Same idea for _getPhysicalSize(). On web, SDL_GetWindowSizeInPixels can disagree
     // with the actual swapchain pixel size (browser canvas attribute drives the surface,
     // not SDL's HighPixelDensity logic); the backend reports the swapchain dims instead.
@@ -53,6 +59,7 @@ private:
     bool _handleResize(int newWidth, int newHeight, WebGpuScaleMode scaleMode);
     bool _getSizeOverride(SDL_Window *window, WebGpuScaleMode scaleMode, int webGpuRenderWidth, int webGpuRenderHeight, vf2d &outSize);
     bool _getPhysicalSizeOverride(SDL_Window *window, WebGpuScaleMode scaleMode, vf2d &outSize);
+    void _setWindowBackgroundColor(SDL_Window *window, uint8_t r, uint8_t g, uint8_t b);
 
 public:
     WindowBackend(const WindowBackend &) = delete;

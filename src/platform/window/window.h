@@ -302,6 +302,11 @@ public:
         Get()._webGpuRenderHeight = renderHeight;
     }
 
+    /// @brief Sets the OS window background color used to fill the strip exposed during a live
+    ///        resize (before the swapchain present catches up). Set it to the app's window-edge
+    ///        color to hide the black flash when dragging a window larger. No-op on web.
+    static void SetResizeFillColor(Color c) { Get()._setResizeFillColor(c); }
+
     /// @brief Returns the WebGPU canvas scaling mode (no-op on native builds).
     static WebGpuScaleMode GetWebGpuScaleMode() { return Get()._webGpuScaleMode; }
     /// @brief Returns the WebGPU internal render width in pixels (web builds).
@@ -439,6 +444,8 @@ private:
 
     void _setSize(int width, int height);
 
+    void _setResizeFillColor(Color c);
+
     void _setScaledSize(int width, int height, int scale = 0);
 
     void _startFrame();
@@ -498,6 +505,16 @@ private:
 
     bool        _inFrame           = false;
     bool        _pendingClose      = false;
+
+    // Live-resize redraw. While a window is dragged/resized the OS runs its own modal loop; SDL keeps
+    // AppIterate alive through it via a sparse WM_TIMER, so frames still fire but too rarely to keep up
+    // with the growing window — the just-exposed edge shows black between ticks. An SDL event watch
+    // fires synchronously inside that loop on every WINDOW_RESIZED, so we repaint the affected window
+    // right there and present at the new size before the OS shows the exposed edge.
+    std::function<void(WindowHandle)> _renderFn; // most recent RenderAll callback
+    static bool SDLCALL               _resizeWatch(void *userdata, SDL_Event *event);
+    void                              _renderWindowNow(WindowHandle id);
+
     bool        _pendingScreenshot = false;
     std::string _pendingScreenshotFilename;
 

@@ -66,6 +66,10 @@ bool WindowBackend::_getPhysicalSizeOverride(SDL_Window * /*window*/, WebGpuScal
     return true;
 }
 
+void WindowBackend::_setWindowBackgroundColor(SDL_Window * /*window*/, uint8_t /*r*/, uint8_t /*g*/, uint8_t /*b*/) {
+    // No OS-level window brush on the web; the canvas has no live-resize black flash to hide.
+}
+
 bool WindowBackend::_getSizeOverride(SDL_Window *window, WebGpuScaleMode scaleMode,
     int webGpuRenderWidth, int webGpuRenderHeight,
     vf2d &outSize) {

@@ -74,6 +74,9 @@ void Window::_initWindow(const std::string &title, int width, int height, int sc
 
     Renderer::InitRendering();
 
+    // Repaint a window from inside the OS modal resize loop (see _resizeWatch / _renderWindowNow).
+    SDL_AddEventWatch(&Window::_resizeWatch, this);
+
     WindowBackend::PostInit(_window);
 
     if (!FileHandler::InitPhysFS()) {
@@ -102,6 +105,11 @@ void Window::_requestClose() {
 void Window::_close() {
     if (!_window)
         return; // Already closed
+
+    // Stop the resize watch first: a stray size event after Renderer::Close() would repaint through a
+    // torn-down renderer.
+    SDL_RemoveEventWatch(&Window::_resizeWatch, this);
+    _renderFn = nullptr;
 
 #ifdef LUMINOVEAU_WITH_RMLUI
     RmlUI::Shutdown();
@@ -662,6 +670,9 @@ void Window::_renderAll(const std::function<void(WindowHandle)> &fn) {
     if (!_window || _registry.empty())
         return;
 
+    // Remember the render callback so the resize event watch can repaint a window mid-drag.
+    _renderFn = fn;
+
     // ── per-tick prologue (mirrors _startFrame up to Renderer::StartFrame) ──────
     _inFrame = true;
     Lerp::UpdateLerps();
@@ -729,6 +740,47 @@ void Window::_renderAll(const std::function<void(WindowHandle)> &fn) {
         _pendingClose = false;
         _close();
     }
+}
+
+// SDL event watch: fires synchronously, including from inside the OS modal drag/resize loop where
+// AppIterate (RenderAll) is starved. On each size change we repaint just that window so its exposed
+// edge is filled immediately instead of showing black until the next sparse iterate tick.
+bool SDLCALL Window::_resizeWatch(void *userdata, SDL_Event *event) {
+    auto *self = static_cast<Window *>(userdata);
+    if (!self || !self->_renderFn)
+        return true;
+    // _inFrame guards re-entry: a size event delivered while RenderAll is already mid-tick must not
+    // start a nested frame (shared command buffer / geometry buffers).
+    if (self->_inFrame)
+        return true;
+    if (event->type != SDL_EVENT_WINDOW_RESIZED && event->type != SDL_EVENT_WINDOW_EXPOSED)
+        return true;
+    self->_renderWindowNow(event->window.windowID);
+    return true;
+}
+
+void Window::_renderWindowNow(WindowHandle id) {
+    WindowEntry *e = _entry(id);
+    if (!e || !_renderFn)
+        return;
+    if (SDL_GetWindowFlags(e->sdl) & (SDL_WINDOW_HIDDEN | SDL_WINDOW_MINIMIZED))
+        return;
+
+    _inFrame = true;
+    _activateWindow(*e);
+    Renderer::StartFrame();
+    _renderFn(id);
+    Renderer::EndFrame();
+    // Restore the primary as the active window so between-tick queries stay consistent.
+    if (WindowEntry *m = _entry(_mainId))
+        _activateWindow(*m);
+    _inFrame = false;
+}
+
+void Window::_setResizeFillColor(Color c) {
+    // SDL windows share one window class, so applying it to the main window covers every window.
+    if (_mainWindow)
+        WindowBackend::SetWindowBackgroundColor(_mainWindow, (uint8_t)c.r, (uint8_t)c.g, (uint8_t)c.b);
 }
 
 vf2d Window::_getSizeOf(WindowHandle w, bool real) {
