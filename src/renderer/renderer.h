@@ -186,6 +186,26 @@ public:
     }
 
     /**
+     * @brief Inserts an existing render pass into a framebuffer at a given position.
+     *
+     * A framebuffer draws its passes in order, so this is how a pass gets *underneath* one
+     * that is already attached — index 0 puts it below the default "3dmodels" pass, which is
+     * what a 2D backdrop behind a 3D scene needs. An index past the end appends.
+     *
+     * Note that the first pass in the list is the one that should carry
+     * `colorTargetInfoLoadOp = Clear`; a pass inserted in front of a clearing pass will have
+     * its output wiped.
+     *
+     * @param renderPass Pointer to the render pass to insert.
+     * @param passname Name to identify the render pass.
+     * @param fbName Name of the framebuffer to insert into.
+     * @param index Position in the framebuffer's pass list.
+     */
+    static void InsertRenderPassIntoFrameBuffer(RenderPass *renderPass, const std::string &passname, const std::string &fbName, size_t index) {
+        Get()._insertRenderPassIntoFrameBuffer(renderPass, passname, fbName, index);
+    }
+
+    /**
      * @brief Retrieves the uniform buffer for a specific render pass.
      *
      * @param passname Name of the render pass.
@@ -463,6 +483,7 @@ private:
     void _removeShaderPass(const std::string &passname);
 
     void _attachRenderPassToFrameBuffer(RenderPass *renderPass, const std::string &passname, const std::string &fbName);
+    void _insertRenderPassIntoFrameBuffer(RenderPass *renderPass, const std::string &passname, const std::string &fbName, size_t index);
 
     void _addToRenderQueue(const std::string &passname, const Renderable &renderable);
 

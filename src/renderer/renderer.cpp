@@ -762,6 +762,19 @@ void Renderer::_attachRenderPassToFrameBuffer(RenderPass *renderPass, const std:
     }
 }
 
+void Renderer::_insertRenderPassIntoFrameBuffer(RenderPass *renderPass, const std::string &passname, const std::string &fbName, size_t index) {
+    auto it = std::find_if(_frameBuffers.begin(), _frameBuffers.end(), [&fbName](const auto &pair) {
+        return pair.first == fbName;
+    });
+
+    if (it != _frameBuffers.end()) {
+        auto &passes = it->second->renderpasses;
+        passes.insert(passes.begin() + (ptrdiff_t)std::min(index, passes.size()), { passname, renderPass });
+
+        LOG_INFO("Inserted renderpass {} into framebuffer {} at {}", passname.c_str(), fbName.c_str(), index);
+    }
+}
+
 GpuSamplerHandle Renderer::_getSampler(ScaleMode scaleMode) {
     return _samplers[scaleMode];
 }
