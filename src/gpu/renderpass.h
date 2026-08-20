@@ -41,6 +41,15 @@ public:
     GpuTextureHandle renderTargetDepth     = 0;
     GpuTextureHandle renderTargetResolve   = 0;
 
+    /// Viewport to render with, in pixels. Zero means "use the window size", which is the
+    /// behaviour every pass had before this existed.
+    ///
+    /// Render() already accepts an arbitrary target texture, but the passes sized their
+    /// viewport from the window, so rendering into a texture smaller than the window drew
+    /// almost entirely outside it. Set these alongside a small target to render to texture.
+    uint32_t viewportWidth  = 0;
+    uint32_t viewportHeight = 0;
+
     virtual bool NeedsResolvedInput() const { return false; }
 
     RenderPass(const RenderPass &)            = delete;
