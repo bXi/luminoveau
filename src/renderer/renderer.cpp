@@ -134,9 +134,18 @@ void Renderer::_onResize() {
     // likewise desktop-sized (created in _setSampleCount) and shared across windows, so they
     // survive a resize untouched — recreating the MSAA targets here to the *active* window's
     // size is exactly what corrupted a second window while the first was being resized.
+    // The primary framebuffer's width/height now track the ACTIVE window (per-window targets), so
+    // size its passes' surface targets to the desktop instead — they must stay large enough for the
+    // biggest window, and the per-window viewport clips within that. fixedSize custom RTs keep their
+    // own dimensions.
+    uint32_t dw = 0, dh = 0;
+    Window::GetDisplayBounds(dw, dh);
     for (auto &[fbName, framebuffer] : _frameBuffers)
-        for (auto &[passname, renderpass] : framebuffer->renderpasses)
-            renderpass->OnResize(framebuffer->width, framebuffer->height);
+        for (auto &[passname, renderpass] : framebuffer->renderpasses) {
+            uint32_t pw = framebuffer->fixedSize ? framebuffer->width : dw;
+            uint32_t ph = framebuffer->fixedSize ? framebuffer->height : dh;
+            renderpass->OnResize(pw, ph);
+        }
 }
 
 void Renderer::_clearBackground(Color color) {
@@ -350,67 +359,136 @@ void Renderer::_endFrame() {
     _cmdbuf = 0;
 }
 
-void Renderer::_reset() {
-    LOG_INFO("Resetting render passes with MSAA={}", static_cast<int>(_currentSampleCount));
+void Renderer::_useWindowTargets(void *sdlWindow, int w, int h) {
+    // w,h = the desired allocation size (the window's DISPLAY resolution). Targets are sized to the
+    // display and grow-only, so a window can never exceed them — resizing is then a pure viewport
+    // change with ZERO reallocation, and 8x MSAA stays display-sized (not multi-monitor-desktop).
+    if (!_gpu || w <= 0 || h <= 0)
+        return;
+    FrameBuffer *fb = _getFramebuffer("primaryFramebuffer");
+    if (!fb)
+        return;
 
-    // Render dimensions = current window in physical pixels. Render passes draw into
-    // this many pixels (top-left region of each framebuffer's texture). The framebuffer
-    // textures themselves are sized large enough at Init (desktop) so they survive
-    // window resizes / fullscreen toggles without ever being recreated.
-    int rpWidth  = Window::GetPhysicalWidth();
-    int rpHeight = Window::GetPhysicalHeight();
-    if (rpWidth <= 0 || rpHeight <= 0) {
-        rpWidth  = 1280;
-        rpHeight = 720;
-    }
+    WindowTargets &t = _windowTargets[sdlWindow];
+    // (Re)create only when uninitialised, the sample count changed, or a LARGER size is needed
+    // (e.g. the window moved to a bigger display). Never on a normal resize. SDL_ReleaseGPUTexture
+    // is deferred-safe (freed once the GPU is done), so no WaitIdle — reallocation never stalls.
+    if (t.content == 0 || t.samples != _currentSampleCount || w > t.w || h > t.h) {
+        int aw = std::max(w, t.w); // grow-only: never shrink the target
+        int ah = std::max(h, t.h);
+        if (t.content)
+            _gpu->ReleaseTexture(t.content);
+        if (t.contentMSAA)
+            _gpu->ReleaseTexture(t.contentMSAA);
+        if (t.depthMSAA)
+            _gpu->ReleaseTexture(t.depthMSAA);
+        t = WindowTargets {};
 
-    bool             useMSAA      = (_currentSampleCount > GpuSampleCount::X1);
-    GpuTextureFormat swapchainFmt = _gpu->GetSwapchainFormat();
-
-    // Recreate framebuffer MSAA textures if needed
-    for (auto &[fbName, framebuffer] : _frameBuffers) {
-        // Release old MSAA textures
-        if (framebuffer->fbContentMSAA) {
-            _gpu->ReleaseTexture(framebuffer->fbContentMSAA);
-            framebuffer->fbContentMSAA = 0;
-        }
-        if (framebuffer->fbDepthMSAA) {
-            _gpu->ReleaseTexture(framebuffer->fbDepthMSAA);
-            framebuffer->fbDepthMSAA = 0;
-        }
-
-        // Create new MSAA textures if MSAA is enabled and this framebuffer supports it.
-        // Custom effect render targets (noMSAA=true) always render to plain 1x textures.
-        if (useMSAA && !framebuffer->noMSAA) {
-            // Size the MSAA color + its depth to the framebuffer's own (desktop) dimensions —
-            // the same size as the resolve target fbContent — NOT the active window. These
-            // textures are shared by every OS window; sizing them to whichever window happened
-            // to trigger this would leave the others rendering into a mismatched target (and the
-            // resolve dimensions must match fbContent). The per-window viewport still clips the
-            // render to the actual window within this.
-            GpuTextureCreateInfo msaaColorInfo {
-                .width         = framebuffer->width,
-                .height        = framebuffer->height,
+        bool                 useMSAA = (_currentSampleCount > GpuSampleCount::X1);
+        GpuTextureFormat     fmt     = _gpu->GetSwapchainFormat();
+        GpuTextureCreateInfo contentInfo {
+            .width         = (uint32_t)aw,
+            .height        = (uint32_t)ah,
+            .depthOrLayers = 1,
+            .numLevels     = 1,
+            .format        = fmt,
+            .sampleCount   = GpuSampleCount::X1,
+            .usage         = GpuTextureUsage::ColorTarget | GpuTextureUsage::Sampler,
+        };
+        t.content = _gpu->CreateTexture(contentInfo);
+        if (useMSAA) {
+            GpuTextureCreateInfo msaaColor {
+                .width         = (uint32_t)aw,
+                .height        = (uint32_t)ah,
                 .depthOrLayers = 1,
                 .numLevels     = 1,
-                .format        = swapchainFmt,
+                .format        = fmt,
                 .sampleCount   = _currentSampleCount,
                 .usage         = GpuTextureUsage::ColorTarget,
             };
-            framebuffer->fbContentMSAA = _gpu->CreateTexture(msaaColorInfo);
-
-            GpuTextureCreateInfo msaaDepthInfo {
-                .width         = framebuffer->width,
-                .height        = framebuffer->height,
+            t.contentMSAA = _gpu->CreateTexture(msaaColor);
+            GpuTextureCreateInfo msaaDepth {
+                .width         = (uint32_t)aw,
+                .height        = (uint32_t)ah,
                 .depthOrLayers = 1,
                 .numLevels     = 1,
                 .format        = GpuTextureFormat::D32_Float,
                 .sampleCount   = _currentSampleCount,
                 .usage         = GpuTextureUsage::DepthStencilTarget,
             };
-            framebuffer->fbDepthMSAA = _gpu->CreateTexture(msaaDepthInfo);
+            t.depthMSAA = _gpu->CreateTexture(msaaDepth);
+        }
+        t.w       = aw;
+        t.h       = ah;
+        t.samples = _currentSampleCount;
+    }
+
+    // Point the primary framebuffer at this window's targets. width/height are the ALLOC (display)
+    // size — the blit's UV (min(1, physWindow/fbW)) samples just the window's sub-region.
+    fb->fbContent              = t.content;
+    fb->fbContentMSAA          = t.contentMSAA;
+    fb->fbDepthMSAA            = t.depthMSAA;
+    fb->width                  = t.w;
+    fb->height                 = t.h;
+    fb->textureView.width      = t.w;
+    fb->textureView.height     = t.h;
+    fb->textureView.gpuTexture = t.content;
+}
+
+void Renderer::_releaseWindowTargets(void *sdlWindow) {
+    auto it = _windowTargets.find(sdlWindow);
+    if (it == _windowTargets.end())
+        return;
+    if (_gpu) { // SDL_ReleaseGPUTexture is deferred-safe — no WaitIdle needed
+        if (it->second.content)
+            _gpu->ReleaseTexture(it->second.content);
+        if (it->second.contentMSAA)
+            _gpu->ReleaseTexture(it->second.contentMSAA);
+        if (it->second.depthMSAA)
+            _gpu->ReleaseTexture(it->second.depthMSAA);
+    }
+    _windowTargets.erase(it);
+}
+
+void Renderer::_releaseAllWindowTargets() {
+    for (auto &[win, t] : _windowTargets) {
+        if (_gpu) {
+            if (t.content)
+                _gpu->ReleaseTexture(t.content);
+            if (t.contentMSAA)
+                _gpu->ReleaseTexture(t.contentMSAA);
+            if (t.depthMSAA)
+                _gpu->ReleaseTexture(t.depthMSAA);
         }
     }
+    _windowTargets.clear();
+}
+
+void Renderer::_reset() {
+    LOG_INFO("Resetting render passes with MSAA={}", static_cast<int>(_currentSampleCount));
+
+    // Per-window color/MSAA/depth targets are recreated lazily at the new sample count by
+    // _useWindowTargets on the next frame — drop them all now and clear the primary framebuffer's
+    // (dangling) handles that pointed into them.
+    _releaseAllWindowTargets();
+    for (auto &[fbName, framebuffer] : _frameBuffers) {
+        framebuffer->fbContentMSAA = 0;
+        framebuffer->fbDepthMSAA   = 0;
+    }
+
+    // Render-pass surface targets (depth + effect temps) are sized to the DESKTOP so they stay large
+    // enough for the biggest window; the per-window viewport clips within that. (Sizing them to the
+    // active window here is what clipped larger secondary windows.)
+    uint32_t dw = 0, dh = 0;
+    Window::GetDisplayBounds(dw, dh);
+    int rpWidth  = (int)dw;
+    int rpHeight = (int)dh;
+    if (rpWidth <= 0 || rpHeight <= 0) {
+        rpWidth  = 3840;
+        rpHeight = 2160;
+    }
+
+    GpuTextureFormat swapchainFmt = _gpu->GetSwapchainFormat();
 
     for (auto &[fbName, framebuffer] : _frameBuffers) {
         for (auto &[passname, renderpass] : framebuffer->renderpasses) {

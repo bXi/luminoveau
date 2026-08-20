@@ -420,6 +420,15 @@ public:
             Get()._gpu->SetSwapchainWindow(sdlWindow);
     }
 
+    /// @brief Point the primary framebuffer at this window's OWN color/MSAA/depth targets, sized to
+    ///        the window (created/resized on demand). Call once per window per frame in the
+    ///        multi-window loop, after SetActiveSwapchainWindow. Gives every OS window its own
+    ///        framebuffer instead of one shared desktop-sized surface — so MSAA is window-sized
+    ///        (no 8x desktop blowup) and a window larger than the primary is never clipped.
+    static void UseWindowTargets(void *sdlWindow, int w, int h) { Get()._useWindowTargets(sdlWindow, w, h); }
+    /// @brief Release a window's per-window targets (call when that OS window is destroyed).
+    static void ReleaseWindowTargets(void *sdlWindow) { Get()._releaseWindowTargets(sdlWindow); }
+
     /**
      * @brief Sets the MSAA sample count and recreates render passes.
      *
@@ -476,6 +485,20 @@ private:
     uint32_t _zIndex = 0;
 
     std::vector<std::pair<std::string, FrameBuffer *>> _frameBuffers;
+
+    // Per-window render targets. Each OS window owns a window-sized color (resolve) + MSAA color +
+    // MSAA depth; _useWindowTargets swaps the active window's set into the primary framebuffer.
+    struct WindowTargets {
+        GpuTextureHandle content     = 0; // resolved, window-sized — what the blit samples
+        GpuTextureHandle contentMSAA = 0; // MSAA color (0 when MSAA off)
+        GpuTextureHandle depthMSAA   = 0; // MSAA depth (0 when MSAA off)
+        int              w = 0, h = 0;
+        GpuSampleCount   samples = GpuSampleCount::X1;
+    };
+    std::unordered_map<void *, WindowTargets> _windowTargets;
+    void                                      _useWindowTargets(void *sdlWindow, int w, int h);
+    void                                      _releaseWindowTargets(void *sdlWindow);
+    void                                      _releaseAllWindowTargets();
 
     void
     _addShaderPass(const std::string &passname, const ShaderAsset &vertShader, const ShaderAsset &fragShader, std::vector<std::string> targetBuffers);

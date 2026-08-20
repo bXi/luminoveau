@@ -253,11 +253,16 @@ void Window::_processEvent(SDL_Event *event) {
         Input::RemoveGamepadDevice(event->gdevice.which);
         break;
     case SDL_EventType::SDL_EVENT_WINDOW_RESIZED: {
-        // Only the primary drives the engine's canvas/framebuffer resize. Secondary windows
-        // adapt per-frame in Window::_activateWindow (their swapchain size is re-read there),
-        // so applying their resize to the shared engine state here would corrupt the primary.
-        if (event->window.windowID != _mainId)
+        // Only the primary drives the engine's canvas/framebuffer resize. Secondary windows adapt
+        // per-frame in Window::_activateWindow (their swapchain size is re-read there) — but they
+        // still need a resize *flagged* so Renderer::OnResize() runs and re-syncs the viewport +
+        // camera. OnResize is desktop-sized + window-independent now, so this is safe and does NOT
+        // corrupt the primary; without it a secondary window renders at its stale size until the
+        // primary happens to be resized.
+        if (event->window.windowID != _mainId) {
+            _sizeDirty = true;
             break;
+        }
 
         EventData resizeEventData;
         resizeEventData.emplace("width", event->window.data1);
@@ -614,8 +619,10 @@ void Window::_destroyWindow(WindowHandle w) {
     if (!e)
         return;
     SDL_Window *sdl = e->sdl;
-    if (Renderer::HasGpu())
+    if (Renderer::HasGpu()) {
+        Renderer::ReleaseWindowTargets(sdl); // free this window's per-window framebuffer targets
         Renderer::GetGpu().ReleaseWindow(sdl);
+    }
     if (_window == sdl)
         _window = _mainWindow;
     _registry.erase(std::remove_if(_registry.begin(), _registry.end(),
@@ -639,6 +646,16 @@ void Window::_activateWindow(const WindowEntry &e) {
     EngineState::swapchainHeight = ph;
     Renderer::SetActiveSwapchainWindow(e.sdl);
     Renderer::SetCanvasSize((uint32_t)pw, (uint32_t)ph); // also refreshes the camera projection
+    // Size this window's own framebuffer targets to its DISPLAY resolution (grow-only): a window
+    // can't exceed its display, so resizing is a pure viewport change — never a reallocation.
+    int dispW = pw, dispH = ph;
+    if (SDL_DisplayID d = SDL_GetDisplayForWindow(e.sdl)) {
+        if (const SDL_DisplayMode *m = SDL_GetDesktopDisplayMode(d)) {
+            dispW = std::max(dispW, m->w);
+            dispH = std::max(dispH, m->h);
+        }
+    }
+    Renderer::UseWindowTargets(e.sdl, dispW, dispH);
 }
 
 void Window::_renderAll(const std::function<void(WindowHandle)> &fn) {
@@ -692,11 +709,10 @@ void Window::_renderAll(const std::function<void(WindowHandle)> &fn) {
         }
         Renderer::EndFrame();
 
-        // All windows composite through ONE shared framebuffer (Renderer's primary
-        // fbContent), so this window's blit-read of it must finish before the next window
-        // clears+writes it — otherwise the two per-window submits race and the primary
-        // flickers between windows. Serialize on the GPU between windows. A chat app's GPU
-        // load is trivial, so the stall is free; a per-window framebuffer would remove it.
+        // Serialize between windows: framebuffers are per-window now, but the sprite render pass's
+        // geometry/uniform buffers are still shared, so window A's draws must finish before window
+        // B overwrites them — otherwise one window's content flickers onto another. Trivial cost for
+        // a chat app. (Per-window geometry buffers would let this go.)
         if (_registry.size() > 1 && Renderer::HasGpu())
             Renderer::GetGpu().WaitIdle();
     }
