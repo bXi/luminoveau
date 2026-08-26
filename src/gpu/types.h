@@ -359,6 +359,16 @@ struct GpuGraphicsPipelineCreateInfo {
     GpuTextureFormat          colorTargetFormats[MAX_COLOR_TARGETS] = {};
     GpuColorTargetBlendState  colorTargetBlends[MAX_COLOR_TARGETS]  = {};
     bool                      hasDepthTarget                        = false;
+
+    /// Whether the pipeline writes to the depth buffer, as opposed to merely testing against it.
+    ///
+    /// Only consulted when `hasDepthTarget` is set, and true by default so existing pipelines are
+    /// unaffected. Turn it off for passes that must be *occluded* by the scene without occluding
+    /// each other: soft-edged or additively blended geometry, where a fragment covers many pixels
+    /// it does not visibly colour. Left writing, those transparent margins stamp the depth buffer
+    /// and neighbouring draws reject one another arbitrarily.
+    bool                      depthWrite                            = true;
+
     GpuTextureFormat          depthTargetFormat                     = GpuTextureFormat::D32_Float;
     GpuSampleCount            sampleCount                           = GpuSampleCount::X1;
     uint32_t                  vertexStorageBufferCount              = 0; // read-only storage buffers bound at group 3, vertex stage

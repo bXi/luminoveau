@@ -561,7 +561,7 @@ GpuGraphicsPipelineHandle SdlGpuBackend::CreateGraphicsPipeline(const GpuGraphic
         .depth_stencil_state = {
             .compare_op         = SDL_GPU_COMPAREOP_LESS,
             .enable_depth_test  = info.hasDepthTarget,
-            .enable_depth_write = info.hasDepthTarget,
+            .enable_depth_write = info.hasDepthTarget && info.depthWrite,
         },
         .target_info = {
             .color_target_descriptions = colorDescs.data(),

@@ -1440,7 +1440,7 @@ GpuGraphicsPipelineHandle WebGpuGpuBackend::CreateGraphicsPipeline(const GpuGrap
     WGPUDepthStencilState ds {};
     if (info.hasDepthTarget) {
         ds.format               = depthFormatToWGPU(info.depthTargetFormat);
-        ds.depthWriteEnabled    = WGPUOptionalBool_True;
+        ds.depthWriteEnabled    = info.depthWrite ? WGPUOptionalBool_True : WGPUOptionalBool_False;
         ds.depthCompare         = WGPUCompareFunction_Less;
         ds.stencilFront.compare = WGPUCompareFunction_Always;
         ds.stencilBack.compare  = WGPUCompareFunction_Always;
