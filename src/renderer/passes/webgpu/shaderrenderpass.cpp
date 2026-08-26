@@ -20,6 +20,22 @@ void ShaderRenderPass::Release(bool /*logRelease*/) {
     // WebGPU stub — nothing to release
 }
 
+void ShaderRenderPass::OnResize(uint32_t surfaceWidth, uint32_t surfaceHeight) {
+    // Stubbed like the rest of this file, but it still has to *exist*: `OnResize` is declared in
+    // the shared header and `Renderer::_onResize` calls it through the base class, so leaving it
+    // undefined is a link error on this backend the moment anything constructs one — which is
+    // exactly what a game with a full-screen shader pass does.
+    //
+    // The SDL implementation recreates `_resultTexture` / `_inputTexture` at the new size. There
+    // is nothing to recreate here because this stub never creates them, so the dimensions are
+    // recorded and no more. That keeps them right for whenever user-shader support does land.
+    if (surfaceWidth == 0 || surfaceHeight == 0)
+        return;
+
+    _desktopWidth  = surfaceWidth;
+    _desktopHeight = surfaceHeight;
+}
+
 UniformBuffer &ShaderRenderPass::GetUniformBuffer() {
     static UniformBuffer dummy;
     return dummy;
