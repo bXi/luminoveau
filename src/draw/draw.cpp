@@ -590,6 +590,57 @@ void Draw::_drawRectangleRoundedFilled(vf2d pos, vf2d size, float radius, Color 
     _getTargetPass()->AddToRenderQueue(renderable);
 }
 
+void Draw::_drawGeometry(Geometry2D *geometry, vf2d pos, vf2d size, Color color, float rotation,
+                         vf2d pivot) {
+    if (geometry == nullptr || geometry->indices.empty())
+        return;
+
+    _flushPixels(); // Auto-flush before drawing
+
+    if (Camera::IsActive()) {
+        pos = Camera::ToScreenSpace(pos);
+        size *= Camera::GetScale();
+    }
+
+    // Renderable::x/y is the top-left of the scaled geometry: the vertex shader adds it after
+    // scaling, and puts the pivot back in afterwards when there is a rotation. Backing the pivot
+    // out here is what makes @p pos mean "where the pivot lands" for the caller — which is the
+    // only useful anchor for a shape built about its own centre, and matches where the rotation
+    // turns about.
+    const vf2d topLeft = { pos.x - size.x * pivot.x, pos.y - size.y * pivot.y };
+
+    Renderable renderable = {
+        .texture  = Renderer::WhitePixel(),
+        .geometry = geometry,
+
+        .x = topLeft.x,
+        .y = topLeft.y,
+        .z = (float)Renderer::GetZIndex() / (float)MAX_SPRITES,
+
+        .rotation = rotation,
+
+        .texU = 0.f,
+        .texV = 0.f,
+        .texW = 1.f,
+        .texH = 1.f,
+
+        .r = (float)color.r / 255.f,
+        .g = (float)color.g / 255.f,
+        .b = (float)color.b / 255.f,
+        .a = (float)color.a / 255.f,
+
+        .w = size.x,
+        .h = size.y,
+
+        .pivotX = pivot.x,
+        .pivotY = pivot.y,
+
+        .effectIndex = _getOrCreateEffectIndex(),
+    };
+
+    _getTargetPass()->AddToRenderQueue(renderable);
+}
+
 void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
     _flushPixels(); // Auto-flush before drawing
 

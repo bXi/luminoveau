@@ -111,6 +111,35 @@ public:
     };
 
     /**
+     * @brief Draws a caller-owned Geometry2D, scaled, rotated and tinted.
+     *
+     * Every other primitive here builds its geometry per call: Triangle, Mode7 and the scanline
+     * variants each allocate a Geometry2D, upload it, and queue it for deletion at frame end.
+     * That is fine for a handful of shapes a frame and ruinous for anything that draws a
+     * *shape made of many triangles* every frame — a gauge, a graph, a radar sweep — which ends
+     * up allocating and uploading hundreds of buffers a frame to draw the same outline it drew
+     * last frame.
+     *
+     * This takes geometry the caller built once and kept. Nothing is allocated, nothing is
+     * uploaded, and the mesh can be shared across every instance of it on screen.
+     *
+     * The geometry is expected in a 0..1 local space, matching Geometry2DFactory's own output:
+     * it is scaled by @p size, rotated about @p pivot and placed at @p pos.
+     *
+     * @param geometry Geometry to draw. Must already be uploaded (Geometry2D::UploadToGPU) and
+     *                 must outlive the frame. Null is ignored.
+     * @param pos      Where the pivot lands, in screen space.
+     * @param size     Scale applied to the geometry's local 0..1 extent.
+     * @param color    Tint, multiplied into the vertices.
+     * @param rotation Radians, clockwise, about the pivot.
+     * @param pivot    Point in local 0..1 space that @p pos refers to and rotation turns about.
+     */
+    static void Geometry(Geometry2D *geometry, vf2d pos, vf2d size, Color color,
+                         float rotation = 0.0f, vf2d pivot = { 0.5f, 0.5f }) {
+        Get()._drawGeometry(geometry, pos, size, color, rotation, pivot);
+    };
+
+    /**
      * @brief Draws a circle at the specified position with the given radius and color.
      *
      * @param pos The center position of the circle.
@@ -431,6 +460,8 @@ private:
     void _drawArc(const vf2d &center, float radius, float startAngle, float endAngle, int segments, Color color);
 
     void _drawTriangleFilled(vf2d v1, vf2d v2, vf2d v3, Color color);
+    void _drawGeometry(Geometry2D *geometry, vf2d pos, vf2d size, Color color, float rotation,
+                       vf2d pivot);
 
     void _drawRectangleFilled(vf2d pos, vf2d size, Color color);
 
