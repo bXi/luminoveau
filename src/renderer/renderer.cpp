@@ -269,11 +269,16 @@ void Renderer::_endFrame() {
 
     // ── UI overlays (RmlUI is SDL-only today; opt-in via cmake flag) ──────────
 #ifdef LUMINOVEAU_WITH_RMLUI
-    RmlUI::Backend::BeginFrame(sdlCmdBuf, sdlSwapchain,
-        static_cast<uint32_t>(Window::GetWidth()),
-        static_cast<uint32_t>(Window::GetHeight()));
-    RmlUI::Render();
-    RmlUI::Backend::EndFrame();
+    // Skipped when an `RmlUIRenderPass` is installed, which draws the UI inside the framebuffer
+    // instead — early enough that a post-process pass placed after it can see the UI. Drawing here
+    // as well would put a second, un-post-processed copy straight onto the swapchain.
+    if (!RmlUI::IsRenderedByPass()) {
+        RmlUI::Backend::BeginFrame(sdlCmdBuf, sdlSwapchain,
+            static_cast<uint32_t>(Window::GetWidth()),
+            static_cast<uint32_t>(Window::GetHeight()));
+        RmlUI::Render();
+        RmlUI::Backend::EndFrame();
+    }
 #endif
 
     // ── ImGui: both SDL and WebGPU ────────────────────────────────────────────

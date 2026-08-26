@@ -65,6 +65,10 @@
 // ── RmlUI (optional) ─────────────────────────────────────────────────────────
 #ifdef LUMINOVEAU_WITH_RMLUI
 #include <integrations/rmlui/rmlui.h>
+// Optional: draws the UI inside the framebuffer instead of onto the swapchain, so a post-process
+// pass can reach it. Nothing changes unless a project installs it — see the class comment.
+#include <integrations/rmlui/rmluirenderpass.h>
+
 #endif
 
 // ── Callback-based main loop (optional) ──────────────────────────────────────

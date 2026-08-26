@@ -349,6 +349,18 @@ void CloseDocument(const std::string &filepath) {
 // RENDERING
 // ============================================================================
 
+namespace {
+
+/// Set by `RmlUIRenderPass` while it is installed. Free-standing rather than part of `g_state`
+/// because it survives — and must be readable — regardless of whether RmlUi itself initialised.
+bool g_renderedByPass = false;
+
+} // namespace
+
+bool IsRenderedByPass() { return g_renderedByPass; }
+
+void SetRenderedByPass(bool renderedByPass) { g_renderedByPass = renderedByPass; }
+
 void Render() {
     if (!g_state.initialized) {
         return;

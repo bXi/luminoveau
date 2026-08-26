@@ -177,6 +177,27 @@ void Render();
  */
 void Update();
 
+/**
+ * @brief Whether a render pass is drawing the UI instead of the renderer's own end-of-frame call.
+ *
+ * By default the renderer draws RmlUi straight to the swapchain *after* blitting the framebuffer,
+ * which puts the UI outside the framebuffer entirely — no framebuffer pass can post-process it,
+ * because by then it has not been drawn yet. Installing `RmlUIRenderPass` moves the UI into the
+ * framebuffer's pass list, where its position relative to other passes is ordinary business for
+ * `Renderer::InsertRenderPassIntoFrameBuffer`, and a post-process placed after it sees it.
+ *
+ * Opt-in: with no such pass installed the frame is exactly what it always was.
+ */
+bool IsRenderedByPass();
+
+/**
+ * @brief Claims (or releases) responsibility for drawing the UI.
+ *
+ * Called by `RmlUIRenderPass` on init and release. Setting it true makes the renderer skip its own
+ * end-of-frame draw, so exactly one of the two runs.
+ */
+void SetRenderedByPass(bool renderedByPass);
+
 // ============================================================================
 // ELEMENT MANIPULATION - Direct element access helpers
 // ============================================================================
