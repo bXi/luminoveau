@@ -1455,9 +1455,23 @@ GpuGraphicsPipelineHandle WebGpuGpuBackend::CreateGraphicsPipeline(const GpuGrap
     rpDesc.vertex.bufferCount = static_cast<uint32_t>(vbufs.size());
     rpDesc.vertex.buffers     = vbufs.empty() ? nullptr : vbufs.data();
 
-    rpDesc.primitive.topology  = WGPUPrimitiveTopology_TriangleList;
-    rpDesc.primitive.cullMode  = WGPUCullMode_None;
-    rpDesc.primitive.frontFace = WGPUFrontFace_CCW;
+    rpDesc.primitive.topology = WGPUPrimitiveTopology_TriangleList;
+
+    // **Taken from the pipeline info, not fixed.** These were hardcoded to no culling and CCW,
+    // which is right for most geometry and silently wrong for anything whose *look* depends on
+    // culling. The showroom's neon outline is a scaled shell that shows as a rim only because its
+    // front faces are culled; drawn unculled it is a solid silhouette, so the whole car glowed in
+    // the outline colour. Nothing reports it — an over-drawn shell is a picture, not an error.
+    switch (info.cullMode) {
+    case GpuCullMode::Front: rpDesc.primitive.cullMode = WGPUCullMode_Front; break;
+    case GpuCullMode::Back:  rpDesc.primitive.cullMode = WGPUCullMode_Back; break;
+    case GpuCullMode::None:
+    default:                 rpDesc.primitive.cullMode = WGPUCullMode_None; break;
+    }
+
+    rpDesc.primitive.frontFace = info.frontFace == GpuFrontFace::Clockwise
+                                     ? WGPUFrontFace_CW
+                                     : WGPUFrontFace_CCW;
 
     rpDesc.multisample.count = static_cast<uint32_t>(info.sampleCount);
     rpDesc.multisample.mask  = 0xFFFFFFFF;
