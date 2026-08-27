@@ -10,7 +10,7 @@
 #include <RmlUi/Core.h>
 #include <SDL3/SDL.h>
 #include "RmlUi_Platform_SDL.h"
-#include "RmlUi_Renderer_SDL_GPU.h"
+#include "integrations/rmlui/rmluirenderinterface.h"
 #include <memory>
 
 namespace RmlUI {
@@ -21,15 +21,19 @@ namespace Backend {
  * Manages the RmlUi platform and renderer interfaces
  */
 struct BackendData {
-    std::unique_ptr<SystemInterface_SDL>     system_interface;
-    std::unique_ptr<RenderInterface_SDL_GPU> render_interface;
+    std::unique_ptr<SystemInterface_SDL>      system_interface;
+    std::unique_ptr<RenderInterface_Lumi>     render_interface;
 
-    SDL_Window           *window            = nullptr;
-    SDL_GPUDevice        *device            = nullptr;
-    SDL_GPUCommandBuffer *command_buffer    = nullptr;
-    SDL_GPUTexture       *swapchain_texture = nullptr;
-    uint32_t              swapchain_width   = 0;
-    uint32_t              swapchain_height  = 0;
+    SDL_Window    *window = nullptr;
+
+    /// Kept for the SDL platform layer, which still wants a device on that backend. Null on
+    /// WebGPU, and nothing in the renderer reads it any more.
+    SDL_GPUDevice *device = nullptr;
+
+    GpuCmdBufferHandle command_buffer    = 0;
+    GpuTextureHandle   swapchain_texture = 0;
+    uint32_t           swapchain_width   = 0;
+    uint32_t           swapchain_height  = 0;
 
     bool initialized = false;
 };
@@ -60,7 +64,11 @@ BackendData *GetBackendData();
  * @param width Swapchain width
  * @param height Swapchain height
  */
-void BeginFrame(SDL_GPUCommandBuffer *command_buffer, SDL_GPUTexture *swapchain_texture,
+/// **Engine handles, not SDL pointers.** The renderer behind this goes through IGpu now, and
+/// `GpuCmdBufferHandle`/`GpuTextureHandle` are what both backends speak — on WebGPU there is no
+/// `SDL_GPUTexture` to pass. Callers previously reinterpret_cast into the SDL types; they now
+/// pass the handles straight through.
+void BeginFrame(GpuCmdBufferHandle command_buffer, GpuTextureHandle swapchain_texture,
     uint32_t width, uint32_t height);
 
 /**

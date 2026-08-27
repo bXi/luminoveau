@@ -6,7 +6,9 @@
 
 #include "rmluibackend.h"
 #include "core/log/log.h"
+#include "gpu/IGpu.h"
 #include "platform/window/window.h"
+#include "renderer/renderer.h"
 
 namespace RmlUI {
 namespace Backend {
@@ -24,8 +26,12 @@ bool Initialize(SDL_GPUDevice *device, SDL_Window *window) {
         return true;
     }
 
-    if (!device || !window) {
-        LOG_ERROR("RmlUI Backend: Invalid device or window");
+    // **The window is required; the device is not.** `device` is an `SDL_GPUDevice` and is null on
+    // the WebGPU backend by definition — demanding it here is what used to fail this function
+    // outright on the web and take every document with it. The renderer goes through IGpu now and
+    // never sees it; it is kept in the struct only for the SDL platform layer's own use.
+    if (!window) {
+        LOG_ERROR("RmlUI Backend: no window");
         return false;
     }
 
@@ -37,7 +43,13 @@ bool Initialize(SDL_GPUDevice *device, SDL_Window *window) {
     g_backend_data.system_interface->SetWindow(window);
 
     // Create render interface
-    g_backend_data.render_interface = std::make_unique<RenderInterface_SDL_GPU>(device, window);
+    g_backend_data.render_interface = std::make_unique<RenderInterface_Lumi>();
+    if (!g_backend_data.render_interface->Init(Renderer::GetGpu().GetSwapchainFormat())) {
+        LOG_ERROR("RmlUI Backend: render interface failed to initialise");
+        g_backend_data.render_interface.reset();
+        g_backend_data.system_interface.reset();
+        return false;
+    }
 
     // Set RmlUi interfaces
     Rml::SetSystemInterface(g_backend_data.system_interface.get());
@@ -65,14 +77,14 @@ void Shutdown() {
 
     g_backend_data.device            = nullptr;
     g_backend_data.window            = nullptr;
-    g_backend_data.command_buffer    = nullptr;
-    g_backend_data.swapchain_texture = nullptr;
+    g_backend_data.command_buffer    = 0;
+    g_backend_data.swapchain_texture = 0;
     g_backend_data.initialized       = false;
 
     LOG_INFO("RmlUI Backend shut down");
 }
 
-void BeginFrame(SDL_GPUCommandBuffer *command_buffer, SDL_GPUTexture *swapchain_texture,
+void BeginFrame(GpuCmdBufferHandle command_buffer, GpuTextureHandle swapchain_texture,
     uint32_t width, uint32_t height) {
     if (!g_backend_data.initialized) {
         return;
@@ -97,8 +109,8 @@ void EndFrame() {
         g_backend_data.render_interface->EndFrame();
     }
 
-    g_backend_data.command_buffer    = nullptr;
-    g_backend_data.swapchain_texture = nullptr;
+    g_backend_data.command_buffer    = 0;
+    g_backend_data.swapchain_texture = 0;
 }
 
 bool ProcessEvent(Rml::Context *context, SDL_Event &event) {

@@ -73,8 +73,7 @@ public:
         //
         // Passing the window size instead would stretch the UI across the whole desktop-sized
         // texture, and the blit would then show a magnified corner of it.
-        RmlUI::Backend::BeginFrame(reinterpret_cast<SDL_GPUCommandBuffer *>(cmdBuffer),
-            reinterpret_cast<SDL_GPUTexture *>(targetTexture), _width, _height);
+        RmlUI::Backend::BeginFrame(cmdBuffer, targetTexture, _width, _height);
 
         RmlUI::Render();
         RmlUI::Backend::EndFrame();

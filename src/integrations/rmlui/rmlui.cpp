@@ -154,7 +154,8 @@ void Init() {
         }
     }
 
-    vf2d window_size     = Window::GetSize();
+    // Physical pixels — see `_syncContextDimensions`, which keeps it that way from here on.
+    vf2d window_size     = Window::GetPhysicalSize();
     g_state.main_context = Rml::CreateContext("main",
         Rml::Vector2i(static_cast<int>(window_size.x), static_cast<int>(window_size.y)),
         renderInterface);
@@ -361,10 +362,52 @@ bool IsRenderedByPass() { return g_renderedByPass; }
 
 void SetRenderedByPass(bool renderedByPass) { g_renderedByPass = renderedByPass; }
 
+/// Keeps every context the size of the window it is drawn on.
+///
+/// **A context was sized once, at creation, and never again.** RmlUi lays documents out against
+/// its context dimensions *and* hit-tests pointer events against them, so a context that has gone
+/// stale does not merely draw at the wrong scale — the cursor stops landing where the button is,
+/// by a margin that grows with distance from the origin.
+///
+/// Natively this hid: the window is usually the size it was created at, so the initial value
+/// stayed right. On the web the canvas is resized to the page after the context already exists,
+/// which is precisely the case the old code could not see.
+///
+/// Reconciled per frame rather than driven by a resize event: it is two integer comparisons, and
+/// it cannot miss a resize that arrives by a route nobody wired up — which on the web includes
+/// the page simply laying itself out.
+static void _syncContextDimensions() {
+    // **Physical pixels, not logical points, and that is RmlUi's choice rather than ours.**
+    //
+    // `RmlUi_Platform_SDL` multiplies every mouse position by `SDL_GetWindowPixelDensity` before
+    // handing it to the context, so a context is implicitly in physical pixels whatever the rest
+    // of the engine reports. Sizing it from `Window::GetSize()` agreed with that only by accident
+    // — when `LUMI_USE_PHYSICAL_PIXELS` is on, that call already returns physical pixels.
+    //
+    // With the flag off, as it is on the web, the two diverge by exactly the pixel density: the
+    // UI hit-tests in logical points against pointer positions given in physical pixels. Nothing
+    // else in the engine is affected, because nothing else routes input through RmlUi's multiply
+    // — which is why picking in the map editor stayed correct while the menu did not.
+    const vf2d size = Window::GetPhysicalSize();
+
+    const Rml::Vector2i wanted(static_cast<int>(size.x), static_cast<int>(size.y));
+    if (wanted.x <= 0 || wanted.y <= 0) {
+        return;
+    }
+
+    for (auto &[name, context] : g_state.contexts) {
+        if (context && context->GetDimensions() != wanted) {
+            context->SetDimensions(wanted);
+        }
+    }
+}
+
 void Render() {
     if (!g_state.initialized) {
         return;
     }
+
+    _syncContextDimensions();
 
     // Update and render all contexts
     for (auto &[name, context] : g_state.contexts) {
@@ -379,6 +422,10 @@ void Update() {
     if (!g_state.initialized) {
         return;
     }
+
+    // Same reconciliation as `Render`: a caller that updates without drawing still needs its
+    // contexts the right size, because this is the pass that processes input.
+    _syncContextDimensions();
 
     // Update all contexts without rendering
     for (auto &[name, context] : g_state.contexts) {

@@ -273,7 +273,9 @@ void Renderer::_endFrame() {
     // instead — early enough that a post-process pass placed after it can see the UI. Drawing here
     // as well would put a second, un-post-processed copy straight onto the swapchain.
     if (!RmlUI::IsRenderedByPass()) {
-        RmlUI::Backend::BeginFrame(sdlCmdBuf, sdlSwapchain,
+        // Engine handles rather than the SDL casts above: the RmlUI renderer goes through IGpu
+        // and there is no SDL texture to hand it on the WebGPU backend.
+        RmlUI::Backend::BeginFrame(_cmdbuf, _swapchainTexture,
             static_cast<uint32_t>(Window::GetWidth()),
             static_cast<uint32_t>(Window::GetHeight()));
         RmlUI::Render();
@@ -634,6 +636,7 @@ void Renderer::_renderFrameBuffer(GpuCmdBufferHandle cmdBuf) {
         // UV defaults: top-left phys-window region of the (possibly larger) framebuffer.
         // For framebuffers that exactly match the window in physical pixels this is the
         // full [0,1] quad; for desktop-sized buffers it samples only the rendered region.
+        //
         {
             const float physW = (float)Window::GetPhysicalWidth();
             const float physH = (float)Window::GetPhysicalHeight();

@@ -58,14 +58,34 @@ if(LUMINOVEAU_BUILD_RMLUI)
             "${PROJECT_SOURCE_DIR}/src/integrations/rmlui/rmlui.h"
             "${PROJECT_SOURCE_DIR}/src/integrations/rmlui/rmluibackend.cpp"
             "${PROJECT_SOURCE_DIR}/src/integrations/rmlui/rmluibackend.h"
+            "${PROJECT_SOURCE_DIR}/src/integrations/rmlui/rmluirenderinterface.cpp"
+            "${PROJECT_SOURCE_DIR}/src/integrations/rmlui/rmluirenderinterface.h"
         )
 
-        # Manually add RmlUi SDL_GPU backend sources
-        # Even though RMLUI_BACKEND=SDL_GPU, the backend sources aren't included in the static library
+        # RmlUi's platform layer is SDL-based on every backend here — it reads SDL events and
+        # sets the SDL cursor, neither of which is renderer-specific — so it stays.
+        #
+        # **The SDL_GPU *renderer* does not.** RmlUi ships no WebGPU backend, so on that backend
+        # the integration had no render interface at all and every document failed to appear.
+        # `rmluirenderinterface.cpp` replaces it with one written against IGpu, which works on
+        # both backends; keeping the SDL one alongside would mean two implementations of the same
+        # few hundred lines, only one of which is ever exercised.
         target_sources(luminoveau PRIVATE
             "${RmlUi_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp"
-            "${RmlUi_SOURCE_DIR}/Backends/RmlUi_Renderer_SDL_GPU.cpp"
         )
+
+        # The render interface loads its shaders as assets rather than as embedded blobs, so they
+        # have to reach the game's asset tree — PhysFS mounts the working directory, which is the
+        # *game's* assets, not the engine's.
+        #
+        # Copied at configure time rather than POST_BUILD: the web build's shader transpile reads
+        # this directory during its own build step, which can run before any POST_BUILD would.
+        #
+        # A game that transpiles shaders for the web (`lumi_transpile_shaders`) picks these up for
+        # free, because they now live in the same directory as its own.
+        file(COPY "${PROJECT_SOURCE_DIR}/assets/shaders/rmlui.vert"
+                  "${PROJECT_SOURCE_DIR}/assets/shaders/rmlui.frag"
+             DESTINATION "${CMAKE_SOURCE_DIR}/assets/shaders")
 
         # Optional: Enable RmlUi debugger in debug builds
         if(CMAKE_BUILD_TYPE STREQUAL "Debug")
