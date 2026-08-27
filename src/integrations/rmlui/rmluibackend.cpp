@@ -7,6 +7,7 @@
 #include "rmluibackend.h"
 #include "core/log/log.h"
 #include "gpu/IGpu.h"
+#include "platform/input/mouseinput_backend.h"
 #include "platform/window/window.h"
 #include "renderer/renderer.h"
 
@@ -117,6 +118,47 @@ bool ProcessEvent(Rml::Context *context, SDL_Event &event) {
     if (!g_backend_data.initialized || !context) {
         return false;
     }
+
+#ifdef __EMSCRIPTEN__
+    // **On the web the pointer does not come from SDL, so RmlUi must not read SDL's copy of it.**
+    //
+    // `PlatformInputBackend` installs its own document-level pointer listeners there and derives the
+    // position from `#canvas`'s bounding rect — that is what `Input::GetMousePosition` returns and
+    // what the 3D picking in every game state is built on. SDL's own Emscripten translation
+    // disagrees with it, and RmlUi was the one consumer still taking SDL's: the cursor hit-tested
+    // roughly two thirds of the way up the layout, so pointing at the fourth menu row lit the first.
+    //
+    // Overwriting the coordinates in the event, rather than bypassing `InputEventHandler`, keeps all
+    // of RmlUi's own modifier and button mapping. `InputEventHandler` scales by the window's pixel
+    // density on the way in, so divide it back out here; the backend already reports canvas pixels,
+    // which is the space the context is sized in.
+    const float density = SDL_GetWindowPixelDensity(g_backend_data.window);
+    if (density > 0.0f
+        && (event.type == SDL_EVENT_MOUSE_MOTION || event.type == SDL_EVENT_MOUSE_BUTTON_DOWN
+            || event.type == SDL_EVENT_MOUSE_BUTTON_UP || event.type == SDL_EVENT_MOUSE_WHEEL)) {
+        const vf2d  p  = PlatformInputBackend::GetMousePosition();
+        const float px = p.x / density;
+        const float py = p.y / density;
+
+        switch (event.type) {
+        case SDL_EVENT_MOUSE_MOTION:
+            event.motion.x = px;
+            event.motion.y = py;
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            event.button.x = px;
+            event.button.y = py;
+            break;
+        case SDL_EVENT_MOUSE_WHEEL:
+            event.wheel.mouse_x = px;
+            event.wheel.mouse_y = py;
+            break;
+        default:
+            break;
+        }
+    }
+#endif
 
     return RmlSDL::InputEventHandler(context, g_backend_data.window, event);
 }
