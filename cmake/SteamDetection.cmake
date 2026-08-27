@@ -8,6 +8,19 @@ target_sources(luminoveau PRIVATE
     src/integrations/steam/steam.h
 )
 
+# There is no Steamworks in a browser, so the SDK is skipped outright on the web. The stub
+# sources above are still compiled: `steam.cpp` is a no-op without LUMINOVEAU_WITH_STEAM, so a
+# game can call Steam::Init/IsReady unconditionally and simply get "not ready" there.
+#
+# **Returning early rather than falling through the platform ladder below**, which would
+# otherwise pick the wrong library: Emscripten sets `UNIX` to 1 and leaves `WIN32`/`APPLE` off,
+# so `elseif(UNIX AND NOT APPLE)` matches and hands wasm-ld a Linux `.so` — which fails the link
+# with "unknown file type" after every object has already compiled.
+if(EMSCRIPTEN)
+    lumi_msg("Steam SDK skipped (no Steamworks on the web)")
+    return()
+endif()
+
 # Checking for Steam SDK presence
 set(STEAM_SDK_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/public/steam/steam_api.h")
 if(EXISTS "${STEAM_SDK_HEADER}")
