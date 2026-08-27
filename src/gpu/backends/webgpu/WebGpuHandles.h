@@ -161,6 +161,29 @@ struct WgpuRenderPass {
     const WgpuGraphicsPipeline *currentPipeline = nullptr;
     WGPUDevice                  device          = nullptr;
     WGPUQueue                   queue           = nullptr;
+
+    // **Vertex storage buffers are recorded here and bound at draw time, not when the caller asks.**
+    //
+    // SDL_GPU binds storage buffers to the *pass*, so a caller may legitimately bind them once
+    // before any pipeline and let them stand for the whole pass. WebGPU has no such thing: a bind
+    // group is built against a pipeline's layout, so there is nothing to build until a pipeline is
+    // bound. Binding eagerly meant the call silently did nothing whenever it came first, and every
+    // later draw failed with "No bind group set at group index 3" — which invalidates the whole
+    // command buffer, so one such pass takes the entire frame down with it.
+    //
+    // Deferring matches what uniforms already do (`WgpuUniformCache` + `_flushVertexUniforms`) and
+    // what the compute path does with `pendingRWBuffers`, and it makes the IGpu contract mean the
+    // same thing on both backends.
+    struct StorageBuf {
+        WGPUBuffer buf  = nullptr;
+        uint64_t   size = 0;
+    };
+    std::vector<StorageBuf> pendingVertexStorage;
+
+    // The layout the group-3 bind group currently on the encoder was built for, so it is rebuilt
+    // when the buffers change or a pipeline with a different layout is bound, and not otherwise.
+    WGPUBindGroupLayout boundStorageLayout = nullptr;
+    bool                storageDirty       = false;
 };
 
 struct WgpuComputePass {

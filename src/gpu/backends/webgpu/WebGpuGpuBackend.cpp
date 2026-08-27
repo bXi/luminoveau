@@ -787,25 +787,48 @@ void WebGpuGpuBackend::BindFragmentStorageTextures(GpuRenderPassHandle pass, uin
 void WebGpuGpuBackend::BindVertexStorageBuffers(GpuRenderPassHandle pass, uint32_t first,
     const GpuBufferHandle *buffers, uint32_t count) {
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
-    if (!rp->currentPipeline || !rp->currentPipeline->bgLayouts[3])
+
+    // Recorded only — see `WgpuRenderPass::pendingVertexStorage`. The bind group needs a pipeline
+    // layout to be built against, and callers are entitled to bind before any pipeline.
+    rp->pendingVertexStorage.resize(count);
+    for (uint32_t i = 0; i < count; ++i) {
+        auto *buf                   = reinterpret_cast<WgpuBuffer *>(buffers[first + i]);
+        rp->pendingVertexStorage[i] = { buf ? buf->buffer : nullptr, buf ? buf->size : 0 };
+    }
+    rp->storageDirty = true;
+}
+
+void WebGpuGpuBackend::_flushVertexStorageBuffers(WgpuRenderPass *rp) {
+    if (!rp->currentPipeline)
         return;
 
-    std::vector<WGPUBindGroupEntry> entries(count);
-    for (uint32_t i = 0; i < count; ++i) {
-        auto *buf          = reinterpret_cast<WgpuBuffer *>(buffers[first + i]);
+    WGPUBindGroupLayout layout = rp->currentPipeline->bgLayouts[3];
+    if (!layout || rp->pendingVertexStorage.empty())
+        return;
+
+    // A bind group survives a pipeline change while the layouts stay compatible, so re-setting it
+    // on every draw would be pure overhead in the common case of one buffer and many runs.
+    if (!rp->storageDirty && rp->boundStorageLayout == layout)
+        return;
+
+    std::vector<WGPUBindGroupEntry> entries(rp->pendingVertexStorage.size());
+    for (uint32_t i = 0; i < entries.size(); ++i) {
         entries[i].binding = i;
-        entries[i].buffer  = buf ? buf->buffer : nullptr;
+        entries[i].buffer  = rp->pendingVertexStorage[i].buf;
         entries[i].offset  = 0;
-        entries[i].size    = buf ? buf->size : 0;
+        entries[i].size    = rp->pendingVertexStorage[i].size;
     }
 
     WGPUBindGroupDescriptor bgDesc {};
-    bgDesc.layout     = rp->currentPipeline->bgLayouts[3];
-    bgDesc.entryCount = entries.size();
+    bgDesc.layout     = layout;
+    bgDesc.entryCount = static_cast<uint32_t>(entries.size());
     bgDesc.entries    = entries.data();
     WGPUBindGroup bg  = wgpuDeviceCreateBindGroup(m_device, &bgDesc);
     wgpuRenderPassEncoderSetBindGroup(rp->encoder, 3, bg, 0, nullptr);
     rp->cmdBuf->cleanup.tempBindGroups.push_back(bg);
+
+    rp->boundStorageLayout = layout;
+    rp->storageDirty       = false;
 }
 
 void WebGpuGpuBackend::BindComputeSamplers(GpuComputePassHandle pass, uint32_t first,
@@ -1006,6 +1029,7 @@ void WebGpuGpuBackend::DrawPrimitives(GpuRenderPassHandle pass, uint32_t vertexC
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
     _flushVertexUniforms(rp);
     _flushFragmentUniforms(rp);
+    _flushVertexStorageBuffers(rp);
     wgpuRenderPassEncoderDraw(rp->encoder, vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
@@ -1015,6 +1039,7 @@ void WebGpuGpuBackend::DrawIndexedPrimitives(GpuRenderPassHandle pass, uint32_t 
     auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
     _flushVertexUniforms(rp);
     _flushFragmentUniforms(rp);
+    _flushVertexStorageBuffers(rp);
     wgpuRenderPassEncoderDrawIndexed(rp->encoder, indexCount, instanceCount,
         firstIndex, vertexOffset, firstInstance);
 }

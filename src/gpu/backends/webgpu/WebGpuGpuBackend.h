@@ -235,6 +235,10 @@ private:
     // Helpers
     void _flushVertexUniforms(WgpuRenderPass *rp);
     void _flushFragmentUniforms(WgpuRenderPass *rp);
+    /// Binds the storage buffers recorded by BindVertexStorageBuffers to group 3. Deferred to draw
+    /// time because the bind group is built against the current pipeline's layout, which does not
+    /// exist yet when a caller binds before its first BindGraphicsPipeline.
+    void _flushVertexStorageBuffers(WgpuRenderPass *rp);
     void _flushComputeUniforms(WgpuComputePass *cp);
 
     WGPUBindGroup _makeUniformBindGroup(WGPUBindGroupLayout layout,
