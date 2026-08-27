@@ -39,5 +39,47 @@ if(NOT _wgsl_result EQUAL 0)
     return()
 endif()
 
+# Step 3: renumber the bind groups.
+#
+# **The two backends do not agree on what a set number means, and Tint copies the source's
+# numbering straight through.** Game shaders are authored to SDL_gpu's SPIR-V convention, because
+# that is what the native build compiles them with:
+#
+#     set 0  vertex storage buffers
+#     set 1  vertex uniforms
+#     set 2  fragment samplers
+#     set 3  fragment uniforms
+#
+# `WebGpuGpuBackend::CreateGraphicsPipeline` builds its bind group layouts in a fixed order that
+# is not the same one:
+#
+#     group 0  vertex uniforms
+#     group 1  fragment uniforms
+#     group 2  fragment samplers
+#     group 3  vertex storage buffers (or fragment storage textures)
+#
+# Left alone, a shader with both a vertex storage buffer and a vertex uniform declares them at
+# groups 0 and 1, the backend declares layouts for vertex and fragment *uniforms* there, and the
+# module is rejected — "references multiple variables that use the same resource binding". Every
+# pipeline built from it then fails with "invalid due to a previous error", which is what it
+# actually looks like from the console.
+#
+# Only shaders using vertex storage buffers collide outright, which is why this went unnoticed:
+# a shader with nothing but a sampler happens to land on the right number either way.
+#
+# Substituted through placeholder tokens because the mapping is a permutation — replacing 1→0
+# and then 0→3 in sequence would send the original 1 all the way to 3.
+file(READ "${WGSL_FILE}" _wgsl)
+
+string(REGEX REPLACE "@group\\(0u?\\)" "@group(LUMI_G3)" _wgsl "${_wgsl}")
+string(REGEX REPLACE "@group\\(1u?\\)" "@group(LUMI_G0)" _wgsl "${_wgsl}")
+string(REGEX REPLACE "@group\\(3u?\\)" "@group(LUMI_G1)" _wgsl "${_wgsl}")
+
+string(REPLACE "@group(LUMI_G0)" "@group(0)" _wgsl "${_wgsl}")
+string(REPLACE "@group(LUMI_G1)" "@group(1)" _wgsl "${_wgsl}")
+string(REPLACE "@group(LUMI_G3)" "@group(3)" _wgsl "${_wgsl}")
+
+file(WRITE "${WGSL_FILE}" "${_wgsl}")
+
 # Clean up intermediate .spv
 file(REMOVE "${SPV_FILE}")

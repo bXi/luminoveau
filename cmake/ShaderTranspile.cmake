@@ -128,11 +128,29 @@ if(NOT EXISTS "${LUMI_TINT_EXECUTABLE}")
 
         file(MAKE_DIRECTORY "${LUMI_TINT_HOST_DIR}")
 
+        # Hand the host build the *same* ninja the parent was configured with.
+        #
+        # `-G Ninja` on its own only names the generator; the nested configure then looks up
+        # `ninja` on PATH for itself, and picks whichever comes first. On a Windows machine with
+        # MSYS2 installed that is usually `msys2/usr/bin/ninja.exe` — an MSYS2 build, which runs
+        # every command through `/bin/sh`. `sh` treats a backslash as an escape, so the native
+        # compiler path `C:\Program Files\...\gcc.exe` arrives as `C:ProgramFiles...gcc.exe` and
+        # the host compiler check fails with "command not found" on a path with no separators.
+        #
+        # The parent build already knows a ninja that works with native Windows paths, because it
+        # is building with it. Passing it through is what keeps the two consistent.
+        if(CMAKE_MAKE_PROGRAM)
+            set(_HOST_MAKE_ARGS -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM})
+        else()
+            set(_HOST_MAKE_ARGS "")
+        endif()
+
         execute_process(
             COMMAND ${CMAKE_COMMAND}
                 -S "${LUMI_DAWN_SRC}"
                 -B "${LUMI_TINT_HOST_DIR}"
                 -G Ninja
+                ${_HOST_MAKE_ARGS}
                 ${_HOST_COMPILER_ARGS}
                 -DCMAKE_BUILD_TYPE=Release
                 # GCC+Ninja can't scan Dawn's C++20 module target; we only need the
@@ -275,7 +293,14 @@ function(lumi_transpile_shaders)
                     -DWGSL_FILE=${_wgsl_file}
                     -DSHADER_NAME=${_rel_path}
                     -P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ShaderTranspileOne.cmake"
+                # The script counts as an input, not just the shader. It decides the SPIR-V target,
+                # the failure behaviour and — since the bind groups are renumbered in it — what
+                # the output actually binds to. Without it here, changing any of that silently
+                # leaves every already-converted shader as it was, and only the ones whose GLSL
+                # happened to change pick the new rules up. That is a genuinely confusing state to
+                # debug: half the shaders on one convention and half on the other.
                 DEPENDS "${_glsl_file}"
+                        "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ShaderTranspileOne.cmake"
                 COMMENT "Transpile: ${_rel_path}"
                 VERBATIM
             )
