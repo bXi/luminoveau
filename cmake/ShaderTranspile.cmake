@@ -139,7 +139,14 @@ if(NOT EXISTS "${LUMI_TINT_EXECUTABLE}")
         #
         # The parent build already knows a ninja that works with native Windows paths, because it
         # is building with it. Passing it through is what keeps the two consistent.
-        if(CMAKE_MAKE_PROGRAM)
+        # **Only when the parent is itself a Ninja build.** `CMAKE_MAKE_PROGRAM` names whatever
+        # tool the parent's generator drives, so under `-G "Unix Makefiles"` it is `make` — and
+        # handing that to the `-G Ninja` configure below makes CMake run `make --version`, parse
+        # the GNU Make banner as a Ninja version, and fail with "The detected version of Ninja
+        # (GNU Make 4.3 ...) is less than the version required by CMake (1.3)". A CI job that
+        # configures without `-G` hits this every time; a Ninja-based one never does, which is why
+        # it survived local builds.
+        if(CMAKE_MAKE_PROGRAM AND CMAKE_GENERATOR MATCHES "Ninja")
             set(_HOST_MAKE_ARGS -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM})
         else()
             set(_HOST_MAKE_ARGS "")
