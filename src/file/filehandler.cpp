@@ -102,7 +102,14 @@ std::string FileHandler::_getWritableDirectory() {
     // Returning the mount instead means "somewhere durable I can write" is true on every
     // platform, which is what the name has always promised. The write still has to reach
     // IndexedDB — see _schedulePersistentFlush, which is why _writeFile does it automatically.
-    _initPersistentStorage(); // idempotent; also done once from SDL_AppInit
+    //
+    // Establishes the mount on first use. That is a suspension point through Asyncify, which is
+    // not something a getter should hide — but the alternatives are worse. Mounting from
+    // SDL_AppInit is earlier than Asyncify can survive (see lumi_main.cpp), and requiring every
+    // caller to mount first reintroduces exactly the "forgot to do the second half" failure this
+    // whole change exists to remove. The guard in _initPersistentStorage makes every call after
+    // the first a plain bool test.
+    _initPersistentStorage();
     return PERSISTENT_MOUNT_POINT;
 #else
     // If org and app names are set, use SDL_GetPrefPath
@@ -546,6 +553,16 @@ bool FileHandler::_initPersistentStorage() {
     if (_persistentStorageMounted)
         return true;
 
+    // **Set before the mount, not after, because Asyncify replays this call.** The EM_ASM below
+    // suspends the C stack in FS.syncfs; on rewind Emscripten re-executes every frame that was
+    // unwound, this function included. With the flag set afterwards the guard above still reads
+    // false on the way back in, so the mount and the sleep both happen a second time and the
+    // asyncify state machine is left describing a stack that no longer matches.
+    //
+    // "Mounted" therefore means "the mount has been attempted", which is all a re-entrancy guard
+    // can honestly mean here — the JS below is already best-effort and swallows its own errors.
+    _persistentStorageMounted = true;
+
 #ifdef __EMSCRIPTEN__
     EM_ASM({
         var path = UTF8ToString($0);
@@ -567,7 +584,6 @@ bool FileHandler::_initPersistentStorage() {
         PERSISTENT_MOUNT_POINT);
 #endif
     // Native filesystems are already persistent — nothing to mount or create.
-    _persistentStorageMounted = true;
     return true;
 }
 

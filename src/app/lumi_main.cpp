@@ -2,7 +2,6 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_filesystem.h>
 #include "app/app.h"
-#include "file/filehandler.h"
 
 #if defined(_WIN32)
 #include <direct.h>
@@ -17,16 +16,13 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     // filesystem. Double-clicking from Finder (or Explorer) launches with CWD = "/" or the
     // user's home, which breaks relative asset/pak mounts. SDL_GetBasePath resolves the
     // executable dir on every platform (and Contents/Resources for a macOS .app bundle).
-    if (const char *base = SDL_GetBasePath(); base && *base)
-        (void)LUMI_CHDIR(base);
-
-    // Mount persistent storage before any game code can write. It is idempotent and
-    // GetWritableDirectory() would establish it lazily anyway, but the initial IndexedDB read
-    // suspends the C stack via Asyncify — so doing it here pins that unwind to one known point
-    // during startup, rather than to whichever write happened to be first. On native this only
-    // ensures the system directory exists.
-    FileHandler::InitPersistentStorage();
-
+    // **Persistent storage is deliberately not mounted here.** It is the obvious place, and it
+    // is wrong: the initial IndexedDB read suspends the C stack through Asyncify, and this
+    // function is called from SDL_EnterAppMainCallbacks before SDL_Init, before a window, and
+    // before the Emscripten main loop exists. Unwinding out of that leaves nothing sane to
+    // rewind into. FileHandler mounts it lazily on first use instead, which lands inside the
+    // game's own AppInit — the same neighbourhood as the AssetHandler constructor, whose font
+    // cache has always slept there safely.
     return static_cast<SDL_AppResult>(AppInit(appstate, argc, argv));
 }
 
