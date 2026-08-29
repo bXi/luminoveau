@@ -17,6 +17,12 @@
 
 namespace {
 constexpr const char *PERSISTENT_MOUNT_POINT = "/lumi_persist/";
+
+// How long a write waits for company before the mount is pushed to IndexedDB. FS.syncfs walks
+// the whole mount, so per-write syncing would make a batch — the piece lab saving overrides, or
+// a cache writing several entries — quadratic. Long enough to coalesce a burst, short enough
+// that a player who closes the tab straight after changing a setting still keeps it.
+constexpr int PERSISTENT_FLUSH_DEBOUNCE_MS = 250;
 }
 
 #ifdef _WIN32
@@ -85,6 +91,20 @@ bool FileHandler::_initPhysFS() {
 // ============================================================================
 
 std::string FileHandler::_getWritableDirectory() {
+#ifdef __EMSCRIPTEN__
+    // **The IDBFS mount, not SDL_GetPrefPath.** Under Emscripten SDL_GetPrefPath just formats
+    // "/libsdl/<org>/<app>/" (see SDL's src/filesystem/emscripten/SDL_sysfilesystem.c) — an
+    // ordinary MEMFS directory with nothing behind it. Writes there succeed, read back for the
+    // rest of the session, and are gone on reload, with no error at any point. That made every
+    // caller of this function silently non-persistent on the web while looking correct
+    // everywhere else, which is the worst shape a bug like this can take.
+    //
+    // Returning the mount instead means "somewhere durable I can write" is true on every
+    // platform, which is what the name has always promised. The write still has to reach
+    // IndexedDB — see _schedulePersistentFlush, which is why _writeFile does it automatically.
+    _initPersistentStorage(); // idempotent; also done once from SDL_AppInit
+    return PERSISTENT_MOUNT_POINT;
+#else
     // If org and app names are set, use SDL_GetPrefPath
     if (!_orgName.empty() && !_appName.empty()) {
         char *prefPath = SDL_GetPrefPath(_orgName.c_str(), _appName.c_str());
@@ -109,7 +129,8 @@ std::string FileHandler::_getWritableDirectory() {
 #else
     // Desktop: Fall back to executable directory
     return _getBaseDirectory();
-#endif
+#endif // __ANDROID__
+#endif // __EMSCRIPTEN__
 }
 
 std::string FileHandler::_getBaseDirectory() {
@@ -125,8 +146,18 @@ std::string FileHandler::_getBaseDirectory() {
 }
 
 std::string FileHandler::_getCacheDirectory() {
+    if (!_cacheDirectory.empty())
+        return _cacheDirectory;
+
+#ifdef __EMSCRIPTEN__
+    // The shader and font caches exist to survive a restart, so on the web they have to live on
+    // the durable mount. The executable directory is MEMFS here: the cache was written, flushed
+    // into an IndexedDB store nothing had written to, and rebuilt from scratch on every load.
+    return _getWritableDirectory();
+#else
     // Default: next to the executable (portable). Overridable via SetCacheDirectory.
-    return _cacheDirectory.empty() ? _getBaseDirectory() : _cacheDirectory;
+    return _getBaseDirectory();
+#endif
 }
 
 void FileHandler::_setCacheDirectory(const std::string &dir) {
@@ -376,7 +407,43 @@ bool FileHandler::_writeFile(const std::string &filepath, const void *data, size
         return false;
     }
 
+    file.close();
+    // **A write under the persistent mount is not durable until the mount is synced.** Doing it
+    // here rather than leaving it to callers is the whole point: every caller that forgot was
+    // silently non-persistent on the web and correct everywhere else, so the mistake could not
+    // be found by reading the calling code. Native is unaffected — this compiles away.
+    _schedulePersistentFlush(filepath);
     return true;
+}
+
+void FileHandler::_schedulePersistentFlush(const std::string &filepath) {
+#ifdef __EMSCRIPTEN__
+    if (!_persistentStorageMounted)
+        return;
+
+    const size_t prefixLength = std::strlen(PERSISTENT_MOUNT_POINT);
+    if (filepath.compare(0, prefixLength, PERSISTENT_MOUNT_POINT) != 0)
+        return; // Ordinary MEMFS write — nothing to push, and nowhere to push it.
+
+    // **Deliberately not Asyncify.handleSleep, unlike the explicit flush.** This runs after
+    // every write, and suspending the C stack there would turn each one into a place execution
+    // can be unwound and rewound — including writes made from a destructor or mid-frame. A
+    // plain JS timer keeps the write synchronous from C's point of view and lets the sync
+    // happen on the event loop afterwards.
+    EM_ASM({
+        if (Module._lumiPersistTimer)
+            clearTimeout(Module._lumiPersistTimer);
+        Module._lumiPersistTimer = setTimeout(function() {
+            Module._lumiPersistTimer = 0;
+            FS.syncfs(false, function(err) {
+                if (err) console.warn('[Lumi] IDBFS background flush error:', err);
+            });
+        }, $0);
+    },
+        PERSISTENT_FLUSH_DEBOUNCE_MS);
+#else
+    (void) filepath;
+#endif
 }
 
 // ============================================================================
@@ -518,6 +585,12 @@ bool FileHandler::_flushPersistentStorage() {
     if (!_persistentStorageMounted)
         return false;
     EM_ASM(
+        // Cancel any debounced flush first: it would otherwise fire after this one and start a
+        // second syncfs over the same mount, for writes this call has already pushed.
+        if (Module._lumiPersistTimer) {
+            clearTimeout(Module._lumiPersistTimer);
+            Module._lumiPersistTimer = 0;
+        }
         Asyncify.handleSleep(function(wakeUp) {
             FS.syncfs(
                 false, function(err) {

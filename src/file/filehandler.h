@@ -284,6 +284,10 @@ private:
 
     // File writing
     bool _writeFile(const std::string &filepath, const void *data, size_t size);
+    /// Queues a debounced push of the persistent mount to IndexedDB, if filepath is on it.
+    /// No-op off Emscripten. Called by _writeFile so persistence is not something callers can
+    /// forget — see the note there.
+    void _schedulePersistentFlush(const std::string &filepath);
 
     // File queries
     bool   _fileExists(const std::string &filepath);

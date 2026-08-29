@@ -2,6 +2,7 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_filesystem.h>
 #include "app/app.h"
+#include "file/filehandler.h"
 
 #if defined(_WIN32)
 #include <direct.h>
@@ -18,6 +19,14 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     // executable dir on every platform (and Contents/Resources for a macOS .app bundle).
     if (const char *base = SDL_GetBasePath(); base && *base)
         (void)LUMI_CHDIR(base);
+
+    // Mount persistent storage before any game code can write. It is idempotent and
+    // GetWritableDirectory() would establish it lazily anyway, but the initial IndexedDB read
+    // suspends the C stack via Asyncify — so doing it here pins that unwind to one known point
+    // during startup, rather than to whichever write happened to be first. On native this only
+    // ensures the system directory exists.
+    FileHandler::InitPersistentStorage();
+
     return static_cast<SDL_AppResult>(AppInit(appstate, argc, argv));
 }
 
