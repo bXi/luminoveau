@@ -261,8 +261,15 @@ function(lumi_transpile_shaders)
     set(_wgsl_outputs "")
 
     foreach(_shader_dir ${TS_SHADER_DIRS})
-        # Find all GLSL shaders (vert, frag, compute)
-        file(GLOB_RECURSE _glsl_shaders
+        # Find all GLSL shaders (vert, frag, compute).
+        #
+        # CONFIGURE_DEPENDS, because a glob is evaluated when CMake runs and not when the build
+        # does. Without it a shader added after configuring is never transpiled, and nothing says
+        # so: the build succeeds, the web page loads, and the loader reports the one missing
+        # `.wgsl` at the moment the pipeline is first needed. This makes the build system re-run
+        # CMake when the set of matching files changes, which is exactly the case that used to be
+        # silent.
+        file(GLOB_RECURSE _glsl_shaders CONFIGURE_DEPENDS
             "${_shader_dir}/*.vert"
             "${_shader_dir}/*.frag"
             "${_shader_dir}/*.comp"
@@ -324,6 +331,18 @@ function(lumi_transpile_shaders)
 
         if(TARGET ${TS_TARGET})
             add_dependencies(${TS_TARGET} ${TS_TARGET}_transpiled_shaders)
+
+            # **And the link has to depend on them too, not just the build order.**
+            #
+            # `add_dependencies` guarantees the shaders are transpiled before the target is built.
+            # It does not make the *link* re-run, and under Emscripten that is where it matters:
+            # `--preload-file` packages the directory into the `.data` bundle at link time, and
+            # the link's declared inputs are object files. A shader added since the last link is
+            # therefore transpiled to disk and left out of the bundle — the build succeeds, and
+            # the loader reports a missing `.wgsl` for a file that is plainly sitting there.
+            #
+            # Naming the outputs as link dependencies is what ties the two together.
+            set_property(TARGET ${TS_TARGET} APPEND PROPERTY LINK_DEPENDS ${_wgsl_outputs})
         endif()
 
         list(LENGTH _wgsl_outputs _count)

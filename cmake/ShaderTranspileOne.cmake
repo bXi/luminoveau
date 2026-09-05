@@ -1,7 +1,8 @@
 # ShaderTranspileOne.cmake
 # Transpiles a single shader: GLSL → SPIR-V → WGSL
-# Called as a script (-P) from custom commands. Non-fatal: creates an empty
-# .wgsl output on failure so the build continues.
+# Called as a script (-P) from custom commands. **Fatal on failure**: a shader that will not
+# convert cannot be drawn with, and the alternative — an empty .wgsl and a warning — hid the
+# error until run time and then only once. See the note on the Tint step.
 #
 # Input variables (set via -D):
 #   GLSLANG     - path to glslangValidator
@@ -34,9 +35,20 @@ execute_process(
 )
 
 if(NOT _wgsl_result EQUAL 0)
-    message(WARNING "[Lumi] SPIR-V→WGSL failed for ${SHADER_NAME} (unsupported features?): ${_wgsl_err}")
-    file(WRITE "${WGSL_FILE}" "")
-    return()
+    # **Fatal, and the empty file is not written.**
+    #
+    # Warning and writing an empty `.wgsl` was worse than it looks. The build succeeded, so the
+    # warning scrolled past once and was gone — and it only ever appeared *once*, because the
+    # empty output then satisfied the custom command and the build system never ran it again. What
+    # was left was a shader that fails at run time with "pre-transpiled WGSL not found", naming a
+    # file that is sitting right there with nothing in it. Two people looked in the wrong place.
+    #
+    # A shader that cannot be converted is a shader the game cannot draw with, so stopping here
+    # puts the error in front of whoever introduced it, with Tint's own words.
+    message(FATAL_ERROR
+        "[Lumi] SPIR-V→WGSL failed for ${SHADER_NAME}\n"
+        "${_wgsl_err}\n"
+        "The SPIR-V is kept at ${SPV_FILE} for inspection.")
 endif()
 
 # Step 3: renumber the bind groups.
