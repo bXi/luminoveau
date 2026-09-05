@@ -85,6 +85,47 @@ public:
     static bool GamepadButtonDown(int gamepadID, int button) { return Get()._gamepadButtonDown(gamepadID, button); }
 
     /**
+     * @brief The SDL instance id behind a gamepad index, which is what identifies it over time.
+     *
+     * **A `gamepadID` is a position, not an identity.** It indexes the live gamepad list, and
+     * `RemoveGamepadDevice` compacts that list — so unplugging one controller shifts every
+     * higher index down, and anything that remembered an index is now pointing at somebody
+     * else's pad. A game that assigns controllers to players has to remember this instead.
+     *
+     * @param gamepadID The index of the gamepad.
+     * @return The SDL joystick instance id, or 0 if the index is out of range.
+     */
+    static SDL_JoystickID GetGamepadInstanceId(int gamepadID) { return Get()._getGamepadInstanceId(gamepadID); }
+
+    /**
+     * @brief Finds a gamepad's current index from the instance id it was remembered by.
+     *
+     * @param instanceId The SDL joystick instance id.
+     * @return The current index, or -1 when that controller is no longer connected.
+     */
+    static int GetGamepadByInstanceId(SDL_JoystickID instanceId) { return Get()._getGamepadByInstanceId(instanceId); }
+
+    /**
+     * @brief The controller's own name, for telling two of them apart on screen.
+     *
+     * @param gamepadID The index of the gamepad.
+     * @return The name SDL reports, or an empty string if the index is out of range.
+     */
+    static std::string GetGamepadName(int gamepadID) { return Get()._getGamepadName(gamepadID); }
+
+    /**
+     * @brief Rumbles a gamepad, so a player can be shown which controller is theirs.
+     *
+     * Reading "pad 2" off a screen answers nothing when three identical controllers are on the
+     * table; buzzing the one under discussion answers it immediately.
+     *
+     * @param gamepadID The index of the gamepad.
+     * @param strength 0 to 1, applied to both motors.
+     * @param milliseconds How long to buzz for.
+     */
+    static void RumbleGamepad(int gamepadID, float strength, uint32_t milliseconds) { Get()._rumbleGamepad(gamepadID, strength, milliseconds); }
+
+    /**
      * @brief Checks if the specified key is pressed.
      *
      * @param key The key to check.
@@ -210,6 +251,11 @@ private:
     bool _gamepadButtonPressed(int gamepadID, int button);
 
     bool _gamepadButtonDown(int gamepadID, int button);
+
+    SDL_JoystickID _getGamepadInstanceId(int gamepadID);
+    int            _getGamepadByInstanceId(SDL_JoystickID instanceId);
+    std::string    _getGamepadName(int gamepadID);
+    void           _rumbleGamepad(int gamepadID, float strength, uint32_t milliseconds);
 
     bool _keyPressed(int key);
 

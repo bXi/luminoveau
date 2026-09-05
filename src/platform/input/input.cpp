@@ -101,6 +101,37 @@ bool Input::_gamepadButtonDown(int gamepadID, int button) {
     return SDL_GetGamepadButton(_gamepads[gamepadID].gamepad, static_cast<SDL_GamepadButton>(button));
 }
 
+// Bounds-checked, all four of these, unlike the accessors above. They exist for code holding an
+// id across time — a player-to-controller assignment — so being handed a stale one is the normal
+// case rather than a bug to trap on.
+SDL_JoystickID Input::_getGamepadInstanceId(int gamepadID) {
+    if (gamepadID < 0 || gamepadID >= (int)_gamepads.size())
+        return 0;
+    return _gamepads[gamepadID].joystickId;
+}
+
+int Input::_getGamepadByInstanceId(SDL_JoystickID instanceId) {
+    for (int i = 0; i < (int)_gamepads.size(); ++i) {
+        if (_gamepads[i].joystickId == instanceId)
+            return i;
+    }
+    return -1;
+}
+
+std::string Input::_getGamepadName(int gamepadID) {
+    if (gamepadID < 0 || gamepadID >= (int)_gamepads.size() || !_gamepads[gamepadID].gamepad)
+        return {};
+    const char *name = SDL_GetGamepadName(_gamepads[gamepadID].gamepad);
+    return name ? name : std::string{};
+}
+
+void Input::_rumbleGamepad(int gamepadID, float strength, uint32_t milliseconds) {
+    if (gamepadID < 0 || gamepadID >= (int)_gamepads.size() || !_gamepads[gamepadID].gamepad)
+        return;
+    const Uint16 motor = (Uint16)(SDL_clamp(strength, 0.0f, 1.0f) * 65535.0f);
+    SDL_RumbleGamepad(_gamepads[gamepadID].gamepad, motor, motor, milliseconds);
+}
+
 bool Input::_keyPressed(int key) {
 
     auto curState  = currentKeyboardState;
