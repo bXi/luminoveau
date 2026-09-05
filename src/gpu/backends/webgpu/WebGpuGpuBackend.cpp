@@ -1483,6 +1483,15 @@ GpuGraphicsPipelineHandle WebGpuGpuBackend::CreateGraphicsPipeline(const GpuGrap
         ds.depthCompare         = WGPUCompareFunction_Less;
         ds.stencilFront.compare = WGPUCompareFunction_Always;
         ds.stencilBack.compare  = WGPUCompareFunction_Always;
+
+        // Slope-scaled depth offset — see GpuGraphicsPipelineCreateInfo::depthBiasSlope. WebGPU
+        // takes the constant term as an integer count of depth units rather than a float, which
+        // is the only difference from the SDL backend; both compute
+        // `constant * r + slope * maxDepthSlope` underneath.
+        ds.depthBias           = static_cast<int32_t>(info.depthBiasConstant);
+        ds.depthBiasSlopeScale = info.depthBiasSlope;
+        ds.depthBiasClamp      = info.depthBiasClamp;
+
         rpDesc.depthStencil     = &ds;
     }
 

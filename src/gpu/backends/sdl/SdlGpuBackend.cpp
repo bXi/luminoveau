@@ -554,6 +554,13 @@ GpuGraphicsPipelineHandle SdlGpuBackend::CreateGraphicsPipeline(const GpuGraphic
             .fill_mode  = toSDL(info.fillMode),
             .cull_mode  = toSDL(info.cullMode),
             .front_face = toSDL(info.frontFace),
+            // Slope-scaled depth offset — see GpuGraphicsPipelineCreateInfo::depthBiasSlope.
+            // Enabled only when something was actually asked for, so every existing pipeline
+            // keeps the hardware's own default of no bias at all.
+            .depth_bias_constant_factor = info.depthBiasConstant,
+            .depth_bias_clamp           = info.depthBiasClamp,
+            .depth_bias_slope_factor    = info.depthBiasSlope,
+            .enable_depth_bias          = info.depthBiasConstant != 0.0f || info.depthBiasSlope != 0.0f,
         },
         .multisample_state = {
             .sample_count = toSDL(info.sampleCount),

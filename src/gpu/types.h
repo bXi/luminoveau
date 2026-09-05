@@ -369,6 +369,31 @@ struct GpuGraphicsPipelineCreateInfo {
     /// and neighbouring draws reject one another arbitrarily.
     bool                      depthWrite                            = true;
 
+    /// Offsets this pipeline's fragments in depth, in the hardware's own units.
+    ///
+    /// **The fix for stitching, and the reason it belongs here rather than in a shader.** When
+    /// lines are drawn over the surface they belong to, the two disagree about depth by rounding
+    /// alone and the line comes out stippled — parts winning the test, parts losing. The remedy
+    /// every API documents is to push the *polygons* back rather than pull the lines forward, by
+    ///
+    ///     offset = constant * r + slope * max(|dz/dx|, |dz/dy|)
+    ///
+    /// where `r` is the depth format's smallest representable step. The slope term is what makes
+    /// it hold on curved or oblique surfaces, whose depth changes across the very pixels a line
+    /// covers — and it is precisely what a vertex shader cannot compute, having a vertex rather
+    /// than a rasterised polygon. A shader-side bias in clip space also changes meaning whenever
+    /// the projection does, so it needs re-tuning for every camera; this does not.
+    ///
+    /// Positive pushes away from the viewer. Zero, the default, disables it entirely, so no
+    /// existing pipeline changes behaviour.
+    float                     depthBiasConstant                     = 0.0f;
+    float                     depthBiasSlope                        = 0.0f;
+
+    /// Ceiling on the total offset, guarding the case the D3D documentation warns about: a
+    /// polygon seen almost edge-on has a near-infinite depth slope, and an unclamped slope term
+    /// would launch it out of the depth range. Zero means no clamp.
+    float                     depthBiasClamp                        = 0.0f;
+
     GpuTextureFormat          depthTargetFormat                     = GpuTextureFormat::D32_Float;
     GpuSampleCount            sampleCount                           = GpuSampleCount::X1;
     uint32_t                  vertexStorageBufferCount              = 0; // read-only storage buffers bound at group 3, vertex stage
