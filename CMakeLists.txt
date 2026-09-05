@@ -30,6 +30,14 @@ option(LUMINOVEAU_BUILD_TESTS    "Build test suite"                             
 option(LUMINOVEAU_BUILD_EXAMPLES "Build the example demos in examples/"         OFF)
 option(LUMINOVEAU_USE_CALLBACKS  "Use SDL3 callback-based main loop"            OFF)
 option(LUMINOVEAU_WEBGPU_BACKEND "Use WebGPU renderer (required for Emscripten)" OFF)
+# Off by default because it is not a free dependency: GameNetworkingSockets brings protobuf,
+# which is fetched and built alongside it, and wants OpenSSL or libsodium for AES/SHA256 on
+# everything but Windows. Projects that only want LAN play on SDL_net should leave it alone.
+option(LUMINOVEAU_WITH_GNS       "GameNetworkingSockets transport (encrypted, P2P-capable)" OFF)
+# The only transport a browser can use to reach a native peer. Off by default because it is a
+# large dependency tree (libdatachannel, libjuice, usrsctp, Mbed TLS) and because it needs a
+# signalling service to introduce peers — see Net::SetSignalingUrl.
+option(LUMINOVEAU_WITH_WEBRTC    "WebRTC data channel transport (browser and native)"       OFF)
 
 # Emscripten always uses WebGPU
 if(EMSCRIPTEN)

@@ -6,6 +6,7 @@
 target_sources(luminoveau PRIVATE
     src/integrations/steam/steam.cpp
     src/integrations/steam/steam.h
+    src/integrations/steam/steambroker.cpp
 )
 
 # There is no Steamworks in a browser, so the SDK is skipped outright on the web. The stub
@@ -20,6 +21,11 @@ if(EMSCRIPTEN)
     lumi_msg("Steam SDK skipped (no Steamworks on the web)")
     return()
 endif()
+
+# Read by DependencySetup.cmake, which must not fetch GameNetworkingSockets when the
+# Steamworks SDK is present: both install a header called steam/steamnetworkingtypes.h, and
+# letting include order decide the winner is an ABI mismatch on a vtable.
+set(STEAM_SDK_FOUND FALSE)
 
 # Checking for Steam SDK presence
 set(STEAM_SDK_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/public/steam/steam_api.h")
@@ -59,6 +65,17 @@ if(EXISTS "${STEAM_SDK_HEADER}")
         PUBLIC "${STEAM_API_LIB}"
     )
 
+    # Telling consumers where the runtime library is.
+    #
+    # **The copy below is not enough, because luminoveau is a static library.** Its
+    # `TARGET_FILE_DIR` is wherever the archive lands (`lib/`), and no executable looks there —
+    # so a game that inherits the `steam_api64.lib` import above fails to start with
+    # STATUS_DLL_NOT_FOUND (0xC0000135), before `main` and with no message. Only the consumer
+    # knows where its own executable goes, so it has to do that copy itself; this is the path it
+    # needs. Cached because `add_subdirectory` would otherwise keep it in a child scope.
+    set(LUMINOVEAU_STEAM_RUNTIME "${STEAM_API_DLL}" CACHE INTERNAL
+        "Steam API runtime library, to be copied beside the consuming executable")
+
     # Copying Steam API runtime library to the build directory
     if(EXISTS "${STEAM_API_DLL}")
         add_custom_command(
@@ -73,8 +90,11 @@ if(EXISTS "${STEAM_SDK_HEADER}")
         message(WARNING "Steam API runtime library '${STEAM_API_DLL}' not found")
     endif()
 
-    # Adding compile definition to enable Steam functionality
-    target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_STEAM)
+    # Adding compile definition to enable Steam functionality. STEAMNETWORKINGSOCKETS_STEAMAPI
+    # is what the SDK's headers default to anyway; saying it out loud keeps the either/or with
+    # STANDALONELIB visible where the choice is actually made.
+    target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_STEAM STEAMNETWORKINGSOCKETS_STEAMAPI)
+    set(STEAM_SDK_FOUND TRUE)
 
     lumi_done("Steam SDK")
 else()

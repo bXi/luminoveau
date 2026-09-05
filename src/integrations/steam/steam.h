@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <stdexcept>
 
@@ -17,6 +18,9 @@ public:
     static void Init(int appId) { Get()._init(appId); }
     /// @brief Shuts down the Steam API.
     static void Close() { Get()._close(); }
+
+    /// @brief Pumps Steam's callback queue. Call once per frame, or no asynchronous result ever fires.
+    static void Tick() { Get()._tick(); }
 
     /// @brief Returns true if the Steam API is initialized and ready.
     static bool IsReady() { return Get()._isReady(); }
@@ -40,8 +44,11 @@ public:
     /// @param pchName The achievement's API name.
     static void ClearAchievement(const std::string &pchName) { Get()._clearAchievement(pchName); }
 
-    /// @brief Returns the current user's Steam ID.
+    /// @brief Returns the current user's Steam ID, truncated to its account id.
     static int GetUserSteamId() { return Get()._getUserSteamId(); }
+
+    /// @brief Returns the current user's full 64-bit Steam ID, or 0 if unavailable.
+    static uint64_t GetUserSteamId64() { return Get()._getUserSteamId64(); }
 
 private:
     bool _isInit = false;
@@ -49,6 +56,7 @@ private:
 
     void _init(int appId);
     void _close();
+    void _tick();
 
     [[nodiscard]] bool _isReady() const;
 
@@ -60,7 +68,8 @@ private:
 
     void _clearAchievement(const std::string &pchName);
 
-    int _getUserSteamId();
+    int      _getUserSteamId();
+    uint64_t _getUserSteamId64();
 
     // TODO: figure out nice way to implement this. curse Steam for making it possible to make pUnlockTime 0
     // bool GetAchievementAndUnlockTime(std::string pchName, out bool pbAchieved, out uint punUnlockTime)

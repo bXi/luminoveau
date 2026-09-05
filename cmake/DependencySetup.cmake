@@ -183,6 +183,219 @@ if(NOT EMSCRIPTEN)
     endif()
 endif()
 
+# Fetching GameNetworkingSockets (encrypted reliable transport; the path to Steam P2P).
+#
+# ISteamNetworkingSockets is not Steam-only — GNS ships the same public headers under BSD-3,
+# so one transport implementation drives either library. Which one is decided at configure
+# time by SteamDetection.cmake, because both install a header called
+# steam/steamnetworkingtypes.h and letting include order pick the winner is an ABI mismatch
+# on a vtable waiting to happen.
+if(LUMINOVEAU_WITH_GNS AND NOT EMSCRIPTEN)
+    if(STEAM_SDK_FOUND)
+        # The Steamworks SDK already provides these sockets, and its own build of them is the
+        # one that gets SDR relay. Fetching GNS as well would only create the header clash.
+        target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_GNS=1)
+        target_sources(luminoveau PRIVATE src/platform/net/gns/transport_gns.cpp)
+        lumi_done("GameNetworkingSockets (via the Steamworks SDK)")
+    else()
+        # GNS does not vendor protobuf — its own CMakeLists does find_package(Protobuf REQUIRED)
+        # — so protobuf is fetched here first rather than expected from the system. 3.21.12 is
+        # the last release before protobuf took a dependency on Abseil, which keeps this to one
+        # extra source tree instead of two.
+        set(protobuf_BUILD_TESTS       OFF CACHE BOOL "Disable protobuf tests"       FORCE)
+        set(protobuf_BUILD_EXAMPLES    OFF CACHE BOOL "Disable protobuf examples"    FORCE)
+        set(protobuf_BUILD_CONFORMANCE OFF CACHE BOOL "Disable conformance tests"    FORCE)
+        set(protobuf_WITH_ZLIB         OFF CACHE BOOL "No zlib in protobuf"          FORCE)
+        # Left ON deliberately: GNS exports a target that links libprotobuf, and CMake refuses
+        # to generate an install(EXPORT) naming a target that is in no export set.
+        set(protobuf_INSTALL           ON  CACHE BOOL "Export the protobuf targets"  FORCE)
+        set(BUILD_SHARED_LIBS          OFF CACHE BOOL "Build static libraries"       FORCE)
+
+        lumi_msg("Fetching protobuf")
+        CPMAddPackage(
+            NAME protobuf
+            GITHUB_REPOSITORY protocolbuffers/protobuf
+            GIT_TAG v3.21.12
+            EXCLUDE_FROM_ALL YES
+        )
+
+        if(NOT protobuf_ADDED)
+            lumi_warn("protobuf - fetch failed (GNS transport disabled)")
+        else()
+            # CMake's own FindProtobuf needs exactly these two to report success; everything else
+            # it hands GNS is a target name, and adding protobuf above already defined
+            # protobuf::libprotobuf and protobuf::protoc. Pre-seeding them keeps its find_path and
+            # find_library off the system.
+            set(Protobuf_INCLUDE_DIR "${protobuf_SOURCE_DIR}/src" CACHE PATH   "" FORCE)
+            set(Protobuf_LIBRARIES   protobuf::libprotobuf        CACHE STRING "" FORCE)
+
+            # GNS calls protobuf_generate_cpp, which exists only because FindProtobuf defines it.
+            # Adding protobuf above leaves a config file behind for it, and that redirect wins
+            # over module mode — even for find_package(Protobuf MODULE) — so the module never
+            # loads and the function never appears. Including it outright is what actually runs
+            # it. protoc is then invoked through the protobuf::protoc target rather than through
+            # Protobuf_PROTOC_EXECUTABLE, so a system protoc is neither needed nor consulted.
+            include(FindProtobuf)
+            set(BUILD_STATIC_LIB   ON  CACHE BOOL "Build the GNS static library" FORCE)
+            set(BUILD_SHARED_LIB   OFF CACHE BOOL "No GNS shared library"        FORCE)
+            set(BUILD_TESTS        OFF CACHE BOOL "Disable GNS tests"            FORCE)
+            set(BUILD_TOOLS        OFF CACHE BOOL "Disable GNS tools"            FORCE)
+            # BCrypt ships with Windows, which keeps OpenSSL off that platform entirely. Elsewhere
+            # GNS still wants OpenSSL or libsodium for AES/SHA256 — it offers no bundled option.
+            if(WIN32)
+                set(USE_CRYPTO "BCrypt" CACHE STRING "" FORCE)
+            endif()
+
+            if(NOT COMMAND protobuf_generate_cpp)
+                lumi_warn("protobuf_generate_cpp unavailable - GNS transport disabled")
+            else()
+                lumi_msg("Fetching GameNetworkingSockets")
+                CPMAddPackage(
+                    NAME GameNetworkingSockets
+                    GITHUB_REPOSITORY ValveSoftware/GameNetworkingSockets
+                    GIT_TAG v1.6.0
+                    EXCLUDE_FROM_ALL YES
+                )
+                if(GameNetworkingSockets_ADDED)
+                    target_link_libraries(luminoveau PUBLIC GameNetworkingSockets::static)
+                    target_compile_definitions(luminoveau PUBLIC STEAMNETWORKINGSOCKETS_STANDALONELIB)
+                    target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_GNS=1)
+                    target_sources(luminoveau PRIVATE src/platform/net/gns/transport_gns.cpp)
+                    lumi_done("GameNetworkingSockets")
+                else()
+                    lumi_warn("GameNetworkingSockets - fetch failed (GNS transport disabled)")
+                endif()
+            endif()
+        endif()
+    endif()
+endif()
+
+# Fetching WebRTC data channels (the one transport that reaches a browser).
+#
+# Two libraries, one API: libdatachannel natively and datachannel-wasm in the browser, which
+# deliberately mirrors its interface. That is what lets a single ITransport implementation
+# serve both, so nothing here is written twice.
+#
+# Licensing: libdatachannel and libjuice are MPL-2.0, the rest MIT/BSD/Apache-2.0. MPL is
+# per-file copyleft, so linking leaves the engine and its games untouched — but it obliges
+# whoever ships a binary to keep the source of those files available. Vendored unmodified so
+# that obligation stays a link to upstream. Do not patch them.
+if(LUMINOVEAU_WITH_WEBRTC)
+    # Signalling messages are JSON. libdatachannel vendors this too, but only to build its
+    # examples, which are off — so fetching it here collides with nothing and gives the
+    # browser half, the native half and the signalling server one shared definition. The
+    # release archive rather than the repository: the repository carries a very large test
+    # corpus that nothing here needs.
+    lumi_msg("Fetching nlohmann/json")
+    CPMAddPackage(
+        NAME nlohmann_json
+        URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+        VERSION 3.11.3
+        OPTIONS "JSON_BuildTests OFF" "JSON_Install OFF"
+        EXCLUDE_FROM_ALL YES
+    )
+    if(nlohmann_json_ADDED)
+        target_link_libraries(luminoveau PUBLIC nlohmann_json::nlohmann_json)
+        lumi_done("nlohmann/json")
+    else()
+        lumi_warn("nlohmann/json - fetch failed (WebRTC signalling disabled)")
+    endif()
+
+    if(EMSCRIPTEN)
+        lumi_msg("Fetching datachannel-wasm")
+        CPMAddPackage(
+            NAME datachannel-wasm
+            GITHUB_REPOSITORY paullouisageneau/datachannel-wasm
+            GIT_TAG v0.4.0
+            EXCLUDE_FROM_ALL YES
+        )
+        if(datachannel-wasm_ADDED)
+            # Carries the --js-library flags for its own glue as PUBLIC link options, so they
+            # reach the game executable through this link.
+            target_link_libraries(luminoveau PUBLIC datachannel-wasm)
+            target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_WEBRTC=1)
+            target_sources(luminoveau PRIVATE
+                src/platform/net/webrtc/transport_webrtc.cpp
+                src/platform/net/brokers/signalbroker.cpp)
+            lumi_done("datachannel-wasm")
+        else()
+            lumi_warn("datachannel-wasm - fetch failed (WebRTC transport disabled)")
+        endif()
+    else()
+        # Neither library installs cleanly as a subproject: libdatachannel exports targets that
+        # Mbed TLS never adds to an export set, because Mbed TLS skips its own install rules
+        # when it is not the top-level project. Nothing here is ever installed — it is all
+        # linked statically into luminoveau — so the install rules are skipped wholesale
+        # rather than chased target by target.
+        set(CMAKE_SKIP_INSTALL_RULES ON)
+
+        set(ENABLE_TESTING     OFF CACHE BOOL "Disable Mbed TLS tests"    FORCE)
+        set(ENABLE_PROGRAMS    OFF CACHE BOOL "Disable Mbed TLS programs" FORCE)
+        set(BUILD_SHARED_LIBS  OFF CACHE BOOL "Build static libraries"    FORCE)
+
+        lumi_msg("Fetching Mbed TLS")
+        CPMAddPackage(
+            NAME mbedtls
+            GITHUB_REPOSITORY Mbed-TLS/mbedtls
+            GIT_TAG v3.6.2
+            EXCLUDE_FROM_ALL YES
+        )
+
+        if(NOT mbedtls_ADDED)
+            lumi_warn("Mbed TLS - fetch failed (WebRTC transport disabled)")
+        else()
+            foreach(_mbedtls_target mbedtls mbedx509 mbedcrypto)
+                target_compile_definitions(${_mbedtls_target} PUBLIC
+                    MBEDTLS_USER_CONFIG_FILE="${CMAKE_CURRENT_SOURCE_DIR}/cmake/mbedtls_user_config.h")
+            endforeach()
+
+            # libdatachannel looks for MbedTLS::MbedTLS and only calls find_package when that
+            # target is missing, so defining it keeps its search off the system entirely.
+            if(NOT TARGET MbedTLS::MbedTLS)
+                add_library(lumi_mbedtls INTERFACE)
+                target_link_libraries(lumi_mbedtls INTERFACE mbedtls mbedx509 mbedcrypto)
+                add_library(MbedTLS::MbedTLS ALIAS lumi_mbedtls)
+            endif()
+
+            set(USE_MBEDTLS ON  CACHE BOOL "DTLS through Mbed TLS, not OpenSSL" FORCE)
+            set(NO_MEDIA    ON  CACHE BOOL "Data channels only, no RTP/SRTP"    FORCE)
+            set(NO_EXAMPLES ON  CACHE BOOL "Disable libdatachannel examples"    FORCE)
+            set(NO_TESTS    ON  CACHE BOOL "Disable libdatachannel tests"       FORCE)
+
+            lumi_msg("Fetching libdatachannel")
+            CPMAddPackage(
+                NAME libdatachannel
+                GITHUB_REPOSITORY paullouisageneau/libdatachannel
+                GIT_TAG v0.23.1
+                EXCLUDE_FROM_ALL YES
+            )
+            if(libdatachannel_ADDED)
+                target_link_libraries(luminoveau PUBLIC datachannel-static)
+                target_compile_definitions(luminoveau PUBLIC LUMINOVEAU_WITH_WEBRTC=1)
+                target_sources(luminoveau PRIVATE
+                    src/platform/net/webrtc/transport_webrtc.cpp
+                    src/platform/net/brokers/signalbroker.cpp)
+
+                # The service that introduces peers. Not part of ALL — it is deployed to a
+                # box, not shipped with a game — so build it explicitly when you need it.
+                add_executable(lumi-signalserver EXCLUDE_FROM_ALL
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tools/signalserver/main.cpp"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/net/signalprotocol.cpp")
+                target_include_directories(lumi-signalserver PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+                target_link_libraries(lumi-signalserver PRIVATE
+                    datachannel-static nlohmann_json::nlohmann_json)
+                target_compile_features(lumi-signalserver PRIVATE cxx_std_20)
+
+                lumi_done("libdatachannel")
+            else()
+                lumi_warn("libdatachannel - fetch failed (WebRTC transport disabled)")
+            endif()
+        endif()
+
+        set(CMAKE_SKIP_INSTALL_RULES OFF)
+    endif()
+endif()
+
 # KTX2/Basis texture support is standard (on by default). Escape hatch for build issues:
 # configure with -DLUMINOVEAU_KTX2=OFF to drop it (AssetHandler then loads RGBA only).
 option(LUMINOVEAU_KTX2 "KTX2/Basis (UASTC->BC7) texture support" ON)

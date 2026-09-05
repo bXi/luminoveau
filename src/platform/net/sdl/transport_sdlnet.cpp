@@ -6,10 +6,11 @@
 //      address to its TCP peer so unreliable traffic can be routed per peer.
 
 #include "platform/net/net.h"
-#include "platform/net/itransport.h"
+#include "platform/net/transports.h"
 #include "core/log/log.h"
 
 #include <SDL3_net/SDL_net.h>
+#include <SDL3/SDL_properties.h>
 
 #include <unordered_map>
 #include <vector>
@@ -53,51 +54,74 @@ class SdlNetTransport : public ITransport {
 public:
     ~SdlNetTransport() override { Disconnect(); }
 
-    bool Host(uint16_t port) override {
+    bool Host(const Net::HostConfig &cfg) override {
         Disconnect();
-        _server = NET_CreateServer(nullptr, port, 0);
+        _lastError = Net::NetError::None;
+        _server    = NET_CreateServer(nullptr, cfg.port, 0);
         if (!_server) {
             LOG_WARNING("Net: NET_CreateServer failed: {}", SDL_GetError());
+            _lastError = Net::NetError::NoTransport;
             return false;
         }
-        _udp = NET_CreateDatagramSocket(nullptr, port, 0);
+        _udp = NET_CreateDatagramSocket(nullptr, cfg.port, 0);
         if (!_udp) {
             LOG_WARNING("Net: server UDP socket failed: {}", SDL_GetError());
         }
         _isServer = true;
-        _port     = port;
+        _port     = cfg.port;
         return true;
     }
 
-    bool Connect(const std::string &address, uint16_t port) override {
+    bool Connect(const Net::Endpoint &ep) override {
         Disconnect();
-        NET_Address *addr = NET_ResolveHostname(address.c_str());
-        if (!addr || NET_WaitUntilResolved(addr, -1) != 1) {
-            LOG_WARNING("Net: resolve '{}' failed: {}", address, SDL_GetError());
-            if (addr)
-                NET_UnrefAddress(addr);
+        _lastError = Net::NetError::None;
+        if (ep.kind != Net::Endpoint::Kind::Address) {
+            // Lobbies, invites and join codes all need a brokerage this backend has no idea about.
+            LOG_WARNING("Net: SDL_net can only connect to an address");
+            _lastError = Net::NetError::BrokerUnavailable;
             return false;
         }
-        _clientConn.stream = NET_CreateClient(addr, port, 0);
+        NET_Address *addr = NET_ResolveHostname(ep.address.c_str());
+        if (!addr || NET_WaitUntilResolved(addr, -1) != 1) {
+            LOG_WARNING("Net: resolve '{}' failed: {}", ep.address, SDL_GetError());
+            if (addr)
+                NET_UnrefAddress(addr);
+            _lastError = Net::NetError::HostUnreachable;
+            return false;
+        }
+        _clientConn.stream = NET_CreateClient(addr, ep.port, 0);
         if (!_clientConn.stream) {
             LOG_WARNING("Net: NET_CreateClient failed: {}", SDL_GetError());
             NET_UnrefAddress(addr);
+            _lastError = Net::NetError::HostUnreachable;
             return false;
         }
         // Block briefly for the TCP handshake (simple first cut).
         NET_WaitUntilConnected(_clientConn.stream, 5000);
         if (NET_GetConnectionStatus(_clientConn.stream) != 1) {
-            LOG_WARNING("Net: connect to {}:{} failed", address, port);
+            LOG_WARNING("Net: connect to {}:{} failed", ep.address, ep.port);
             NET_DestroyStreamSocket(_clientConn.stream);
             _clientConn.stream = nullptr;
             NET_UnrefAddress(addr);
+            _lastError = Net::NetError::Timeout;
             return false;
         }
         _serverAddr = addr; // ref kept for UDP sends
         _udp        = NET_CreateDatagramSocket(nullptr, 0, 0);
         _isClient   = true;
-        _port       = port;
+        _port       = ep.port;
         return true;
+    }
+
+    void DisconnectPeer(Net::Peer peer) override {
+        auto it = _peers.find(peer);
+        if (it == _peers.end())
+            return;
+        if (it->second.stream)
+            NET_DestroyStreamSocket(it->second.stream);
+        if (it->second.udpAddr)
+            NET_UnrefAddress(it->second.udpAddr);
+        _peers.erase(it);
     }
 
     void Disconnect() override {
@@ -135,6 +159,11 @@ public:
     Net::Peer SelfId() const override { return _selfId; }
     uint32_t  PeerCount() const override { return _isServer ? (uint32_t)_peers.size() : (_clientConn.stream ? 1 : 0); }
     uint32_t  Ping(Net::Peer) const override { return 0; } // TODO: RTT tracking
+
+    // The TCP path frames with a uint32 length, so this is a buffering choice rather than a
+    // protocol limit. Unreliable sends still have to fit a datagram — keep those near the MTU.
+    uint32_t      MaxMessageSize() const override { return 64 * 1024; }
+    Net::NetError LastError() const override { return _lastError; }
 
     void Send(Net::Peer peer, const void *data, uint32_t size, bool reliable) override {
         if (_isServer) {
@@ -360,6 +389,7 @@ private:
         }
     }
 
+    Net::NetError                           _lastError = Net::NetError::None;
     bool                                    _isServer = false, _isClient = false;
     NET_Server                             *_server     = nullptr;
     NET_DatagramSocket                     *_udp        = nullptr;
@@ -374,7 +404,7 @@ private:
 } // namespace
 
 /// @cond INTERNAL
-ITransport *createTransport() {
+ITransport *createSdlNetTransport() {
     if (!ensureNetInit())
         return nullptr;
     return new SdlNetTransport();
@@ -387,6 +417,58 @@ Net::Udp::Socket Net::Udp::_open(uint16_t port) {
         return nullptr;
     return (Net::Udp::Socket)NET_CreateDatagramSocket(nullptr, port, 0); // any address; port 0 = ephemeral
 }
+Net::Udp::Socket Net::Udp::_openBroadcast(uint16_t port) {
+    if (!ensureNetInit())
+        return nullptr;
+
+    SDL_PropertiesID props = SDL_CreateProperties();
+    SDL_SetBooleanProperty(props, NET_PROP_DATAGRAM_SOCKET_ALLOW_BROADCAST_BOOLEAN, true);
+
+    // A null address asks SDL_net for one socket per family, which is what we want: IPv4 gets a
+    // real broadcast and IPv6 gets SDL_net's stand-in for one.
+    NET_DatagramSocket *sock = NET_CreateDatagramSocket(nullptr, port, props);
+
+    // **The IPv6 half fails outright on BSD, and takes the IPv4 half down with it.**
+    //
+    // SDL_net fakes IPv6 broadcast by joining the all-nodes multicast group ff02::1 with
+    // `ipv6mr_interface = 0`, meaning "pick a default interface". That group is *link-local*, and
+    // BSD requires a link-local join to name its interface explicitly — so the setsockopt fails
+    // on macOS where Linux and Windows accept it. SDL_net treats that as fatal for the whole
+    // socket, so the perfectly good IPv4 handle is destroyed alongside it and this returns null.
+    //
+    // The symptom is a mac that cannot browse or advertise on a LAN while direct connections work
+    // perfectly, since those never touch a datagram socket.
+    //
+    // So: fall back to a single IPv4 interface, which skips the IPv6 handle and the multicast
+    // join with it. Nothing is lost — discovery is IPv4 broadcast on every platform, and the IPv6
+    // path exists solely to stand in for a broadcast that IPv6 does not have.
+    //
+    // **A real interface address, not `0.0.0.0`.** Naming an address makes SDL_net insist on
+    // finding that interface's broadcast address, and `INADDR_ANY` has none — which is the very
+    // case the null-address path exists to handle, so asking for it explicitly fails the same
+    // way. The first non-loopback IPv4 address is the LAN this machine is on.
+    if (!sock) {
+        int           count     = 0;
+        NET_Address **addresses = NET_GetLocalAddresses(&count);
+
+        for (int i = 0; i < count && !sock; ++i) {
+            const char *text = NET_GetAddressString(addresses[i]);
+            if (!text)
+                continue;
+            // IPv4, and not the loopback: a socket bound to 127.0.0.1 broadcasts to nobody.
+            if (std::strchr(text, ':') || std::strncmp(text, "127.", 4) == 0)
+                continue;
+            sock = NET_CreateDatagramSocket(addresses[i], port, props);
+            if (sock)
+                LOG_INFO("Net: IPv6 broadcast unavailable here, using IPv4 on {}", text);
+        }
+
+        NET_FreeLocalAddresses(addresses);
+    }
+
+    SDL_DestroyProperties(props);
+    return (Net::Udp::Socket)sock;
+}
 void Net::Udp::_close(Net::Udp::Socket s) {
     if (s)
         NET_DestroyDatagramSocket((NET_DatagramSocket *)s);
@@ -395,6 +477,12 @@ bool Net::Udp::_send(Net::Udp::Socket s, const Net::Udp::Address &to, const void
     if (!s || !to.handle)
         return false;
     return NET_SendDatagram((NET_DatagramSocket *)s, (NET_Address *)to.handle, to.port, data, len);
+}
+bool Net::Udp::_broadcast(Net::Udp::Socket s, uint16_t port, const void *data, int len) {
+    if (!s)
+        return false;
+    // SDL_net reads a null address as "send this to the whole subnet".
+    return NET_SendDatagram((NET_DatagramSocket *)s, nullptr, port, data, len);
 }
 int Net::Udp::_recv(Net::Udp::Socket s, Net::Udp::Address &from, void *data, int maxLen) {
     if (!s)

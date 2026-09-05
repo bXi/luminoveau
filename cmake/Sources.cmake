@@ -39,6 +39,12 @@ set(LUMINOVEAU_SOURCES
     src/platform/input/virtualcontrols.cpp
     src/platform/window/window.cpp
     src/platform/net/net.cpp
+    src/platform/net/transportfactory.cpp
+    src/platform/net/playerid.cpp
+    src/platform/net/signalprotocol.cpp
+    src/platform/net/brokers/brokerfactory.cpp
+    src/platform/net/brokers/localbroker.cpp
+    src/platform/net/brokers/lanbroker.cpp
 
     # Core
     src/core/eventbus/eventbus.cpp

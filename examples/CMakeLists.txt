@@ -76,6 +76,7 @@ add_lumi_example(16_tunnel)
 add_lumi_example(17_fourier_epicycles)
 add_lumi_example(18_raycast_2d)
 add_lumi_example(19_sorting_viz)
+add_lumi_example(20_net_session)
 
 # Aggregate target: `cmake --build . --target examples` (or pick "examples" in the IDE) builds
 # every demo at once. Not part of ALL, so a plain build still only builds what you select.
