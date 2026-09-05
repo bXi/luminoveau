@@ -308,6 +308,12 @@ if(LUMINOVEAU_WITH_WEBRTC)
             GITHUB_REPOSITORY paullouisageneau/datachannel-wasm
             GIT_TAG v0.4.0
             EXCLUDE_FROM_ALL YES
+            # `RTCDataChannel.send()` rejects a view onto a resizable ArrayBuffer, and browsers now
+            # expose WebAssembly memory as one — so every send throws until this is applied. The
+            # library has the copy it needs and simply does not reach it. See the script.
+            PATCH_COMMAND ${CMAKE_COMMAND}
+                -DSRC=<SOURCE_DIR>
+                -P "${CMAKE_CURRENT_LIST_DIR}/PatchDataChannelWasm.cmake"
         )
         if(datachannel-wasm_ADDED)
             # Carries the --js-library flags for its own glue as PUBLIC link options, so they
