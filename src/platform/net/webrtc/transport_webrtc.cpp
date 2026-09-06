@@ -233,15 +233,62 @@ private:
         bool                                 announced = false;
     };
 
+    /// Builds libdatachannel's own ICE server from ours.
+    ///
+    /// **Constructed field by field rather than from a URL string.** `rtc::IceServer(url)` parses
+    /// `turn:user:password@host` on native and, in datachannel-wasm, does not parse at all: it
+    /// keeps the string as a `Dummy` server and passes the browser an empty username and
+    /// password. Going through the typed constructor is what makes an authenticated relay work in
+    /// a browser, which is the build that most needs one.
+    static rtc::IceServer _makeIceServer(const Net::IceServer &server) {
+        const size_t colon = server.url.find(':');
+        if (colon == std::string::npos)
+            throw std::invalid_argument("no scheme");
+
+        const std::string scheme = server.url.substr(0, colon);
+        std::string       rest   = server.url.substr(colon + 1);
+
+        // `?transport=tcp` decides the relay type rather than being part of the host.
+        rtc::IceServer::RelayType relay = rtc::IceServer::RelayType::TurnUdp;
+        if (const size_t query = rest.find('?'); query != std::string::npos) {
+            if (rest.find("transport=tcp", query) != std::string::npos)
+                relay = rtc::IceServer::RelayType::TurnTcp;
+            rest = rest.substr(0, query);
+        }
+        if (scheme == "turns")
+            relay = rtc::IceServer::RelayType::TurnTls;
+
+        // Last colon, so a bare IPv6 literal fails the port parse rather than being cut in half.
+        std::string host = rest;
+        std::string port;
+        if (const size_t mark = rest.rfind(':'); mark != std::string::npos) {
+            host = rest.substr(0, mark);
+            port = rest.substr(mark + 1);
+        }
+        if (host.empty())
+            throw std::invalid_argument("no host");
+
+        const bool turn = scheme == "turn" || scheme == "turns";
+        if (!turn) {
+            if (scheme != "stun" && scheme != "stuns")
+                throw std::invalid_argument("unknown scheme '" + scheme + "'");
+            return port.empty() ? rtc::IceServer(host, uint16_t(3478)) : rtc::IceServer(host, port);
+        }
+
+        if (port.empty())
+            port = scheme == "turns" ? "5349" : "3478";
+        return rtc::IceServer(host, port, server.username, server.credential, relay);
+    }
+
     void _openPeerConnection(Net::Peer peer, PeerLink &link) {
         rtc::Configuration config;
         // Whatever the game configured: a STUN server only discovers an address, while a
         // TURN server is what carries a peer that cannot be punched through at all.
-        for (const std::string &server : Net::IceServers()) {
+        for (const Net::IceServer &server : Net::IceServers()) {
             try {
-                config.iceServers.emplace_back(server);
+                config.iceServers.push_back(_makeIceServer(server));
             } catch (const std::exception &e) {
-                LOG_WARNING("Net: ignoring ICE server '{}': {}", server, e.what());
+                LOG_WARNING("Net: ignoring ICE server '{}': {}", server.url, e.what());
             }
         }
 

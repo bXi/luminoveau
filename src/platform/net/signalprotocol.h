@@ -13,7 +13,7 @@
 //
 //   client -> service            service -> client
 //   ------------------           ------------------
-//   hello   id, build            welcome
+//   hello   id, build            welcome  ice [ … ]
 //   host    name, slots, blob    hosting  room
 //   list                         sessions [ … ]
 //   join    room                 joined   host
@@ -46,6 +46,16 @@ namespace Op {
     constexpr const char *Error    = "error";
 } // namespace Op
 
+// `welcome` may carry `ice`: the STUN and TURN servers this client should use, as either plain
+// URL strings or the browser's own `{ "urls", "username", "credential" }` objects. It is optional
+// and a service that omits it changes nothing — the client keeps its built-in default.
+//
+// **Relay credentials belong here rather than in the client.** A TURN server needs a username and
+// password, and anything compiled into a game is public the moment it ships; a web build hands
+// them over in the network tab. Issuing short-lived ones per connection (coturn's REST scheme:
+// username is `<expiry>:<name>`, password is base64(HMAC-SHA1(secret, username))) keeps the secret
+// on the service and lets it rotate without a client release.
+//
 // Signal payloads are opaque bytes as far as this layer is concerned — the service must not
 // need to understand SDP — so they travel base64 encoded rather than as JSON structure.
 std::string          base64Encode(const uint8_t *data, size_t size);

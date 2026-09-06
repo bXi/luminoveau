@@ -146,8 +146,8 @@ public:
         if (feature == Net::Feature::Relay) {
             // Only a TURN server can carry a peer that cannot be punched through. Saying yes
             // without one would promise a connection this cannot deliver.
-            for (const std::string &server : Net::IceServers())
-                if (server.rfind("turn:", 0) == 0 || server.rfind("turns:", 0) == 0)
+            for (const Net::IceServer &server : Net::IceServers())
+                if (server.url.rfind("turn:", 0) == 0 || server.url.rfind("turns:", 0) == 0)
                     return true;
             return false;
         }
@@ -288,7 +288,39 @@ private:
             return;
         const std::string op = message.value("op", "");
 
-        if (op == SignalProtocol::Op::Hosting) {
+        if (op == SignalProtocol::Op::Welcome) {
+            // **Relay credentials come from the service, not from the build.** A TURN server
+            // needs a username and password, and anything compiled into a client is public the
+            // moment that client ships — a web build hands them to anyone who opens the network
+            // tab. So the service issues short-lived ones (coturn's REST scheme: the username is
+            // an expiry timestamp, the password an HMAC of it under a secret only the service and
+            // the relay know) and sends them here.
+            //
+            // Accepts either a plain URL string or the browser's own `RTCIceServer` shape, since
+            // that is what a service is most likely to already have.
+            std::vector<Net::IceServer> servers;
+            for (const auto &entry : message.value("ice", json::array())) {
+                Net::IceServer server;
+                if (entry.is_string()) {
+                    server.url = entry.get<std::string>();
+                } else if (entry.is_object()) {
+                    server.url        = entry.value("urls", entry.value("url", std::string{}));
+                    server.username   = entry.value("username", std::string{});
+                    server.credential = entry.value("credential", std::string{});
+                }
+                if (!server.url.empty())
+                    servers.push_back(std::move(server));
+            }
+
+            // **Only when the service actually offered some.** An empty list would replace the
+            // default STUN server with nothing, leaving peers unable even to discover their own
+            // address — a service that says nothing about ICE should change nothing.
+            if (!servers.empty()) {
+                LOG_INFO("Net: signalling service supplied {} ICE server(s)", servers.size());
+                Net::SetIceServers(std::move(servers));
+            }
+
+        } else if (op == SignalProtocol::Op::Hosting) {
             std::lock_guard<std::mutex> lock(_mutex);
             _room = message.value("room", "");
             BrokerEvent ev;

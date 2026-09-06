@@ -73,4 +73,8 @@ add_executable(lumi-signalserver
 # The protocol is defined once, in the engine tree, and shared rather than mirrored — a copy
 # here would drift the first time a message changed.
 target_include_directories(lumi-signalserver PRIVATE "${ENGINE_ROOT}/src")
-target_link_libraries(lumi-signalserver PRIVATE datachannel-static nlohmann_json::nlohmann_json)
+# `mbedcrypto` for the TURN credential HMAC. Named explicitly rather than relied on through
+# `datachannel-static`, which links it privately — the header resolves either way, but the symbol
+# only does when it is asked for here.
+target_link_libraries(lumi-signalserver PRIVATE datachannel-static nlohmann_json::nlohmann_json
+                                                mbedcrypto)

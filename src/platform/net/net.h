@@ -28,6 +28,7 @@
 #include <string>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
@@ -158,15 +159,43 @@ public:
     ///       not need to account for either.
     static void SetBuildId(uint64_t id) { Get()._setBuildId(id); }
 
-    /// @brief Sets the ICE servers used to find a path between peers. Call before Init.
-    /// @param servers STUN and TURN URLs, e.g. "stun:stun.example.org:3478" or
-    ///        "turn:user:password@turn.example.org:3478".
+    /// @brief One ICE server: a STUN server to discover an address with, or a TURN server to
+    ///        relay through when no direct path exists.
+    ///
+    /// @note **Credentials are separate fields rather than packed into the URL, and they have to
+    ///       be.** The `turn:user:password@host` form works on native, where libdatachannel
+    ///       parses it — and silently does not on the web, where datachannel-wasm stores an
+    ///       unparsed URL as a `Dummy` server and hands the browser an empty username and
+    ///       password. A relay configured that way fails to authenticate in exactly the build
+    ///       most likely to need one.
+    struct IceServer {
+        IceServer() = default;
+
+        /// Implicit on purpose, so `SetIceServers({"stun:host:3478"})` still reads well.
+        IceServer(std::string url_) : url(std::move(url_)) {}
+
+        IceServer(std::string url_, std::string username_, std::string credential_)
+            : url(std::move(url_)), username(std::move(username_)),
+              credential(std::move(credential_)) {}
+
+        std::string url;        ///< "stun:host:3478", "turn:host:3478", "turns:host:5349".
+        std::string username;   ///< TURN only. Empty for STUN.
+        std::string credential; ///< TURN only. Empty for STUN.
+    };
+
+    /// @brief Sets the ICE servers used to find a path between peers.
+    /// @param servers STUN and TURN entries, e.g. `{"stun:stun.example.org:3478"}` or
+    ///        `{{"turn:turn.example.org:3478", user, password}}`.
     /// @note Without a TURN server a peer behind symmetric NAT or CGNAT cannot be reached at
     ///       all, and joining it fails with NatBlockedNoRelay. TURN is what makes
     ///       Can(Feature::Relay) true.
     /// @note Defaults to a public STUN server, which is enough to discover an address but
     ///       never enough to relay. Ship your own if you would rather not depend on it.
-    static void SetIceServers(std::vector<std::string> servers) { Get()._iceServers = std::move(servers); }
+    /// @note May be called after Init, and the signalling broker does: the list is read when a
+    ///       peer connection is opened, not when the transport starts, so a service that hands
+    ///       out short-lived relay credentials in its welcome can set them then. Guarded by a
+    ///       mutex for that reason — the broker's socket callback is not the game's thread.
+    static void SetIceServers(std::vector<IceServer> servers) { Get()._setIceServers(std::move(servers)); }
 
     /// @brief Supplies the CA certificates used to verify a wss:// signalling service.
     /// @param pemOrPath Either a path to a PEM bundle or the PEM text itself.
@@ -461,8 +490,10 @@ private:
 
 public:
     /// @cond INTERNAL
-    // Read by the WebRTC transport when it opens a peer connection.
-    static const std::vector<std::string> &IceServers() { return Get()._iceServers; }
+    // Read by the WebRTC transport when it opens a peer connection. **By value**: the list can be
+    // replaced from the signalling broker's socket thread, so handing out a reference would be a
+    // reference into a vector somebody else may be reassigning.
+    static std::vector<IceServer> IceServers() { return Get()._getIceServers(); }
     // Read by the signalling broker when it opens its socket.
     static const std::string              &SignalingCaCert() { return Get()._signalingCaCert; }
     /// @endcond
@@ -511,10 +542,23 @@ private:
     std::chrono::steady_clock::time_point _joinDeadline{};
     std::function<void(bool, NetError)>   _onJoinResult;
 
-    std::string              _signalingUrl;
-    std::string              _signalingCaCert;
-    std::string              _roomCode; ///< See RoomCode(). Filled from BrokerEvent::LobbyCreated.
-    std::vector<std::string> _iceServers{ "stun:stun.l.google.com:19302" };
+    std::string _signalingUrl;
+    std::string _signalingCaCert;
+    std::string _roomCode; ///< See RoomCode(). Filled from BrokerEvent::LobbyCreated.
+
+    /// See `SetIceServers`. Written from the broker's socket thread, read from the game's.
+    mutable std::mutex     _iceMutex;
+    std::vector<IceServer> _iceServers{ IceServer{ "stun:stun.l.google.com:19302" } };
+
+    void _setIceServers(std::vector<IceServer> servers) {
+        std::lock_guard<std::mutex> lock(_iceMutex);
+        _iceServers = std::move(servers);
+    }
+
+    std::vector<IceServer> _getIceServers() const {
+        std::lock_guard<std::mutex> lock(_iceMutex);
+        return _iceServers;
+    }
 
     std::unordered_map<uint32_t, std::function<void(Peer, const void *, uint32_t)>> _handlers;
     // Every registered packet's size, folded into the handshake. A struct that lays out
