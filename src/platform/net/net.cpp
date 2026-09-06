@@ -314,6 +314,24 @@ Net::Step Net::_advanceJoin() {
 }
 
 Net::Step Net::_failJoin() {
+    // **Which stage gave up, because the error alone cannot tell you.**
+    //
+    // "Timed out" and "refused" each mean something different depending on how far the join got,
+    // and the difference decides where to look. Stuck *connecting* is the network — ICE never
+    // found a path, which is the NAT case and wants a relay. Failing while *handshaking* means a
+    // path was found and the two sides then disagreed about the build or the packet layout, which
+    // is a code problem and no amount of TURN will help it. Without this the two are
+    // indistinguishable from the outside, and the obvious guess is the wrong one.
+    const char *stage = "";
+    switch (_joinStage) {
+    case JoinStage::Resolving:   stage = "while asking the brokerage where to go"; break;
+    case JoinStage::Connecting:  stage = "while negotiating a path (ICE) — this is the NAT case"; break;
+    case JoinStage::Handshaking: stage = "during the handshake — a path was found, so this is "
+                                         "build id or packet layout, not the network"; break;
+    case JoinStage::None:        stage = "after the join had already finished"; break;
+    }
+    LOG_WARNING("Net: join failed {}", stage);
+
     _joinStage = JoinStage::None;
     if (_transport)
         _transport->Disconnect();
