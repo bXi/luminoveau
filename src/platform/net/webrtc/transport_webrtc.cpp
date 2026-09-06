@@ -21,6 +21,7 @@
 #include <rtc/rtc.hpp>
 
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <mutex>
@@ -215,12 +216,37 @@ public:
             std::string type, sdp;
             if (!takeString(cursor, end, type) || !takeString(cursor, end, sdp))
                 return;
-            it->second.pc->setRemoteDescription(rtc::Description(sdp, type));
+
+            try {
+                it->second.pc->setRemoteDescription(rtc::Description(sdp, type));
+            } catch (const std::exception &e) {
+                LOG_WARNING("Net: rejected a remote description from peer {}: {}", peer, e.what());
+                return;
+            }
+
+            // Anything that overtook the description is applied now, in arrival order.
+            it->second.remoteReady = true;
+            for (const auto &[mid, candidate] : it->second.pending)
+                _addRemoteCandidate(peer, it->second, mid, candidate);
+            it->second.pending.clear();
+
         } else if (kind == SignalCandidate) {
             std::string mid, candidate;
             if (!takeString(cursor, end, mid) || !takeString(cursor, end, candidate))
                 return;
-            it->second.pc->addRemoteCandidate(rtc::Candidate(candidate, mid));
+
+            // **The other half of the picture.** A relay's log shows allocations and permissions
+            // but never the candidate lists, and a local-only log shows one side of a negotiation
+            // that needs two. A peer offering nothing but `typ host` addresses, or no `typ relay`
+            // at all, cannot be reached however well this end is configured — and from here that
+            // is indistinguishable from packets being dropped in flight.
+            LOG_INFO("Net: remote candidate from peer {}: {}", peer, candidate);
+
+            if (!it->second.remoteReady) {
+                it->second.pending.emplace_back(mid, candidate);
+                return;
+            }
+            _addRemoteCandidate(peer, it->second, mid, candidate);
         }
     }
 
@@ -231,7 +257,33 @@ private:
         std::shared_ptr<rtc::DataChannel>    unreliable;
         PlayerId                             id;
         bool                                 announced = false;
+
+        /// **Candidates that arrived before the description they belong to.**
+        ///
+        /// Trickle ICE sends candidates as they are found rather than waiting for the answer, so
+        /// they routinely overtake it — the local ones here are produced within a tenth of a
+        /// second of the offer, and both travel the same signalling socket with no ordering
+        /// between them. `addRemoteCondidate` *throws* when no remote description is set, so an
+        /// early candidate was not merely dropped: the exception left the rest of that message
+        /// unhandled. Losing the relay candidate that way is silent and looks exactly like a
+        /// network that will not carry the traffic.
+        bool                                             remoteReady = false;
+        std::vector<std::pair<std::string, std::string>> pending; ///< (mid, candidate)
     };
+
+    /// Applies one remote candidate, surviving a bad one.
+    ///
+    /// A candidate this build cannot parse — an address family it was not compiled for, a form a
+    /// newer peer emits — must cost that one candidate and nothing else. Letting it throw takes
+    /// the whole signalling message with it, including candidates that would have worked.
+    void _addRemoteCandidate(Net::Peer peer, PeerLink &link, const std::string &mid,
+                             const std::string &candidate) {
+        try {
+            link.pc->addRemoteCandidate(rtc::Candidate(candidate, mid));
+        } catch (const std::exception &e) {
+            LOG_WARNING("Net: ignoring a remote candidate from peer {}: {}", peer, e.what());
+        }
+    }
 
     /// Builds libdatachannel's own ICE server from ours.
     ///
@@ -281,16 +333,46 @@ private:
     }
 
     void _openPeerConnection(Net::Peer peer, PeerLink &link) {
+        // A fresh connection has no remote description, so anything queued against the previous
+        // one belongs to a negotiation that is over.
+        link.remoteReady = false;
+        link.pending.clear();
+
         rtc::Configuration config;
         // Whatever the game configured: a STUN server only discovers an address, while a
         // TURN server is what carries a peer that cannot be punched through at all.
+        int relays = 0;
         for (const Net::IceServer &server : Net::IceServers()) {
             try {
                 config.iceServers.push_back(_makeIceServer(server));
+                relays += server.url.rfind("turn", 0) == 0 ? 1 : 0;
             } catch (const std::exception &e) {
                 LOG_WARNING("Net: ignoring ICE server '{}': {}", server.url, e.what());
             }
         }
+
+        // **Counts, never the credentials.** Which servers a peer connection was given is the
+        // first thing worth knowing when a join fails, and it is invisible otherwise — the list
+        // arrives from the signalling service, so it differs between deployments and cannot be
+        // read off the build.
+        LOG_INFO("Net: opening a peer connection with {} ICE server(s), {} of them relays",
+                 config.iceServers.size(), relays);
+
+        // **`LUMI_FORCE_RELAY=1` throws away every candidate but the relay ones.** A diagnostic,
+        // not a setting: normal play should prefer a direct path and fall back. But "the relay
+        // works and something else was chosen" and "the relay itself cannot carry traffic"
+        // produce the same silence, and they have opposite fixes. Forcing it separates them in a
+        // single run — if this connects, the relay is sound; if it does not, the relay path is
+        // broken and no amount of candidate tuning will help.
+        //
+        // Native only: datachannel-wasm's `Configuration` has no transport policy, and a browser
+        // has no environment to read anyway.
+#ifndef __EMSCRIPTEN__
+        if (const char *force = std::getenv("LUMI_FORCE_RELAY"); force && *force == '1') {
+            config.iceTransportPolicy = rtc::TransportPolicy::Relay;
+            LOG_WARNING("Net: LUMI_FORCE_RELAY is set — using relay candidates only");
+        }
+#endif
 
         link.pc = std::make_shared<rtc::PeerConnection>(config);
 
@@ -301,6 +383,13 @@ private:
             _signal(peer, payload);
         });
         link.pc->onLocalCandidate([this, peer](rtc::Candidate candidate) {
+            // **What each side actually offers is the one thing a relay's own log cannot show.**
+            // coturn sees allocations and permissions; it never sees which address the client put
+            // in its candidate list. A `typ relay` line carrying a private address means
+            // `external-ip` is not being applied and no peer can reach it — indistinguishable,
+            // from the server, from a firewall that drops the traffic.
+            LOG_INFO("Net: local candidate {}", candidate.candidate());
+
             std::vector<uint8_t> payload{ SignalCandidate };
             putString(payload, candidate.mid());
             putString(payload, candidate.candidate());
@@ -308,10 +397,24 @@ private:
         });
         link.pc->onStateChange([this, peer](rtc::PeerConnection::State state) {
             if (state == rtc::PeerConnection::State::Failed) {
-                // ICE found no path. With no relay behind the brokerage that is terminal,
-                // and it is the failure a player is most likely to hit.
-                _failed    = true;
-                _lastError = Net::NetError::NatBlockedNoRelay;
+                // ICE found no path.
+                //
+                // **Which failure this is depends on whether a relay was even offered**, and
+                // saying `NatBlockedNoRelay` either way is how an hour gets spent looking for a
+                // missing TURN server that was configured all along. With no relay this is the
+                // expected outcome behind symmetric NAT or CGNAT; *with* one it means the relay
+                // itself did not work — unreachable port, rejected credential, expired ticket —
+                // which is a server problem and not the player's network.
+                bool relay = false;
+                for (const Net::IceServer &server : Net::IceServers())
+                    relay |= server.url.rfind("turn", 0) == 0;
+
+                _failed = true;
+                _lastError =
+                    relay ? Net::NetError::RelayFailed : Net::NetError::NatBlockedNoRelay;
+                if (relay)
+                    LOG_WARNING("Net: ICE failed with a relay configured — check the TURN server "
+                                "is reachable and its credentials are accepted");
                 _queueDisconnect(peer);
             } else if (state == rtc::PeerConnection::State::Closed ||
                        state == rtc::PeerConnection::State::Disconnected) {

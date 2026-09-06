@@ -90,9 +90,15 @@ public:
         BrokerUnavailable, ///< The brokerage this endpoint needs is not running.
         HostUnreachable,
         NatBlockedNoRelay, ///< Punch failed and the active broker has no relay to fall back on.
+        RelayFailed,       ///< Punch failed *with* a relay configured — a server problem, not the
+                           ///< player's network. Distinct from NatBlockedNoRelay because the two
+                           ///< need opposite responses, and distinct from Refused because that
+                           ///< already means a rejected handshake: one message covering both
+                           ///< leaves "refused" meaning either "your relay is broken" or "the
+                           ///< other side is a different build", which is no help at all.
         VersionMismatch,   ///< The other side is a different build.
         LobbyFull,
-        Refused,
+        Refused,           ///< The handshake was rejected — build id or packet layout.
         Timeout };
 
     /// @brief Peer identifier. On a client, peer 0 is the server; on a server, peers are
