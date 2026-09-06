@@ -197,7 +197,9 @@ static void handlePinch(const SDL_Event *event) {
     const float                                   pinchThreshold = 0.03f;
 
     SDL_FingerID id = event->tfinger.fingerID;
-    if (event->type == SDL_EVENT_FINGER_UP) {
+    // Cancelled counts as lifted here too, or a reclaimed gesture leaves a phantom finger in the
+    // map and the next single touch is read as half of a pinch.
+    if (event->type == SDL_EVENT_FINGER_UP || event->type == SDL_EVENT_FINGER_CANCELED) {
         fingers.erase(id);
         prevDist = -1.0f;
         accum    = 0.0f;
@@ -291,7 +293,15 @@ void Window::_processEvent(SDL_Event *event) {
     }
     case SDL_EVENT_FINGER_DOWN:
     case SDL_EVENT_FINGER_MOTION:
-    case SDL_EVENT_FINGER_UP: {
+    case SDL_EVENT_FINGER_UP:
+    // **`CANCELED` is a release, and dropping it strands whatever the finger owned.** A browser
+    // sends `pointercancel` whenever it reclaims a gesture — a scroll, a zoom, a system swipe, a
+    // touch that leaves the element — and SDL turns that into `SDL_EVENT_FINGER_CANCELED`
+    // *instead of* `FINGER_UP`, not as well as it. Routing only the three above meant a cancelled
+    // touch never released: the on-screen joystick kept its `activeFinger` for the rest of the
+    // session, frozen at wherever it was, and because both the joystick and the button branches
+    // are guarded on it being free, every later touch did nothing at all.
+    case SDL_EVENT_FINGER_CANCELED: {
         Input::HandleTouchEvent(event);
         handlePinch(event); // two-finger spread → mouse-wheel ticks (zoom)
         break;

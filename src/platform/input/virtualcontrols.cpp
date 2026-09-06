@@ -264,6 +264,12 @@ void VirtualControls::HandleTouchEvent(const SDL_Event *event) {
         break;
     }
 
+    // **A cancelled touch is a release.** The browser sends `pointercancel` whenever it takes a
+    // gesture back, and SDL forwards that as `FINGER_CANCELED` *instead of* `FINGER_UP` — so
+    // handling only `UP` leaves the joystick, the buttons and the look region owned by a finger
+    // that will never be heard from again. Everything below is guarded on being free, so one
+    // cancelled touch disables the whole control set for the rest of the session.
+    case SDL_EVENT_FINGER_CANCELED:
     case SDL_EVENT_FINGER_UP: {
         fingerID = event->tfinger.fingerID;
 
