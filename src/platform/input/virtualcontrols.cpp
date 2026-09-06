@@ -52,7 +52,18 @@ float VirtualControls::_cm(float wantedCM) const {
     constexpr float logicalPerCm = 96.0f / 2.54f;
 #endif
 
+    // **A display scale of zero is not a size, and several backends report one.**
+    // `SDL_GetWindowDisplayScale` returns `window->display_scale`, which SDL fills from
+    // `GetWindowContentScale` where the video driver provides it and from
+    // `pixel_density * SDL_GetDisplayContentScale` where it does not. The Emscripten driver
+    // provides neither, so the product can come out zero — and then every control here is zero
+    // wide: the joystick is an invisible dot, no button can be hit, and `SetControlScaleToViewport`
+    // cannot rescue it because it divides by this very value. The symptom is on-screen controls
+    // that draw and do nothing.
     float scale = SDL_GetWindowDisplayScale(Window::GetWindow());
+    if (!(scale > 0.0f)) {
+        scale = 1.0f; // catches 0 and NaN; the viewport-relative path cancels it out anyway
+    }
     return wantedCM * logicalPerCm * scale * _controlScale;
 }
 
@@ -63,7 +74,11 @@ float VirtualControls::_pixelsToCm(float pixels) const {
     constexpr float logicalPerCm = 96.0f / 2.54f;
 #endif
 
+    // Same guard as `_cm`, and here it also keeps the division finite.
     float scale = SDL_GetWindowDisplayScale(Window::GetWindow());
+    if (!(scale > 0.0f)) {
+        scale = 1.0f;
+    }
     return pixels / (logicalPerCm * scale);
 }
 
