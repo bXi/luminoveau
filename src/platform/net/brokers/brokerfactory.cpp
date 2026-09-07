@@ -4,15 +4,44 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
 #else
-#include <chrono>
 #include <thread>
 #endif
 
+#include <chrono>
 #include <random>
 
+/// The identity this process answers to for the length of its run.
+///
+/// **It has to be unique across machines, because a signalling service routes by it.** Two clients
+/// arriving with the same id do not collide loudly: every signal addressed to the second is handed
+/// to the first, which then receives its own offer, its own answer and its own candidates while
+/// the second hears nothing. The symptom is a peer that appears to be echoing itself — an answer
+/// rejected as "Called in wrong state: stable", and remote candidates carrying one's own ufrag.
+///
+/// `std::random_device` alone was not enough for that. It is *permitted to be deterministic*: the
+/// standard allows an implementation with no random source to return a fixed sequence, and under
+/// Emscripten that is what a build can end up doing — so every browser mints the same id and only
+/// a web-to-web session ever shows it. Any session with a native peer at one end works, which is
+/// what makes it so easy to miss.
+///
+/// The clock and the address are mixed in for that reason: they are weak entropy individually but
+/// they differ between two machines and between two runs, and it costs nothing to fold them in.
 PlayerId mintProcessIdentity() {
-    std::random_device                      rd;
-    std::mt19937_64                         gen(((uint64_t)rd() << 32) | rd());
+    std::random_device rd;
+
+    std::seed_seq seed{
+        (uint32_t) rd(),
+        (uint32_t) rd(),
+        // Nanoseconds since the epoch: two machines do not agree to that resolution, and two runs
+        // on one machine certainly do not.
+        (uint32_t) std::chrono::high_resolution_clock::now().time_since_epoch().count(),
+        (uint32_t) (std::chrono::high_resolution_clock::now().time_since_epoch().count() >> 32),
+        // Where this process happened to put a stack object, which differs under any address
+        // layout randomisation and is at worst a constant.
+        (uint32_t) (uintptr_t) &rd,
+    };
+
+    std::mt19937_64                         gen(seed);
     std::uniform_int_distribution<uint64_t> dist;
     return PlayerId::From(PlayerId::Provider::Address, dist(gen));
 }

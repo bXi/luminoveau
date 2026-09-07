@@ -211,6 +211,27 @@ void handle(const std::shared_ptr<Client> &client, const std::string &text) {
             fail(client, "missing id");
             return;
         }
+
+        // **Two clients claiming one id must not both be admitted.** Signals are routed by id
+        // (`clientById`), so a duplicate does not collide loudly — it *misroutes silently*.
+        // Everything addressed to the second client is handed to the first, which then receives
+        // its own offer, its own answer and its own candidates while the second hears nothing at
+        // all. From inside the game that reads as a peer echoing itself: an answer applied in the
+        // `stable` signalling state, and remote candidate lists carrying one's own ufrag.
+        //
+        // Ids are minted by clients, so this service cannot assume they are unique however
+        // carefully that is done at the other end — one platform whose random source is not
+        // random is enough, and a browser is exactly where that happens. Refusing the second
+        // turns a silent misroute into something somebody can act on.
+        for (const auto &[socket, other] : clients) {
+            if (other == client || other->id != client->id)
+                continue;
+            std::printf("rejected a second client claiming id %s\n", client->id.c_str());
+            client->id.clear();
+            fail(client, "that id is already connected");
+            return;
+        }
+
         send(client, { { "op", SignalProtocol::Op::Welcome }, { "ice", iceServers() } });
 
     } else if (client->id.empty()) {
