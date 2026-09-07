@@ -281,9 +281,26 @@ void handle(const std::shared_ptr<Client> &client, const std::string &text) {
 
     } else if (op == SignalProtocol::Op::Signal) {
         // Routed verbatim. The payload is the transport's business, not this service's.
-        auto target = clientById(message.value("to", ""));
-        if (!target || target->room != client->room || client->room.empty())
+        const std::string to     = message.value("to", "");
+        auto              target = clientById(to);
+
+        // **A dropped signal is silent on both ends, and that is the worst place for silence.**
+        // The sender has already logged that it sent an offer; the recipient logs nothing at all,
+        // because nothing arrived. From either side it looks like the peer went quiet, and the
+        // negotiation simply times out with no indication that the service was the one that
+        // discarded it.
+        if (!target) {
+            std::printf("signal from %s to %s dropped: no such client\n", client->id.c_str(),
+                        to.c_str());
             return;
+        }
+        if (client->room.empty() || target->room != client->room) {
+            std::printf("signal from %s to %s dropped: rooms differ (%s vs %s)\n",
+                        client->id.c_str(), to.c_str(),
+                        client->room.empty() ? "(none)" : client->room.c_str(),
+                        target->room.empty() ? "(none)" : target->room.c_str());
+            return;
+        }
         send(target, { { "op", SignalProtocol::Op::Signal },
             { "from", client->id },
             { "data", message.value("data", "") } });
