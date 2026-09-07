@@ -209,13 +209,44 @@ public:
             peer = Net::SERVER_PEER;
 
         auto it = _peers.find(peer);
-        if (it == _peers.end() || !it->second.pc)
+        if (it == _peers.end() || !it->second.pc) {
+            // **The last silent drop in the negotiation.** A client that has not opened its
+            // connection yet, or a peer torn down between the signal being posted and arriving,
+            // discards an answer here — and the sender has already logged that it sent one, so
+            // the two logs disagree with no way to tell which is lying.
+            LOG_WARNING("Net: dropping an incoming signal for peer {} — no connection open", peer);
             return;
+        }
 
         if (kind == SignalDescription) {
             std::string type, sdp;
             if (!takeString(cursor, end, type) || !takeString(cursor, end, sdp))
                 return;
+
+            // **A second offer means the peer gave up and started again, and it needs a new
+            // connection.** libdatachannel does not renegotiate: applying a fresh offer to a
+            // connection that already has a remote description fails with "Invalid ICE settings
+            // from remote SDP", because the ufrag and password in the new SDP do not match the
+            // ICE session already running. The peer is then stuck forever — its first attempt
+            // timed out and every retry is rejected on arrival, which looks like a network that
+            // never works rather than one that failed once.
+            if (_isServer && type == "offer" && it->second.remoteReady) {
+                LOG_INFO("Net: peer {} is offering again — rebuilding its connection", peer);
+
+                if (it->second.announced)
+                    _queueDisconnect(peer);
+
+                it->second.reliable.reset();
+                it->second.unreliable.reset();
+                if (it->second.pc)
+                    it->second.pc->close();
+                it->second.pc.reset();
+
+                _openPeerConnection(peer, it->second);
+                it->second.pc->onDataChannel([this, peer](std::shared_ptr<rtc::DataChannel> ch) {
+                    _adoptChannel(peer, std::move(ch));
+                });
+            }
 
             try {
                 it->second.pc->setRemoteDescription(rtc::Description(sdp, type));
@@ -377,9 +408,18 @@ private:
         link.pc = std::make_shared<rtc::PeerConnection>(config);
 
         link.pc->onLocalDescription([this, peer](rtc::Description description) {
+            const std::string sdp = std::string(description);
+
+            // **The half of the negotiation nothing has ever shown.** Remote descriptions and
+            // both sets of candidates are logged; what this side *sends* is not — so an answer
+            // that is never produced and an answer that is produced but never delivered look
+            // identical from here, and from the other end both look like a peer that went quiet.
+            LOG_INFO("Net: sending local description to peer {}: type={} ({} bytes)", peer,
+                     description.typeString(), sdp.size());
+
             std::vector<uint8_t> payload{ SignalDescription };
             putString(payload, description.typeString());
-            putString(payload, std::string(description));
+            putString(payload, sdp);
             _signal(peer, payload);
         });
         link.pc->onLocalCandidate([this, peer](rtc::Candidate candidate) {
@@ -518,8 +558,16 @@ private:
 
     void _signal(Net::Peer peer, const std::vector<uint8_t> &payload) {
         auto it = _peers.find(peer);
-        if (it == _peers.end() || !_sendSignal)
+        if (it == _peers.end() || !_sendSignal) {
+            // **Dropped silently until now, and there are two quite different reasons for it.**
+            // No `_sendSignal` means the brokerage never installed one; a missing peer means the
+            // link was torn down between generating this and sending it. Either way the other
+            // side waits for an answer that was never posted, which from there is
+            // indistinguishable from a network that ate it.
+            LOG_WARNING("Net: dropping a signal for peer {} — {}", peer,
+                        it == _peers.end() ? "no such peer" : "no signal sender installed");
             return;
+        }
         _sendSignal(it->second.id, payload.data(), (uint32_t)payload.size());
     }
 
