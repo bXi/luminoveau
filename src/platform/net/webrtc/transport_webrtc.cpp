@@ -27,6 +27,20 @@
 #include <mutex>
 #include <unordered_map>
 
+// Sockets, for `_defaultRouteAddress` only — asking the routing table which interface reaches the
+// internet. Emscripten has no such choice to make, and the browser filters its own candidates.
+#ifndef __EMSCRIPTEN__
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
+#endif
+
 namespace {
 
 // Datagram tags, mirroring the SDL_net backend so both speak the same shape.
@@ -173,6 +187,29 @@ public:
     }
 
     void Poll(std::vector<TransportEvent> &out) override {
+#ifdef __EMSCRIPTEN__
+        // **The escape hatch for a gathering that never says it is done.** Remote candidates are
+        // held for it (see `PeerLink::gatheringDone`), so a connection whose gathering state
+        // never reaches `complete` would sit on them forever and never connect at all. Waiting
+        // out the grace period and applying them anyway is strictly better than that: the worst
+        // case is the truncated gathering this was avoiding.
+        //
+        // Emscripten only, and that is what makes reaching into `_peers` here safe — the browser
+        // runs every callback on the one thread this is polled from.
+        const auto now = std::chrono::steady_clock::now();
+        for (auto &[peer, link] : _peers) {
+            if (link.gatheringDone || link.pending.empty() || !link.remoteReady)
+                continue;
+            if (now - link.openedAt < kGatheringGrace)
+                continue;
+            LOG_WARNING("Net: peer {} gathered for {} ms without finishing — applying its "
+                        "{} held candidate(s) anyway",
+                        peer, kGatheringGrace.count(), link.pending.size());
+            link.gatheringDone = true;
+            _flushRemoteCandidates(peer, link);
+        }
+#endif
+
         std::vector<TransportEvent> drained;
         {
             std::lock_guard<std::mutex> lock(_mutex);
@@ -193,6 +230,17 @@ public:
         if (cursor == end)
             return;
         const uint8_t kind = *cursor++;
+
+        // **Every signal that arrives, before anything can discard it.** What this side sends is
+        // logged and what it does with a description is logged, but the moment of *arrival* was
+        // not — so "the answer never came" and "the answer came and was dropped" looked
+        // identical, and telling them apart meant reading the other machine's console. One line
+        // here makes a single log self-sufficient.
+        LOG_INFO("Net: signal from {} kind={} ({} bytes)", from.toString(),
+                 kind == SignalDescription ? "description"
+                 : kind == SignalCandidate ? "candidate"
+                                           : "?",
+                 size);
 
         Net::Peer peer = _peerFor(from);
         if (peer == 0 && _isServer) {
@@ -255,11 +303,8 @@ public:
                 return;
             }
 
-            // Anything that overtook the description is applied now, in arrival order.
             it->second.remoteReady = true;
-            for (const auto &[mid, candidate] : it->second.pending)
-                _addRemoteCandidate(peer, it->second, mid, candidate);
-            it->second.pending.clear();
+            _flushRemoteCandidates(peer, it->second);
 
         } else if (kind == SignalCandidate) {
             std::string mid, candidate;
@@ -273,11 +318,8 @@ public:
             // is indistinguishable from packets being dropped in flight.
             LOG_INFO("Net: remote candidate from peer {}: {}", peer, candidate);
 
-            if (!it->second.remoteReady) {
-                it->second.pending.emplace_back(mid, candidate);
-                return;
-            }
-            _addRemoteCandidate(peer, it->second, mid, candidate);
+            it->second.pending.emplace_back(mid, candidate);
+            _flushRemoteCandidates(peer, it->second);
         }
     }
 
@@ -300,7 +342,97 @@ private:
         /// network that will not carry the traffic.
         bool                                             remoteReady = false;
         std::vector<std::pair<std::string, std::string>> pending; ///< (mid, candidate)
+
+        /// **Local gathering has finished, so a remote candidate can safely be applied.**
+        ///
+        /// A browser stops gathering the moment one of its pairs connects, and a remote candidate
+        /// delivered the instant it arrives is early enough to cause exactly that. The peer's LAN
+        /// host candidate lands about six milliseconds in — before the first STUN reply, which
+        /// takes around twenty — so the check succeeds against it, Chrome abandons the rest of the
+        /// allocation session, and the connection is left holding nothing but its own mDNS host
+        /// candidate. No relay is ever allocated and nothing reports an error: the gathering state
+        /// goes `complete` two milliseconds after the candidate is added, so every diagnostic
+        /// shows a correctly configured connection that simply gathered one candidate.
+        ///
+        /// On a LAN it is invisible, because the pair it settled on is a real path. Only over the
+        /// internet, where that host candidate is unreachable, does the missing relay matter — so
+        /// it presents as "works at home, never works online".
+        ///
+        /// Holding remote candidates until gathering completes costs the two hundred milliseconds
+        /// gathering takes, and ICE accepts candidates at any point in a session.
+        ///
+        /// Emscripten only: libjuice does not prune this way, and native has always gathered its
+        /// relay. `openedAt` is the deadline for a gathering that never reports itself finished,
+        /// which would otherwise hold every remote candidate forever.
+        bool                                  gatheringDone = false;
+        std::chrono::steady_clock::time_point openedAt{};
+
+        /// ICE reached `connected` at some point, so a path was found whatever happened after.
+        bool iceConnected = false;
     };
+
+    /// How long remote candidates wait for local gathering before being applied regardless.
+    ///
+    /// Gathering takes about 200 ms against a reachable relay, so this only fires when something
+    /// has gone wrong — and a connection that tries a late candidate beats one that never tries.
+    static constexpr std::chrono::milliseconds kGatheringGrace{ 4000 };
+
+    /// The local address the operating system would use to reach the internet.
+    ///
+    /// **Because a developer machine offers a pile of addresses that are not paths.** WSL, VPN
+    /// clients and VM tooling each add an interface, and ICE gathers a host candidate for every
+    /// one of them. Host candidates outrank both server-reflexive and relay by priority, so when
+    /// the two peers happen to be on the same machine — a browser and a native client, which is
+    /// how this gets tested — a check against the WSL adapter *succeeds*, ICE nominates it, and
+    /// the connection then dies because that address is not a two-way path. The relay is never
+    /// tried at all. Observed as `checking → connected → disconnected` on a pair against
+    /// `172.25.208.1`.
+    ///
+    /// Found by asking the routing table rather than by guessing at address ranges: a UDP socket
+    /// is *connected* to a public address, which sends nothing but makes the kernel choose an
+    /// interface, and its local name is then the answer. `172.16/12` and `192.168/16` are real
+    /// private networks as well as VM defaults, so no filter on the addresses themselves can tell
+    /// a virtual adapter from a LAN.
+#ifndef __EMSCRIPTEN__
+    static std::string _defaultRouteAddress() {
+#ifdef _WIN32
+        using SocketHandle = SOCKET;
+        using NameLength   = int;
+        const SocketHandle invalid = INVALID_SOCKET;
+#else
+        using SocketHandle = int;
+        using NameLength   = socklen_t;
+        const SocketHandle invalid = -1;
+#endif
+
+        const SocketHandle sock = ::socket(AF_INET, SOCK_DGRAM, 0);
+        if (sock == invalid)
+            return {};
+
+        sockaddr_in probe{};
+        probe.sin_family      = AF_INET;
+        probe.sin_port        = htons(53);
+        probe.sin_addr.s_addr = inet_addr("192.0.2.1"); // TEST-NET-1: routable, never answers
+
+        std::string address;
+        if (::connect(sock, (const sockaddr *) &probe, sizeof(probe)) == 0) {
+            sockaddr_in local{};
+            NameLength  size = sizeof(local);
+            if (::getsockname(sock, (sockaddr *) &local, &size) == 0) {
+                char text[INET_ADDRSTRLEN] = {};
+                if (::inet_ntop(AF_INET, &local.sin_addr, text, sizeof(text)))
+                    address = text;
+            }
+        }
+
+#ifdef _WIN32
+        ::closesocket(sock);
+#else
+        ::close(sock);
+#endif
+        return address;
+    }
+#endif
 
     /// Applies one remote candidate, surviving a bad one.
     ///
@@ -314,6 +446,24 @@ private:
         } catch (const std::exception &e) {
             LOG_WARNING("Net: ignoring a remote candidate from peer {}: {}", peer, e.what());
         }
+    }
+
+    /// Applies every queued remote candidate, once it is safe to.
+    ///
+    /// Two conditions, and both are the reason a candidate is queued rather than applied on
+    /// arrival: the remote description has to exist, or `addRemoteCandidate` throws; and, in a
+    /// browser, local gathering has to have finished, or applying one cuts the gathering short.
+    /// See `PeerLink::gatheringDone` for what that costs.
+    void _flushRemoteCandidates(Net::Peer peer, PeerLink &link) {
+        if (!link.remoteReady || link.pending.empty())
+            return;
+#ifdef __EMSCRIPTEN__
+        if (!link.gatheringDone)
+            return;
+#endif
+        for (const auto &[mid, candidate] : link.pending)
+            _addRemoteCandidate(peer, link, mid, candidate);
+        link.pending.clear();
     }
 
     /// Builds libdatachannel's own ICE server from ours.
@@ -366,7 +516,9 @@ private:
     void _openPeerConnection(Net::Peer peer, PeerLink &link) {
         // A fresh connection has no remote description, so anything queued against the previous
         // one belongs to a negotiation that is over.
-        link.remoteReady = false;
+        link.remoteReady   = false;
+        link.gatheringDone = false;
+        link.openedAt      = std::chrono::steady_clock::now();
         link.pending.clear();
 
         rtc::Configuration config;
@@ -375,7 +527,22 @@ private:
         int relays = 0;
         for (const Net::IceServer &server : Net::IceServers()) {
             try {
-                config.iceServers.push_back(_makeIceServer(server));
+                const rtc::IceServer built = _makeIceServer(server);
+
+                // **What is actually handed to the stack, not what arrived.** A relay that works
+                // when the same URL and credential are typed into a test page, and does nothing
+                // here, differs somewhere between the two — and the only place that can be seen
+                // is after this translation. The credential is never printed, only whether one is
+                // present, since it is a working secret for as long as it lives.
+                LOG_INFO("Net: ICE server host={} port={} type={} relay={} user='{}' cred={}",
+                         built.hostname, built.port,
+                         built.type == rtc::IceServer::Type::Turn ? "turn" : "stun",
+                         built.relayType == rtc::IceServer::RelayType::TurnTls   ? "tls"
+                         : built.relayType == rtc::IceServer::RelayType::TurnTcp ? "tcp"
+                                                                                 : "udp",
+                         built.username, built.password.empty() ? "none" : "present");
+
+                config.iceServers.push_back(built);
                 relays += server.url.rfind("turn", 0) == 0 ? 1 : 0;
             } catch (const std::exception &e) {
                 LOG_WARNING("Net: ignoring ICE server '{}': {}", server.url, e.what());
@@ -403,12 +570,59 @@ private:
             config.iceTransportPolicy = rtc::TransportPolicy::Relay;
             LOG_WARNING("Net: LUMI_FORCE_RELAY is set — using relay candidates only");
         }
+
+        // **One interface, the one that reaches the internet.** See `_defaultRouteAddress`: left
+        // to itself ICE offers a host candidate per adapter, and a virtual one can win the
+        // priority contest and then fail to carry traffic. A browser has no equivalent problem —
+        // it does this filtering itself — so this is native-only.
+        //
+        // Empty means the probe failed, in which case binding to nothing is right: every
+        // interface is still better than no connection at all.
+        if (const std::string bind = _defaultRouteAddress(); !bind.empty()) {
+            config.bindAddress = bind;
+            LOG_INFO("Net: binding ICE to {}", bind);
+        } else {
+            LOG_WARNING("Net: could not determine the default route — ICE will use every adapter");
+        }
 #endif
 
         link.pc = std::make_shared<rtc::PeerConnection>(config);
 
         link.pc->onLocalDescription([this, peer](rtc::Description description) {
-            const std::string sdp = std::string(description);
+            std::string sdp = std::string(description);
+
+            // **This side asks to be the DTLS client, and it has to.**
+            //
+            // Mbed TLS cannot accept a fragmented ClientHello. Its own source says so — "For now
+            // we don't support fragmentation" in `ssl_parse_client_hello` — and it rejects one on
+            // the length check before parsing anything, with `MBEDTLS_ERR_SSL_DECODE_ERROR`.
+            // Chrome's ClientHello is around 1450 bytes and therefore arrives in two records, so
+            // a browser can never complete a handshake against Mbed TLS *as the server*.
+            //
+            // The role is decided by `a=setup`. libdatachannel writes `actpass` into every offer
+            // (hardcoded in `IceTransport::getDescription`, so there is no API to ask), a browser
+            // offered `actpass` always answers `active`, and `active` means it sends the
+            // ClientHello. Asking for `active` here forces the browser to answer `passive`
+            // instead: it becomes the DTLS server, BoringSSL parses our ClientHello — which is
+            // small and never fragments — and libdatachannel works its own role out from the
+            // answer (`IceTransport::setRemoteDescription`, which maps a `passive` answer onto
+            // the active role), so nothing downstream needs telling.
+            //
+            // This is ordinary SDP rather than a trick: an offerer may choose `active`, and the
+            // answerer is then required to be `passive`. It costs nothing between two native
+            // peers, where the answering side parses a ClientHello that was never large.
+            //
+            // **The symptom this cures names nothing.** ICE succeeds, nominates a pair, reaches
+            // `completed`, and only then does the connection fail — which every layer above
+            // reports as a path that could not be found, and sends you to the TURN server.
+            //
+            // Native only. In a browser the whole question belongs to the browser.
+#ifndef __EMSCRIPTEN__
+            if (description.type() == rtc::Description::Type::Offer) {
+                if (const size_t at = sdp.find("a=setup:actpass"); at != std::string::npos)
+                    sdp.replace(at, std::strlen("a=setup:actpass"), "a=setup:active");
+            }
+#endif
 
             // **The half of the negotiation nothing has ever shown.** Remote descriptions and
             // both sets of candidates are logged; what this side *sends* is not — so an answer
@@ -435,26 +649,71 @@ private:
             putString(payload, candidate.candidate());
             _signal(peer, payload);
         });
+        link.pc->onGatheringStateChange([this, peer](rtc::PeerConnection::GatheringState state) {
+            if (state != rtc::PeerConnection::GatheringState::Complete)
+                return;
+
+            // **The point every queued remote candidate has been waiting for.** Until this fires
+            // a browser is still allocating, and a candidate applied now would end that early —
+            // see `PeerLink::gatheringDone`.
+            auto it = _peers.find(peer);
+            if (it == _peers.end())
+                return;
+            it->second.gatheringDone = true;
+            if (!it->second.pending.empty())
+                LOG_INFO("Net: local gathering finished for peer {} — applying {} held "
+                         "candidate(s)",
+                         peer, it->second.pending.size());
+            _flushRemoteCandidates(peer, it->second);
+        });
+        // **Remembered, because a failed connection cannot be asked what it was doing.** By the
+        // time `State::Failed` arrives the ICE state has already been overwritten with `Closed`,
+        // so the one fact that separates "no path" from "a path that carried nothing" is gone.
+        link.pc->onIceStateChange([this, peer](rtc::PeerConnection::IceState state) {
+            auto it = _peers.find(peer);
+            if (it == _peers.end())
+                return;
+            it->second.iceConnected |= state == rtc::PeerConnection::IceState::Connected ||
+                                       state == rtc::PeerConnection::IceState::Completed;
+        });
         link.pc->onStateChange([this, peer](rtc::PeerConnection::State state) {
             if (state == rtc::PeerConnection::State::Failed) {
-                // ICE found no path.
+                // **A failed connection is not necessarily a failed *path*.** libdatachannel
+                // reports one `Failed` for everything past the offer, so a DTLS handshake that
+                // dies on a nominated pair looks exactly like ICE finding nowhere to go — and
+                // "the relay could not carry the connection" then sends you to the TURN server
+                // for a fault that is in the crypto library. That cost most of a day once.
                 //
-                // **Which failure this is depends on whether a relay was even offered**, and
-                // saying `NatBlockedNoRelay` either way is how an hour gets spent looking for a
-                // missing TURN server that was configured all along. With no relay this is the
-                // expected outcome behind symmetric NAT or CGNAT; *with* one it means the relay
-                // itself did not work — unreachable port, rejected credential, expired ticket —
-                // which is a server problem and not the player's network.
-                bool relay = false;
-                for (const Net::IceServer &server : Net::IceServers())
-                    relay |= server.url.rfind("turn", 0) == 0;
+                // ICE having reached `connected` or `completed` is what tells the two apart:
+                // the peers found each other and exchanged traffic, so nothing about NAT,
+                // firewalls or relays is at issue and no amount of candidate tuning will help.
+                const auto it       = _peers.find(peer);
+                const bool hadPath  = it != _peers.end() && it->second.iceConnected;
 
                 _failed = true;
-                _lastError =
-                    relay ? Net::NetError::RelayFailed : Net::NetError::NatBlockedNoRelay;
-                if (relay)
-                    LOG_WARNING("Net: ICE failed with a relay configured — check the TURN server "
-                                "is reachable and its credentials are accepted");
+                if (hadPath) {
+                    _lastError = Net::NetError::HandshakeFailed;
+                    LOG_WARNING("Net: peer {} failed *after* ICE connected — a path was found and "
+                                "the handshake over it did not complete. This is not a NAT or "
+                                "relay fault; look at the DTLS log above.",
+                                peer);
+                } else {
+                    // **Which failure this is depends on whether a relay was even offered**, and
+                    // saying `NatBlockedNoRelay` either way is how an hour gets spent looking for
+                    // a missing TURN server that was configured all along. With no relay this is
+                    // the expected outcome behind symmetric NAT or CGNAT; *with* one it means the
+                    // relay itself did not work — unreachable port, rejected credential, expired
+                    // ticket — which is a server problem and not the player's network.
+                    bool relay = false;
+                    for (const Net::IceServer &server : Net::IceServers())
+                        relay |= server.url.rfind("turn", 0) == 0;
+
+                    _lastError =
+                        relay ? Net::NetError::RelayFailed : Net::NetError::NatBlockedNoRelay;
+                    if (relay)
+                        LOG_WARNING("Net: ICE failed with a relay configured — check the TURN "
+                                    "server is reachable and its credentials are accepted");
+                }
                 _queueDisconnect(peer);
             } else if (state == rtc::PeerConnection::State::Closed ||
                        state == rtc::PeerConnection::State::Disconnected) {

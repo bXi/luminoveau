@@ -288,7 +288,6 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
         std::string sourceHash = computeSourceHash(source);
 
         if (sourceHash == cachedMetadata.sourceHash) {
-            LOG_INFO("Loaded cached shader: {}", filename.c_str());
             filedata.fileDataVector = std::move(cachedData);
             filedata.data           = filedata.fileDataVector.data();
             filedata.fileSize       = filedata.fileDataVector.size();
@@ -411,6 +410,9 @@ ShaderAsset Shaders::_createShaderAsset(const std::string &filename, GpuShaderSt
 
     asset.gpuShader = _createGpuShader(filename, stage);
 
+    // **The one line a loaded shader gets.** The request in `AssetHandler::_getShader` and the
+    // cache hit above both used to announce themselves too, so every shader said the same thing
+    // three times over. This is the one worth keeping: it names the file *and* what came of it.
     LOG_INFO("Created ShaderAsset for {} (format={}, samplers={})",
         filename.c_str(), metadata.shaderFormat, asset.samplerCount);
     return asset;

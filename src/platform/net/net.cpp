@@ -325,7 +325,15 @@ Net::Step Net::_failJoin() {
     const char *stage = "";
     switch (_joinStage) {
     case JoinStage::Resolving:   stage = "while asking the brokerage where to go"; break;
-    case JoinStage::Connecting:  stage = "while negotiating a path (ICE) — this is the NAT case"; break;
+    // **Not "the NAT case" unconditionally.** The transport's own error already knows whether ICE
+    // ever connected, and a connection that failed *after* it did is a handshake fault wearing
+    // this stage's name — calling that NAT is how a DTLS bug gets debugged as a TURN bug.
+    case JoinStage::Connecting:
+        stage = _transport && _transport->LastError() == NetError::HandshakeFailed
+                    ? "while establishing the connection — a path was found, so this is not NAT "
+                      "or the relay"
+                    : "while negotiating a path (ICE) — this is the NAT case";
+        break;
     case JoinStage::Handshaking: stage = "during the handshake — a path was found, so this is "
                                          "build id or packet layout, not the network"; break;
     case JoinStage::None:        stage = "after the join had already finished"; break;

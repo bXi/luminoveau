@@ -511,7 +511,6 @@ void RegisterEventListener(const std::string &document_path, const std::string &
     std::string key = element_id + ":" + event_type;
     g_state.event_listeners[document_path][key].push_back(callback);
 
-    LOG_INFO("Registered event listener: {} on {}.{}", event_type, document_path, element_id);
 }
 
 bool ProcessEvent(SDL_Event &event) {

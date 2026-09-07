@@ -851,7 +851,6 @@ Shader AssetHandler::_getShader(const std::string &fileName) {
     std::lock_guard<std::mutex> lock(_assetMutex);
 
     if (_shaders.find(fileName) == _shaders.end()) {
-        LOG_INFO("loading shader: {}", fileName.c_str());
         _shaders[std::string(fileName)] = _loadShaderFromDisk(fileName);
         return _shaders[fileName];
     }

@@ -96,6 +96,11 @@ public:
                            ///< already means a rejected handshake: one message covering both
                            ///< leaves "refused" meaning either "your relay is broken" or "the
                            ///< other side is a different build", which is no help at all.
+        HandshakeFailed,   ///< A path *was* found — ICE connected — and the encrypted handshake
+                           ///< over it did not complete. Distinct from every other error here
+                           ///< because it rules out the player's network entirely: NAT,
+                           ///< firewalls and relays all did their job. Reporting it as a relay
+                           ///< or NAT fault sends a search to the one place that is working.
         VersionMismatch,   ///< The other side is a different build.
         LobbyFull,
         Refused,           ///< The handshake was rejected — build id or packet layout.
