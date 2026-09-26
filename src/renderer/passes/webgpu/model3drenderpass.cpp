@@ -364,7 +364,7 @@ void Model3DRenderPass::_uploadModelToGPU(ModelAsset *model) {
     gpu.UploadToBuffer(cmd, vXfer, 0, model->vertexBuffer, 0, vSize);
     gpu.UploadToBuffer(cmd, iXfer, 0, model->indexBuffer, 0, iSize);
     gpu.SubmitCommandBuffer(cmd);
-    gpu.WaitIdle();
+
     gpu.ReleaseTransferBuffer(vXfer);
     gpu.ReleaseTransferBuffer(iXfer);
 }
@@ -384,7 +384,11 @@ void Model3DRenderPass::Render(
     SceneUniforms u {};
     LightData     lightData {};
     if (!models.empty() && _pipeline) {
-        float aspect = (float)Window::GetWidth() / (float)Window::GetHeight();
+        // Matches the viewport, so an off-screen target of a different shape than the window
+        // is not projected with the window's aspect and stretched.
+        const float aspect = (viewportWidth && viewportHeight)
+            ? (float)viewportWidth / (float)viewportHeight
+            : (float)Window::GetWidth() / (float)Window::GetHeight();
         u.viewProj   = camera.GetViewProjectionMatrix(aspect);
         u.modelCount = std::min((int)models.size(), 16);
         for (int i = 0; i < u.modelCount; ++i)
@@ -599,8 +603,13 @@ void Model3DRenderPass::Render(
     GpuRenderPassHandle rp = gpu.BeginRenderPass(cmdBuffer, &ct, 1, &dt);
     renderPass             = rp;
 
+    // Falls back to the window when no viewport is set, which is what every existing caller
+    // relies on; an explicit one is how a caller renders into an off-screen target. Matches the
+    // SDL pass — without it a 128px thumbnail got a window-sized viewport, which WebGPU rejects
+    // outright, so off-screen renders came out blank on the web only.
     gpu.SetViewport(rp, 0.0f, 0.0f,
-        (float)Window::GetPhysicalWidth(), (float)Window::GetPhysicalHeight(),
+        viewportWidth ? (float)viewportWidth : (float)Window::GetPhysicalWidth(),
+        viewportHeight ? (float)viewportHeight : (float)Window::GetPhysicalHeight(),
         0.0f, 1.0f);
 
     if (models.empty() || !_pipeline) {
