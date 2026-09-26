@@ -15,6 +15,7 @@
 
 #include "core/log/log.h"
 #include "integrations/steam/steam.h"
+#include "integrations/steam/steamabi.h"
 
 #include <string>
 
@@ -203,7 +204,7 @@ private:
         // The host is who the transport actually dials; the lobby was only the introduction.
         BrokerEvent ev;
         ev.type           = BrokerEvent::LobbyJoined;
-        ev.from           = idOf(SteamMatchmaking()->GetLobbyOwner(_lobby));
+        ev.from           = idOf(lumi_steam::lobbyOwner(_lobby));
         ev.endpoint.kind  = Net::Endpoint::Kind::Player;
         ev.endpoint.player = ev.from;
         _events.push_back(std::move(ev));
@@ -214,14 +215,16 @@ private:
         ev.type = BrokerEvent::LobbyList;
         if (!ioFailure) {
             for (uint32 i = 0; i < result->m_nLobbiesMatching; ++i) {
-                const CSteamID lobby = SteamMatchmaking()->GetLobbyByIndex((int)i);
+                // Flat API for both: a CSteamID returned by the C++ interface crashes MinGW
+                // builds — see steamabi.h.
+                const CSteamID lobby = lumi_steam::lobbyByIndex((int)i);
                 if (!lobby.IsValid())
                     continue;
 
                 Net::SessionInfo info;
                 info.endpoint.kind  = Net::Endpoint::Kind::Lobby;
                 info.endpoint.lobby = lobby.ConvertToUint64();
-                info.host           = idOf(SteamMatchmaking()->GetLobbyOwner(lobby));
+                info.host           = idOf(lumi_steam::lobbyOwner(lobby));
                 info.name           = SteamMatchmaking()->GetLobbyData(lobby, KEY_NAME);
                 info.players        = SteamMatchmaking()->GetNumLobbyMembers(lobby);
                 info.slots          = SteamMatchmaking()->GetLobbyMemberLimit(lobby);

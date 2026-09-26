@@ -15,7 +15,12 @@ class Steam {
 public:
     /// @brief Initializes the Steam API for the given app.
     /// @param appId Your Steam application ID.
-    static void Init(int appId) { Get()._init(appId); }
+    /// @param relaunchThroughSteam In release builds, quit and relaunch through the Steam client when
+    ///        the game was started outside it. Pass false for development builds run from an IDE,
+    ///        or every launch quits and starts the Steam-installed copy instead of the fresh build.
+    static void Init(int appId, bool relaunchThroughSteam = true) {
+        Get()._init(appId, relaunchThroughSteam);
+    }
     /// @brief Shuts down the Steam API.
     static void Close() { Get()._close(); }
 
@@ -50,11 +55,14 @@ public:
     /// @brief Returns the current user's full 64-bit Steam ID, or 0 if unavailable.
     static uint64_t GetUserSteamId64() { return Get()._getUserSteamId64(); }
 
+    /// @brief Returns the current user's Steam display name (UTF-8), or an empty string if unavailable.
+    static std::string GetPersonaName() { return Get()._getPersonaName(); }
+
 private:
     bool _isInit = false;
     int  _appId  = 0;
 
-    void _init(int appId);
+    void _init(int appId, bool relaunchThroughSteam);
     void _close();
     void _tick();
 
@@ -70,6 +78,8 @@ private:
 
     int      _getUserSteamId();
     uint64_t _getUserSteamId64();
+
+    std::string _getPersonaName();
 
     // TODO: figure out nice way to implement this. curse Steam for making it possible to make pUnlockTime 0
     // bool GetAchievementAndUnlockTime(std::string pchName, out bool pbAchieved, out uint punUnlockTime)

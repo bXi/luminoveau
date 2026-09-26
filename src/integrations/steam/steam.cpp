@@ -1,13 +1,17 @@
 #include "steam.h"
+#include "steamabi.h"
+#include "steamlobby.h"
 
 //*/
-void Steam::_init(int newAppId) {
+void Steam::_init(int newAppId, bool relaunchThroughSteam) {
 
 #ifdef LUMINOVEAU_WITH_STEAM
 #ifdef NDEBUG
     // Returning true means Steam is relaunching us through the client; this process must go away.
-    if (SteamAPI_RestartAppIfNecessary(newAppId))
+    if (relaunchThroughSteam && SteamAPI_RestartAppIfNecessary(newAppId))
         LOG_CRITICAL("relaunching through Steam");
+#else
+    LUMI_UNUSED(relaunchThroughSteam);
 #endif
 
     SteamErrMsg errMsg;
@@ -23,12 +27,15 @@ void Steam::_init(int newAppId) {
     // Acquired up front so the first P2P connect does not stall waiting for relay tickets.
     SteamNetworkingUtils()->InitRelayNetworkAccess();
 #else
-    LUMI_UNUSED(newAppId);
+    LUMI_UNUSED(newAppId, relaunchThroughSteam);
 #endif
 }
 
 void Steam::_close() {
 #ifdef LUMINOVEAU_WITH_STEAM
+    // Its callbacks unregister in their destructors, which must happen while the API still exists.
+    SteamLobby::Shutdown();
+
     if (_isInit)
         SteamAPI_Shutdown();
 #endif
@@ -100,8 +107,8 @@ int Steam::_getUserSteamId() {
         return -1;
 
 #ifdef LUMINOVEAU_WITH_STEAM
-    auto userId = SteamUser()->GetSteamID();
-    return userId.GetAccountID();
+    // Flat API: the C++ GetSteamID crashes MinGW builds — see steamabi.h.
+    return lumi_steam::localUser().GetAccountID();
 #else
     return -1;
 #endif
@@ -112,8 +119,20 @@ uint64_t Steam::_getUserSteamId64() {
         return 0;
 
 #ifdef LUMINOVEAU_WITH_STEAM
-    return SteamUser()->GetSteamID().ConvertToUint64();
+    return lumi_steam::localUser().ConvertToUint64();
 #else
     return 0;
+#endif
+}
+
+std::string Steam::_getPersonaName() {
+    if (!_isReady())
+        return {};
+
+#ifdef LUMINOVEAU_WITH_STEAM
+    const char *name = SteamFriends()->GetPersonaName();
+    return name != nullptr ? std::string(name) : std::string();
+#else
+    return {};
 #endif
 }

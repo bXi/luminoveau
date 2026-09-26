@@ -7,6 +7,9 @@ target_sources(luminoveau PRIVATE
     src/integrations/steam/steam.cpp
     src/integrations/steam/steam.h
     src/integrations/steam/steambroker.cpp
+    src/integrations/steam/steamabi.h
+    src/integrations/steam/steamlobby.cpp
+    src/integrations/steam/steamlobby.h
 )
 
 # There is no Steamworks in a browser, so the SDK is skipped outright on the web. The stub
@@ -27,27 +30,35 @@ endif()
 # letting include order decide the winner is an ABI mismatch on a vtable.
 set(STEAM_SDK_FOUND FALSE)
 
+# Where the SDK is. The drop-in location by default; a game may point elsewhere — a CI build whose
+# engine checkout is public, say, keeping the SDK in the game's own private repository, which is
+# the only kind of place Valve's licence lets it live. Same layout either way: `public/steam` and
+# `redistributable_bin/<platform>`.
+set(LUMINOVEAU_STEAM_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk" CACHE PATH
+    "Steamworks SDK root (holds public/ and redistributable_bin/)")
+set(_lumi_steam_sdk "${LUMINOVEAU_STEAM_SDK_DIR}")
+
 # Checking for Steam SDK presence
-set(STEAM_SDK_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/public/steam/steam_api.h")
+set(STEAM_SDK_HEADER "${_lumi_steam_sdk}/public/steam/steam_api.h")
 if(EXISTS "${STEAM_SDK_HEADER}")
     # Finding required threads library
     find_package(Threads REQUIRED)
 
     # Setting include directories for Steam SDK
     target_include_directories(luminoveau PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/public/steam"
+        "${_lumi_steam_sdk}/public/steam"
     )
 
     # Configuring platform-specific Steam API library
     if(WIN32)
-        set(STEAM_API_LIB "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/win64/steam_api64.lib")
-        set(STEAM_API_DLL "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/win64/steam_api64.dll")
+        set(STEAM_API_LIB "${_lumi_steam_sdk}/redistributable_bin/win64/steam_api64.lib")
+        set(STEAM_API_DLL "${_lumi_steam_sdk}/redistributable_bin/win64/steam_api64.dll")
     elseif(UNIX AND NOT APPLE)
-        set(STEAM_API_LIB "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/linux64/libsteam_api.so")
-        set(STEAM_API_DLL "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/linux64/libsteam_api.so")
+        set(STEAM_API_LIB "${_lumi_steam_sdk}/redistributable_bin/linux64/libsteam_api.so")
+        set(STEAM_API_DLL "${_lumi_steam_sdk}/redistributable_bin/linux64/libsteam_api.so")
     elseif(APPLE)
-        set(STEAM_API_LIB "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/osx/libsteam_api.dylib")
-        set(STEAM_API_DLL "${CMAKE_CURRENT_SOURCE_DIR}/src/integrations/steam/sdk/redistributable_bin/osx/libsteam_api.dylib")
+        set(STEAM_API_LIB "${_lumi_steam_sdk}/redistributable_bin/osx/libsteam_api.dylib")
+        set(STEAM_API_DLL "${_lumi_steam_sdk}/redistributable_bin/osx/libsteam_api.dylib")
     else()
         message(WARNING "Unsupported platform for Steam SDK integration")
         return()
