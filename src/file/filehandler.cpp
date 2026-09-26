@@ -495,7 +495,11 @@ size_t FileHandler::_getFileSize(const std::string &filepath) {
 bool FileHandler::_deleteFile(const std::string &filepath) {
     try {
         if (std::filesystem::exists(filepath)) {
-            return std::filesystem::remove(filepath);
+            const bool removed = std::filesystem::remove(filepath);
+            // A delete is a change to the mount exactly as a write is, and left unsynced the
+            // file comes back on the next reload — see `_writeFile`.
+            if (removed) _schedulePersistentFlush(filepath);
+            return removed;
         }
         return true; // File doesn't exist, consider it a success
     } catch (const std::filesystem::filesystem_error &e) {
