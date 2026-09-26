@@ -220,6 +220,7 @@ void NewFrame() {
         const uint32_t ch = Renderer::GetCanvasHeight();
         if (cw > 0 && ch > 0) {
             io.DisplaySize = ImVec2((float)cw, (float)ch);
+            io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
         }
     }
 #endif
