@@ -53,6 +53,7 @@
 #include <draw/particles.h>
 #include <draw/text.h>
 #include <profiler/perf.h>
+#include <core/licenses/licenses.h>
 
 // ── Scene ────────────────────────────────────────────────────────────────────
 #include <scene/camera.h>

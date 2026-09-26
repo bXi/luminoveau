@@ -61,6 +61,8 @@ else()
     if(sdl3webgpu_ADDED OR sdl3webgpu_SOURCE_DIR)
         target_sources(luminoveau PRIVATE "${sdl3webgpu_SOURCE_DIR}/sdl3webgpu.c")
         target_include_directories(luminoveau PUBLIC "${sdl3webgpu_SOURCE_DIR}")
+        lumi_add_notice("sdl3webgpu" SPDX "MIT"
+            URL "https://github.com/eliemichel/sdl3webgpu" DIR "${sdl3webgpu_SOURCE_DIR}")
         lumi_done("sdl3webgpu")
     else()
         message(FATAL_ERROR "sdl3webgpu fetch failed — required for WEBGPU backend")

@@ -95,6 +95,8 @@ if(LUMINOVEAU_BUILD_RMLUI)
             )
         endif()
 
+        lumi_add_notice("RmlUi" SPDX "MIT" VERSION "a60d823"
+            URL "https://github.com/mikke89/RmlUi" DIR "${RmlUi_SOURCE_DIR}")
         lumi_done("RmlUi")
     else()
         lumi_warn("RmlUi - fetch failed")

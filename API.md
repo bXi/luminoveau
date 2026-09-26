@@ -595,7 +595,43 @@ File lives under `FileHandler::GetWritableDirectory()`.
 
 ---
 
-## 21. Common pitfalls
+## 21. Third-party licenses
+
+Every library compiled into a game registers its license at build time (`cmake/ThirdPartyNotices.cmake`). Without any code in the game:
+
+- the license text is compiled into the binary (`Licenses::GetNotices()`, `Licenses::GetNoticesText()`)
+- `THIRD_PARTY_NOTICES.txt` is copied next to every executable that links `luminoveau`
+- `--lumi-licenses` on the command line, or `?licenses` in the page URL, opens an in-game licenses screen
+
+Consoles and phones have neither a command line nor a file browser, so give the screen a menu item there:
+
+```cpp
+if (licensesSelected)
+    Licenses::Open();
+
+if (Licenses::IsOpen())
+    return Lumi::Result::Continue; // the screen reads the same input the game does
+
+// Match the game's look
+LicensesStyle style;
+style.titleFont = &AssetHandler::GetFont("fonts/title.ttf", 64);
+style.accent    = Color(255, 140, 60, 255);
+Licenses::Open(style);
+```
+
+The screen handles keyboard, mouse, touch and gamepads, lays itself out side by side or stacked depending on the window, and follows the window height for size.
+
+Register a game's own dependencies the same way, anywhere after `add_subdirectory(luminoveau)`:
+
+```cmake
+lumi_add_notice("Box2D" SPDX "MIT" VERSION "v3.1.0" URL "https://github.com/erincatto/box2d" DIR "${box2d_SOURCE_DIR}")
+```
+
+`DIR` picks the first `LICENSE*`/`COPYING*` file in that directory; pass `FILE` to name one.
+
+---
+
+## 22. Common pitfalls
 
 ### Frame timing
 - `GetFrameTime()` is per-StartFrame interval (can be µs-scale on native SDL_AppIterate if SDL spins). Use it for variable-step integration but **don't compute FPS as `1/GetFrameTime()`** — use `Window::GetFPS(ms)` which counts real presents.
@@ -622,7 +658,7 @@ File lives under `FileHandler::GetWritableDirectory()`.
 
 ---
 
-## 22. Useful reference paths
+## 23. Useful reference paths
 
 | Topic | File |
 |---|---|
@@ -642,7 +678,7 @@ File lives under `FileHandler::GetWritableDirectory()`.
 
 ---
 
-## 23. Minimum viable game
+## 24. Minimum viable game
 
 ```cpp
 #include "luminoveau.h"

@@ -24,6 +24,8 @@ if(_shadercross_src)
         target_compile_definitions(luminoveau PRIVATE SDL_SHADERCROSS_DXC)
     endif()
 
+    lumi_add_notice("SDL_shadercross" SPDX "Zlib" VERSION "6b06e55"
+        URL "https://github.com/libsdl-org/SDL_shadercross" DIR "${_shadercross_src}")
     lumi_done("SDL_shadercross (source-only)")
 else()
     lumi_warn("SDL_shadercross - fetch failed")

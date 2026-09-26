@@ -48,6 +48,8 @@ if(SPIRVCROSS_ROOT)
         )
     endif()
 
+    lumi_add_notice("SPIRV-Cross" SPDX "Apache-2.0" VERSION "39e6a39c"
+        URL "https://github.com/KhronosGroup/SPIRV-Cross" DIR "${SPIRVCROSS_ROOT}")
     lumi_done("SPIRV-Cross (source-only)")
 else()
     lumi_warn("SPIRV-Cross - fetch failed")

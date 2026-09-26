@@ -54,6 +54,8 @@ set(LUMINOVEAU_SOURCES
     src/core/log/sinks/sdlconsolesink.cpp
     src/core/log/sinks/filesink.cpp
     src/core/log/sinks/memorybuffersink.cpp
+    src/core/licenses/licenses.cpp
+    src/core/licenses/licensetext.cpp
 
     # Profiler
     src/profiler/perf.cpp
@@ -208,6 +210,9 @@ set(LUMINOVEAU_HEADERS
     src/core/state/state.h
     src/core/state/basestate.h
     src/core/log/log.h
+    src/core/licenses/licenses.h
+    src/core/licenses/licensetext.h
+    src/core/licenses/noticerecord.h
 
     # Platform
     src/platform/audio/audio.h

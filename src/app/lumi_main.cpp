@@ -23,6 +23,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     // rewind into. FileHandler mounts it lazily on first use instead, which lands inside the
     // game's own AppInit — the same neighbourhood as the AssetHandler constructor, whose font
     // cache has always slept there safely.
+    Licenses::HandleCommandLine(argc, argv);
     return static_cast<SDL_AppResult>(AppInit(appstate, argc, argv));
 }
 

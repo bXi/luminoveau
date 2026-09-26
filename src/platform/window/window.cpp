@@ -15,6 +15,7 @@
 #include "renderer/renderer.h"
 #include "platform/window/window_backend.h"
 #include "profiler/perf.h"
+#include "core/licenses/licenses.h"
 #include "draw/draw.h"
 
 #include <SDL3_image/SDL_image.h>
@@ -545,6 +546,7 @@ void Window::_endFrame() {
     // Engine-drawn perf HUD: renders into its own render-to-screen overlay framebuffer
     // (created last -> composited on top of everything). No-op if hidden.
     Perf::Render();
+    Licenses::Render(); // same overlay approach; no-op unless the licenses screen is open
 
     Renderer::EndFrame();
 
@@ -727,6 +729,7 @@ void Window::_renderAll(const std::function<void(WindowHandle)> &fn) {
                 ImGuiIntegration::DrawDebugMenu();
 #endif
             Perf::Render();
+            Licenses::Render();
         }
         Renderer::EndFrame();
 

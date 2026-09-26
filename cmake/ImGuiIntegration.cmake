@@ -87,6 +87,8 @@ if(LUMINOVEAU_BUILD_IMGUI)
             )
         endif()
 
+        lumi_add_notice("Dear ImGui" SPDX "MIT" VERSION "${_lumi_imgui_tag}"
+            URL "https://github.com/ocornut/imgui" DIR "${Imgui_SOURCE_DIR}")
         lumi_done("ImGui")
     else()
         lumi_warn("ImGui - fetch failed")

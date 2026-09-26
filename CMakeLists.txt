@@ -200,6 +200,23 @@ find_package(Threads REQUIRED)
 include(cmake/AssetPreparation.cmake)
 include(cmake/SteamDetection.cmake)
 
+# Every component compiled into a game registers its license, here for code that lives in this
+# repository and beside each fetch for the rest. Licenses:: shows them in-game.
+include(cmake/ThirdPartyNotices.cmake)
+lumi_add_notice("Luminoveau" SPDX "MIT" FILE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
+lumi_add_notice("Droid Sans Mono" SPDX "Apache-2.0"
+    FILE "${CMAKE_CURRENT_SOURCE_DIR}/licenses/LICENSE-DroidSansMono_ttf.txt")
+lumi_add_notice("miniaudio" SPDX "Unlicense OR MIT-0" URL "https://github.com/mackron/miniaudio"
+    FILE "${CMAKE_CURRENT_SOURCE_DIR}/licenses/LICENSE-miniaudio.txt")
+lumi_add_notice("stb_image_write, stb_vorbis" SPDX "MIT OR Unlicense" URL "https://github.com/nothings/stb"
+    FILE "${CMAKE_CURRENT_SOURCE_DIR}/licenses/LICENSE-stb.txt")
+lumi_add_notice("mINI" SPDX "MIT" VERSION "0.9.11" URL "https://github.com/metayeti/mINI"
+    FILE "${CMAKE_CURRENT_SOURCE_DIR}/licenses/LICENSE-mINI.txt")
+lumi_add_notice("PicoSHA2" SPDX "MIT" URL "https://github.com/okdshin/PicoSHA2"
+    FILE "${CMAKE_CURRENT_SOURCE_DIR}/licenses/LICENSE-picosha2.txt")
+lumi_add_notice("SPIR-V Headers" SPDX "MIT" URL "https://github.com/KhronosGroup/SPIRV-Headers"
+    FILE "${CMAKE_CURRENT_SOURCE_DIR}/licenses/LICENSE-SPIRV-Headers.txt")
+
 set(CMAKE_FOLDER "Dependencies")
 include(cmake/DependencySetup.cmake)
 if(LUMINOVEAU_WEBGPU_BACKEND)

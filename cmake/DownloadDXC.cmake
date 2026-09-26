@@ -120,5 +120,28 @@ if(WIN32 AND LUMINOVEAU_GPU_BACKEND STREQUAL "DXIL")
         endforeach()
     endif()
 
+    # The zip ships three licenses without saying which covers which DLL. dxcompiler.dll is built
+    # from the open-source repository (LLVM's University of Illinois/NCSA license plus Microsoft's
+    # MIT-licensed parts); dxil.dll contains closed-source code under LICENSE-MS.txt.
+    lumi_add_notice("DirectX Shader Compiler" SPDX "LLVM Release License (University of Illinois/NCSA)"
+        VERSION "${DXC_VERSION}" URL "https://github.com/microsoft/DirectXShaderCompiler"
+        FILE "${DXC_DOWNLOAD_DIR}/LICENSE-LLVM.txt")
+    lumi_add_notice("DirectX Shader Compiler (Microsoft)" SPDX "MIT"
+        VERSION "${DXC_VERSION}" URL "https://github.com/microsoft/DirectXShaderCompiler"
+        FILE "${DXC_DOWNLOAD_DIR}/LICENSE-MIT.txt")
+
+    # A notice cannot cover dxil.dll. Its license is an agreement with whoever ships it, so the
+    # engine can only make sure nobody ships it without knowing.
+    message(WARNING
+        "Luminoveau: the DXIL backend ships dxil.dll, which is NOT covered by the in-game "
+        "licenses screen. It is under the Microsoft Software License Terms "
+        "(${DXC_DOWNLOAD_DIR}/LICENSE-MS.txt), which require anyone distributing it to:\n"
+        "  - use it on Windows only\n"
+        "  - make distributors and end users agree to terms that protect it and Microsoft at least "
+        "as much as that license (in practice: a EULA)\n"
+        "  - indemnify and defend Microsoft against claims related to your application\n"
+        "Read LICENSE-MS.txt and sort this out before releasing. The default SPIR-V (Vulkan) "
+        "backend needs none of it.")
+
     lumi_done("DXC")
 endif()
