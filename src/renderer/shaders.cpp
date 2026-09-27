@@ -129,7 +129,6 @@ void Shaders::_quit() {
         if (_shaderCache->SavePack()) {
             LOG_INFO("Shader cache saved successfully to shader.cache");
         } else {
-            LOG_ERROR("Failed to save shader cache!");
             LOG_WARNING("Failed to save shader cache to {}", FileHandler::GetCacheDirectory());
         }
     }
