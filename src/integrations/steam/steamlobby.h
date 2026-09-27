@@ -66,6 +66,11 @@ public:
     /// @brief Removes every rich presence key this player has set.
     static void ClearRichPresence();
 
+    /// @brief Opens the Steam overlay's invite dialog for the current lobby: the friends list,
+    ///        each with an invite button. False when there is no lobby to invite into. Steam draws
+    ///        the dialog; an invite accepted on the other end arrives there as a JoinRequested event.
+    static bool OpenInviteDialog();
+
     /// @brief The lobby a Steam `+connect_lobby <id>` argument names, or 0. Steam starts a game with
     ///        that on its command line when Join Game is chosen while the game is not running.
     static uint64_t LobbyFromCommandLine(int argc, char *argv[]);

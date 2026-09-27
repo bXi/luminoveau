@@ -194,6 +194,13 @@ void SteamLobby::ClearRichPresence() {
     SteamFriends()->ClearRichPresence();
 }
 
+bool SteamLobby::OpenInviteDialog() {
+    LobbyState *s = state();
+    if (s == nullptr || !s->lobby().IsValid() || SteamFriends() == nullptr) return false;
+    SteamFriends()->ActivateGameOverlayInviteDialog(s->lobby());
+    return true;
+}
+
 bool SteamLobby::Poll(Event &out) {
     LobbyState *s = state();
     return s != nullptr && s->poll(out);
@@ -218,6 +225,7 @@ void SteamLobby::SetData(const std::string &, const std::string &) {}
 std::string SteamLobby::GetData(const std::string &) { return {}; }
 void SteamLobby::SetRichPresence(const std::string &, const std::string &) {}
 void SteamLobby::ClearRichPresence() {}
+bool SteamLobby::OpenInviteDialog() { return false; }
 bool SteamLobby::Poll(Event &) { return false; }
 void SteamLobby::Shutdown() {}
 
