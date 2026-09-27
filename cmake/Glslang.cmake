@@ -1,5 +1,5 @@
 lumi_msg("Fetching glslang")
-lumi_fetch("glslang" "https://github.com/KhronosGroup/glslang.git" "e435148" GLSLANG_ROOT)
+lumi_fetch("glslang" "https://github.com/KhronosGroup/glslang.git" "e43514866f7e0f8265c677039d2fe773c892d44b" GLSLANG_ROOT)
 
 if(GLSLANG_ROOT)
     lumi_add_notice("glslang" SPDX "BSD-3-Clause AND BSD-2-Clause AND MIT AND Apache-2.0" VERSION "e435148"

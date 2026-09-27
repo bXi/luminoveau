@@ -40,6 +40,7 @@ else()
         NAME webgpu
         GITHUB_REPOSITORY eliemichel/WebGPU-distribution
         GIT_TAG v0.2.0
+        GIT_SHALLOW TRUE # the tag's one commit, not the history; see lumi_fetch
         EXCLUDE_FROM_ALL YES
     )
     if(webgpu_ADDED OR webgpu_SOURCE_DIR)
@@ -56,6 +57,7 @@ else()
         NAME sdl3webgpu
         GITHUB_REPOSITORY eliemichel/sdl3webgpu
         GIT_TAG main
+        GIT_SHALLOW TRUE
         EXCLUDE_FROM_ALL YES
     )
     if(sdl3webgpu_ADDED OR sdl3webgpu_SOURCE_DIR)

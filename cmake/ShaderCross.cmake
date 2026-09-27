@@ -2,7 +2,8 @@
 # are already on the include path when SDL_shadercross.c is compiled.
 
 lumi_msg("Fetching SDL_shadercross")
-lumi_fetch("sdl-shadercross" "https://github.com/libsdl-org/SDL_shadercross.git" "6b06e55" _shadercross_src)
+# No submodules: its four are the shader compilers it can vendor, and only its own .c is built here.
+lumi_fetch("sdl-shadercross" "https://github.com/libsdl-org/SDL_shadercross.git" "6b06e55c7c5d7e7a09a8a14f76e866dcfad5ab99" _shadercross_src)
 
 if(_shadercross_src)
     target_include_directories(luminoveau SYSTEM PUBLIC

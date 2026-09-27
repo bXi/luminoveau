@@ -33,11 +33,13 @@ endif()
 
 # Fetching GLM
 lumi_msg("Fetching GLM")
-CPMAddPackage(
+# Every pin below goes through `lumi_add_package` / `lumi_fetch` (LumiMessage.cmake), which fetches
+# the one commit rather than the repository's history. Hashes are written in full because git can
+# fetch a full hash on its own and cannot fetch an abbreviated one.
+lumi_add_package(
     NAME glm
-    GITHUB_REPOSITORY g-truc/glm
-    GIT_TAG 69b130c
-    EXCLUDE_FROM_ALL YES
+    GIT https://github.com/g-truc/glm.git
+    REF 69b130c162e6266e07392741bd04feacc55dcda2
     OPTIONS
         "GLM_ENABLE_FAST_MATH ON"
         "GLM_BUILD_TESTS OFF"
@@ -70,11 +72,10 @@ else()
     set(FMT_VERSION 9.1.0)
 endif()
 
-CPMAddPackage(
+lumi_add_package(
     NAME fmt
-    GITHUB_REPOSITORY fmtlib/fmt
-    GIT_TAG ${FMT_VERSION}
-    EXCLUDE_FROM_ALL YES
+    GIT https://github.com/fmtlib/fmt.git
+    REF ${FMT_VERSION}
     OPTIONS
         "FMT_INSTALL OFF"
         "FMT_TEST OFF"
@@ -110,11 +111,10 @@ if(WIN32)
 endif()
 
 lumi_msg("Fetching SDL3")
-CPMAddPackage(
+lumi_add_package(
     NAME SDL3
-    GITHUB_REPOSITORY libsdl-org/SDL
-    GIT_TAG a962f40
-    EXCLUDE_FROM_ALL YES
+    GIT https://github.com/libsdl-org/SDL.git
+    REF a962f40bbba175e9716557a25d5d7965f134a3d3
 )
 if(SDL3_ADDED)
     if(NOT EXISTS "${SDL3_SOURCE_DIR}/include")
@@ -143,11 +143,18 @@ set(SDL3IMAGE_TESTS OFF CACHE BOOL "Disable SDL3_image tests" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
 
 lumi_msg("Fetching SDL3_image")
-CPMAddPackage(
+# **No submodules**, deliberately. Its nine are the vendored image libraries (libjxl, aom, dav1d,
+# libavif, libtiff, libwebp, libpng, zlib, jpeg) — 733 MB of history — and none is built: PNG and
+# JPEG decode through the stb backend, and vendoring is off.
+#
+# Note the options above are spelled SDL3IMAGE_*, which SDL_image does not read — it reads
+# SDLIMAGE_*. So they have never taken effect: vendoring is off because that is SDL_image's own
+# default, not because of the line above, and AVIF is on, loaded as a shared library if present.
+# Left as found; renaming them would change which formats the engine loads.
+lumi_add_package(
     NAME SDL3_image
-    GITHUB_REPOSITORY libsdl-org/SDL_image
-    GIT_TAG cc0b1ff
-    EXCLUDE_FROM_ALL YES
+    GIT https://github.com/libsdl-org/SDL_image.git
+    REF cc0b1ffedb87189b873bd83b838b77e03812f882
 )
 if(SDL3_image_ADDED)
     if(NOT EXISTS "${SDL3_image_SOURCE_DIR}/include")
@@ -169,11 +176,10 @@ if(NOT EMSCRIPTEN)
     set(BUILD_SHARED_LIBS  OFF CACHE BOOL "Build static libraries"          FORCE)
 
     lumi_msg("Fetching SDL3_net")
-    CPMAddPackage(
+    lumi_add_package(
         NAME SDL3_net
-        GITHUB_REPOSITORY libsdl-org/SDL_net
-        GIT_TAG 4ffa92a
-        EXCLUDE_FROM_ALL YES
+        GIT https://github.com/libsdl-org/SDL_net.git
+        REF 4ffa92ace93ec439f0013f1a36a9c4f30e3cd838
     )
     if(SDL3_net_ADDED)
         if(EXISTS "${SDL3_net_SOURCE_DIR}/include")
@@ -217,11 +223,11 @@ if(LUMINOVEAU_WITH_GNS AND NOT EMSCRIPTEN)
         set(BUILD_SHARED_LIBS          OFF CACHE BOOL "Build static libraries"       FORCE)
 
         lumi_msg("Fetching protobuf")
-        CPMAddPackage(
+        # Its submodules are googletest and benchmark, for the tests switched off above.
+        lumi_add_package(
             NAME protobuf
-            GITHUB_REPOSITORY protocolbuffers/protobuf
-            GIT_TAG v3.21.12
-            EXCLUDE_FROM_ALL YES
+            GIT https://github.com/protocolbuffers/protobuf.git
+            REF v3.21.12
         )
 
         if(NOT protobuf_ADDED)
@@ -255,11 +261,11 @@ if(LUMINOVEAU_WITH_GNS AND NOT EMSCRIPTEN)
                 lumi_warn("protobuf_generate_cpp unavailable - GNS transport disabled")
             else()
                 lumi_msg("Fetching GameNetworkingSockets")
-                CPMAddPackage(
+                lumi_add_package(
                     NAME GameNetworkingSockets
-                    GITHUB_REPOSITORY ValveSoftware/GameNetworkingSockets
-                    GIT_TAG v1.6.0
-                    EXCLUDE_FROM_ALL YES
+                    GIT https://github.com/ValveSoftware/GameNetworkingSockets.git
+                    REF v1.6.0
+                    SUBMODULES
                 )
                 if(GameNetworkingSockets_ADDED)
                     target_link_libraries(luminoveau PUBLIC GameNetworkingSockets::static)
@@ -311,10 +317,15 @@ if(LUMINOVEAU_WITH_WEBRTC)
 
     if(EMSCRIPTEN)
         lumi_msg("Fetching datachannel-wasm")
+        # Left on CPM, because of the patch below: CPM applies it once to its own clone. A source
+        # tree from `lumi_fetch` may be shared between build directories through LUMI_DEPS_CACHE,
+        # and patching a shared tree is not something to do quietly. Shallow instead, which is
+        # most of the saving anyway.
         CPMAddPackage(
             NAME datachannel-wasm
             GITHUB_REPOSITORY paullouisageneau/datachannel-wasm
             GIT_TAG v0.4.0
+            GIT_SHALLOW TRUE
             EXCLUDE_FROM_ALL YES
             # `RTCDataChannel.send()` rejects a view onto a resizable ArrayBuffer, and browsers now
             # expose WebAssembly memory as one — so every send throws until this is applied. The
@@ -349,11 +360,12 @@ if(LUMINOVEAU_WITH_WEBRTC)
         set(BUILD_SHARED_LIBS  OFF CACHE BOOL "Build static libraries"    FORCE)
 
         lumi_msg("Fetching Mbed TLS")
-        CPMAddPackage(
+        # Its submodule is `framework`, which the build reads.
+        lumi_add_package(
             NAME mbedtls
-            GITHUB_REPOSITORY Mbed-TLS/mbedtls
-            GIT_TAG v3.6.2
-            EXCLUDE_FROM_ALL YES
+            GIT https://github.com/Mbed-TLS/mbedtls.git
+            REF v3.6.2
+            SUBMODULES
         )
 
         if(NOT mbedtls_ADDED)
@@ -378,11 +390,12 @@ if(LUMINOVEAU_WITH_WEBRTC)
             set(NO_TESTS    ON  CACHE BOOL "Disable libdatachannel tests"       FORCE)
 
             lumi_msg("Fetching libdatachannel")
-            CPMAddPackage(
+            # Submodules: libjuice, usrsctp and plog are built from them.
+            lumi_add_package(
                 NAME libdatachannel
-                GITHUB_REPOSITORY paullouisageneau/libdatachannel
-                GIT_TAG v0.23.1
-                EXCLUDE_FROM_ALL YES
+                GIT https://github.com/paullouisageneau/libdatachannel.git
+                REF v0.23.1
+                SUBMODULES
             )
             if(libdatachannel_ADDED)
                 target_link_libraries(luminoveau PUBLIC datachannel-static)
@@ -459,11 +472,12 @@ endif()
 # Fetching freetype (required by MSDF-atlas-gen's msdfgen)
 if (NOT ANDROID)
 lumi_msg("Fetching freetype")
-CPMAddPackage(
+# Its one submodule, `dlg`, is what FreeType's debug logging is built from.
+lumi_add_package(
     NAME freetype
-    GITHUB_REPOSITORY freetype/freetype
-    GIT_TAG b1f4785
-    EXCLUDE_FROM_ALL YES
+    GIT https://github.com/freetype/freetype.git
+    REF b1f47850878d232eea372ab167e760ccac4c4e32
+    SUBMODULES
     OPTIONS
         "FT_DISABLE_ZLIB ON"
         "FT_DISABLE_BZIP2 ON"
@@ -527,11 +541,12 @@ set(MSDF_ATLAS_MSDFGEN_EXTERNAL OFF CACHE BOOL "" FORCE)
     endif()
 
 lumi_msg("Fetching MSDF-atlas-gen")
-CPMAddPackage(
+# Submodules: msdfgen and artery-font-format are built from them.
+lumi_add_package(
     NAME MSDF-atlas-gen
-    GITHUB_REPOSITORY Chlumsky/msdf-atlas-gen
-    GIT_TAG c76a323
-    EXCLUDE_FROM_ALL YES
+    GIT https://github.com/Chlumsky/msdf-atlas-gen.git
+    REF c76a32319934c39e51a8c4838240d7b2362b0882
+    SUBMODULES
 )
 if(MSDF-atlas-gen_ADDED)
     if(NOT EXISTS "${MSDF-atlas-gen_SOURCE_DIR}")
@@ -556,11 +571,10 @@ set(PHYSFS_BUILD_DOCS OFF CACHE BOOL "Disable physfs documentation" FORCE)
 set(PHYSFS_DISABLE_INSTALL ON CACHE BOOL "Disable physfs installation" FORCE)
 
 lumi_msg("Fetching physfs")
-CPMAddPackage(
+lumi_add_package(
     NAME physfs
-    GITHUB_REPOSITORY icculus/physfs
-    GIT_TAG 7726d18
-    EXCLUDE_FROM_ALL YES
+    GIT https://github.com/icculus/physfs.git
+    REF 7726d1842d4397caaf210cabca0d7dd241ba89b9
 )
 if(physfs_ADDED)
     if(NOT EXISTS "${physfs_SOURCE_DIR}/src")

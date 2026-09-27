@@ -14,11 +14,10 @@ if(LUMINOVEAU_BUILD_RMLUI)
     set(RMLUI_SDL_VERSION_MAJOR 3)
 
     lumi_msg("Fetching RmlUi")
-    CPMAddPackage(
+    lumi_add_package(
         NAME RmlUi
-        GITHUB_REPOSITORY mikke89/RmlUi
-        GIT_TAG a60d823
-        EXCLUDE_FROM_ALL YES
+        GIT https://github.com/mikke89/RmlUi.git
+        REF a60d8237695ddfafaa3a58cd3e2f719dd7789167
         OPTIONS
             "BUILD_SHARED_LIBS OFF"
             "RMLUI_FONT_ENGINE freetype"

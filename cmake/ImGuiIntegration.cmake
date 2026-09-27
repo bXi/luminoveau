@@ -11,18 +11,21 @@ endif()
 if(LUMINOVEAU_BUILD_IMGUI)
 
     # Docking mode (opt-in) pulls the docking branch; otherwise the pinned master.
+    # The short form names it in the licence notice; the full one is what gets fetched — see
+    # `lumi_fetch` for why only a full hash can be fetched on its own.
     if(LUMINOVEAU_IMGUI_DOCKING)
         set(_lumi_imgui_tag 2af6dd9)
+        set(_lumi_imgui_ref 2af6dd9694288e6befe1edb7ce25510911693c22)
         lumi_msg("Fetching ImGui (docking branch)")
     else()
         set(_lumi_imgui_tag fbcf951)
+        set(_lumi_imgui_ref fbcf95193f40fc57a3f0a3e8f59798de06e69bc6)
         lumi_msg("Fetching ImGui")
     endif()
-    CPMAddPackage(
+    lumi_add_package(
         NAME Imgui
-        GITHUB_REPOSITORY ocornut/imgui
-        GIT_TAG ${_lumi_imgui_tag}
-        EXCLUDE_FROM_ALL YES
+        GIT https://github.com/ocornut/imgui.git
+        REF ${_lumi_imgui_ref}
         OPTIONS
             "IMGUI_BUILD_SDL3_BACKEND OFF"
     )

@@ -1,5 +1,5 @@
 lumi_msg("Fetching SPIRV-Cross")
-lumi_fetch("spirv-cross" "https://github.com/KhronosGroup/SPIRV-Cross.git" "39e6a39c" SPIRVCROSS_ROOT)
+lumi_fetch("spirv-cross" "https://github.com/KhronosGroup/SPIRV-Cross.git" "39e6a39cf36bce6b8901b2cd765476f2d96d6157" SPIRVCROSS_ROOT)
 
 if(SPIRVCROSS_ROOT)
 
