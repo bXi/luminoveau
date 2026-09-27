@@ -305,7 +305,14 @@ PhysFSFileData Shaders::_getShader(const std::string &filename) {
 
     LOG_INFO("Compiling shader: {}", filename.c_str());
 
-    auto        sourceFile = FileHandler::GetFileFromPhysFS(filename);
+    auto sourceFile = FileHandler::GetFileFromPhysFS(filename);
+
+    if (sourceFile.data == nullptr || sourceFile.fileSize <= 0) {
+        std::error_code ec;
+        const std::string cwd = std::filesystem::current_path(ec).string();
+        LOG_ERROR("Shader source not found: {} (working directory: {})", filename, cwd);
+    }
+
     std::string source(static_cast<char *>(sourceFile.data), sourceFile.fileSize);
 
     auto spirvBlob = compileGLSLtoSPIRV(source, shaderStage);
