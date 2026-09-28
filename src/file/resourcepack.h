@@ -51,8 +51,7 @@ public:
     bool HasFile(const std::string &fileName);
     /// @brief Loads the pack's index from disk.
     bool LoadPack();
-    /// @brief Writes the pack (index + data) to disk. False on any failure, never a throw — the
-    ///        caches that use this save on quit, where an escaping exception aborts the process.
+    /// @brief Writes the pack (index + data) to disk. False on any failure; never throws.
     bool SavePack();
     /// @brief Returns a streambuf over the named file's bytes within the pack.
     ResourceBuffer GetFileBuffer(const std::string &fileName);
