@@ -126,12 +126,6 @@ void Shaders::_init() {
 }
 
 void Shaders::_quit() {
-    if (_shaderCache) {
-        LOG_INFO("Saving shader cache (cached {} shaders)...", _metadataCache.size());
-        if (_shaderCache->SavePack()) {
-            LOG_INFO("Shader cache saved successfully to shader.cache");
-        } else {
-            LOG_WARNING("Failed to save shader cache to {}", FileHandler::GetCacheDirectory());
     try {
         if (_shaderCache) {
             LOG_INFO("Saving shader cache (cached {} shaders)...", _metadataCache.size());
