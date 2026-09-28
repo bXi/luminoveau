@@ -25,6 +25,8 @@ void FileSink::Write(const LogEntry &entry) {
     }
 
     std::fprintf(_file, "%s\n", entry.ToString().c_str());
+
+    if (entry.level >= LogLevel::Warning) std::fflush(_file);
 }
 
 void FileSink::Flush() {

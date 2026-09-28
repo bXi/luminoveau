@@ -18,6 +18,8 @@
 #include "core/log/log.h"
 #include "gpu/IGpu.h"
 
+#include <exception>
+
 #include <fstream>
 #include <filesystem>
 #include <sstream>
@@ -130,12 +132,29 @@ void Shaders::_quit() {
             LOG_INFO("Shader cache saved successfully to shader.cache");
         } else {
             LOG_WARNING("Failed to save shader cache to {}", FileHandler::GetCacheDirectory());
+    try {
+        if (_shaderCache) {
+            LOG_INFO("Saving shader cache (cached {} shaders)...", _metadataCache.size());
+            if (_shaderCache->SavePack()) {
+                LOG_INFO("Shader cache saved successfully to shader.cache");
+            } else {
+                LOG_WARNING("Failed to save shader cache to {}", FileHandler::GetCacheDirectory());
+            }
         }
+    } catch (const std::exception &e) {
+        LOG_WARNING("Shaders: shader cache not saved on quit: {}", e.what());
+    } catch (...) {
+        LOG_WARNING("Shaders: shader cache not saved on quit: unknown exception");
     }
+
     delete _shaderCache;
     _shaderCache = nullptr;
 
-    SDL_ShaderCross_Quit();
+    try {
+        SDL_ShaderCross_Quit();
+    } catch (...) {
+        LOG_WARNING("Shaders: SDL_shadercross shut down with an exception");
+    }
     LOG_INFO("SDL_shadercross shut down");
 }
 
