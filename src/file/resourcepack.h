@@ -51,7 +51,8 @@ public:
     bool HasFile(const std::string &fileName);
     /// @brief Loads the pack's index from disk.
     bool LoadPack();
-    /// @brief Writes the pack (index + data) to disk.
+    /// @brief Writes the pack (index + data) to disk. False on any failure, never a throw — the
+    ///        caches that use this save on quit, where an escaping exception aborts the process.
     bool SavePack();
     /// @brief Returns a streambuf over the named file's bytes within the pack.
     ResourceBuffer GetFileBuffer(const std::string &fileName);
@@ -78,6 +79,9 @@ private:
     std::string                         _key;
     std::map<std::string, ResourceFile> _mapFiles;
     std::ifstream                       _baseFile;
+
+    /// The save itself; `SavePack` is this behind a catch.
+    bool _savePack();
 
     std::vector<char> _scramble(const std::vector<char> &data, const std::string &key);
     std::string       _makePosix(const std::string &path);

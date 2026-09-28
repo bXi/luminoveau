@@ -2,9 +2,10 @@
 #include "file/filehandler.h"
 #include "core/log/log.h"
 
+#include <cstring>
+#include <exception>
 #include <filesystem>
 #include <utility>
-#include <cstring>
 
 ResourceBuffer::ResourceBuffer(std::ifstream &ifs, uint32_t offset, uint32_t size) {
     memory.resize(size);
@@ -153,6 +154,22 @@ bool ResourcePack::LoadPack() {
 }
 
 bool ResourcePack::SavePack() {
+    // **A cache that cannot be saved is a slower next launch, not a crash.** The shader cache saves
+    // from `Shaders::_quit`, during shutdown, where an exception has nothing above it to land on:
+    // the Mac build aborted on every quit this way, the throw coming out of the standard library —
+    // most likely an entry sized from a damaged pack on disk. Caught here, so the shader and font
+    // caches are both covered, and named in the log, since the abort itself says nothing useful.
+    try {
+        return _savePack();
+    } catch (const std::exception &e) {
+        LOG_WARNING("ResourcePack: could not save {}: {}", _fileName, e.what());
+    } catch (...) {
+        LOG_WARNING("ResourcePack: could not save {}: unknown exception", _fileName);
+    }
+    return false;
+}
+
+bool ResourcePack::_savePack() {
     for (auto &[name, entry] : _mapFiles) {
         if (entry.type == ResourceType::File && _baseFile.is_open() && entry.offset > 0) {
             entry.bytes.resize(entry.size);
