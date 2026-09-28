@@ -10,6 +10,8 @@ target_sources(luminoveau PRIVATE
     src/integrations/steam/steamabi.h
     src/integrations/steam/steamlobby.cpp
     src/integrations/steam/steamlobby.h
+    src/integrations/steam/steamleaderboards.cpp
+    src/integrations/steam/steamleaderboards.h
 )
 
 # There is no Steamworks in a browser, so the SDK is skipped outright on the web. The stub

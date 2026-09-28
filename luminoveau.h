@@ -63,6 +63,7 @@
 // ── Steam (optional) ─────────────────────────────────────────────────────────
 #include <integrations/steam/steam.h>
 #include <integrations/steam/steamlobby.h>
+#include <integrations/steam/steamleaderboards.h>
 
 // ── RmlUI (optional) ─────────────────────────────────────────────────────────
 #ifdef LUMINOVEAU_WITH_RMLUI

@@ -21,13 +21,24 @@
 // **Declared here rather than by including steam_api_flat.h**, which includes its siblings as
 // `steam/steam_api.h`. The engine puts `sdk/public/steam` on the include path, not `sdk/public`,
 // deliberately — `steam/` is exactly the prefix GameNetworkingSockets' headers collide on (see
-// SteamDetection.cmake). These four are copied from that header, S_API and all, and are exported
+// SteamDetection.cmake). These are copied from that header, S_API and all, and are exported
 // by steam_api64.dll under exactly these names.
 S_API uint64 SteamAPI_ISteamUser_GetSteamID(ISteamUser *self);
 S_API uint64 SteamAPI_ISteamMatchmaking_GetLobbyByIndex(ISteamMatchmaking *self, int iLobby);
 S_API uint64 SteamAPI_ISteamMatchmaking_GetLobbyMemberByIndex(ISteamMatchmaking *self, uint64 steamIDLobby,
                                                               int iMember);
-S_API uint64 SteamAPI_ISteamMatchmaking_GetLobbyOwner(ISteamMatchmaking *self, uint64 steamIDLobby);
+
+// The friends list, for an in-game invite list. `GetFriendByIndex` returns a CSteamID and is the one
+// that has to come through here; the rest take one by value and come through too, so every friends
+// call in the engine is spelled the same way.
+S_API int           SteamAPI_ISteamFriends_GetFriendCount(ISteamFriends *self, int iFriendFlags);
+S_API uint64        SteamAPI_ISteamFriends_GetFriendByIndex(ISteamFriends *self, int iFriend, int iFriendFlags);
+S_API EPersonaState SteamAPI_ISteamFriends_GetFriendPersonaState(ISteamFriends *self, uint64 steamIDFriend);
+S_API const char   *SteamAPI_ISteamFriends_GetFriendPersonaName(ISteamFriends *self, uint64 steamIDFriend);
+S_API bool          SteamAPI_ISteamFriends_GetFriendGamePlayed(ISteamFriends *self, uint64 steamIDFriend,
+                                                               FriendGameInfo_t *pFriendGameInfo);
+S_API bool SteamAPI_ISteamMatchmaking_InviteUserToLobby(ISteamMatchmaking *self, uint64 steamIDLobby,
+                                                        uint64 steamIDInvitee);S_API uint64 SteamAPI_ISteamMatchmaking_GetLobbyOwner(ISteamMatchmaking *self, uint64 steamIDLobby);
 
 namespace lumi_steam {
 

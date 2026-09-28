@@ -1,5 +1,6 @@
 #include "steam.h"
 #include "steamabi.h"
+#include "steamleaderboards.h"
 #include "steamlobby.h"
 
 //*/
@@ -35,6 +36,7 @@ void Steam::_close() {
 #ifdef LUMINOVEAU_WITH_STEAM
     // Its callbacks unregister in their destructors, which must happen while the API still exists.
     SteamLobby::Shutdown();
+    SteamLeaderboards::Shutdown();
 
     if (_isInit)
         SteamAPI_Shutdown();

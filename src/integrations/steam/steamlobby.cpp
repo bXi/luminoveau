@@ -3,6 +3,7 @@
 #include "steam.h"
 #include "steamabi.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <deque>
@@ -201,6 +202,47 @@ bool SteamLobby::OpenInviteDialog() {
     return true;
 }
 
+std::vector<SteamLobby::Friend> SteamLobby::Friends() {
+    std::vector<Friend> out;
+    if (!Steam::IsReady() || SteamFriends() == nullptr) return out;
+
+    ISteamFriends *friends = SteamFriends();
+    const AppId_t  thisApp = SteamUtils() != nullptr ? SteamUtils()->GetAppID() : 0;
+
+    // Through the flat API — see steamabi.h.
+    const int count = SteamAPI_ISteamFriends_GetFriendCount(friends, k_EFriendFlagImmediate);
+    for (int i = 0; i < count; ++i) {
+        const uint64 id = SteamAPI_ISteamFriends_GetFriendByIndex(friends, i, k_EFriendFlagImmediate);
+        const EPersonaState persona = SteamAPI_ISteamFriends_GetFriendPersonaState(friends, id);
+        if (persona == k_EPersonaStateOffline) continue;
+
+        Friend f;
+        f.id = id;
+        if (const char *name = SteamAPI_ISteamFriends_GetFriendPersonaName(friends, id)) f.name = name;
+        f.away = persona == k_EPersonaStateAway || persona == k_EPersonaStateSnooze ||
+                 persona == k_EPersonaStateBusy;
+
+        FriendGameInfo_t game{};
+        f.inThisGame = thisApp != 0 && SteamAPI_ISteamFriends_GetFriendGamePlayed(friends, id, &game) &&
+                       game.m_gameID.AppID() == thisApp;
+        out.push_back(std::move(f));
+    }
+
+    std::sort(out.begin(), out.end(), [](const Friend &a, const Friend &b) {
+        if (a.inThisGame != b.inThisGame) return a.inThisGame;
+        if (a.away != b.away) return !a.away;
+        return a.name < b.name;
+    });
+    return out;
+}
+
+bool SteamLobby::Invite(uint64_t friendId) {
+    LobbyState *s = state();
+    if (s == nullptr || !s->lobby().IsValid() || friendId == 0) return false;
+    return SteamAPI_ISteamMatchmaking_InviteUserToLobby(SteamMatchmaking(), s->lobby().ConvertToUint64(),
+                                                        (uint64)friendId);
+}
+
 bool SteamLobby::Poll(Event &out) {
     LobbyState *s = state();
     return s != nullptr && s->poll(out);
@@ -226,6 +268,8 @@ std::string SteamLobby::GetData(const std::string &) { return {}; }
 void SteamLobby::SetRichPresence(const std::string &, const std::string &) {}
 void SteamLobby::ClearRichPresence() {}
 bool SteamLobby::OpenInviteDialog() { return false; }
+std::vector<SteamLobby::Friend> SteamLobby::Friends() { return {}; }
+bool SteamLobby::Invite(uint64_t) { return false; }
 bool SteamLobby::Poll(Event &) { return false; }
 void SteamLobby::Shutdown() {}
 

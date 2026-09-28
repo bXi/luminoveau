@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 /// @brief A Steam lobby and rich presence, usable whichever `Net` brokerage is active.
 ///
@@ -70,6 +71,25 @@ public:
     ///        each with an invite button. False when there is no lobby to invite into. Steam draws
     ///        the dialog; an invite accepted on the other end arrives there as a JoinRequested event.
     static bool OpenInviteDialog();
+
+    /// @brief One of this player's Steam friends, as an in-game invite list wants them.
+    struct Friend {
+        uint64_t    id = 0;
+        std::string name;
+        bool        away       = false; ///< Away, snoozing or busy rather than simply online.
+        bool        inThisGame = false; ///< Running this same app right now.
+    };
+
+    /// @brief This player's friends who are online, for a game drawing its own invite list rather
+    ///        than opening the overlay. Offline friends are left out — an invite to them waits
+    ///        until they next start Steam, which is not what "invite" means on a lobby screen.
+    ///        Friends in this game come first, then the rest; within each, online before away,
+    ///        then by name.
+    static std::vector<Friend> Friends();
+
+    /// @brief Invites one friend into the current lobby. False when there is no lobby, or Steam
+    ///        refused. An accepted invite arrives on their end as a JoinRequested event.
+    static bool Invite(uint64_t friendId);
 
     /// @brief The lobby a Steam `+connect_lobby <id>` argument names, or 0. Steam starts a game with
     ///        that on its command line when Join Game is chosen while the game is not running.
