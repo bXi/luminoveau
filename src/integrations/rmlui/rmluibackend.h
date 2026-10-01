@@ -69,7 +69,7 @@ BackendData *GetBackendData();
 /// `SDL_GPUTexture` to pass. Callers previously reinterpret_cast into the SDL types; they now
 /// pass the handles straight through.
 void BeginFrame(GpuCmdBufferHandle command_buffer, GpuTextureHandle swapchain_texture,
-    uint32_t width, uint32_t height);
+    uint32_t width, uint32_t height, bool targetSampleable = false);
 
 /**
  * @brief End the current frame

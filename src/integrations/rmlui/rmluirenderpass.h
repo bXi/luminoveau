@@ -73,7 +73,8 @@ public:
         //
         // Passing the window size instead would stretch the UI across the whole desktop-sized
         // texture, and the blit would then show a magnified corner of it.
-        RmlUI::Backend::BeginFrame(cmdBuffer, targetTexture, _width, _height);
+        // The framebuffer texture is sampleable, unlike a swapchain image, so backdrop filters work here.
+        RmlUI::Backend::BeginFrame(cmdBuffer, targetTexture, _width, _height, true);
 
         RmlUI::Render();
         RmlUI::Backend::EndFrame();

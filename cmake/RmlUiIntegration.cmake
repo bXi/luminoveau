@@ -84,6 +84,9 @@ if(LUMINOVEAU_BUILD_RMLUI)
         # free, because they now live in the same directory as its own.
         file(COPY "${PROJECT_SOURCE_DIR}/assets/shaders/rmlui.vert"
                   "${PROJECT_SOURCE_DIR}/assets/shaders/rmlui.frag"
+                  "${PROJECT_SOURCE_DIR}/assets/shaders/rmlui_gradient.frag"
+                  "${PROJECT_SOURCE_DIR}/assets/shaders/rmlui_post.vert"
+                  "${PROJECT_SOURCE_DIR}/assets/shaders/rmlui_post.frag"
              DESTINATION "${CMAKE_SOURCE_DIR}/assets/shaders")
 
         # Optional: Enable RmlUi debugger in debug builds

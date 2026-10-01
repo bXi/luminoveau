@@ -86,7 +86,7 @@ void Shutdown() {
 }
 
 void BeginFrame(GpuCmdBufferHandle command_buffer, GpuTextureHandle swapchain_texture,
-    uint32_t width, uint32_t height) {
+    uint32_t width, uint32_t height, bool targetSampleable) {
     if (!g_backend_data.initialized) {
         return;
     }
@@ -97,7 +97,8 @@ void BeginFrame(GpuCmdBufferHandle command_buffer, GpuTextureHandle swapchain_te
     g_backend_data.swapchain_height  = height;
 
     if (g_backend_data.render_interface) {
-        g_backend_data.render_interface->BeginFrame(command_buffer, swapchain_texture, width, height);
+        g_backend_data.render_interface->BeginFrame(command_buffer, swapchain_texture, width, height,
+                                                    targetSampleable);
     }
 }
 

@@ -52,8 +52,9 @@ public:
     /// Opens a frame. `target` is what the UI draws onto and `width`/`height` size the
     /// orthographic projection, so the caller decides whether that is the swapchain or an
     /// offscreen texture — which is what lets `RmlUiRenderPass` put the UI inside the framebuffer.
+    /// `targetSampleable` says the target may also be read, which backdrop filters need.
     void BeginFrame(GpuCmdBufferHandle cmd, GpuTextureHandle target, uint32_t width,
-                    uint32_t height);
+                    uint32_t height, bool targetSampleable = false);
 
     /// Replays everything RmlUi queued since `BeginFrame`, in one render pass.
     void EndFrame();
@@ -76,6 +77,31 @@ public:
 
     void SetTransform(const Rml::Matrix4f *new_transform) override;
 
+    // Clip masks, in a stencil buffer shared by every layer.
+    void EnableClipMask(bool enable) override;
+    void RenderToClipMask(Rml::ClipMaskOperation operation, Rml::CompiledGeometryHandle geometry,
+                          Rml::Vector2f translation) override;
+
+    // Gradients, filters, layers.
+    Rml::CompiledShaderHandle CompileShader(const Rml::String     &name,
+                                            const Rml::Dictionary &parameters) override;
+    void RenderShader(Rml::CompiledShaderHandle shader, Rml::CompiledGeometryHandle geometry,
+                      Rml::Vector2f translation, Rml::TextureHandle texture) override;
+    void ReleaseShader(Rml::CompiledShaderHandle shader) override;
+
+    Rml::CompiledFilterHandle CompileFilter(const Rml::String     &name,
+                                            const Rml::Dictionary &parameters) override;
+    void ReleaseFilter(Rml::CompiledFilterHandle filter) override;
+
+    Rml::LayerHandle PushLayer() override;
+    void CompositeLayers(Rml::LayerHandle source, Rml::LayerHandle destination,
+                         Rml::BlendMode                         blend_mode,
+                         Rml::Span<const Rml::CompiledFilterHandle> filters) override;
+    void PopLayer() override;
+
+    Rml::TextureHandle        SaveLayerAsTexture() override;
+    Rml::CompiledFilterHandle SaveLayerAsMaskImage() override;
+
 private:
     /// One pooled buffer. `capacity` is in bytes; a request takes the smallest free buffer that
     /// fits and grows a new one when none does.
@@ -94,14 +120,31 @@ private:
         uint32_t indexCount = 0;
     };
 
+    struct Shader;
+    struct Filter;
+
     /// What RmlUi asked for, in the order it asked. Replayed by `EndFrame`.
     struct Command {
-        enum class Kind { Draw, Scissor, ScissorEnable, Transform } kind = Kind::Draw;
+        enum class Kind {
+            Draw, Scissor, ScissorEnable, Transform,
+            PushLayer, PopLayer, Composite, SaveTexture, SaveMask,
+            ClipEnable, ClipDraw,
+        } kind = Kind::Draw;
 
-        // Draw
+        // ClipDraw
+        Rml::ClipMaskOperation clipOperation = Rml::ClipMaskOperation::Set;
+
+        // Draw; `shader` set means a gradient rather than a texture
         Geometry     *geometry    = nullptr;
         Rml::Vector2f translation{0.0f, 0.0f};
         GpuTextureHandle texture  = 0;
+        const Shader    *shader   = nullptr;
+
+        // Composite
+        int                                    source      = 0;
+        int                                    destination = 0;
+        bool                                   replace     = false;
+        std::vector<Rml::CompiledFilterHandle> filters;
 
         // Scissor
         int32_t x = 0, y = 0;
@@ -116,12 +159,97 @@ private:
     void    releaseBuffers();
     bool    createPipelines(GpuTextureFormat targetFormat);
 
+    /// (Re)creates the layer and scratch textures at the target's size.
+    void ensureSurfaces();
+    void releaseSurfaces();
+
+    /// Layer `index`: 0 is the target itself, so a backdrop filter sees what is under the UI.
+    GpuTextureHandle layerTexture(int index);
+
+    /// One fullscreen triangle from `source` into `destination`. Opens and closes its own pass.
+    struct PostParams;
+    /// `clipMask` attaches the stencil and tests it: only for a draw into a UI layer.
+    void postPass(GpuTextureHandle destination, uint32_t width, uint32_t height,
+                  GpuTextureHandle source, GpuTextureHandle mask, bool blend,
+                  const PostParams &params, const float uvTransform[4], bool clipped,
+                  bool clipMask = false);
+
+    /// A scratch surface at the target's size, created on first use.
+    GpuTextureHandle surface(GpuTextureHandle &slot);
+
+    void runComposite(const Command &command);
+    void runBlur(float sigma, GpuTextureHandle image, GpuTextureHandle scratch);
+
+    /// The scissor as a pixel rectangle clamped to the target, or the whole target.
+    void clippedRect(int32_t &x, int32_t &y, int32_t &w, int32_t &h) const;
+
     /// The projection RmlUi's coordinates are drawn through, rebuilt when the target resizes.
     void updateProjection();
 
     GpuGraphicsPipelineHandle _texturedPipeline = 0;
     GpuGraphicsPipelineHandle _colorPipeline    = 0;
+    GpuGraphicsPipelineHandle _gradientPipeline = 0;
+    GpuGraphicsPipelineHandle _postReplace      = 0;
+    GpuGraphicsPipelineHandle _postBlend        = 0;
     GpuSamplerHandle          _sampler          = 0;
+
+    // The same two drawing pipelines, testing the clip mask; and the two that write it.
+    GpuGraphicsPipelineHandle _texturedClipped = 0;
+    GpuGraphicsPipelineHandle _gradientClipped = 0;
+    GpuGraphicsPipelineHandle _maskReplace     = 0;
+    GpuGraphicsPipelineHandle _maskIncrement   = 0;
+    GpuGraphicsPipelineHandle _postBlendClipped   = 0;
+    GpuGraphicsPipelineHandle _postReplaceClipped = 0;
+
+    /// False when the device offers neither depth-stencil format; clipping is then off.
+    bool             _hasStencil     = false;
+    GpuTextureFormat _stencilFormat  = GpuTextureFormat::D24_Unorm_S8_Uint;
+    GpuTextureHandle _stencilTexture = 0;
+
+    // Replay: whether draws test the mask, and the value they test for.
+    bool    _clipEnabled = false;
+    uint8_t _stencilRef  = 1;
+
+    /// Picks the depth-stencil format, by trying to create one.
+    void probeStencilFormat();
+
+    /// Releases between `BeginFrame` and the end of `EndFrame` wait until the replay is done.
+    /// RmlUi frees transient geometry and filters straight after the call that used them, and the
+    /// recorded commands still point at them.
+    bool                          _inFrame = false;
+    std::vector<Geometry *>       _deferredGeometry;
+    std::vector<GpuTextureHandle> _deferredTextures;
+    std::vector<Filter *>         _deferredFilters;
+    std::vector<Shader *>         _deferredShaders;
+
+    void destroyGeometry(Geometry *geometry);
+    void destroyTexture(GpuTextureHandle texture);
+    void flushDeferred();
+
+    /// Layers above the base, then three scratch images for filters, then the mask image.
+    std::vector<GpuTextureHandle> _layers;
+    GpuTextureHandle              _scratch[3]     = {0, 0, 0};
+    GpuTextureHandle              _maskTexture    = 0;
+    uint32_t                      _surfaceWidth   = 0;
+    uint32_t                      _surfaceHeight  = 0;
+    GpuTextureFormat              _format         = GpuTextureFormat::R8G8B8A8_Unorm;
+    bool                          _targetSampleable = false;
+
+    /// Replay state: the open pass, what is bound in it, and which layer it draws to.
+    GpuRenderPassHandle       _pass          = 0;
+    GpuGraphicsPipelineHandle _boundPipeline = 0;
+    bool                      _scissorDirty  = true;
+    int                       _top           = 0;
+
+    /// `stencilClear` of -1 keeps the mask; anything else clears it to that value.
+    void openPass(GpuTextureHandle target, bool clear, int stencilClear = -1);
+    void closePass();
+    void applyScissor();
+
+    /// Layer depth and scissor as RmlUi sees them while it records, for the calls that answer at once.
+    int             _recordDepth = 0;
+    bool            _recordScissorOn = false;
+    Rml::Rectanglei _recordScissor;
 
     /// A 1x1 opaque white texel, bound when geometry has no texture of its own.
     ///
