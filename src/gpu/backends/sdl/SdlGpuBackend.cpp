@@ -209,8 +209,8 @@ GpuRenderPassHandle SdlGpuBackend::BeginRenderPass(GpuCmdBufferHandle cmd,
             .clear_depth      = depthTarget->clearDepth,
             .load_op          = toSDL(depthTarget->loadOp),
             .store_op         = toSDL(depthTarget->storeOp),
-            .stencil_load_op  = SDL_GPU_LOADOP_DONT_CARE,
-            .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
+            .stencil_load_op  = toSDL(depthTarget->stencilLoadOp),
+            .stencil_store_op = toSDL(depthTarget->stencilStoreOp),
             .cycle            = false,
             .clear_stencil    = depthTarget->clearStencil,
         };
@@ -443,6 +443,10 @@ void SdlGpuBackend::SetViewport(GpuRenderPassHandle pass,
     SDL_SetGPUViewport(reinterpret_cast<SDL_GPURenderPass *>(pass), &vp);
 }
 
+void SdlGpuBackend::SetStencilReference(GpuRenderPassHandle pass, uint8_t reference) {
+    SDL_SetGPUStencilReference(reinterpret_cast<SDL_GPURenderPass *>(pass), reference);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Resource creation
 // ─────────────────────────────────────────────────────────────────────────────
@@ -566,9 +570,14 @@ GpuGraphicsPipelineHandle SdlGpuBackend::CreateGraphicsPipeline(const GpuGraphic
             .sample_count = toSDL(info.sampleCount),
         },
         .depth_stencil_state = {
-            .compare_op         = SDL_GPU_COMPAREOP_LESS,
-            .enable_depth_test  = info.hasDepthTarget,
-            .enable_depth_write = info.hasDepthTarget && info.depthWrite,
+            .compare_op          = SDL_GPU_COMPAREOP_LESS,
+            .back_stencil_state  = toSDL(info.stencil),
+            .front_stencil_state = toSDL(info.stencil),
+            .compare_mask        = info.stencil.readMask,
+            .write_mask          = info.stencil.writeMask,
+            .enable_depth_test   = info.hasDepthTarget && info.depthTest,
+            .enable_depth_write  = info.hasDepthTarget && info.depthTest && info.depthWrite,
+            .enable_stencil_test = info.hasDepthTarget && info.stencil.enabled,
         },
         .target_info = {
             .color_target_descriptions = colorDescs.data(),

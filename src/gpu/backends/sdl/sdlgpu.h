@@ -20,6 +20,9 @@ SDL_GPUVertexElementFormat toSDL(GpuVertexElementFormat fmt);
 SDL_GPUFillMode            toSDL(GpuFillMode mode);
 SDL_GPUCullMode            toSDL(GpuCullMode mode);
 SDL_GPUFrontFace           toSDL(GpuFrontFace face);
+SDL_GPUCompareOp           toSDL(GpuCompareOp op);
+SDL_GPUStencilOp           toSDL(GpuStencilOp op);
+SDL_GPUStencilOpState      toSDL(const GpuStencilState &state);
 
 // ── Scalar converter (SDL → engine) ───────────────────────────────────────
 GpuTextureFormat fromSDL(SDL_GPUTextureFormat fmt);

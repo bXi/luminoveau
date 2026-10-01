@@ -26,6 +26,25 @@ static inline WGPUStringView wgpuStr(const char *s) {
     return WGPUStringView { s, WGPU_STRLEN };
 }
 
+// Same order as WebGPU's, one behind its Undefined.
+static WGPUCompareFunction toWGPUCompare(GpuCompareOp op) {
+    return static_cast<WGPUCompareFunction>(static_cast<int>(op) + 1);
+}
+
+static WGPUStencilOperation toWGPUStencil(GpuStencilOp op) {
+    switch (op) {
+    case GpuStencilOp::Zero:           return WGPUStencilOperation_Zero;
+    case GpuStencilOp::Replace:        return WGPUStencilOperation_Replace;
+    case GpuStencilOp::IncrementClamp: return WGPUStencilOperation_IncrementClamp;
+    case GpuStencilOp::DecrementClamp: return WGPUStencilOperation_DecrementClamp;
+    case GpuStencilOp::Invert:         return WGPUStencilOperation_Invert;
+    case GpuStencilOp::IncrementWrap:  return WGPUStencilOperation_IncrementWrap;
+    case GpuStencilOp::DecrementWrap:  return WGPUStencilOperation_DecrementWrap;
+    case GpuStencilOp::Keep:
+    default:                           return WGPUStencilOperation_Keep;
+    }
+}
+
 static void pollUntil(bool &flag) {
 #ifdef __EMSCRIPTEN__
     while (!flag)
@@ -562,8 +581,8 @@ GpuRenderPassHandle WebGpuGpuBackend::BeginRenderPass(GpuCmdBufferHandle cmd,
         // (Depth32Float, Depth16Unorm) reject any non-Undefined stencil op.
         const bool hasStencil = (dTex->format == WGPUTextureFormat_Depth24PlusStencil8 || dTex->format == WGPUTextureFormat_Depth32FloatStencil8 || dTex->format == WGPUTextureFormat_Stencil8);
         if (hasStencil) {
-            depthAttach.stencilLoadOp     = WGPULoadOp_Clear;
-            depthAttach.stencilStoreOp    = WGPUStoreOp_Discard;
+            depthAttach.stencilLoadOp     = depthTarget->stencilLoadOp == GpuLoadOp::Load ? WGPULoadOp_Load : WGPULoadOp_Clear;
+            depthAttach.stencilStoreOp    = depthTarget->stencilStoreOp == GpuStoreOp::Store ? WGPUStoreOp_Store : WGPUStoreOp_Discard;
             depthAttach.stencilClearValue = depthTarget->clearStencil;
         }
         pDepth = &depthAttach;
@@ -1103,6 +1122,11 @@ void WebGpuGpuBackend::SetViewport(GpuRenderPassHandle pass,
     wgpuRenderPassEncoderSetViewport(rp->encoder, x, y, w, h, minDepth, maxDepth);
 }
 
+void WebGpuGpuBackend::SetStencilReference(GpuRenderPassHandle pass, uint8_t reference) {
+    auto *rp = reinterpret_cast<WgpuRenderPass *>(pass);
+    wgpuRenderPassEncoderSetStencilReference(rp->encoder, reference);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Bind group layout helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1479,10 +1503,22 @@ GpuGraphicsPipelineHandle WebGpuGpuBackend::CreateGraphicsPipeline(const GpuGrap
     WGPUDepthStencilState ds {};
     if (info.hasDepthTarget) {
         ds.format               = depthFormatToWGPU(info.depthTargetFormat);
-        ds.depthWriteEnabled    = info.depthWrite ? WGPUOptionalBool_True : WGPUOptionalBool_False;
-        ds.depthCompare         = WGPUCompareFunction_Less;
+        ds.depthWriteEnabled    = info.depthTest && info.depthWrite ? WGPUOptionalBool_True : WGPUOptionalBool_False;
+        ds.depthCompare         = info.depthTest ? WGPUCompareFunction_Less : WGPUCompareFunction_Always;
         ds.stencilFront.compare = WGPUCompareFunction_Always;
         ds.stencilBack.compare  = WGPUCompareFunction_Always;
+
+        if (info.stencil.enabled) {
+            WGPUStencilFaceState face {};
+            face.compare          = toWGPUCompare(info.stencil.compare);
+            face.failOp           = toWGPUStencil(info.stencil.failOp);
+            face.depthFailOp      = toWGPUStencil(info.stencil.failOp);
+            face.passOp           = toWGPUStencil(info.stencil.passOp);
+            ds.stencilFront       = face;
+            ds.stencilBack        = face;
+            ds.stencilReadMask    = info.stencil.readMask;
+            ds.stencilWriteMask   = info.stencil.writeMask;
+        }
 
         // Slope-scaled depth offset — see GpuGraphicsPipelineCreateInfo::depthBiasSlope. WebGPU
         // takes the constant term as an integer count of depth units rather than a float, which

@@ -255,6 +255,26 @@ SDL_GPUBlendFactor toSDL(GpuBlendFactor factor) {
     }
 }
 
+// Both enums follow SDL's order, one behind its INVALID.
+SDL_GPUCompareOp toSDL(GpuCompareOp op) {
+    static_assert(SDL_GPU_COMPAREOP_ALWAYS == (int) GpuCompareOp::Always + 1);
+    return static_cast<SDL_GPUCompareOp>(static_cast<int>(op) + 1);
+}
+
+SDL_GPUStencilOp toSDL(GpuStencilOp op) {
+    static_assert(SDL_GPU_STENCILOP_DECREMENT_AND_WRAP == (int) GpuStencilOp::DecrementWrap + 1);
+    return static_cast<SDL_GPUStencilOp>(static_cast<int>(op) + 1);
+}
+
+SDL_GPUStencilOpState toSDL(const GpuStencilState &state) {
+    return SDL_GPUStencilOpState{
+        .fail_op       = toSDL(state.failOp),
+        .pass_op       = toSDL(state.passOp),
+        .depth_fail_op = toSDL(state.failOp),
+        .compare_op    = toSDL(state.compare),
+    };
+}
+
 SDL_GPUBlendOp toSDL(GpuBlendOp op) {
     switch (op) {
     case GpuBlendOp::Add:

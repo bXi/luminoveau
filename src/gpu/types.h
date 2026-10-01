@@ -254,6 +254,42 @@ enum class GpuBlendOp : uint8_t {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Depth / stencil tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum class GpuCompareOp : uint8_t {
+    Never,
+    Less,
+    Equal,
+    LessOrEqual,
+    Greater,
+    NotEqual,
+    GreaterOrEqual,
+    Always,
+};
+
+enum class GpuStencilOp : uint8_t {
+    Keep,
+    Zero,
+    Replace,
+    IncrementClamp,
+    DecrementClamp,
+    Invert,
+    IncrementWrap,
+    DecrementWrap,
+};
+
+/// Stencil test and update, applied to both faces. The reference is per-pass state: `IGpu::SetStencilReference`.
+struct GpuStencilState {
+    bool         enabled   = false;
+    GpuCompareOp compare   = GpuCompareOp::Always;
+    GpuStencilOp passOp    = GpuStencilOp::Keep;
+    GpuStencilOp failOp    = GpuStencilOp::Keep;
+    uint8_t      readMask  = 0xFF;
+    uint8_t      writeMask = 0xFF;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Resource creation structs
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -369,6 +405,12 @@ struct GpuGraphicsPipelineCreateInfo {
     /// and neighbouring draws reject one another arbitrarily.
     bool                      depthWrite                            = true;
 
+    /// Whether depth is tested at all when `hasDepthTarget` is set; off for a stencil-only use.
+    bool                      depthTest                             = true;
+
+    /// Only meaningful with a depth target whose format carries stencil.
+    GpuStencilState           stencil                               = {};
+
     /// Offsets this pipeline's fragments in depth, in the hardware's own units.
     ///
     /// **The fix for stitching, and the reason it belongs here rather than in a shader.** When
@@ -459,6 +501,8 @@ struct GpuDepthStencilTargetInfo {
     GpuStoreOp       storeOp      = GpuStoreOp::DontCare;
     float            clearDepth   = 1.0f;
     uint8_t          clearStencil = 0;
+    GpuLoadOp        stencilLoadOp  = GpuLoadOp::DontCare;
+    GpuStoreOp       stencilStoreOp = GpuStoreOp::DontCare;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -230,6 +230,9 @@ public:
         float maxDepth = 1.0f)
         = 0;
 
+    /// The value a pipeline's stencil test compares against, for the draws that follow in `pass`.
+    virtual void SetStencilReference(GpuRenderPassHandle /*pass*/, uint8_t /*reference*/) { }
+
     // ── Resource creation ─────────────────────────────────────────────────────
 
     virtual GpuTextureHandle          CreateTexture(const GpuTextureCreateInfo &info)                   = 0;

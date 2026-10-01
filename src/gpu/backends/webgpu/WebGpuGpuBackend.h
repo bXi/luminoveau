@@ -116,6 +116,7 @@ public:
     void SetViewport(GpuRenderPassHandle pass,
         float x, float y, float w, float h,
         float minDepth, float maxDepth) override;
+    void SetStencilReference(GpuRenderPassHandle pass, uint8_t reference) override;
 
     GpuTextureHandle          CreateTexture(const GpuTextureCreateInfo &info) override;
     GpuBufferHandle           CreateBuffer(const GpuBufferCreateInfo &info) override;
