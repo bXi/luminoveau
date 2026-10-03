@@ -125,6 +125,24 @@ std::string Input::_getGamepadName(int gamepadID) {
     return name ? name : std::string{};
 }
 
+SDL_GamepadType Input::_getGamepadType(int gamepadID) {
+    if (gamepadID < 0 || gamepadID >= (int)_gamepads.size() || !_gamepads[gamepadID].gamepad)
+        return SDL_GAMEPAD_TYPE_UNKNOWN;
+    return SDL_GetGamepadType(_gamepads[gamepadID].gamepad);
+}
+
+uint16_t Input::_getGamepadVendor(int gamepadID) {
+    if (gamepadID < 0 || gamepadID >= (int)_gamepads.size() || !_gamepads[gamepadID].gamepad)
+        return 0;
+    return SDL_GetGamepadVendor(_gamepads[gamepadID].gamepad);
+}
+
+SDL_GamepadButtonLabel Input::_getGamepadButtonLabel(int gamepadID, SDL_GamepadButton button) {
+    if (gamepadID < 0 || gamepadID >= (int)_gamepads.size() || !_gamepads[gamepadID].gamepad)
+        return SDL_GAMEPAD_BUTTON_LABEL_UNKNOWN;
+    return SDL_GetGamepadButtonLabel(_gamepads[gamepadID].gamepad, button);
+}
+
 void Input::_rumbleGamepad(int gamepadID, float strength, uint32_t milliseconds) {
     if (gamepadID < 0 || gamepadID >= (int)_gamepads.size() || !_gamepads[gamepadID].gamepad)
         return;

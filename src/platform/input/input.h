@@ -113,6 +113,15 @@ public:
      */
     static std::string GetGamepadName(int gamepadID) { return Get()._getGamepadName(gamepadID); }
 
+    /// The controller family SDL reports (Xbox, PlayStation, Switch...), seen through Steam Input's virtual pad.
+    static SDL_GamepadType GetGamepadType(int gamepadID) { return Get()._getGamepadType(gamepadID); }
+
+    /// USB vendor id, for families SDL has no type for (Valve's 0x28de).
+    static uint16_t GetGamepadVendor(int gamepadID) { return Get()._getGamepadVendor(gamepadID); }
+
+    /// What is printed on a face button: A/B/X/Y or Cross/Circle/Square/Triangle.
+    static SDL_GamepadButtonLabel GetGamepadButtonLabel(int gamepadID, SDL_GamepadButton button) { return Get()._getGamepadButtonLabel(gamepadID, button); }
+
     /**
      * @brief Rumbles a gamepad, so a player can be shown which controller is theirs.
      *
@@ -255,6 +264,9 @@ private:
     SDL_JoystickID _getGamepadInstanceId(int gamepadID);
     int            _getGamepadByInstanceId(SDL_JoystickID instanceId);
     std::string    _getGamepadName(int gamepadID);
+    SDL_GamepadType        _getGamepadType(int gamepadID);
+    uint16_t               _getGamepadVendor(int gamepadID);
+    SDL_GamepadButtonLabel _getGamepadButtonLabel(int gamepadID, SDL_GamepadButton button);
     void           _rumbleGamepad(int gamepadID, float strength, uint32_t milliseconds);
 
     bool _keyPressed(int key);
