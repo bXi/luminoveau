@@ -10,6 +10,7 @@
 
 namespace tvg {
 class Picture;
+class SwCanvas;
 }
 
 /// An SVG rasterised on the CPU by ThorVG into a GPU texture (RGBA8, premultiplied alpha).
@@ -44,10 +45,14 @@ public:
     /// leaving it to the destructor.
     void Release();
 
+    /// Hands the texture to the caller without freeing it; the next `Render` creates a new one.
+    GpuTextureHandle Detach();
+
 private:
     static bool ensureInit();
 
     tvg::Picture         *_picture = nullptr;
+    tvg::SwCanvas        *_canvas  = nullptr; // kept: a picture is bound to the first canvas that draws it
     std::vector<uint32_t> _pixels;
 
     GpuTextureHandle        _texture = 0;

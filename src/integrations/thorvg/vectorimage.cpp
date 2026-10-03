@@ -42,6 +42,7 @@ bool VectorImage::LoadFont(const std::string &name, const std::string &path) {
 }
 
 VectorImage::~VectorImage() {
+    delete _canvas;
     if (_picture != nullptr) _picture->unref();
 }
 
@@ -54,6 +55,8 @@ bool VectorImage::Load(const std::string &path) {
         return false;
     }
 
+    delete _canvas;
+    _canvas = nullptr;
     if (_picture != nullptr) _picture->unref();
 
     // Held by reference so a canvas can take it and give it back on every render.
@@ -107,19 +110,26 @@ bool VectorImage::Render(uint32_t width, uint32_t height) {
     }
 
     // ABGR8888 is R, G, B, A in memory on a little-endian machine, premultiplied: RGBA8 as the UI wants it.
-    std::unique_ptr<tvg::SwCanvas> canvas(tvg::SwCanvas::gen());
-    if (!canvas || canvas->target(_pixels.data(), width, width, height, tvg::ColorSpace::ABGR8888) !=
-                       tvg::Result::Success) {
+    if (_canvas == nullptr) {
+        _canvas = tvg::SwCanvas::gen();
+        if (_canvas == nullptr || _canvas->add(_picture) != tvg::Result::Success) {
+            LOG_ERROR("VectorImage: could not create the canvas");
+            delete _canvas;
+            _canvas = nullptr;
+            return false;
+        }
+    }
+    if (_canvas->target(_pixels.data(), width, width, height, tvg::ColorSpace::ABGR8888) !=
+        tvg::Result::Success) {
         LOG_ERROR("VectorImage: could not target the canvas");
         return false;
     }
 
     std::fill(_pixels.begin(), _pixels.end(), 0u);
     _picture->size(static_cast<float>(width), static_cast<float>(height));
-    canvas->add(_picture);
-    canvas->draw(true);
-    canvas->sync();
-    canvas->remove(_picture);
+    _canvas->update();
+    _canvas->draw(true);
+    _canvas->sync();
 
     std::memcpy(gpu.MapTransferBuffer(_staging, true), _pixels.data(), _pixels.size() * 4);
     gpu.UnmapTransferBuffer(_staging);
@@ -149,6 +159,14 @@ void VectorImage::Release() {
     _staging = 0;
     _width   = 0;
     _height  = 0;
+}
+
+GpuTextureHandle VectorImage::Detach() {
+    GpuTextureHandle texture = _texture;
+    _texture = 0;
+    _width   = 0;
+    _height  = 0;
+    return texture;
 }
 
 #endif // LUMINOVEAU_WITH_THORVG
