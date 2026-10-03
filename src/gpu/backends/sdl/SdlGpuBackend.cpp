@@ -452,8 +452,10 @@ void SdlGpuBackend::SetStencilReference(GpuRenderPassHandle pass, uint8_t refere
 // ─────────────────────────────────────────────────────────────────────────────
 
 GpuTextureHandle SdlGpuBackend::CreateTexture(const GpuTextureCreateInfo &info) {
-    SDL_GPUTextureCreateInfo ci  = toSDL(info);
-    auto                     tex = reinterpret_cast<GpuTextureHandle>(SDL_CreateGPUTexture(_device, &ci));
+    SDL_GPUTextureCreateInfo ci = toSDL(info);
+    // Metal aborts on an unsupported format (D24S8 on Apple Silicon) instead of failing; return null.
+    if (!SDL_GPUTextureSupportsFormat(_device, ci.format, ci.type, ci.usage)) return 0;
+    auto tex = reinterpret_cast<GpuTextureHandle>(SDL_CreateGPUTexture(_device, &ci));
     vramAdd((void *)tex, texBytes(info));
     return tex;
 }
