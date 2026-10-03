@@ -41,6 +41,10 @@ public:
     GpuTextureHandle renderTargetDepth     = 0;
     GpuTextureHandle renderTargetResolve   = 0;
 
+    /// Sample count of the target handed to the next Render(); a pipeline drawing into it must
+    /// match. Set by the renderer for framebuffer passes; X1 for a caller rendering to a texture.
+    GpuSampleCount renderTargetSamples = GpuSampleCount::X1;
+
     /// Viewport to render with, in pixels. Zero means "use the window size", which is the
     /// behaviour every pass had before this existed.
     ///

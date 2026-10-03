@@ -99,8 +99,12 @@ private:
     GpuTextureHandle _msaaColorTexture   = 0;
     GpuTextureHandle _msaaDepthTexture   = 0;
     GpuSampleCount   _currentSampleCount = GpuSampleCount::X1;
+    GpuTextureFormat _colorFormat        = GpuTextureFormat::R8G8B8A8_Unorm;
 
     void _createShaders();
+
+    /// (Re)creates the main pipeline for targets of `samples`.
+    bool _buildPipeline(GpuSampleCount samples);
     void _uploadModelToGPU(ModelAsset *model);
 
 public:

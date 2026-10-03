@@ -101,6 +101,47 @@ void Model3DRenderPass::_createShaders() {
     }
 }
 
+static GpuVertexAttribute attrs[4] = {
+    { .location = 0, .binding = 0, .format = GpuVertexElementFormat::Float3, .offset = 0 },
+    { .location = 1, .binding = 0, .format = GpuVertexElementFormat::Float3, .offset = 12 },
+    { .location = 2, .binding = 0, .format = GpuVertexElementFormat::Float2, .offset = 24 },
+    { .location = 3, .binding = 0, .format = GpuVertexElementFormat::Float4, .offset = 32 },
+};
+static GpuVertexBinding vbind = { .binding = 0, .stride = sizeof(Vertex3D), .instanceStepping = false };
+
+bool Model3DRenderPass::_buildPipeline(GpuSampleCount samples) {
+    IGpu &gpu = Renderer::GetGpu();
+
+    if (_pipeline) {
+        gpu.ReleaseGraphicsPipeline(_pipeline);
+        _pipeline = 0;
+    }
+    _currentSampleCount = samples;
+
+    GpuGraphicsPipelineCreateInfo pci {};
+    pci.vertexShader             = _vertexShader;
+    pci.fragmentShader           = _fragmentShader;
+    pci.attributes               = attrs;
+    pci.attributeCount           = 4;
+    pci.bindings                 = &vbind;
+    pci.bindingCount             = 1;
+    pci.fillMode                 = GpuFillMode::Fill;
+    pci.cullMode                 = GpuCullMode::None;
+    pci.frontFace                = GpuFrontFace::CounterClockwise;
+    pci.colorTargetFormat        = _colorFormat;
+    pci.blend                    = GpuPresets::AlphaBlendKeepDstAlpha;
+    pci.hasDepthTarget           = true;
+    pci.depthTargetFormat        = GpuTextureFormat::D32_Float;
+    pci.sampleCount              = samples;
+    pci.vertexStorageBufferCount = 1;
+    _pipeline                    = gpu.CreateGraphicsPipeline(pci);
+    if (!_pipeline) {
+        LOG_ERROR("Failed to create graphics pipeline: {}", SDL_GetError());
+        return false;
+    }
+    return true;
+}
+
 bool Model3DRenderPass::Init(
     GpuTextureFormat swapchainTextureFormat,
     uint32_t         width,
@@ -140,37 +181,8 @@ bool Model3DRenderPass::Init(
     }
 
     _createShaders();
-    _currentSampleCount = Renderer::GetSampleCount();
-
-    static GpuVertexAttribute attrs[4] = {
-        { .location = 0, .binding = 0, .format = GpuVertexElementFormat::Float3, .offset = 0 },
-        { .location = 1, .binding = 0, .format = GpuVertexElementFormat::Float3, .offset = 12 },
-        { .location = 2, .binding = 0, .format = GpuVertexElementFormat::Float2, .offset = 24 },
-        { .location = 3, .binding = 0, .format = GpuVertexElementFormat::Float4, .offset = 32 },
-    };
-    static GpuVertexBinding vbind = { .binding = 0, .stride = sizeof(Vertex3D), .instanceStepping = false };
-
-    GpuGraphicsPipelineCreateInfo pci {};
-    pci.vertexShader             = _vertexShader;
-    pci.fragmentShader           = _fragmentShader;
-    pci.attributes               = attrs;
-    pci.attributeCount           = 4;
-    pci.bindings                 = &vbind;
-    pci.bindingCount             = 1;
-    pci.fillMode                 = GpuFillMode::Fill;
-    pci.cullMode                 = GpuCullMode::None;
-    pci.frontFace                = GpuFrontFace::CounterClockwise;
-    pci.colorTargetFormat        = swapchainTextureFormat;
-    pci.blend                    = GpuPresets::AlphaBlendKeepDstAlpha;
-    pci.hasDepthTarget           = true;
-    pci.depthTargetFormat        = GpuTextureFormat::D32_Float;
-    pci.sampleCount              = _currentSampleCount;
-    pci.vertexStorageBufferCount = 1;
-    _pipeline                    = gpu.CreateGraphicsPipeline(pci);
-    if (!_pipeline) {
-        LOG_ERROR("Failed to create graphics pipeline: {}", SDL_GetError());
-        return false;
-    }
+    _colorFormat = swapchainTextureFormat;
+    if (!_buildPipeline(Renderer::GetSampleCount())) return false;
 
     // ── Shadow resources (directional caster) ────────────────────────────────
     {
@@ -621,6 +633,8 @@ void Model3DRenderPass::Render(
             }
         }
     }
+
+    if (renderTargetSamples != _currentSampleCount) _buildPipeline(renderTargetSamples);
 
     bool shouldResolve = (renderTargetResolve != 0);
 

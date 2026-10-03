@@ -47,6 +47,10 @@ class SpriteRenderPass : public RenderPass {
     GpuBufferHandle           _spriteDataBuffer         = 0;
     GpuTextureFormat          _swapchainFormat          = GpuTextureFormat::B8G8R8A8_Unorm;
     bool                      _noMSAA                   = false;
+    GpuSampleCount            _pipelineSamples          = GpuSampleCount::X1;
+
+    /// (Re)creates `_pipeline` for targets of `samples`. SDL only.
+    bool _buildPipeline(GpuSampleCount samples);
 
     // SDL-only state — unused on WebGPU but cheap to carry unconditionally so the header
     // stays backend-neutral. MSAA + depth textures and per-binding extra-texture map.

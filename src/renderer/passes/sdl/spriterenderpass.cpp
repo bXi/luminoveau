@@ -64,6 +64,40 @@ void SpriteRenderPass::Release(bool logRelease) {
     }
 }
 
+bool SpriteRenderPass::_buildPipeline(GpuSampleCount samples) {
+    IGpu &gpu = Renderer::GetGpu();
+
+    if (_pipeline) {
+        gpu.ReleaseGraphicsPipeline(_pipeline);
+        _pipeline = 0;
+    }
+    _pipelineSamples = samples;
+
+    GpuVertexAttribute vertexAttributes[] = {
+        { .location = 0, .binding = 0, .format = GpuVertexElementFormat::UInt, .offset = 0 },
+        { .location = 1, .binding = 0, .format = GpuVertexElementFormat::UInt, .offset = 4 },
+    };
+    GpuVertexBinding vertexBinding = { .binding = 0, .stride = 8, .instanceStepping = false };
+
+    GpuGraphicsPipelineCreateInfo pipelineInfo {};
+    pipelineInfo.vertexShader             = _vertexShader;
+    pipelineInfo.fragmentShader           = _fragmentShader;
+    pipelineInfo.attributes               = vertexAttributes;
+    pipelineInfo.attributeCount           = 2;
+    pipelineInfo.bindings                 = &vertexBinding;
+    pipelineInfo.bindingCount             = 1;
+    pipelineInfo.fillMode                 = GpuFillMode::Fill;
+    pipelineInfo.cullMode                 = GpuCullMode::None;
+    pipelineInfo.frontFace                = GpuFrontFace::CounterClockwise;
+    pipelineInfo.colorTargetFormat        = _swapchainFormat;
+    pipelineInfo.blend                    = renderPassBlendState;
+    pipelineInfo.hasDepthTarget           = false;
+    pipelineInfo.sampleCount              = samples;
+    pipelineInfo.vertexStorageBufferCount = 1;
+    _pipeline                             = gpu.CreateGraphicsPipeline(pipelineInfo);
+    return _pipeline != 0;
+}
+
 bool SpriteRenderPass::Init(
     GpuTextureFormat swapchainTextureFormat, uint32_t surfaceWidth, uint32_t surfaceHeight, std::string name, bool logInit,
     size_t capacity, bool forceNoMSAA) {
@@ -90,32 +124,7 @@ bool SpriteRenderPass::Init(
         _depthTexture.gpuTexture = gpu.CreateTexture(depthInfo);
     }
     _createEffectResources();
-    GpuSampleCount sampleCount = _noMSAA ? GpuSampleCount::X1 : Renderer::GetSampleCount();
-
-    GpuVertexAttribute vertexAttributes[] = {
-        { .location = 0, .binding = 0, .format = GpuVertexElementFormat::UInt, .offset = 0 },
-        { .location = 1, .binding = 0, .format = GpuVertexElementFormat::UInt, .offset = 4 },
-    };
-    GpuVertexBinding vertexBinding = { .binding = 0, .stride = 8, .instanceStepping = false };
-
-    GpuGraphicsPipelineCreateInfo pipelineInfo {};
-    pipelineInfo.vertexShader             = _vertexShader;
-    pipelineInfo.fragmentShader           = _fragmentShader;
-    pipelineInfo.attributes               = vertexAttributes;
-    pipelineInfo.attributeCount           = 2;
-    pipelineInfo.bindings                 = &vertexBinding;
-    pipelineInfo.bindingCount             = 1;
-    pipelineInfo.fillMode                 = GpuFillMode::Fill;
-    pipelineInfo.cullMode                 = GpuCullMode::None;
-    pipelineInfo.frontFace                = GpuFrontFace::CounterClockwise;
-    pipelineInfo.colorTargetFormat        = swapchainTextureFormat;
-    pipelineInfo.blend                    = renderPassBlendState;
-    pipelineInfo.hasDepthTarget           = false;
-    pipelineInfo.sampleCount              = sampleCount;
-    pipelineInfo.vertexStorageBufferCount = 1;
-    _pipeline                             = gpu.CreateGraphicsPipeline(pipelineInfo);
-
-    if (!_pipeline) {
+    if (!_buildPipeline(_noMSAA ? GpuSampleCount::X1 : Renderer::GetSampleCount())) {
         LOG_CRITICAL("SpriteRenderPass: failed to create pipeline for {}", _passname);
         return false;
     }
@@ -183,6 +192,8 @@ void SpriteRenderPass::Render(
 #ifdef LUMIDEBUG
     SDL_PushGPUDebugGroup(reinterpret_cast<SDL_GPUCommandBuffer *>(cmdBuffer), CURRENT_METHOD());
 #endif
+
+    if (renderTargetSamples != _pipelineSamples) _buildPipeline(renderTargetSamples);
 
     // Check if ANY sprite in the queue has effects
     bool hasAnyEffects = false;
@@ -735,7 +746,7 @@ void SpriteRenderPass::_applyEffects(GpuCmdBufferHandle cmdBuffer, const std::ve
             blend.alphaOp        = GpuBlendOp::Add;
         }
 
-        GpuSampleCount pipelineSampleCount = (isLast && !_noMSAA) ? Renderer::GetSampleCount() : GpuSampleCount::X1;
+        GpuSampleCount pipelineSampleCount = isLast ? renderTargetSamples : GpuSampleCount::X1;
 
         GpuGraphicsPipelineCreateInfo pi {};
         pi.vertexShader      = effect.vertShader.gpuShader;

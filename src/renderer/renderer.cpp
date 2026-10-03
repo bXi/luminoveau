@@ -237,17 +237,22 @@ void Renderer::_endFrame() {
                 ? glm::ortho(0.0f, (float)framebuffer->width, (float)framebuffer->height, 0.0f)
                 : _camera;
 
-            bool             useThisMSAA  = useMSAA && framebuffer->fbContentMSAA != 0;
-            GpuTextureHandle renderTarget = useThisMSAA ? framebuffer->fbContentMSAA : framebuffer->fbContent;
-            GpuTextureHandle depthTarget  = useThisMSAA ? framebuffer->fbDepthMSAA : 0;
+            // Multisampled until the first pass that reads the resolved image: the pass before it
+            // resolves, and from there every pass draws single-sampled into that image.
+            bool multisampled = useMSAA && framebuffer->fbContentMSAA != 0;
             for (size_t i = 0; i < framebuffer->renderpasses.size(); i++) {
                 auto &[passname, renderpass] = framebuffer->renderpasses[i];
+                if (multisampled && renderpass->NeedsResolvedInput())
+                    multisampled = false;
+
                 if (i > 0)
                     renderpass->colorTargetInfoLoadOp = GpuLoadOp::Load;
-                renderpass->renderTargetDepth   = depthTarget;
+                GpuTextureHandle renderTarget    = multisampled ? framebuffer->fbContentMSAA : framebuffer->fbContent;
+                renderpass->renderTargetDepth   = multisampled ? framebuffer->fbDepthMSAA : 0;
+                renderpass->renderTargetSamples = multisampled ? _currentSampleCount : GpuSampleCount::X1;
                 bool isLastPass                 = (i == framebuffer->renderpasses.size() - 1);
-                bool nextNeedsResolved          = useThisMSAA && !isLastPass && framebuffer->renderpasses[i + 1].second->NeedsResolvedInput();
-                renderpass->renderTargetResolve = (useThisMSAA && (isLastPass || nextNeedsResolved)) ? framebuffer->fbContent : 0;
+                bool nextNeedsResolved          = multisampled && !isLastPass && framebuffer->renderpasses[i + 1].second->NeedsResolvedInput();
+                renderpass->renderTargetResolve = (multisampled && (isLastPass || nextNeedsResolved)) ? framebuffer->fbContent : 0;
                 renderpass->Render(_cmdbuf, renderTarget, fbCamera);
             }
         }
