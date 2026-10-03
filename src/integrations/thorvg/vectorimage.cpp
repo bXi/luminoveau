@@ -47,13 +47,20 @@ VectorImage::~VectorImage() {
 }
 
 bool VectorImage::Load(const std::string &path) {
-    if (!ensureInit()) return false;
-
     std::vector<uint8_t> data = FileHandler::ReadBinaryFile(path);
     if (data.empty()) {
         LOG_ERROR("VectorImage: could not read {}", path);
         return false;
     }
+    return loadSvg(reinterpret_cast<const char *>(data.data()), data.size(), path);
+}
+
+bool VectorImage::LoadData(const std::string &svg) {
+    return loadSvg(svg.data(), svg.size(), "<svg text>");
+}
+
+bool VectorImage::loadSvg(const char *data, size_t size, const std::string &origin) {
+    if (!ensureInit() || data == nullptr || size == 0) return false;
 
     delete _canvas;
     _canvas = nullptr;
@@ -63,9 +70,8 @@ bool VectorImage::Load(const std::string &path) {
     _picture = tvg::Picture::gen();
     _picture->ref();
 
-    if (_picture->load(reinterpret_cast<const char *>(data.data()), static_cast<uint32_t>(data.size()),
-                       "svg", nullptr, true) != tvg::Result::Success) {
-        LOG_ERROR("VectorImage: ThorVG could not load {}", path);
+    if (_picture->load(data, static_cast<uint32_t>(size), "svg", nullptr, true) != tvg::Result::Success) {
+        LOG_ERROR("VectorImage: ThorVG could not load {}", origin);
         _picture->unref();
         _picture = nullptr;
         return false;

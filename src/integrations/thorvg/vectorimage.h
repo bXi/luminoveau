@@ -31,6 +31,9 @@ public:
 
     bool Load(const std::string &path);
 
+    /// Loads SVG source held in memory, for art built in code.
+    bool LoadData(const std::string &svg);
+
     /// Rasterises at `width` x `height`, stretching the SVG's own size to fit.
     bool Render(uint32_t width, uint32_t height);
 
@@ -50,6 +53,7 @@ public:
 
 private:
     static bool ensureInit();
+    bool        loadSvg(const char *data, size_t size, const std::string &origin);
 
     tvg::Picture         *_picture = nullptr;
     tvg::SwCanvas        *_canvas  = nullptr; // kept: a picture is bound to the first canvas that draws it
