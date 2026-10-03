@@ -318,7 +318,7 @@ void ShaderRenderPass::Render(
         std::vector<GpuTextureSamplerBinding> tsbs(fragShader.samplerCount);
         for (auto &tsb : tsbs) {
             tsb.texture = _inputTexture;
-            tsb.sampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode());
+            tsb.sampler = Renderer::GetSampler(inputScaleMode.value_or(AssetHandler::GetDefaultTextureScaleMode()));
         }
         int i = 0;
         for (const auto &sampler : _foundSamplers) {

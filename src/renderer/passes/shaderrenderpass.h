@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
 
@@ -51,6 +53,9 @@ class ShaderRenderPass : public RenderPass {
 public:
     ShaderAsset vertShader;
     ShaderAsset fragShader;
+
+    /// Filter for the input sampler; unset uses the asset default.
+    std::optional<ScaleMode> inputScaleMode;
 
     ShaderRenderPass(const ShaderRenderPass &)            = delete;
     ShaderRenderPass &operator=(const ShaderRenderPass &) = delete;

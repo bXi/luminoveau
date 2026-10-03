@@ -423,7 +423,7 @@ void ShaderRenderPass::Render(
         std::vector<GpuTextureSamplerBinding> tsbs(samplerCount);
         for (auto &tsb : tsbs) {
             tsb.texture = _inputTexture;
-            tsb.sampler = Renderer::GetSampler(AssetHandler::GetDefaultTextureScaleMode());
+            tsb.sampler = Renderer::GetSampler(inputScaleMode.value_or(AssetHandler::GetDefaultTextureScaleMode()));
         }
         gpu.BindFragmentSamplers(rp, 0, tsbs.data(), samplerCount);
 
