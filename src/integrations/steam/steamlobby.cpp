@@ -15,6 +15,10 @@ namespace {
 /// Steam's UI understands. The Steam broker uses the same prefix.
 constexpr const char *kConnectPrefix = "+connect_lobby";
 
+// Direct invites between two running copies of the game, sent instead of a Steam chat invite.
+constexpr int         kInviteChannel = 77;
+constexpr const char *kInvitePrefix  = "lumi_invite ";
+
 uint64_t parseLobby(const char *text) {
     if (text == nullptr) return 0;
     return std::strtoull(text, nullptr, 10);
@@ -66,6 +70,7 @@ public:
     CSteamID lobby() const { return _lobby; }
 
     bool poll(SteamLobby::Event &out) {
+        receiveDirectInvites();
         if (_events.empty()) return false;
         out = _events.front();
         _events.pop_front();
@@ -105,6 +110,15 @@ private:
     STEAM_CALLBACK(LobbyState, onJoinRequested, GameLobbyJoinRequested_t);
     STEAM_CALLBACK(LobbyState, onRichPresenceJoin, GameRichPresenceJoinRequested_t);
 
+    // An invite received while the game is running, before anything is accepted.
+    STEAM_CALLBACK(LobbyState, onInvited, LobbyInvite_t);
+
+    // A friend's game opening a direct channel to send an invite; accepted for friends only.
+    STEAM_CALLBACK(LobbyState, onSessionRequest, SteamNetworkingMessagesSessionRequest_t);
+
+    void receiveDirectInvites();
+    void pushInvite(uint64_t lobby, uint64_t from);
+
     CCallResult<LobbyState, LobbyCreated_t> _createResult;
     CCallResult<LobbyState, LobbyEnter_t>   _enterResult;
 
@@ -123,6 +137,56 @@ void LobbyState::onRichPresenceJoin(GameRichPresenceJoinRequested_t *info) {
 
     const uint64_t lobby = parseLobby(connect + prefix);
     if (lobby != 0) push(SteamLobby::Event::Type::JoinRequested, lobby);
+}
+
+void LobbyState::pushInvite(uint64_t lobby, uint64_t from) {
+    SteamLobby::Event ev;
+    ev.type  = SteamLobby::Event::Type::Invited;
+    ev.lobby = lobby;
+    ev.from  = from;
+    if (SteamFriends() != nullptr) {
+        // Through the flat API — see steamabi.h.
+        if (const char *name = SteamAPI_ISteamFriends_GetFriendPersonaName(SteamFriends(), (uint64)from)) {
+            ev.fromName = name;
+        }
+    }
+    _events.push_back(ev);
+}
+
+void LobbyState::onInvited(LobbyInvite_t *info) {
+    // Only invites to this game; Steam delivers every app's here.
+    const AppId_t thisApp = SteamUtils() != nullptr ? SteamUtils()->GetAppID() : 0;
+    if (thisApp != 0 && CGameID(info->m_ulGameID).AppID() != thisApp) return;
+    pushInvite(info->m_ulSteamIDLobby, info->m_ulSteamIDUser);
+}
+
+void LobbyState::onSessionRequest(SteamNetworkingMessagesSessionRequest_t *info) {
+    if (SteamFriends() == nullptr || SteamNetworkingMessages() == nullptr) return;
+    const uint64 peer = info->m_identityRemote.GetSteamID64();
+    if (SteamAPI_ISteamFriends_GetFriendRelationship(SteamFriends(), peer) != k_EFriendRelationshipFriend) return;
+    SteamNetworkingMessages()->AcceptSessionWithUser(info->m_identityRemote);
+}
+
+void LobbyState::receiveDirectInvites() {
+    ISteamNetworkingMessages *net = SteamNetworkingMessages();
+    if (net == nullptr || SteamFriends() == nullptr) return;
+
+    SteamNetworkingMessage_t *messages[8];
+    int                       count = 0;
+    while ((count = net->ReceiveMessagesOnChannel(kInviteChannel, messages, 8)) > 0) {
+        for (int i = 0; i < count; ++i) {
+            const uint64 from = messages[i]->m_identityPeer.GetSteamID64();
+            const std::string text(static_cast<const char *>(messages[i]->m_pData), messages[i]->m_cbSize);
+            messages[i]->Release();
+
+            const size_t prefix = std::strlen(kInvitePrefix);
+            if (text.compare(0, prefix, kInvitePrefix) != 0) continue;
+            if (SteamAPI_ISteamFriends_GetFriendRelationship(SteamFriends(), from) != k_EFriendRelationshipFriend) continue;
+
+            const uint64_t lobby = parseLobby(text.c_str() + prefix);
+            if (lobby != 0) pushInvite(lobby, from);
+        }
+    }
 }
 
 std::unique_ptr<LobbyState> g_state;
@@ -239,8 +303,28 @@ std::vector<SteamLobby::Friend> SteamLobby::Friends() {
 bool SteamLobby::Invite(uint64_t friendId) {
     LobbyState *s = state();
     if (s == nullptr || !s->lobby().IsValid() || friendId == 0) return false;
-    return SteamAPI_ISteamMatchmaking_InviteUserToLobby(SteamMatchmaking(), s->lobby().ConvertToUint64(),
-                                                        (uint64)friendId);
+    const uint64 lobby = s->lobby().ConvertToUint64();
+
+    // A friend already in this game gets it game to game, with no Steam chat message.
+    ISteamFriends *friends = SteamFriends();
+    const AppId_t  thisApp = SteamUtils() != nullptr ? SteamUtils()->GetAppID() : 0;
+    FriendGameInfo_t game{};
+    const bool inThisGame = friends != nullptr && thisApp != 0 &&
+                            SteamAPI_ISteamFriends_GetFriendGamePlayed(friends, (uint64)friendId, &game) &&
+                            game.m_gameID.AppID() == thisApp;
+
+    if (inThisGame && SteamNetworkingMessages() != nullptr) {
+        SteamNetworkingIdentity peer;
+        peer.SetSteamID64((uint64)friendId);
+        const std::string text = std::string(kInvitePrefix) + std::to_string(lobby);
+        const EResult sent = SteamNetworkingMessages()->SendMessageToUser(
+            peer, text.data(), (uint32)text.size(),
+            k_nSteamNetworkingSend_Reliable | k_nSteamNetworkingSend_AutoRestartBrokenSession, kInviteChannel);
+        if (sent == k_EResultOK) return true;
+        LOG_WARNING("SteamLobby: direct invite failed ({}), sending a Steam invite", (int)sent);
+    }
+
+    return SteamAPI_ISteamMatchmaking_InviteUserToLobby(SteamMatchmaking(), lobby, (uint64)friendId);
 }
 
 bool SteamLobby::Poll(Event &out) {

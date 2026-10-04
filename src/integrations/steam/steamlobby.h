@@ -33,9 +33,14 @@ public:
             Entered,       ///< `Join` succeeded; `lobby`'s data is readable.
             EnterFailed,
             JoinRequested, ///< The player accepted an invite or chose Join Game; `lobby` is where.
+            Invited,       ///< A friend invited this player to `lobby` while the game is running.
         } type = Type::None;
 
         uint64_t lobby = 0;
+
+        /// For `Invited`: who sent it, and their Steam name.
+        uint64_t    from = 0;
+        std::string fromName;
     };
 
     /// @brief Starts creating a lobby this player owns. Leaves any current one first.

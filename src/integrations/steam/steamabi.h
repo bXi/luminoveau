@@ -37,6 +37,7 @@ S_API EPersonaState SteamAPI_ISteamFriends_GetFriendPersonaState(ISteamFriends *
 S_API const char   *SteamAPI_ISteamFriends_GetFriendPersonaName(ISteamFriends *self, uint64 steamIDFriend);
 S_API bool          SteamAPI_ISteamFriends_GetFriendGamePlayed(ISteamFriends *self, uint64 steamIDFriend,
                                                                FriendGameInfo_t *pFriendGameInfo);
+S_API EFriendRelationship SteamAPI_ISteamFriends_GetFriendRelationship(ISteamFriends *self, uint64 steamIDFriend);
 S_API bool SteamAPI_ISteamMatchmaking_InviteUserToLobby(ISteamMatchmaking *self, uint64 steamIDLobby,
                                                         uint64 steamIDInvitee);S_API uint64 SteamAPI_ISteamMatchmaking_GetLobbyOwner(ISteamMatchmaking *self, uint64 steamIDLobby);
 
