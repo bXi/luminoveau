@@ -211,7 +211,13 @@ SoundInstance Audio::_playSoundInstance(Sound sound, float volume, float panning
 void Audio::_setSoundInstanceVolume(SoundInstance &instance, float volume) {
     if (!instance.impl)
         return;
-    ma_sound_set_volume(&instance.impl->sound, std::clamp(volume, 0.0f, 1.0f));
+    ma_sound_set_volume(&instance.impl->sound, std::max(volume, 0.0f)); // above 1 is gain
+}
+
+void Audio::_setSoundInstancePitch(SoundInstance &instance, float pitch) {
+    if (!instance.impl)
+        return;
+    ma_sound_set_pitch(&instance.impl->sound, std::max(pitch, 0.01f));
 }
 
 void Audio::_setSoundInstancePanning(SoundInstance &instance, float panning) {

@@ -200,6 +200,13 @@ public:
     }
 
     /**
+     * @brief Sets the playback rate of a playing sound instance (1.0 = original pitch).
+     */
+    static void SetSoundInstancePitch(SoundInstance &instance, float pitch) {
+        Get()._setSoundInstancePitch(instance, pitch);
+    }
+
+    /**
      * @brief Returns whether a sound instance is currently playing.
      */
     static bool IsSoundInstancePlaying(const SoundInstance &instance) {
@@ -401,6 +408,8 @@ private:
     void _setSoundInstanceVolume(SoundInstance &instance, float volume);
 
     void _setSoundInstancePanning(SoundInstance &instance, float panning);
+
+    void _setSoundInstancePitch(SoundInstance &instance, float pitch);
 
     bool _isSoundInstancePlaying(const SoundInstance &instance);
 
