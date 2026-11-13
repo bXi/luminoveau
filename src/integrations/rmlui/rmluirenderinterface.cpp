@@ -111,6 +111,7 @@ bool RenderInterface_Lumi::Init(GpuTextureFormat targetFormat) {
     _format = targetFormat;
     probeStencilFormat();
     if (!createPipelines(targetFormat)) return false;
+    _singleSet = captureSet();
 
     GpuSamplerCreateInfo sampler{};
     // Linear, clamped. RmlUi's font atlas is sampled at whatever scale the document asks for and
@@ -180,7 +181,7 @@ bool RenderInterface_Lumi::Init(GpuTextureFormat targetFormat) {
     return true;
 }
 
-bool RenderInterface_Lumi::createPipelines(GpuTextureFormat targetFormat) {
+bool RenderInterface_Lumi::createPipelines(GpuTextureFormat targetFormat, GpuSampleCount samples) {
     IGpu &gpu = Renderer::GetGpu();
 
     ShaderAsset &vert = AssetHandler::GetShader(kVertShader);
@@ -221,7 +222,7 @@ bool RenderInterface_Lumi::createPipelines(GpuTextureFormat targetFormat) {
     // The UI draws over a finished frame and has no depth of its own. Ordering is RmlUi's, in
     // submission order, which is exactly what a depth test would break.
     info.hasDepthTarget   = false;
-    info.sampleCount      = GpuSampleCount::X1;
+    info.sampleCount      = samples;
 
     // Filter passes draw into their own scratch targets, which have no stencil attached.
     ShaderAsset &postVert = AssetHandler::GetShader(kPostVertShader);
@@ -323,6 +324,10 @@ bool RenderInterface_Lumi::createPipelines(GpuTextureFormat targetFormat) {
         LOG_WARNING("RmlUI renderer: no post pipelines; filters and layers will not draw");
     }
     if (_hasStencil && (_texturedClipped == 0 || _maskReplace == 0 || _maskIncrement == 0)) {
+        // The multisampled set has no fallback of its own: dropping the stencil here would change
+        // `_hasStencil` under the single-sampled set, which was built with it. The caller gives up
+        // on MSAA instead and releases what was made.
+        if (samples != GpuSampleCount::X1) return false;
         // Built again without a stencil target, since passes and pipelines have to agree on it.
         LOG_WARNING("RmlUI renderer: no clip mask pipelines; clipping falls back to scissors");
         for (GpuGraphicsPipelineHandle *pipeline :
@@ -417,6 +422,14 @@ void RenderInterface_Lumi::Shutdown() {
 
     IGpu &gpu = Renderer::GetGpu();
 
+    // The members below hold whichever set the last pass used; put the single-sampled one back so
+    // each pipeline is released exactly once.
+    applySet(_singleSet);
+    releaseSet(_msaaSet);
+    releaseMsaaSurfaces();
+    _msaaSamples = GpuSampleCount::X1;
+    _msaaFailed  = GpuSampleCount::X1;
+
     flushDeferred();
     releaseBuffers();
     releaseSurfaces();
@@ -492,6 +505,10 @@ void RenderInterface_Lumi::BeginFrame(GpuCmdBufferHandle cmd, GpuTextureHandle t
 
     updateProjection();
     ensureSurfaces();
+
+    // The renderer's sample count covers the UI too: X4 there means the base layer draws at X4.
+    _msaa      = ensureMsaa(Renderer::GetSampleCount());
+    _baseFresh = _msaa;
 
     // Cleared *first*: the two calls below queue commands of their own, and clearing afterwards
     // threw them away.
@@ -771,6 +788,7 @@ void RenderInterface_Lumi::EndFrame() {
     _top         = 0;
     _clipEnabled = false;
     _stencilRef  = 1;
+    if (_msaa && _targetSampleable) seedBase();
     openPass(_target, false, 0);
 
     for (const Command &command : _commands) {
@@ -944,8 +962,149 @@ void RenderInterface_Lumi::EndFrame() {
     }
 
     closePass();
+
+    // A swapchain target could not be read into the multisampled base, so the UI was drawn over
+    // transparent and resolved on its own; it goes over the target now, premultiplied.
+    if (_msaa && !_targetSampleable) {
+        _msaa = false;  // so postPass writes the target itself rather than redirecting to the base
+        applySet(_singleSet);
+        const PostParams copy;
+        postPass(_target, _width, _height, _msaaResolve, _whiteTexture, true, copy, kIdentityUv, false);
+        _msaa = true;
+    }
+    applySet(_singleSet);
+
     _commands.clear();
     flushDeferred();
+}
+
+// ── MSAA for the base layer ──────────────────────────────────────────────────
+
+RenderInterface_Lumi::PipelineSet RenderInterface_Lumi::captureSet() const {
+    PipelineSet set;
+    set.textured           = _texturedPipeline;
+    set.gradient           = _gradientPipeline;
+    set.postReplace        = _postReplace;
+    set.postBlend          = _postBlend;
+    set.texturedClipped    = _texturedClipped;
+    set.gradientClipped    = _gradientClipped;
+    set.maskReplace        = _maskReplace;
+    set.maskIncrement      = _maskIncrement;
+    set.postBlendClipped   = _postBlendClipped;
+    set.postReplaceClipped = _postReplaceClipped;
+    return set;
+}
+
+void RenderInterface_Lumi::applySet(const PipelineSet &set) {
+    _texturedPipeline   = set.textured;
+    _colorPipeline      = set.textured;
+    _gradientPipeline   = set.gradient;
+    _postReplace        = set.postReplace;
+    _postBlend          = set.postBlend;
+    _texturedClipped    = set.texturedClipped;
+    _gradientClipped    = set.gradientClipped;
+    _maskReplace        = set.maskReplace;
+    _maskIncrement      = set.maskIncrement;
+    _postBlendClipped   = set.postBlendClipped;
+    _postReplaceClipped = set.postReplaceClipped;
+}
+
+void RenderInterface_Lumi::releaseSet(PipelineSet &set) {
+    IGpu &gpu = Renderer::GetGpu();
+    for (GpuGraphicsPipelineHandle *pipeline :
+         {&set.textured, &set.gradient, &set.postReplace, &set.postBlend, &set.texturedClipped,
+          &set.gradientClipped, &set.maskReplace, &set.maskIncrement, &set.postBlendClipped,
+          &set.postReplaceClipped}) {
+        if (*pipeline != 0) gpu.ReleaseGraphicsPipeline(*pipeline);
+        *pipeline = 0;
+    }
+}
+
+void RenderInterface_Lumi::releaseMsaaSurfaces() {
+    IGpu &gpu = Renderer::GetGpu();
+    for (GpuTextureHandle *texture : {&_msaaColor, &_msaaStencil, &_msaaResolve}) {
+        if (*texture != 0) gpu.ReleaseTexture(*texture);
+        *texture = 0;
+    }
+    _msaaWidth  = 0;
+    _msaaHeight = 0;
+}
+
+bool RenderInterface_Lumi::ensureMsaa(GpuSampleCount samples) {
+    if (samples == GpuSampleCount::X1 || samples == _msaaFailed || _width == 0 || _height == 0) return false;
+    IGpu &gpu = Renderer::GetGpu();
+
+    // Pipelines carry their sample count, so a change of count means a new set.
+    if (_msaaSamples != samples) {
+        releaseSet(_msaaSet);
+        releaseMsaaSurfaces();
+        applySet(PipelineSet{});
+        const bool  ok    = createPipelines(_format, samples);
+        PipelineSet built = captureSet();
+        applySet(_singleSet);
+        if (!ok || built.textured == 0) {
+            releaseSet(built);
+            _msaaFailed = samples;
+            LOG_WARNING("RmlUI renderer: no pipelines at {}x MSAA; the UI stays single-sampled", (int) samples);
+            return false;
+        }
+        _msaaSet     = built;
+        _msaaSamples = samples;
+    }
+
+    if (_msaaColor == 0 || _msaaWidth != _width || _msaaHeight != _height) {
+        releaseMsaaSurfaces();
+        GpuTextureCreateInfo info{};
+        info.width       = _width;
+        info.height      = _height;
+        info.format      = _format;
+        info.sampleCount = samples;
+        info.usage       = GpuTextureUsage::ColorTarget;
+        _msaaColor       = gpu.CreateTexture(info);
+        if (_hasStencil) {
+            info.format  = _stencilFormat;
+            info.usage   = GpuTextureUsage::DepthStencilTarget;
+            _msaaStencil = gpu.CreateTexture(info);
+        }
+        info.format      = _format;
+        info.sampleCount = GpuSampleCount::X1;
+        info.usage       = GpuTextureUsage::ColorTarget | GpuTextureUsage::Sampler;
+        _msaaResolve     = gpu.CreateTexture(info);
+        _msaaWidth       = _width;
+        _msaaHeight      = _height;
+        if (_msaaColor == 0 || _msaaResolve == 0 || (_hasStencil && _msaaStencil == 0)) {
+            releaseMsaaSurfaces();
+            _msaaFailed = samples;
+            LOG_WARNING("RmlUI renderer: no {}x{} surfaces at {}x MSAA; the UI stays single-sampled", _width,
+                        _height, (int) samples);
+            return false;
+        }
+    }
+    return true;
+}
+
+void RenderInterface_Lumi::seedBase() {
+    // Without a post pipeline the base starts transparent instead (openPass clears it).
+    if (_msaaSet.postReplace == 0 || _msaaColor == 0) return;
+    IGpu &gpu = Renderer::GetGpu();
+
+    // Its own pass, stored but not resolved: the source is the very texture a base pass resolves
+    // into, and a pass may not sample what it resolves to.
+    GpuColorTargetInfo color{};
+    color.texture = _msaaColor;
+    color.loadOp  = GpuLoadOp::Clear;
+    color.storeOp = GpuStoreOp::Store;
+    GpuRenderPassHandle pass = gpu.BeginRenderPass(_cmd, &color, 1, nullptr);
+    gpu.BindGraphicsPipeline(pass, _msaaSet.postReplace);
+    gpu.SetScissor(pass, 0, 0, _width, _height);
+    const PostParams copy;
+    gpu.PushVertexUniformData(_cmd, 0, kIdentityUv, sizeof(float) * 4);
+    gpu.PushFragmentUniformData(_cmd, 0, &copy, sizeof(copy));
+    const GpuTextureSamplerBinding samplers[2] = {{_target, _sampler}, {_whiteTexture, _sampler}};
+    gpu.BindFragmentSamplers(pass, 0, samplers, 2);
+    gpu.DrawPrimitives(pass, 3, 1, 0, 0);
+    gpu.EndRenderPass(pass);
+    _baseFresh = false;
 }
 
 // ── Replay helpers ───────────────────────────────────────────────────────────
@@ -953,24 +1112,36 @@ void RenderInterface_Lumi::EndFrame() {
 void RenderInterface_Lumi::openPass(GpuTextureHandle target, bool clear, int stencilClear) {
     IGpu &gpu = Renderer::GetGpu();
 
+    // The base layer under MSAA: drawn multisampled, kept for the next pass, resolved every time.
+    const bool base = _msaa && target == _target;
+    applySet(base ? _msaaSet : _singleSet);
+    const GpuTextureHandle stencilTexture = base ? _msaaStencil : _stencilTexture;
+
     GpuColorTargetInfo colorTarget{};
     colorTarget.texture = target;
     colorTarget.loadOp  = clear ? GpuLoadOp::Clear : GpuLoadOp::Load;
     colorTarget.storeOp = GpuStoreOp::Store;
+    if (base) {
+        colorTarget.texture        = _msaaColor;
+        colorTarget.loadOp         = (clear || _baseFresh) ? GpuLoadOp::Clear : GpuLoadOp::Load;
+        colorTarget.storeOp        = GpuStoreOp::ResolveAndStore;
+        colorTarget.resolveTexture = _targetSampleable ? _target : _msaaResolve;
+        _baseFresh                 = false;
+    }
 
     // The mask outlives the pass: layers and filters close and reopen it mid-clip.
     GpuDepthStencilTargetInfo stencil{};
-    stencil.texture        = _stencilTexture;
+    stencil.texture        = stencilTexture;
     stencil.loadOp         = GpuLoadOp::Clear;
     stencil.storeOp        = GpuStoreOp::DontCare;
     stencil.stencilLoadOp  = stencilClear >= 0 ? GpuLoadOp::Clear : GpuLoadOp::Load;
     stencil.stencilStoreOp = GpuStoreOp::Store;
     stencil.clearStencil   = (uint8_t) std::max(stencilClear, 0);
 
-    _pass = gpu.BeginRenderPass(_cmd, &colorTarget, 1, _stencilTexture != 0 ? &stencil : nullptr);
+    _pass = gpu.BeginRenderPass(_cmd, &colorTarget, 1, stencilTexture != 0 ? &stencil : nullptr);
     _boundPipeline = 0;
     _scissorDirty  = true;
-    if (_stencilTexture != 0) gpu.SetStencilReference(_pass, _stencilRef);
+    if (stencilTexture != 0) gpu.SetStencilReference(_pass, _stencilRef);
 }
 
 void RenderInterface_Lumi::closePass() {
@@ -1012,16 +1183,29 @@ void RenderInterface_Lumi::postPass(GpuTextureHandle destination, uint32_t width
     if (destination == 0 || source == 0) return;
     IGpu &gpu = Renderer::GetGpu();
 
-    const GpuGraphicsPipelineHandle clippedPipeline = blend ? _postBlendClipped : _postReplaceClipped;
-    clipMask = clipMask && _stencilTexture != 0 && clippedPipeline != 0;
+    // Writing the base layer under MSAA goes to the multisampled surface, with its own pipelines
+    // and stencil, and resolves like any base pass.
+    const bool              base           = _msaa && destination == _target;
+    const PipelineSet      &set            = base ? _msaaSet : _singleSet;
+    const GpuTextureHandle  stencilTexture = base ? _msaaStencil : _stencilTexture;
+
+    const GpuGraphicsPipelineHandle clippedPipeline = blend ? set.postBlendClipped : set.postReplaceClipped;
+    clipMask = clipMask && stencilTexture != 0 && clippedPipeline != 0;
 
     GpuColorTargetInfo colorTarget{};
     colorTarget.texture = destination;
     colorTarget.loadOp  = GpuLoadOp::Load;
     colorTarget.storeOp = GpuStoreOp::Store;
+    if (base) {
+        colorTarget.texture        = _msaaColor;
+        colorTarget.loadOp         = _baseFresh ? GpuLoadOp::Clear : GpuLoadOp::Load;
+        colorTarget.storeOp        = GpuStoreOp::ResolveAndStore;
+        colorTarget.resolveTexture = _targetSampleable ? _target : _msaaResolve;
+        _baseFresh                 = false;
+    }
 
     GpuDepthStencilTargetInfo stencil{};
-    stencil.texture        = _stencilTexture;
+    stencil.texture        = stencilTexture;
     stencil.loadOp         = GpuLoadOp::Clear;
     stencil.storeOp        = GpuStoreOp::DontCare;
     stencil.stencilLoadOp  = GpuLoadOp::Load;
@@ -1032,7 +1216,7 @@ void RenderInterface_Lumi::postPass(GpuTextureHandle destination, uint32_t width
         gpu.BindGraphicsPipeline(pass, clippedPipeline);
         gpu.SetStencilReference(pass, _stencilRef);
     } else {
-        gpu.BindGraphicsPipeline(pass, blend ? _postBlend : _postReplace);
+        gpu.BindGraphicsPipeline(pass, blend ? set.postBlend : set.postReplace);
     }
 
     if (clipped) {

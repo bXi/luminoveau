@@ -157,7 +157,9 @@ private:
 
     Buffer *requestBuffer(uint32_t capacity, GpuBufferUsage usage);
     void    releaseBuffers();
-    bool    createPipelines(GpuTextureFormat targetFormat);
+    // `samples` > X1 builds the set the multisampled base layer draws with; that build never takes the
+    // no-stencil fallback (it would change `_hasStencil` under the single-sampled set) and fails instead.
+    bool    createPipelines(GpuTextureFormat targetFormat, GpuSampleCount samples = GpuSampleCount::X1);
 
     /// (Re)creates the layer and scratch textures at the target's size.
     void ensureSurfaces();
@@ -243,6 +245,41 @@ private:
 
     /// `stencilClear` of -1 keeps the mask; anything else clears it to that value.
     void openPass(GpuTextureHandle target, bool clear, int stencilClear = -1);
+
+    // ── MSAA for the base layer ─────────────────────────────────────────────
+    //
+    // `Renderer::SetSampleCount` applies to the UI as well. Layer 0 — where everything that is not
+    // inside a filter or mask is drawn — goes to a multisampled colour target (and stencil), and
+    // every pass that ends on it resolves: into the target itself when the target is sampleable
+    // (it was copied into the multisampled surface at the start, so scene and UI resolve
+    // together), else into `_msaaResolve`, which is blended over the target at the end of the
+    // frame. Layers above 0 stay single-sampled, since filters sample them; they and the base each
+    // keep their own stencil, so a clip mask set on one does not reach the other.
+    struct PipelineSet {
+        GpuGraphicsPipelineHandle textured = 0, gradient = 0, postReplace = 0, postBlend = 0,
+                                  texturedClipped = 0, gradientClipped = 0, maskReplace = 0,
+                                  maskIncrement = 0, postBlendClipped = 0, postReplaceClipped = 0;
+    };
+    PipelineSet captureSet() const;
+    void        applySet(const PipelineSet &set);
+    void        releaseSet(PipelineSet &set);
+    // False when the renderer asks for X1 or the multisampled resources cannot be made.
+    bool        ensureMsaa(GpuSampleCount samples);
+    void        releaseMsaaSurfaces();
+    // Copies the sampleable target into the multisampled base before the first draw.
+    void        seedBase();
+
+    PipelineSet      _singleSet;
+    PipelineSet      _msaaSet;
+    GpuSampleCount   _msaaSamples  = GpuSampleCount::X1;  // what _msaaSet was built for
+    GpuSampleCount   _msaaFailed   = GpuSampleCount::X1;  // a count that could not be built; not retried
+    GpuTextureHandle _msaaColor    = 0;
+    GpuTextureHandle _msaaStencil  = 0;
+    GpuTextureHandle _msaaResolve  = 0;
+    uint32_t         _msaaWidth    = 0;
+    uint32_t         _msaaHeight   = 0;
+    bool             _msaa         = false;  // this frame draws its base layer multisampled
+    bool             _baseFresh    = false;  // the multisampled base has not been opened this frame
     void closePass();
     void applyScissor();
 

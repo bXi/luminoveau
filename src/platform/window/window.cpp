@@ -510,6 +510,12 @@ void Window::_startFrame() {
         Renderer::OnResize();
         _sizeDirty = false;
     }
+    // Bind the main window's framebuffer targets, as RenderAll does for every window. A
+    // Renderer::Reset (SetSampleCount after InitWindow, a format change) drops them and leaves
+    // the rebuild to this; without it the primary framebuffer has no MSAA target and every pass
+    // silently renders single-sampled. Cheap when nothing changed: a map lookup.
+    if (WindowEntry *m = _entry(_mainId))
+        _activateWindow(*m);
 
     EngineState::frameCount++;
     EngineState::previousTime = EngineState::currentTime;
