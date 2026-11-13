@@ -650,9 +650,21 @@ void Draw::_drawCircleFilled(vf2d pos, float radius, Color color) {
         radius *= Camera::GetScale();
     }
 
+    // Enough segments that the polygon's flats stay within about a quarter pixel of the true
+    // circle: a fixed 32 left visible 8 px flats on a 40 px radius. Rounded up to a power of two
+    // (32..256) so only four geometries are ever cached.
+    int segments = 32;
+    {
+        const float r    = std::max(radius, 1.0f);
+        const float step = 2.0f * std::acos(std::max(0.0f, 1.0f - 0.25f / r));
+        const int   need = (int)std::ceil(2.0f * PI / step);
+        while (segments < need && segments < 256)
+            segments *= 2;
+    }
+
     Renderable renderable = {
-        .texture  = Renderer::WhitePixel(),          // Use white pixel texture for tinting
-        .geometry = Renderer::GetCircleGeometry(32), // Use 32-segment circle
+        .texture  = Renderer::WhitePixel(), // Use white pixel texture for tinting
+        .geometry = Renderer::GetCircleGeometry(segments),
 
         .x = pos.x,
         .y = pos.y,
