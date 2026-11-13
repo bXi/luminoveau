@@ -101,6 +101,22 @@ public:
     static bool InitPhysFS() { return Get()._initPhysFS(); }
 
     /**
+     * @brief Mounts an archive held in memory (e.g. a zip embedded in the executable).
+     *
+     * Its files are searched before the working directory, so a stale loose copy of the
+     * assets can't shadow them. The memory must outlive the mount (static data is ideal).
+     * Initializes PhysFS if needed.
+     *
+     * @param data Archive bytes (any format PhysFS reads; zip is the usual one)
+     * @param size Archive size in bytes
+     * @param name Name for the archive; its extension tells PhysFS the format ("assets.zip")
+     * @return true if the archive was mounted
+     */
+    static bool MountMemory(const void *data, size_t size, const std::string &name) {
+        return Get()._mountMemory(data, size, name);
+    }
+
+    /**
      * @brief Reads a file from PhysFS (for assets bundled with the game).
      * @param filename Relative path to the file
      * @return PhysFSFileData containing the file data (caller must free data pointer)
@@ -268,6 +284,7 @@ private:
     // Initialization
     bool _initPhysFS();
     void _ensurePhysFS(); // Lazy initialization helper
+    bool _mountMemory(const void *data, size_t size, const std::string &name);
 
     // Path management
     std::string _getWritableDirectory();

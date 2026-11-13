@@ -86,6 +86,19 @@ bool FileHandler::_initPhysFS() {
     return true;
 }
 
+bool FileHandler::_mountMemory(const void *data, size_t size, const std::string &name) {
+    _ensurePhysFS();
+    if (!_physfsInitialized) return false;
+    // Prepend (append = 0): the archive wins over the working directory mounted at init.
+    if (!PHYSFS_mountMemory(data, PHYSFS_uint64(size), nullptr, name.c_str(), nullptr, 0)) {
+        LOG_ERROR("Failed to mount archive from memory ({}): {}", name,
+                  PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
+        return false;
+    }
+    LOG_INFO("Mounted archive from memory: {} ({} bytes)", name, size);
+    return true;
+}
+
 // ============================================================================
 // PATH MANAGEMENT
 // ============================================================================
