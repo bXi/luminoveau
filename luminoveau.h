@@ -2,6 +2,7 @@
 
 // ── Global config ────────────────────────────────────────────────────────────
 #include <config.h>
+#include <app/lumi.h> // Lumi::Config / Configure: per-app engine setup, before Window::InitWindow
 
 // ── Math & types ────────────────────────────────────────────────────────────
 #include <math/angles.h>

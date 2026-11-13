@@ -93,6 +93,24 @@ void AppQuit(void* /*appstate*/, Lumi::Result /*result*/) {
 
 `Lumi::Result::Continue` keeps the loop running; `Stop` exits cleanly.
 
+### Engine config (per app)
+
+What `Window::InitWindow` sets up can be sized per app. Fill a `Lumi::Config` (defaults = the engine-wide values in `config.h`) and pass it before `InitWindow`; afterwards `Configure` returns false and changes nothing.
+
+```cpp
+Lumi::Config cfg;
+cfg.particles  = false;    // no particle buffers, compute or pass (~3 GB of VRAM at the default 50M slots)
+cfg.maxSprites = 50'000;   // primary 2D pass ("2dsprites"); default MAX_SPRITES (4M, ~520 MB)
+Lumi::Configure(cfg);
+Window::InitWindow("Tool", 1280, 720);
+```
+
+| Field | Default | |
+|---|---|---|
+| `particles` | `true` | Off: `Particles::CreateSystem` / `CreateCustomCompute` log an error and return an invalid handle. |
+| `maxParticles` | `LUMINOVEAU_MAX_PARTICLES` | Slots across all systems; the buffer must fit 4 GB. |
+| `maxSprites` | `MAX_SPRITES` | Sprite batch capacity of the primary pass (render targets keep their own `SpriteRenderTargetConfig::maxSprites`). |
+
 ---
 
 ## 3. The frame
@@ -343,8 +361,10 @@ Effect fragment shaders sample the previous result via `sampler2D s_input` (bind
 
 GPU-driven particle systems with built-in physics compute. Configure once, update each frame, draw via the engine's particle render pass.
 
+The renderer sets particles up at `Window::InitWindow` (slots: `Lumi::Config::maxParticles`); an app that turns them off with `Lumi::Config::particles = false` can't create systems.
+
 ```cpp
-// Init (typically in AppInit, after Renderer::InitRendering)
+// Init (done by the renderer; calling it again does nothing)
 Particles::Init();
 
 // Define a system

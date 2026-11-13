@@ -12,6 +12,7 @@
 
 #include "util/helpers.h"
 
+#include "app/lumi.h"
 #include "renderer/renderer.h"
 #include "platform/window/window_backend.h"
 #include "profiler/perf.h"
@@ -35,6 +36,7 @@ void Window::GetDisplayBounds(uint32_t &outW, uint32_t &outH) {
 }
 
 void Window::_initWindow(const std::string &title, int width, int height, int scale, unsigned int flags) {
+    Lumi::configLocked = true; // the renderer and its passes are built from it below
 
     if (scale > 1) { // when scaling asume width is virtual pixels instead of real screen pixels
         width *= scale;

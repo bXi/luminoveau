@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <sstream>
 
+#include "app/lumi.h"
 #include "renderer/renderer.h"
 #include "renderer/shaders.h"
 #include "renderer/compute.h"
@@ -365,10 +366,20 @@ static bool importPreset(const char *encoded, ParticleSystemConfig &cfg) {
 // state (s_*) directly. Free helpers b64Dec/importPreset above stay file-local.
 
 void Particles::_init() {
+    if (_initialized)
+        return;
     IGpu &gpu = Renderer::GetGpu();
 
+    // The app's slot count (Lumi::Config); the buffer size must fit a uint32.
+    _maxParticles = Lumi::GetConfig().maxParticles;
+    if (_maxParticles == 0 || uint64_t(_maxParticles) * sizeof(GPUParticle) > UINT32_MAX) {
+        LOG_ERROR("Particles: maxParticles {} can't be used (1 .. {}); particles stay off", _maxParticles,
+            UINT32_MAX / sizeof(GPUParticle));
+        return;
+    }
+
     // Particle buffer: compute RW + vertex read
-    _particleBuf = gpu.CreateBuffer({ static_cast<uint32_t>(MAX_PARTICLES * sizeof(GPUParticle)),
+    _particleBuf = gpu.CreateBuffer({ static_cast<uint32_t>(_maxParticles * sizeof(GPUParticle)),
         GpuBufferUsage::StorageRead | GpuBufferUsage::StorageWrite });
     if (!_particleBuf)
         LOG_CRITICAL("Particles: failed to create particle buffer");
@@ -412,7 +423,7 @@ void Particles::_init() {
     }
 
     {
-        uint32_t                sz     = static_cast<uint32_t>(MAX_PARTICLES * sizeof(GPUParticle));
+        uint32_t                sz     = static_cast<uint32_t>(_maxParticles * sizeof(GPUParticle));
         GpuTransferBufferHandle zeroTB = gpu.CreateTransferBuffer({ sz, GpuTransferUsage::Upload });
         void                   *mapped = gpu.MapTransferBuffer(zeroTB, false);
         std::memset(mapped, 0, sz);
@@ -461,11 +472,14 @@ void Particles::_init() {
     std::fill(std::begin(_systemPhysicsCompute), std::end(_systemPhysicsCompute), INVALID_CUSTOM_COMPUTE);
     std::fill(std::begin(_systemSpringCompute), std::end(_systemSpringCompute), INVALID_CUSTOM_COMPUTE);
 
+    _initialized = true;
     LOG_INFO("Particles: initialized (max particles: {}, max systems: {})",
-        MAX_PARTICLES, MAX_SYSTEMS);
+        _maxParticles, MAX_SYSTEMS);
 }
 
 void Particles::_quit() {
+    if (!_initialized)
+        return; // off, or never set up: nothing was created
     IGpu &gpu = Renderer::GetGpu();
 
     // Discard any compute dispatches queued this frame before releasing GPU resources.
@@ -524,6 +538,7 @@ void Particles::_quit() {
     }
 
     // Reset CPU-side state so Init() can be called again cleanly.
+    _initialized      = false;
     _nextParticleSlot = 0;
     _systemDirty      = false;
     _accumTime        = 0.0f;
@@ -562,9 +577,13 @@ uint32_t Particles::_allocateSystemSlot() {
 }
 
 ParticleSystemHandle Particles::_createSystem(const ParticleSystemConfig &cfg) {
-    if (_nextParticleSlot + cfg.maxParticles > MAX_PARTICLES) {
+    if (!_initialized) {
+        LOG_ERROR("Particles: off (Lumi::Config::particles) or not initialized; no system created");
+        return {};
+    }
+    if (_nextParticleSlot + cfg.maxParticles > _maxParticles) {
         LOG_ERROR("Particles: not enough particle slots for new system (wanted {}, have {})",
-            cfg.maxParticles, MAX_PARTICLES - _nextParticleSlot);
+            cfg.maxParticles, _maxParticles - _nextParticleSlot);
         return {};
     }
 
@@ -825,6 +844,10 @@ void Particles::_setTexture(const ParticleSystemHandle &handle,
 // ─────────────────────────────────────────────────────────────────────────────
 
 ParticleComputeHandle Particles::_createCustomCompute(const std::string &shaderPath) {
+    if (!_initialized) {
+        LOG_ERROR("Particles: off (Lumi::Config::particles) or not initialized; no custom compute created");
+        return {};
+    }
     // Find a free pool slot
     for (uint32_t i = 0; i < MAX_CUSTOM_COMPUTES; ++i) {
         if (_customComputeUsed[i])
@@ -1185,6 +1208,8 @@ void Particles::_attachToFramebuffer(const std::string &fbName) {
 
 // Called by Renderer::_endFrame() BEFORE Compute::ExecuteQueued()
 void Particles::_prepareFrame(GpuCmdBufferHandle cmdBuf) {
+    if (!_initialized)
+        return; // off: no buffers to upload into (AddCollider still marks them dirty)
     // Build particle compute dispatches for this frame using accumulated dt.
     // Update() only accumulates; the actual enqueue happens here so it survives
     // even when Update() is called multiple times per rendered frame.

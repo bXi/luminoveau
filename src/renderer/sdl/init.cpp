@@ -3,6 +3,7 @@
 
 #include "renderer/renderer.h"
 
+#include "app/lumi.h"
 #include "gpu/backends/sdl/SdlGpuBackend.h"
 #include "gpu/backends/sdl/sdlgpu.h"
 #include "assets/assethandler.h"
@@ -185,9 +186,11 @@ void Renderer::_initRendering() {
         SDL_SetGPUTextureName(Renderer::GetDevice(), reinterpret_cast<SDL_GPUTexture *>(_framebuffer->fbContent),
             Helpers::TextFormat("Renderer: framebuffer %s", _fbName.c_str()));
         for (auto &[_passname, renderpass] : _framebuffer->renderpasses) {
+            // The primary 2D pass takes the app's sprite capacity (Lumi::Config::maxSprites).
+            const size_t capacity = _passname == "2dsprites" ? Lumi::GetConfig().maxSprites : 0;
             if (!renderpass->Init(fromSDL(SDL_GetGPUSwapchainTextureFormat(_device, Window::GetWindow())),
                     _framebuffer->width, _framebuffer->height,
-                    _passname)) {
+                    _passname, true, capacity)) {
                 LOG_ERROR("Renderpass ({}) failed to init()", _passname.c_str());
             }
         }
@@ -248,7 +251,8 @@ void Renderer::_initRendering() {
 
     _whitePixelTexture = AssetHandler::CreateWhitePixel();
 
-    Particles::Init();
+    if (Lumi::GetConfig().particles)
+        Particles::Init();
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     ImGuiIntegration::InitRenderer(Window::GetWindow());

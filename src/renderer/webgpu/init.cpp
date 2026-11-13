@@ -3,6 +3,7 @@
 
 #include "renderer/renderer.h"
 
+#include "app/lumi.h"
 #include "gpu/backends/webgpu/WebGpuGpuBackend.h"
 #include "assets/assethandler.h"
 #include "core/log/log.h"
@@ -189,7 +190,9 @@ void Renderer::_initRendering() {
 
     for (auto &[fbName, fb] : _frameBuffers) {
         for (auto &[rpName, rp] : fb->renderpasses) {
-            rp->Init(_gpu->GetSwapchainFormat(), fbWidth, fbHeight, rpName, true, 0, false);
+            // The primary 2D pass takes the app's sprite capacity (Lumi::Config::maxSprites).
+            const size_t capacity = rpName == "2dsprites" ? Lumi::GetConfig().maxSprites : 0;
+            rp->Init(_gpu->GetSwapchainFormat(), fbWidth, fbHeight, rpName, true, capacity, false);
         }
     }
     // Wait for pipeline compilation before first frame.
@@ -197,7 +200,8 @@ void Renderer::_initRendering() {
 
     _whitePixelTexture = AssetHandler::CreateWhitePixel();
 
-    Particles::Init();
+    if (Lumi::GetConfig().particles)
+        Particles::Init();
 
 #ifdef LUMINOVEAU_WITH_IMGUI
     ImGuiIntegration::InitRenderer(Window::GetWindow());

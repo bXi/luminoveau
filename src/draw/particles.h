@@ -110,8 +110,8 @@ private:
  */
 class Particles {
 public:
-    // Backend-tunable; defined in config.h.
-    static constexpr uint32_t MAX_PARTICLES       = LUMINOVEAU_MAX_PARTICLES; ///< Total particle slots across all systems.
+    // Backend-tunable; defined in config.h. An app sets its own with Lumi::Config::maxParticles.
+    static constexpr uint32_t MAX_PARTICLES       = LUMINOVEAU_MAX_PARTICLES; ///< Default particle slots across all systems.
     static constexpr uint32_t MAX_SYSTEMS         = 64;                       ///< Maximum concurrent particle systems.
     static constexpr uint32_t MAX_CUSTOM_COMPUTES = 32;                       ///< Maximum custom compute pipelines.
     static constexpr uint32_t MAX_COLLIDERS       = 32;                       ///< Maximum active colliders.
@@ -119,7 +119,8 @@ public:
     // --- Lifecycle ---
 
     /// Allocates GPU buffers, compiles the compute pipeline.
-    /// Must be called after Renderer::InitRendering().
+    /// Must be called after Renderer::InitRendering(). The renderer calls it unless the app
+    /// turned particles off (Lumi::Config::particles); then systems can't be created.
     static void Init() { Get()._init(); }
 
     /// Releases all GPU resources. Call before Renderer::Close().
@@ -397,6 +398,8 @@ private:
     GpuSamplerHandle _linearSampler = 0;
 
     // --- Particle slot allocator ---
+    uint32_t _maxParticles                    = MAX_PARTICLES; // Lumi::Config::maxParticles, set by _init
+    bool     _initialized                     = false;         // false: off (Lumi::Config::particles) or not yet set up
     uint32_t _nextParticleSlot                = 0;
     uint32_t _slotParticleOffset[MAX_SYSTEMS] = {};
     uint32_t _slotParticleCount[MAX_SYSTEMS]  = {};
