@@ -11,7 +11,117 @@
 #include "renderer/renderer.h"
 #include "file/filehandler.h"
 #include "assets/assethandler.h"
+#include "physfs.h"
 #include <RmlUi/Debugger.h>
+
+#include <cstdio>
+#include <vector>
+
+namespace {
+
+// RmlUi's default file interface opens files with fopen, so documents, style sheets, templates
+// and fonts never saw archives mounted in PhysFS (a packed asset zip, or one embedded in the
+// executable). This one asks PhysFS first and falls back to the disk for paths PhysFS doesn't
+// have (absolute paths, files outside the mounts).
+class PhysFSFileInterface : public Rml::FileInterface {
+public:
+    Rml::FileHandle Open(const Rml::String &path) override {
+        if (PHYSFS_isInit()) {
+            const std::string virtualPath = normalize(path);
+            if (!virtualPath.empty() && PHYSFS_exists(virtualPath.c_str())) {
+                if (PHYSFS_File *file = PHYSFS_openRead(virtualPath.c_str())) return wrap(new Handle{file, nullptr});
+            }
+        }
+        if (FILE *file = std::fopen(path.c_str(), "rb")) return wrap(new Handle{nullptr, file});
+        return 0;
+    }
+
+    void Close(Rml::FileHandle handle) override {
+        Handle *h = unwrap(handle);
+        if (!h) return;
+        if (h->physfs) PHYSFS_close(h->physfs);
+        if (h->disk) std::fclose(h->disk);
+        delete h;
+    }
+
+    size_t Read(void *buffer, size_t size, Rml::FileHandle handle) override {
+        Handle *h = unwrap(handle);
+        if (!h) return 0;
+        if (h->disk) return std::fread(buffer, 1, size, h->disk);
+        const PHYSFS_sint64 read = PHYSFS_readBytes(h->physfs, buffer, PHYSFS_uint64(size));
+        return read < 0 ? 0 : size_t(read);
+    }
+
+    bool Seek(Rml::FileHandle handle, long offset, int origin) override {
+        Handle *h = unwrap(handle);
+        if (!h) return false;
+        if (h->disk) return std::fseek(h->disk, offset, origin) == 0;
+        PHYSFS_sint64 base = 0;
+        if (origin == SEEK_CUR) base = PHYSFS_tell(h->physfs);
+        else if (origin == SEEK_END) base = PHYSFS_fileLength(h->physfs);
+        const PHYSFS_sint64 target = base + offset;
+        return base >= 0 && target >= 0 && PHYSFS_seek(h->physfs, PHYSFS_uint64(target)) != 0;
+    }
+
+    size_t Tell(Rml::FileHandle handle) override {
+        Handle *h = unwrap(handle);
+        if (!h) return 0;
+        if (h->disk) return size_t(std::ftell(h->disk));
+        const PHYSFS_sint64 at = PHYSFS_tell(h->physfs);
+        return at < 0 ? 0 : size_t(at);
+    }
+
+    size_t Length(Rml::FileHandle handle) override {
+        Handle *h = unwrap(handle);
+        if (!h) return 0;
+        if (h->disk) return Rml::FileInterface::Length(handle);
+        const PHYSFS_sint64 length = PHYSFS_fileLength(h->physfs);
+        return length < 0 ? 0 : size_t(length);
+    }
+
+private:
+    struct Handle {
+        PHYSFS_File *physfs;
+        FILE        *disk;
+    };
+
+    static Rml::FileHandle wrap(Handle *h) { return reinterpret_cast<Rml::FileHandle>(h); }
+    static Handle *unwrap(Rml::FileHandle handle) { return reinterpret_cast<Handle *>(handle); }
+
+    // PhysFS wants "dir/file" with forward slashes and no "." or ".." parts; RmlUi joins
+    // relative URLs onto the document's path, which can leave both. Empty for an absolute path
+    // or one that climbs above the root: those only make sense on the disk.
+    static std::string normalize(const std::string &path) {
+        if (path.empty() || path[0] == '/' || path[0] == '\\' || path.find(':') != std::string::npos) return {};
+        std::vector<std::string> parts;
+        std::string part;
+        auto flush = [&]() {
+            if (part == "..") {
+                if (parts.empty()) return false;
+                parts.pop_back();
+            } else if (!part.empty() && part != ".") {
+                parts.push_back(part);
+            }
+            part.clear();
+            return true;
+        };
+        for (char c : path) {
+            if (c == '/' || c == '\\') {
+                if (!flush()) return {};
+            } else {
+                part += c;
+            }
+        }
+        if (!flush()) return {};
+        std::string out;
+        for (const std::string &p : parts) out += (out.empty() ? "" : "/") + p;
+        return out;
+    }
+};
+
+PhysFSFileInterface g_rml_files;
+
+} // namespace
 
 namespace RmlUI {
 
@@ -134,6 +244,8 @@ void Init() {
     }
 
     Rml::SetSystemInterface(&g_rml_system);
+    FileHandler::InitPhysFS();  // the file interface asks PhysFS first
+    Rml::SetFileInterface(&g_rml_files);
 
     // Initialize RmlUi core
     if (!Rml::Initialise()) {
